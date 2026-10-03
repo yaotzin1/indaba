@@ -32,6 +32,10 @@ commit. The hook runs the node gates always, and `composer qa` through Docker wh
 
 ## The traps in this repository
 
+- **`main` is protected (GitHub flow).** Never commit or push to it. Work on a `feat/`, `fix/`, `chore/`,
+  `docs/` or `release/` branch, open a pull request, and squash-merge when the required checks
+  are green. Merged branches are deleted; start the next change from a fresh `main`.
+
 - **PHP exists only in Docker.** `php`, `composer` and `vendor/bin/*` are not on the host. Every PHP
   command is `docker compose run --rm php composer <script>`. A result from another interpreter is
   not evidence, and the Node scripts (`node scripts/...`) are the only thing that runs on the host.

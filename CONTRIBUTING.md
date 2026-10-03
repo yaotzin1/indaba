@@ -79,4 +79,6 @@ node scripts/validate-skills.mjs
 ## Pull requests
 
 Fill `.github/PULL_REQUEST_TEMPLATE.md` completely, including the semver classification and the seven
-review answers. Pull requests are squash-merged once the required checks are green.
+review answers. We use **GitHub flow**: branch from `main` (`feat/`, `fix/`, `chore/`, `docs/`,
+`release/`), open a pull request, and squash-merge once the required checks are green. `main` is
+protected: no direct pushes, for anyone, administrators included.
