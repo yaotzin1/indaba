@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace Indaba\Workflow\Engine;
 
 use Indaba\Core\Exception\IndabaException;
+use Indaba\Core\Exception\McpUnavailableException;
 use Indaba\Mesh\ConsensusArbiter;
 use Indaba\Mesh\ParticipantInterface;
 use Indaba\Mesh\RunnerParticipant;
@@ -17,6 +18,7 @@ use Indaba\Runners\RunRequest;
 use Indaba\Runners\RunResult;
 use Indaba\Workflow\Guard\GuardRegistry;
 use Indaba\Workflow\Model\DecisionType;
+use Indaba\Workflow\Model\McpServerDefinition;
 use Indaba\Workflow\Model\StepDefinition;
 use Indaba\Workflow\Model\WorkflowDefinition;
 
@@ -26,6 +28,8 @@ use Indaba\Workflow\Model\WorkflowDefinition;
  */
 final readonly class StepExecutor
 {
+    private McpPlanner $mcp;
+
     public function __construct(
         private RunnerRegistry $runners,
         private GuardRegistry $guards,
@@ -33,7 +37,17 @@ final readonly class StepExecutor
         private PromptBuilder $prompts = new PromptBuilder(),
         private ConsensusArbiter $arbiter = new ConsensusArbiter(),
         private float $timeoutSeconds = 900.0,
-    ) {}
+    ) {
+        $this->mcp = new McpPlanner($runners);
+    }
+
+    /**
+     * @return list<McpIssue>
+     */
+    public function mcpIssues(WorkflowDefinition $workflow): array
+    {
+        return $this->mcp->preflight($workflow);
+    }
 
     public function run(
         StepDefinition $step,
@@ -104,7 +118,12 @@ final readonly class StepExecutor
         ?\Closure $onOutput,
     ): StepOutcome {
         [$runner, $model] = $this->resolveRunner($step, $workflow);
-        $request = new RunRequest($this->prompts->build($step, $feedback), $workdir, $model, $this->timeoutSeconds, [], $onOutput);
+        $mcp = $this->mcp->resolve($workflow, $step, $step->role, $runner);
+        $this->recordMcp($span, $mcp);
+        if ($mcp->missing !== []) {
+            return StepOutcome::failed(sprintf('Required MCP server(s) unavailable for runner %s: %s', $runner->name(), implode(', ', $mcp->missing)));
+        }
+        $request = new RunRequest($this->prompts->build($step, $feedback), $workdir, $model, $this->timeoutSeconds, [], $onOutput, $mcp->injected);
         $result = $this->invoke($runner, $request, $span, 'invoke_agent', $runner->name());
 
         return $result->succeeded()
@@ -116,9 +135,14 @@ final readonly class StepExecutor
     {
         $roles = array_values(array_unique([...($step->role === null ? [] : [$step->role]), ...$step->consensusWith]));
 
-        $participants = array_map(function (string $roleName) use ($workflow, $workdir, $span): ParticipantInterface {
+        $participants = array_map(function (string $roleName) use ($step, $workflow, $workdir, $span): ParticipantInterface {
             $role = $workflow->role($roleName);
             $runner = $this->runners->get($role->runner);
+            $mcp = $this->mcp->resolve($workflow, $step, $roleName, $runner);
+            $this->recordMcp($span, $mcp);
+            if ($mcp->missing !== []) {
+                throw new McpUnavailableException([sprintf('step "%s", role "%s": %s', $step->id, $roleName, implode(', ', $mcp->missing))]);
+            }
 
             return new RunnerParticipant(
                 $roleName,
@@ -126,6 +150,7 @@ final readonly class StepExecutor
                 $workdir,
                 $role->model,
                 fn(RunnerInterface $r, RunRequest $req): RunResult => $this->invoke($r, $req, $span, 'invoke_agent', $roleName),
+                $mcp->injected,
             );
         }, $roles);
 
@@ -149,6 +174,18 @@ final readonly class StepExecutor
             $result->rounds,
             $result->openObjections(),
         ));
+    }
+    /** Names only: server definitions can carry secrets and never reach a span. */
+    private function recordMcp(Span $span, McpResolution $mcp): void
+    {
+        $injected = array_map(static fn(McpServerDefinition $d): string => $d->name, $mcp->injected);
+        foreach (['servers' => $injected, 'assumed' => $mcp->assumed, 'skipped' => $mcp->skipped] as $key => $names) {
+            if ($names !== []) {
+                $existing = $span->attributes['indaba.mcp.' . $key] ?? '';
+                $all = array_filter([is_string($existing) ? $existing : '', implode(',', $names)], static fn(string $s): bool => $s !== '');
+                $span->setAttribute('indaba.mcp.' . $key, implode(',', $all));
+            }
+        }
     }
 
     /**

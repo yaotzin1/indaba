@@ -38,8 +38,38 @@ final readonly class WorkflowValidator
             $ids[$step->id] = true;
         }
 
+        foreach ($workflow->mcpServers as $name => $server) {
+            $at = sprintf('mcp_servers.%s', $name);
+            if (!preg_match('/^[A-Za-z0-9_-]+$/', (string) $name)) {
+                $errors[] = $at . ' name must match [A-Za-z0-9_-]+';
+            }
+            if (($server->command === null) === ($server->url === null)) {
+                $errors[] = $at . ' needs exactly one of "command" or "url"';
+            }
+            if ($server->url !== null && preg_match('#^https?://[^\s]+$#i', $server->url) !== 1) {
+                $errors[] = $at . ' url must be an http or https URL';
+            }
+            if ($server->url !== null && ($server->args !== [] || $server->env !== [])) {
+                $errors[] = $at . ' "args" and "env" only apply to a "command" server';
+            }
+        }
+
+        foreach ($workflow->roles as $role) {
+            foreach ($role->mcp as $name) {
+                if (!isset($workflow->mcpServers[$name])) {
+                    $errors[] = sprintf('role "%s" uses unknown MCP server "%s"', $role->name, $name);
+                }
+            }
+        }
+
         foreach ($workflow->steps as $step) {
             $at = sprintf('step "%s"', $step->id);
+
+            foreach ($step->mcp as $name) {
+                if (!isset($workflow->mcpServers[$name])) {
+                    $errors[] = sprintf('%s uses unknown MCP server "%s"', $at, $name);
+                }
+            }
 
             foreach ($step->dependsOn as $dep) {
                 if ($dep === $step->id) {

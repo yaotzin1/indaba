@@ -10,7 +10,7 @@ namespace Indaba\Runners;
  * `--dangerously-skip-permissions` passed through `$extraArgs`, which Indaba never adds on its
  * own. Authenticate once interactively first: headless runs use the cached credentials.
  */
-final class AntigravityRunner extends AbstractCliRunner
+final class AntigravityRunner extends AbstractCliRunner implements McpCapable
 {
     /**
      * @param list<string> $extraArgs
@@ -21,6 +21,11 @@ final class AntigravityRunner extends AbstractCliRunner
         bool $usePty = true,
     ) {
         parent::__construct($usePty);
+    }
+
+    public function mcpCapability(): McpCapability
+    {
+        return McpCapability::AgentManaged;
     }
 
     public function name(): string
