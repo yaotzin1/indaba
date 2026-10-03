@@ -1,0 +1,48 @@
+version: "1.0"
+name: "indaba-task-pipeline"
+
+artifacts:
+  spec: ".indaba/artifacts/spec.md"
+  patch: ".indaba/artifacts/change.patch"
+
+roles:
+  architect:
+    runner: "openrouter"
+    model: "anthropic/claude-3.7-sonnet:thinking"
+  implementer:
+    runner: "claude-code"
+  reviewer:
+    runner: "antigravity"
+
+steps:
+  - id: "rfc"
+    role: "architect"
+    goal: "Prepare technical specification in ${{ artifacts.spec }}"
+    outputs: ["${{ artifacts.spec }}"]
+    guards:
+      - type: "git_diff_empty"
+        paths: ["src/", "tests/"]
+
+  - id: "code"
+    depends_on: ["rfc"]
+    role: "implementer"
+    input_artifacts: ["${{ artifacts.spec }}"]
+    goal: "Implement changes satisfying the technical specification."
+    isolation: "git_worktree"
+
+  - id: "verify"
+    depends_on: ["code"]
+    runner: "shell"
+    commands:
+      - "composer test"
+      - "vendor/bin/phpstan"
+    on_failure:
+      action: "retry_step"
+      target: "code"
+      max_retries: 3
+
+  - id: "debate_review"
+    depends_on: ["verify"]
+    role: "reviewer"
+    consensus_with: ["architect"]
+    decision_type: "consensus"

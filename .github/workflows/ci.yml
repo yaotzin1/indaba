@@ -1,0 +1,118 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The instruction set has to stay consistent whether or not anything else builds, and these
+  # need nothing but Node, so they run first and fail fast.
+  instructions:
+    name: Agent instruction set
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Validate skills
+        run: node scripts/validate-skills.mjs
+
+      - name: Claude Code skill pointers are in sync
+        run: node scripts/sync-claude-skills.mjs --check
+
+      - name: AGENTS.md and GEMINI.md match workflow.ai.yml
+        run: node scripts/sync-agent-docs.mjs --check
+
+      # The toolchain, the job names, the gates and the spec directories the workflow file describes.
+      - name: workflow.ai.yml matches the repository
+        run: node scripts/check-workflow.mjs
+
+      # Banned constructs, secrets, phpstan.neon and composer.json. Pure Node.
+      - name: Security audit (source, composer.json, phpstan.neon)
+        run: node scripts/security-audit.mjs --source
+
+      - name: Script self-tests
+        run: node --test scripts/*.test.mjs
+
+  # Every commit in the pull request declares its track and has a diff that looks like it. The same
+  # script as the commit-msg hook, so a commit made with --no-verify fails here instead. Skipped on a
+  # push to main, where a squash has replaced the commits; a skipped required check counts as passing.
+  tracks:
+    name: Track and deliverables
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Commits match the tracks they declare
+        run: node scripts/check-track.mjs --range ${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}
+
+  # Known vulnerabilities in anything the lockfile installs, dev tooling included. Blocking at any
+  # severity. A new advisory failing an unrelated pull request is the point, not a nuisance: the fix
+  # is an upgrade, not a waiver.
+  dependencies:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+      - run: composer install --no-interaction --prefer-dist
+      - name: composer audit
+        run: composer audit
+
+  verify:
+    name: Verify on PHP ${{ matrix.php }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Oldest first, starting at the composer.json floor: a declaration nothing tests is a guess.
+        php: ["8.4", "8.5"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          tools: composer:v2
+          extensions: pcntl, zip
+
+      # The same script the pre-commit hook runs through Docker: PHP-CS-Fixer, PHPStan level 9,
+      # PHPUnit, in that order. Git needs an identity for the workspace tests.
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Git identity for the workspace tests
+        run: |
+          git config --global user.email "ci@localhost"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+
+      - name: Quality gate
+        run: composer qa
+
+      # The installed package, not the source tree: what a consumer's `composer install` gets.
+      - name: Smoke test the production install
+        run: |
+          rm -rf "$RUNNER_TEMP/smoke" && mkdir "$RUNNER_TEMP/smoke"
+          git archive HEAD | tar -x -C "$RUNNER_TEMP/smoke"
+          cd "$RUNNER_TEMP/smoke"
+          composer install --no-dev --no-interaction --prefer-dist
+          php bin/indaba list

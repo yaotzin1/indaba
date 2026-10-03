@@ -1,0 +1,11 @@
+/vendor/
+/.phpunit.cache/
+/.php-cs-fixer.cache
+/.indaba/worktrees/
+/.indaba/traces/
+/.indaba/artifacts/
+
+# Secrets: only .env.example may be committed (scripts/security-audit.mjs fails on a present .env)
+/.env
+/.env.*
+!/.env.example

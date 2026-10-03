@@ -1,0 +1,490 @@
+/**
+ * Fails when `workflow.ai.yml` claims something about the repository that is not true.
+ *
+ * The workflow file is what agents obey, and a claim nothing checks drifts. Each check below turns
+ * one claim into a failure:
+ *
+ * - `project`: the PHP floor, the runtime requirements, the Symfony constraint, the toolchain
+ *   majors, the composer scripts and the PHPStan level match composer.json and phpstan.neon
+ * - `stages` and `tracks`: every lead skill is registered, every stage a track names exists, every
+ *   guidance file exists
+ * - `skills.registry`: exactly the directories under .agents/skills, each with its SKILL.md
+ * - `quality_gates.pre_commit`: every gate is run by the hook and by CI
+ * - `ci.required_checks`: exactly the job names the CI file produces, with the PHP matrix starting
+ *   at the composer floor
+ * - `spec_kit`: every feature directory has the required files and accounts for the optional ones
+ * - `architectural_rules`: each names its enforcement, and every file it names exists
+ * - `agents`: no instruction file is longer than the smallest limit among the agents that load it,
+ *   and no `.agents/workflows/` directory or reference to one exists (Antigravity stops reading
+ *   workflows on 2026-11-01; procedures are skills)
+ *
+ *   node scripts/check-workflow.mjs            the checks above (hook, CI)
+ *   node scripts/check-workflow.mjs --remote   also compare branch protection on GitHub (needs gh)
+ */
+
+import { execFileSync } from 'node:child_process';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { ROOT_DIR, readWorkflow } from './lib/workflow-yaml.mjs';
+
+const read = (relative) => fs.readFileSync(path.join(ROOT_DIR, relative), 'utf8').replace(/\r\n/g, '\n');
+const exists = (relative) => fs.existsSync(path.join(ROOT_DIR, relative));
+
+/** The first major version a range admits: `^5.0.0` and `^2.1` give 5 and 2. */
+export function majorOf(range) {
+    const match = /(\d+)/.exec(String(range ?? ''));
+    return match ? Number(match[1]) : null;
+}
+
+/** The first `major.minor` a PHP constraint admits: `>=8.4` gives "8.4". */
+export function floorOf(range) {
+    const match = /(\d+)\.(\d+)/.exec(String(range ?? ''));
+    return match ? `${match[1]}.${match[2]}` : null;
+}
+
+/** Compares two `major.minor` strings numerically. */
+export function compareVersions(a, b) {
+    const [aMajor, aMinor] = a.split('.').map(Number);
+    const [bMajor, bMinor] = b.split('.').map(Number);
+    return aMajor - bMajor || aMinor - bMinor;
+}
+
+/** The composer package behind each short toolchain name in `project.toolchain`. */
+export const TOOLCHAIN_PACKAGES = {
+    phpstan: 'phpstan/phpstan',
+    phpunit: 'phpunit/phpunit',
+    php_cs_fixer: 'friendsofphp/php-cs-fixer',
+};
+
+/** Compares `project` with composer.json. `phpstanNeon` is the text of phpstan.neon, or null. */
+export function checkProject(project, composer, phpstanNeon = null) {
+    const errors = [];
+    if (!project) return ['workflow.ai.yml has no project section'];
+
+    const require = composer.require ?? {};
+    const requireDev = composer['require-dev'] ?? {};
+
+    if (project.runtime?.php !== require.php) {
+        errors.push(`project.runtime.php is "${project.runtime?.php}" but composer.json require.php is "${require.php}"`);
+    }
+
+    const declared = Object.keys(require).filter((name) => name !== 'php');
+    const claimed = project.runtime_dependencies ?? [];
+    for (const name of claimed) {
+        if (!declared.includes(name)) errors.push(`project.runtime_dependencies lists ${name}, which composer.json require does not`);
+    }
+    for (const name of declared) {
+        if (!claimed.includes(name)) errors.push(`composer.json requires ${name}, which project.runtime_dependencies does not list; a new runtime dependency is a recorded decision`);
+    }
+
+    if (project.symfony_constraint) {
+        for (const name of declared.filter((entry) => entry.startsWith('symfony/'))) {
+            if (require[name] !== project.symfony_constraint) {
+                errors.push(`composer.json requires ${name} "${require[name]}" but project.symfony_constraint is "${project.symfony_constraint}"; Symfony components move together`);
+            }
+        }
+    }
+
+    for (const [name, major] of Object.entries(project.toolchain ?? {})) {
+        const pkg = TOOLCHAIN_PACKAGES[name];
+        if (!pkg) {
+            errors.push(`project.toolchain lists ${name}, which this checker does not know a composer package for`);
+            continue;
+        }
+        const constraint = requireDev[pkg];
+        if (constraint === undefined) errors.push(`project.toolchain lists ${name} (${pkg}), which composer.json require-dev does not`);
+        else if (majorOf(constraint) !== major) errors.push(`project.toolchain.${name} is ${major} but composer.json require-dev has "${constraint}"`);
+    }
+
+    for (const script of project.composer_scripts ?? []) {
+        if (!Object.hasOwn(composer.scripts ?? {}, script)) errors.push(`project.composer_scripts lists "${script}", which composer.json scripts does not define`);
+    }
+
+    if (project.phpstan_level !== undefined) {
+        if (phpstanNeon === null) {
+            errors.push('project.phpstan_level is set but phpstan.neon does not exist');
+        } else {
+            const level = /^\s*level:\s*(\S+)\s*$/m.exec(phpstanNeon)?.[1];
+            if (String(level) !== String(project.phpstan_level)) errors.push(`project.phpstan_level is ${project.phpstan_level} but phpstan.neon sets level ${level}`);
+        }
+    }
+    return errors;
+}
+
+/**
+ * The display names of the jobs in a GitHub Actions file, with `${{ matrix.<key> }}` expanded over
+ * an inline matrix list. Read with patterns rather than a parser: the CI file uses block scalars,
+ * which the workflow parser refuses on purpose.
+ */
+export function ciJobNames(ciText) {
+    const lines = ciText.split('\n');
+    const jobsAt = lines.findIndex((line) => /^jobs:\s*$/.test(line));
+    if (jobsAt === -1) return { names: [], matrices: {} };
+
+    const names = [];
+    const matrices = {};
+    let job = null;
+
+    for (const line of lines.slice(jobsAt + 1)) {
+        if (/^\S/.test(line)) break;
+        const jobKey = /^ {2}([\w-]+):\s*$/.exec(line);
+        if (jobKey) {
+            job = { key: jobKey[1], name: jobKey[1], matrix: {} };
+            names.push(job);
+            continue;
+        }
+        if (!job) continue;
+        const name = /^ {4}name:\s*(.+?)\s*$/.exec(line);
+        if (name) job.name = name[1].replace(/^["']|["']$/g, '');
+        const axis = /^\s+([\w-]+):\s*\[(.+)\]\s*$/.exec(line);
+        if (axis) job.matrix[axis[1]] = axis[2].split(',').map((value) => value.trim().replace(/^["']|["']$/g, ''));
+    }
+
+    const expanded = names.flatMap((entry) => {
+        const reference = /\$\{\{\s*matrix\.([\w-]+)\s*\}\}/.exec(entry.name);
+        if (!reference) return [entry.name];
+        const values = entry.matrix[reference[1]] ?? [];
+        matrices[entry.key] = values;
+        return values.map((value) => entry.name.replace(reference[0], value));
+    });
+
+    return { names: expanded, matrices };
+}
+
+/** Compares the required checks with the CI file and the PHP matrix with the composer floor. */
+export function checkCi(ci, ciText, composer) {
+    const errors = [];
+    if (!ci) return ['workflow.ai.yml has no ci section'];
+
+    const { names, matrices } = ciJobNames(ciText);
+    if (names.length === 0) return [`found no jobs in ${ci.workflow}`];
+
+    const required = new Set(ci.required_checks ?? []);
+    for (const check of required) {
+        if (!names.includes(check)) errors.push(`ci.required_checks names "${check}", which no job in ${ci.workflow} produces`);
+    }
+    for (const name of names) {
+        if (!required.has(name)) errors.push(`${ci.workflow} runs "${name}", which ci.required_checks does not require`);
+    }
+
+    const floor = floorOf(composer.require?.php);
+    for (const [job, values] of Object.entries(matrices)) {
+        const versions = values.filter((value) => /^\d+\.\d+$/.test(value));
+        if (versions.length > 0 && floor !== null) {
+            const lowest = versions.reduce((a, b) => (compareVersions(b, a) < 0 ? b : a));
+            if (lowest !== floor) errors.push(`the ${job} matrix starts at PHP ${lowest} but composer.json requires PHP ${floor}; a declared floor nothing tests is a guess`);
+        }
+    }
+    return errors;
+}
+
+/** True when the text runs the command. Tokens may be split by any whitespace. */
+export function runsCommand(text, command) {
+    const tokens = command.trim().split(/\s+/).map((token) => token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    const pattern = new RegExp(`(^|[\\s;&|])${tokens.join('\\s+')}(?=$|[\\s;&|>])`, 'm');
+    return pattern.test(text);
+}
+
+/**
+ * Every document gate must be run by the hook and by CI, or it is a gate in name only. A gate with
+ * `toolchain: true` runs through Docker in the hook when it is reachable, so only CI has to name
+ * it as a literal command; the hook must name the composer script it calls.
+ */
+export function checkGates(gates, hookText, ciText) {
+    const errors = [];
+    for (const gate of gates ?? []) {
+        if (!runsCommand(hookText, gate.command)) errors.push(`gate "${gate.name}" (${gate.command}) is not run by .githooks/pre-commit`);
+        if (gate.ci !== false && !runsCommand(ciText, gate.ci_command ?? gate.command)) {
+            errors.push(`gate "${gate.name}" (${gate.ci_command ?? gate.command}) is not run by CI`);
+        }
+    }
+    return errors;
+}
+
+/** Commit-message gates run from the commit-msg hook and in CI; the hook file must exist and call them. */
+export function checkCommitMsgGates(gates, hookText, ciText) {
+    const errors = [];
+    for (const gate of gates ?? []) {
+        if (hookText === null) errors.push(`gate "${gate.name}" needs .githooks/commit-msg, which does not exist`);
+        else if (!runsCommand(hookText, gate.command)) errors.push(`gate "${gate.name}" (${gate.command}) is not run by .githooks/commit-msg`);
+        if (!runsCommand(ciText, gate.command)) errors.push(`gate "${gate.name}" (${gate.command}) is not run by CI`);
+    }
+    return errors;
+}
+
+/**
+ * The `enforcement` block: a baseline (a full commit hash, or "none" before the first commit), the
+ * tracks, and the path lists the track check reads.
+ */
+export function checkEnforcement(enforcement, tracks) {
+    const errors = [];
+    if (!enforcement || typeof enforcement !== 'object') return ['workflow.ai.yml has no `enforcement` block, so the tracks are guidance only'];
+    if (!/^([0-9a-f]{40}|none)$/.test(String(enforcement.baseline ?? ''))) errors.push('enforcement.baseline must be a full 40-character commit hash, or "none" before the first commit');
+    const declared = new Set((tracks ?? []).map((track) => track.id));
+    const listed = enforcement.tracks ?? [];
+    for (const id of declared) if (!listed.includes(id)) errors.push(`enforcement.tracks does not list the track "${id}"`);
+    for (const id of listed) if (!declared.has(id)) errors.push(`enforcement.tracks lists "${id}", which is not a track`);
+    for (const key of ['source_paths', 'test_paths', 'changelogs', 'release_paths', 'protected_paths']) {
+        if (!Array.isArray(enforcement[key]) || enforcement[key].length === 0) errors.push(`enforcement.${key} must be a non-empty list`);
+    }
+    return errors;
+}
+
+/**
+ * One feature directory against `spec_kit`. `files` is the directory listing; `specText` is spec.md
+ * or null. An optional artifact is accounted for by a bullet under the omission heading that names
+ * the file in backticks and gives a reason after a colon.
+ */
+export function checkSpecDirectory(name, files, specText, specKit) {
+    const errors = [];
+    for (const file of specKit.required ?? []) {
+        if (!files.includes(file)) errors.push(`specs/${name} is missing ${file}`);
+    }
+
+    const omitted = new Map();
+    if (specText) {
+        // The template's example bullet sits inside a comment; a copy that keeps it has omitted nothing.
+        const lines = specText.replace(/\r\n/g, '\n').replace(/<!--[\s\S]*?-->/g, '').split('\n');
+        const start = lines.findIndex((line) => line.trim() === specKit.omission_heading);
+        if (start !== -1) {
+            for (const line of lines.slice(start + 1)) {
+                if (/^#{1,2}\s/.test(line)) break;
+                const bullet = /^\s*-\s+`([^`]+)`\s*:\s*(.*)$/.exec(line);
+                if (bullet) omitted.set(bullet[1], bullet[2].trim());
+            }
+        }
+    }
+
+    for (const file of specKit.optional ?? []) {
+        const present = files.includes(file);
+        if (present && omitted.has(file)) {
+            errors.push(`specs/${name} has ${file} and also lists it under "${specKit.omission_heading}"`);
+        } else if (!present && !omitted.has(file)) {
+            errors.push(`specs/${name} has no ${file}; write it, or list it in spec.md under "${specKit.omission_heading}" with the reason`);
+        } else if (!present && omitted.get(file) === '') {
+            errors.push(`specs/${name} omits ${file} without a reason`);
+        }
+    }
+    for (const file of omitted.keys()) {
+        if (!(specKit.optional ?? []).includes(file)) {
+            errors.push(`specs/${name} omits ${file}, which is not optional`);
+        }
+    }
+    return errors;
+}
+
+/** Stages, tracks, registry and rules against each other and the file system. */
+export function checkStructure(workflow, { fileExists = exists, skillDirectories = [] } = {}) {
+    const errors = [];
+    const stages = workflow.stages ?? [];
+    const registry = workflow.skills?.registry ?? [];
+    const skillNames = new Set(registry.map((skill) => skill.name));
+    const stageIds = new Set();
+
+    for (const stage of stages) {
+        if (stageIds.has(stage.id)) errors.push(`stage id "${stage.id}" is used twice`);
+        stageIds.add(stage.id);
+        for (const skill of stage.lead_skills ?? []) {
+            if (!skillNames.has(skill)) errors.push(`stage "${stage.id}" is led by "${skill}", which is not in skills.registry`);
+        }
+        if (!stage.guidance) errors.push(`stage "${stage.id}" names no guidance file`);
+        else if (!fileExists(stage.guidance)) errors.push(`stage "${stage.id}" points at ${stage.guidance}, which does not exist`);
+    }
+
+    const phases = stages.map((stage) => stage.phase);
+    for (const track of workflow.tracks ?? []) {
+        const order = (track.stages ?? []).map((id) => {
+            if (!stageIds.has(id)) errors.push(`track "${track.id}" names stage "${id}", which does not exist`);
+            return phases[stages.findIndex((stage) => stage.id === id)];
+        });
+        if (order.some((phase, index) => index > 0 && phase <= order[index - 1])) {
+            errors.push(`track "${track.id}" lists its stages out of order`);
+        }
+        if (track.guidance && !fileExists(track.guidance)) errors.push(`track "${track.id}" points at ${track.guidance}, which does not exist`);
+    }
+
+    for (const skill of registry) {
+        if (!fileExists(skill.path)) errors.push(`skill "${skill.name}" points at ${skill.path}, which does not exist`);
+    }
+    for (const directory of skillDirectories) {
+        if (!skillNames.has(directory)) errors.push(`.agents/skills/${directory} is not in skills.registry`);
+    }
+
+    for (const [index, entry] of (workflow.architectural_rules ?? []).entries()) {
+        if (typeof entry !== 'object' || !entry.rule || !entry.enforced_by) {
+            errors.push(`architectural_rules[${index}] needs both "rule" and "enforced_by"`);
+            continue;
+        }
+        for (const [, file] of entry.enforced_by.matchAll(/`([\w./-]+\.[a-z]+)`/g)) {
+            if (file.includes('/') && !fileExists(file)) errors.push(`architectural_rules[${index}] is enforced by ${file}, which does not exist`);
+        }
+    }
+    return errors;
+}
+
+/** Whether a repository-relative path matches a `loads` pattern: an exact name, or `dir/*.ext`. */
+export function matchesLoad(pattern, file) {
+    const star = pattern.indexOf('*');
+    if (star === -1) return pattern === file;
+    const prefix = pattern.slice(0, star);
+    const suffix = pattern.slice(star + 1);
+    return file.length >= prefix.length + suffix.length && file.startsWith(prefix) && file.endsWith(suffix) && !file.slice(prefix.length, file.length - suffix.length).includes('/');
+}
+
+/**
+ * Instruction files against the agents that read them.
+ *
+ * `files` maps a repository-relative path to its length in characters. A file is held to the
+ * smallest `max_chars` among the agents that load it, because a file too long for one supported
+ * agent is broken for that agent; 0 means no limit is enforced.
+ */
+export function checkAgents(agents, files) {
+    const errors = [];
+    const seen = new Set();
+    for (const agent of agents ?? []) {
+        if (!agent.id) errors.push('an entry under agents has no id');
+        else if (seen.has(agent.id)) errors.push(`agent "${agent.id}" is listed twice`);
+        seen.add(agent.id);
+        if (!Array.isArray(agent.loads) || agent.loads.length === 0) errors.push(`agent "${agent.id}" lists no files it loads`);
+        if (typeof agent.max_chars !== 'number' || agent.max_chars < 0) errors.push(`agent "${agent.id}" needs max_chars, a number (0 for none enforced)`);
+        if (!agent.verified) errors.push(`agent "${agent.id}" does not say how its facts were learned (verified)`);
+    }
+
+    for (const [file, length] of Object.entries(files)) {
+        const limits = (agents ?? [])
+            .filter((agent) => (agent.loads ?? []).some((pattern) => matchesLoad(pattern, file)) && agent.max_chars > 0)
+            .map((agent) => ({ id: agent.id, max: agent.max_chars }));
+        if (limits.length === 0) continue;
+        const smallest = limits.reduce((a, b) => (b.max < a.max ? b : a));
+        if (length > smallest.max) {
+            errors.push(`${file} is ${length} characters, over the ${smallest.max} that ${smallest.id} reads; split it or shorten it`);
+        }
+    }
+    return errors;
+}
+
+/** A workflows directory, or a reference to one, in a file an agent reads. Specs are history and are skipped. */
+export function checkNoWorkflowDirectory({ directoryExists, references }) {
+    const errors = [];
+    if (directoryExists) errors.push('.agents/workflows/ exists: Antigravity stops reading it on 2026-11-01. Procedures are skills under .agents/skills/');
+    for (const file of references) errors.push(`${file} refers to .agents/workflows/, which no longer exists; point it at the skill`);
+    return errors;
+}
+
+/** Branch protection on GitHub against `ci.required_checks`. Needs an authenticated `gh`. */
+export function checkRemote(ci) {
+    const remote = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: ROOT_DIR, encoding: 'utf8' }).trim();
+    const slugMatch = /github\.com[:/]([^/]+\/[^/.]+)(?:\.git)?$/.exec(remote);
+    if (!slugMatch) return [`origin (${remote}) is not a GitHub repository`];
+
+    const output = execFileSync(
+        'gh',
+        ['api', `repos/${slugMatch[1]}/branches/${ci.protected_branch}/protection/required_status_checks`, '--jq', '.contexts[]'],
+        { cwd: ROOT_DIR, encoding: 'utf8' },
+    );
+    const actual = new Set(output.split('\n').map((line) => line.trim()).filter(Boolean));
+    const expected = new Set(ci.required_checks ?? []);
+    const errors = [];
+    for (const check of expected) if (!actual.has(check)) errors.push(`branch protection on ${ci.protected_branch} does not require "${check}"`);
+    for (const check of actual) if (!expected.has(check)) errors.push(`branch protection on ${ci.protected_branch} requires "${check}", which ci.required_checks does not list; a check no job produces blocks every merge`);
+    return errors;
+}
+
+/** The files that carry instructions to an agent, with their lengths in characters. */
+function instructionFiles(agents) {
+    const names = new Set();
+    for (const agent of agents ?? []) {
+        for (const pattern of agent.loads ?? []) {
+            const star = pattern.indexOf('*');
+            if (star === -1) {
+                if (exists(pattern)) names.add(pattern);
+                continue;
+            }
+            const directory = pattern.slice(0, pattern.lastIndexOf('/'));
+            if (!exists(directory)) continue;
+            for (const entry of fs.readdirSync(path.join(ROOT_DIR, directory))) {
+                const file = `${directory}/${entry}`;
+                if (matchesLoad(pattern, file)) names.add(file);
+            }
+        }
+    }
+    return Object.fromEntries([...names].map((file) => [file, [...read(file)].length]));
+}
+
+const WORKFLOW_REFERENCE = /\.agents\/workflows\b/;
+const SKIPPED_DIRECTORIES = new Set(['vendor', 'node_modules', '.git', '.indaba', 'specs', '.phpunit.cache']);
+
+/** Every text file outside specs, the changelog and vendor, found by walking the tree: no git history is needed. */
+function* walkFiles(directory = '') {
+    for (const entry of fs.readdirSync(path.join(ROOT_DIR, directory), { withFileTypes: true })) {
+        const relative = directory === '' ? entry.name : `${directory}/${entry.name}`;
+        if (entry.isDirectory()) {
+            if (!SKIPPED_DIRECTORIES.has(entry.name)) yield* walkFiles(relative);
+        } else if (entry.isFile()) {
+            yield relative;
+        }
+    }
+}
+
+/** Files that could point an agent at a procedure. */
+function filesReferringToWorkflows() {
+    const own = new Set(['scripts/check-workflow.mjs', 'scripts/check-workflow.test.mjs']);
+    return [...walkFiles()].filter((file) => {
+        if (own.has(file) || /(^|\/)CHANGELOG\.md$/.test(file)) return false;
+        if (!/\.(md|mjs|php|yml|yaml|json)$/.test(file)) return false;
+        return WORKFLOW_REFERENCE.test(read(file));
+    });
+}
+
+export function runChecks({ remote = false } = {}) {
+    const workflow = readWorkflow();
+    const composer = JSON.parse(read('composer.json'));
+    const ciText = read(workflow.ci?.workflow ?? '.github/workflows/ci.yml');
+    const hookText = read(workflow.quality_gates?.local_hook?.path ?? '.githooks/pre-commit');
+    const commitMsgPath = workflow.quality_gates?.local_hook?.commit_msg_path ?? '.githooks/commit-msg';
+    const skillsDir = path.join(ROOT_DIR, workflow.skills?.directory ?? '.agents/skills');
+    const skillDirectories = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
+
+    const errors = [
+        ...checkProject(workflow.project, composer, exists('phpstan.neon') ? read('phpstan.neon') : null),
+        ...checkStructure(workflow, { skillDirectories }),
+        ...checkGates(workflow.quality_gates?.pre_commit, hookText, ciText),
+        ...checkCommitMsgGates(workflow.quality_gates?.commit_msg, exists(commitMsgPath) ? read(commitMsgPath) : null, ciText),
+        ...checkEnforcement(workflow.enforcement, workflow.tracks),
+        ...checkCi(workflow.ci, ciText, composer),
+        ...checkAgents(workflow.agents, instructionFiles(workflow.agents)),
+        ...checkNoWorkflowDirectory({ directoryExists: exists('.agents/workflows'), references: filesReferringToWorkflows() }),
+    ];
+
+    const specKit = workflow.spec_kit;
+    const specsDir = path.join(ROOT_DIR, specKit.directory);
+    for (const entry of fs.readdirSync(specsDir, { withFileTypes: true })) {
+        if (!entry.isDirectory() || entry.name.startsWith('_')) continue;
+        const directory = path.join(specsDir, entry.name);
+        const files = fs.readdirSync(directory);
+        const specText = files.includes('spec.md') ? fs.readFileSync(path.join(directory, 'spec.md'), 'utf8') : null;
+        errors.push(...checkSpecDirectory(entry.name, files, specText, specKit));
+    }
+
+    if (remote) errors.push(...checkRemote(workflow.ci));
+    return errors;
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+    const remote = process.argv.includes('--remote');
+    let errors;
+    try {
+        errors = runChecks({ remote });
+    } catch (error) {
+        console.error(`check-workflow: ${error.message}`);
+        process.exit(1);
+    }
+
+    if (errors.length > 0) {
+        console.error('workflow.ai.yml claims something the repository does not do:');
+        for (const error of errors) console.error(`  - ${error}`);
+        process.exit(1);
+    }
+    console.log(`workflow.ai.yml matches the repository${remote ? ', including branch protection' : ''}`);
+}
