@@ -12,6 +12,7 @@ final readonly class WorkflowDefinition
      * @param array<string, string> $artifacts
      * @param array<string, RoleDefinition> $roles
      * @param list<StepDefinition> $steps
+     * @param array<string, McpServerDefinition> $mcpServers
      */
     public function __construct(
         public string $version,
@@ -19,6 +20,8 @@ final readonly class WorkflowDefinition
         public array $artifacts,
         public array $roles,
         public array $steps,
+        public array $mcpServers = [],
+        public McpPolicy $defaultMcpPolicy = McpPolicy::Required,
     ) {}
 
     public function step(string $id): StepDefinition
