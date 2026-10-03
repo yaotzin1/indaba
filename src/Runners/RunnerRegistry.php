@@ -33,10 +33,14 @@ final class RunnerRegistry
             implode(', ', array_keys($this->runners)) ?: 'none',
         ));
     }
-
     /**
-     * @param array<string, string> $env process environment; INDABA_CODEX_CMD / INDABA_ANTIGRAVITY_CMD
-     *                                   override the argument template (space separated, `{prompt}` marks the prompt)
+     * Built-in runners: shell, claude-code, codex, antigravity, cursor and openrouter. More engines
+     * join the same way: implement RunnerInterface and `register()` it; workflows select a runner
+     * by its `name()`.
+     *
+     * @param array<string, string> $env process environment. INDABA_CODEX_CMD and INDABA_ANTIGRAVITY_CMD
+     *                                   replace the built-in command line (space separated, `{prompt}`
+     *                                   and `{model}` mark where those go)
      */
     public static function withDefaults(array $env = [], ?HttpClientInterface $http = null): self
     {
@@ -44,24 +48,21 @@ final class RunnerRegistry
         $registry
             ->register(new ShellRunner())
             ->register(new ClaudeRunner())
+            ->register(self::templateRunner('codex', $env['INDABA_CODEX_CMD'] ?? null) ?? new CodexRunner())
+            ->register(self::templateRunner('antigravity', $env['INDABA_ANTIGRAVITY_CMD'] ?? null) ?? new AntigravityRunner())
             ->register(new CursorRunner())
-            ->register(new CommandRunner('codex', self::template($env['INDABA_CODEX_CMD'] ?? null, ['codex', 'exec', '{prompt}'])))
-            ->register(new CommandRunner('antigravity', self::template($env['INDABA_ANTIGRAVITY_CMD'] ?? null, ['antigravity', 'chat', '{prompt}'])))
             ->register(new OpenRouterRunner($http ?? HttpClient::create(), $env['OPENROUTER_API_KEY'] ?? ''));
 
         return $registry;
     }
 
-    /**
-     * @param list<string> $default
-     * @return list<string>
-     */
-    private static function template(?string $override, array $default): array
+    private static function templateRunner(string $name, ?string $override): ?CommandRunner
     {
         if ($override === null || trim($override) === '') {
-            return $default;
+            return null;
         }
+        $template = array_values(array_filter(explode(' ', $override), static fn(string $a): bool => $a !== ''));
 
-        return array_values(array_filter(explode(' ', $override), static fn(string $a): bool => $a !== ''));
+        return new CommandRunner($name, $template);
     }
 }
