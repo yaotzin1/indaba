@@ -1,0 +1,28 @@
+* text=auto eol=lf
+.githooks/pre-commit text eol=lf
+*.png binary
+*.jpg binary
+
+# What Packagist serves (git archive) leaves out development infrastructure
+/.agents export-ignore
+/.claude export-ignore
+/.github export-ignore
+/.githooks export-ignore
+/scripts export-ignore
+/specs export-ignore
+/tests export-ignore
+/workflow.ai.yml export-ignore
+/AGENTS.md export-ignore
+/CLAUDE.md export-ignore
+/GEMINI.md export-ignore
+/CONTRIBUTING.md export-ignore
+/Dockerfile export-ignore
+/docker-compose.yml export-ignore
+/.dockerignore export-ignore
+/.editorconfig export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
+/.php-cs-fixer.dist.php export-ignore
+/phpstan.neon export-ignore
+/phpunit.xml.dist export-ignore
+.githooks/commit-msg text eol=lf

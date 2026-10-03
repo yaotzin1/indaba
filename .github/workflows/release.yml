@@ -1,0 +1,61 @@
+name: Release
+
+# Composer packages have no publish step. Packagist is webhook-driven: once the repository is
+# submitted on packagist.org and its GitHub webhook is enabled, Packagist reads the repository's tags
+# itself, and the tag *is* the version. This workflow therefore publishes nothing to Packagist. It
+# verifies the tagged commit and creates the GitHub release, so a pushed tag is always a deliberate
+# act with a verified commit behind it. composer.json carries no "version" field, on purpose.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Create GitHub release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: "8.4"
+          tools: composer:v2
+          extensions: pcntl, zip
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - run: composer install --no-interaction --prefer-dist
+
+      - name: Git identity for the workspace tests
+        run: |
+          git config --global user.email "ci@localhost"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+
+      - name: The tag must have a changelog section
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
+            echo "CHANGELOG.md has no section for $VERSION. Release from a merged release pull request."
+            exit 1
+          fi
+
+      - name: Full verification gate
+        run: |
+          node scripts/check-workflow.mjs
+          composer qa
+          composer audit
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          awk -v v="$VERSION" '$0 ~ "^## \\[" v "\\]" {found=1; next} found && /^## \[/ {exit} found {print}' CHANGELOG.md > "$RUNNER_TEMP/notes.md"
+          gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md" --verify-tag

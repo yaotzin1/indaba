@@ -1,0 +1,38 @@
+{
+    "name": "indaba/indaba",
+    "description": "Deterministic orchestration, debate and observability engine for multi-agent AI workflows.",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": ">=8.4",
+        "psr/clock": "^1.0",
+        "psr/event-dispatcher": "^1.0",
+        "symfony/clock": "^7.2",
+        "symfony/console": "^7.2",
+        "symfony/event-dispatcher": "^7.2",
+        "symfony/http-client": "^7.2",
+        "symfony/process": "^7.2",
+        "symfony/yaml": "^7.2"
+    },
+    "require-dev": {
+        "friendsofphp/php-cs-fixer": "^3.75",
+        "phpstan/phpstan": "^2.1",
+        "phpunit/phpunit": "^11.5"
+    },
+    "autoload": {
+        "psr-4": { "Indaba\\": "src/" }
+    },
+    "autoload-dev": {
+        "psr-4": { "Indaba\\Tests\\": "tests/" }
+    },
+    "bin": ["bin/indaba"],
+    "scripts": {
+        "test": "phpunit",
+        "stan": "phpstan analyse --memory-limit=512M",
+        "cs": "php-cs-fixer fix --dry-run --diff",
+        "cs:fix": "php-cs-fixer fix",
+        "qa": ["@cs", "@stan", "@test"]
+    },
+    "config": { "sort-packages": true },
+    "minimum-stability": "stable"
+}
