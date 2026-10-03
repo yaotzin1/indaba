@@ -124,9 +124,14 @@ enforces it.
 
 - CLI runners allocate a PTY where the platform supports it (Linux/macOS, so inside the container) and
   receive the prompt as a single argument, never through a shell.
-- `ClaudeRunner` passes `--permission-mode acceptEdits`. Antigravity and Codex command lines are
-  assumed defaults; override with `INDABA_ANTIGRAVITY_CMD` / `INDABA_CODEX_CMD`
-  (space-separated, `{prompt}` marks the prompt).
+- `ClaudeRunner` runs `claude -p` with `--permission-mode acceptEdits`; `CodexRunner` runs
+  `codex exec --sandbox workspace-write` (Codex is read-only by default); `AntigravityRunner` runs
+  `agy [--model m] -p` (file edits are auto-approved by the CLI, shell commands need a grant in its
+  `settings.json`; Indaba never adds `--dangerously-skip-permissions`). Each CLI must be logged in
+  beforehand. Replace a command line with `INDABA_CODEX_CMD` / `INDABA_ANTIGRAVITY_CMD`
+  (space-separated, `{prompt}` and `{model}` mark where those go).
+- **More engines later:** implement `RunnerInterface` and call `RunnerRegistry::register()`; a workflow
+  selects it by `name()`. `CommandRunner` wraps any prompt-as-argument CLI without a new class.
 - `OpenRouterRunner` reads `OPENROUTER_API_KEY`. Built-in prices are indicative; pass your own
   `PricingTable` for billing-grade cost.
 - Claude Code, Cursor and the other agent CLIs must be installed and authenticated inside whatever

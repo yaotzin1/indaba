@@ -16,6 +16,8 @@
 | `Indaba\Runners\RunResult` | final readonly class | exit code, output, usage, duration |
 | `Indaba\Runners\ShellRunner` | final class | declared verification commands |
 | `Indaba\Runners\ClaudeRunner` | final class | Claude Code CLI via PTY |
+| `Indaba\Runners\CodexRunner` | final class | OpenAI Codex CLI (`codex exec`) via PTY |
+| `Indaba\Runners\AntigravityRunner` | final class | Google Antigravity CLI (`agy -p`) via PTY |
 | `Indaba\Runners\CursorRunner` | final class | Cursor CLI via PTY |
 | `Indaba\Runners\OpenRouterRunner` | final class | HTTP and SSE |
 | `Indaba\Runners\RunnerRegistry` | final class | name to runner |
@@ -29,8 +31,9 @@ already).
 
 | Surface | Name | Change |
 | :--- | :--- | :--- |
-| workflow file | runner names `claude-code`, `cursor`, `openrouter`, `shell` | added; names are public schema |
+| workflow file | runner names `claude-code`, `codex`, `antigravity`, `cursor`, `openrouter`, `shell` | added; names are public schema |
 | environment | `OPENROUTER_API_KEY` | read for the OpenRouter runner |
+| environment | `INDABA_CODEX_CMD`, `INDABA_ANTIGRAVITY_CMD` | optional: replace the built-in command line of those runners |
 
 ## Defaults introduced
 
