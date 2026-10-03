@@ -26,5 +26,9 @@ surface.
   - Tracing aligned with the OpenTelemetry GenAI conventions, token usage and cost accounting, and
     PSR-14 span events.
   - A `bin/indaba` command line with `validate`, `plan` and `run`.
+  - First-class `CodexRunner` (`codex exec --sandbox workspace-write`) and `AntigravityRunner`
+    (`agy -p`), their invocations taken from the vendors' headless-mode documentation, replacing
+    the placeholder command templates; both remain overridable through `INDABA_CODEX_CMD` and
+    `INDABA_ANTIGRAVITY_CMD`.
 - Development governance: `workflow.ai.yml` (the *development* workflow, not the format Indaba
   executes), the agent instruction set, skills, rules, hooks and CI.
