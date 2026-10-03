@@ -74,6 +74,10 @@ CLI option, event or span attribute is a major. See `.agents/skills/api_surface/
 checked by `scripts/check-track.mjs`. A commit touching the workflow, its checks, the hooks, CI or
 the analyser configuration also carries `Workflow-Change: <why>`.
 
+**GitHub flow, `main` is protected.** Never commit or push to `main`. Branch (`feat/`, `fix/`, `chore/`,
+`docs/`, `release/`), open a pull request, and squash-merge when every check in `ci.required_checks`
+is green. No direct pushes for anyone, administrators included; see `.agents/skills/branching`.
+
 ## 5. Agent skills
 
 Canonical text lives in `.agents/skills/<name>/SKILL.md`. Claude Code reads the generated pointers

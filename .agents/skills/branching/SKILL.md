@@ -5,6 +5,19 @@ description: Use when naming a branch, writing a commit message, opening or merg
 
 # Branching, Commits and Merging
 
+## GitHub flow
+
+`main` is always releasable and is never committed to directly.
+
+1. Branch from an up-to-date `main` using the naming below.
+2. Commit in small steps; every commit carries its `Track:` trailer.
+3. Push the branch and open a pull request early (a draft is fine). CI runs on it.
+4. Get the required checks green and the PR template answered; resolve every conversation.
+5. Squash-merge. The branch is deleted automatically; `git switch main && git pull --ff-only`.
+6. A release is a `release/<version>` pull request, then a tag on the merged commit (see `release`).
+
+A hotfix is an ordinary `fix/` branch from `main`, merged the same way, then released.
+
 ## Naming
 
 ```
@@ -76,10 +89,12 @@ Enforced by the repository, not by convention:
   settings do. A required check that no job produces blocks every merge silently.
 - **The branch must be up to date** with `main` before merging.
 - **No force pushes and no deletion**, for anyone.
-- **Stale approvals are dismissed** when new commits arrive.
+- **Stale approvals are dismissed** when new commits arrive, and conversations must be resolved.
+- **Administrators are bound too** (`enforce_admins`), so the maintainer has no push-to-main escape
+  hatch either. A solo maintainer needs no approving review (the count is 0) but still needs the PR
+  and the green checks.
+- **Linear history, squash merge only**; merged branches are deleted automatically.
 
-A solo maintainer may be exempt from the pull request rule as an emergency escape hatch; it is not
-the normal route.
 
 ## Worktrees for agents
 
