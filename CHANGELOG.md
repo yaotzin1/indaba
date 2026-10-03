@@ -26,6 +26,10 @@ surface.
   - Tracing aligned with the OpenTelemetry GenAI conventions, token usage and cost accounting, and
     PSR-14 span events.
   - A `bin/indaba` command line with `validate`, `plan` and `run`.
+  - MCP support through agents: `mcp_servers`, role and step `mcp`, and a `required` (default) or
+    `optional` policy, set per workflow (`defaults.mcp_policy`) or per step. Claude Code and Codex get
+    the servers injected, Antigravity and Cursor are agent-managed, runners without MCP are refused
+    before the run under `required`. Specs: `specs/mcp-support`.
   - First-class `CodexRunner` (`codex exec --sandbox workspace-write`) and `AntigravityRunner`
     (`agy -p`), their invocations taken from the vendors' headless-mode documentation, replacing
     the placeholder command templates; both remain overridable through `INDABA_CODEX_CMD` and

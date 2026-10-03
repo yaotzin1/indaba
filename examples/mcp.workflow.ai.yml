@@ -1,0 +1,33 @@
+version: "1.0"
+name: "mcp-example"
+
+defaults:
+  mcp_policy: required
+
+mcp_servers:
+  docs:
+    command: "npx"
+    args: ["-y", "my-docs-mcp"]
+  tracker:
+    url: "https://mcp.example.com/sse"
+
+roles:
+  implementer:
+    runner: "claude-code"
+    mcp: ["docs"]
+  reviewer:
+    runner: "antigravity"
+
+steps:
+  - id: "code"
+    role: "implementer"
+    mcp: ["tracker"]
+    goal: "Implement the ticket."
+    isolation: "git_worktree"
+
+  - id: "review"
+    depends_on: ["code"]
+    role: "reviewer"
+    mcp: ["docs"]
+    mcp_policy: "optional"
+    goal: "Review the change."

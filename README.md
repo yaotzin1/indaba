@@ -137,6 +137,85 @@ enforces it.
 - Claude Code, Cursor and the other agent CLIs must be installed and authenticated inside whatever
   environment runs `bin/indaba`; the stock Docker image contains none of them.
 
+## MCP (Model Context Protocol) through agents
+
+Declare MCP servers once; roles and steps say which they need. The **agent** does the tool calling:
+Indaba only makes sure the agent can see the servers, and refuses to start a step that would run
+without tools it was written for.
+
+```yaml
+defaults:
+  mcp_policy: required        # required (default) | optional
+
+mcp_servers:
+  docs:   { command: npx, args: ["-y", "my-docs-mcp"], env: { DOCS_REGION: "eu" } }
+  tracker: { url: "https://mcp.example.com/sse" }
+
+roles:
+  implementer: { runner: claude-code, mcp: [docs] }     # every step of this role gets `docs`
+  reviewer:    { runner: antigravity }
+
+steps:
+  - id: code
+    role: implementer
+    mcp: [tracker]                                       # plus `tracker` for this step only
+    goal: "Implement the ticket"
+  - id: review
+    role: reviewer
+    mcp: [docs]
+    mcp_policy: optional                                 # this step may run without it
+```
+
+| Runner | MCP support | What Indaba does |
+| :--- | :--- | :--- |
+| `claude-code` | **injected** | writes a private temporary file, passes `--mcp-config <file> --strict-mcp-config` (the agent sees exactly the declared servers), deletes it afterwards |
+| `codex` | **injected** | passes `-c mcp_servers.<name>.command=...` style overrides |
+| `antigravity`, `cursor` | **agent-managed** | the agent reads its own MCP settings; Indaba cannot inject or verify them, so it assumes they are configured and says so (`plan` warning, `indaba.mcp.assumed` span attribute) |
+| `openrouter`, `shell`, custom `CommandRunner` | **none** | no MCP at all |
+
+**When an engine has no MCP support**, the policy decides, and it is checked *before the first step
+runs* (`bin/indaba plan` shows it too):
+
+- `required` (default): the run is refused with `step "x" (runner y), server "z": the runner has no MCP
+  support (policy: required)`. Nothing starts and nothing is spent.
+- `optional`: the step runs without that server and `indaba.mcp.skipped` records its name.
+
+The policy is set per workflow (`defaults.mcp_policy`) and can be overridden per step
+(`mcp_policy`). Server definitions can hold secrets (`env`, URLs), so only server *names* ever reach
+spans, events, errors or logs. A runner declares its support by implementing `McpCapable`; one that
+does not is treated as `none`. Not in this version: an Indaba-hosted MCP client for API-only models,
+and starting or health-checking servers (the agent does that).
+
+## How a PHP tool escapes the one-request model
+
+PHP was built for short, stateless web requests: one process per request, a time limit, nothing
+remembered afterwards. An agent run is the opposite: minutes or hours, several child processes,
+streaming output, shared state. Indaba is built around that mismatch:
+
+- **It is a CLI process, not a web request.** `bin/indaba` runs under `php-cli`, where there is no
+  `max_execution_time`, and one process owns the whole run. Do not run workflows inside php-fpm or
+  Apache; run them from a shell, a container, a CI job or a queue worker.
+- **Long work happens in child processes, not in PHP.** Each agent or command is a separate OS process
+  started with `symfony/process` (argument vectors, an optional PTY, a per-step timeout that kills it).
+  PHP only orchestrates, so a slow or hung agent cannot exhaust PHP's memory or time.
+- **Streaming instead of buffering.** Process output arrives through callbacks and OpenRouter replies are
+  read chunk by chunk from the SSE stream with `symfony/http-client`'s non-blocking `stream()`. Nothing
+  waits for a whole response.
+- **State lives in the process and on disk.** Step states are an in-memory state machine for the run;
+  every span is appended to `.indaba/traces/<traceId>.jsonl` as it ends; work products are files
+  (artifacts, a patch) and an isolated git worktree. There are no PHP sessions, globals or request
+  scope involved.
+- **Live observability without a server.** Spans and step transitions are PSR-14 events. A frontend can be
+  fed by adding a listener that pushes them to SSE, Mercure or WebSockets from a *separate* process (for
+  example, tail the JSONL traces); the engine itself never blocks on a client.
+- **Clean shutdown.** The worktree is removed in a `finally`, and a timed-out child process is killed.
+
+**Honest limits.** One run is one process and one thread: steps run sequentially, there is no resume
+after the process itself is killed (the trace and artifacts survive, the in-memory state does not), and
+`pcntl` signals are not yet used for graceful cancellation. A supervisor (systemd, Docker restart
+policy, a queue worker) is the right place for restarts. Parallel steps and resumable runs are future
+work, not hidden features.
+
 ## Developing Indaba
 
 This repository follows the same spec-driven process as `apsw-gridwright`: read

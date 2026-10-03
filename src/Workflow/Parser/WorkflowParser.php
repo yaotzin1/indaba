@@ -10,6 +10,8 @@ use Indaba\Workflow\Model\FailureAction;
 use Indaba\Workflow\Model\GuardDefinition;
 use Indaba\Workflow\Model\GuardType;
 use Indaba\Workflow\Model\Isolation;
+use Indaba\Workflow\Model\McpPolicy;
+use Indaba\Workflow\Model\McpServerDefinition;
 use Indaba\Workflow\Model\OnFailure;
 use Indaba\Workflow\Model\RoleDefinition;
 use Indaba\Workflow\Model\StepDefinition;
@@ -63,7 +65,7 @@ final readonly class WorkflowParser
         foreach ($root->nodeMap('roles') as $roleName => $node) {
             $runner = $node->string('runner');
             if ($runner !== null) {
-                $roles[$roleName] = new RoleDefinition($roleName, $runner, $node->string('model', false));
+                $roles[$roleName] = new RoleDefinition($roleName, $runner, $node->string('model', false), $node->stringList('mcp'));
             }
         }
 
@@ -75,7 +77,20 @@ final readonly class WorkflowParser
             }
         }
 
-        $workflow = new WorkflowDefinition($version, $name, $artifacts, $roles, $steps);
+        $mcpServers = [];
+        foreach ($root->nodeMap('mcp_servers') as $serverName => $serverNode) {
+            $mcpServers[$serverName] = new McpServerDefinition(
+                $serverName,
+                $serverNode->string('command', false),
+                $serverNode->stringList('args'),
+                $serverNode->stringMap('env'),
+                $serverNode->string('url', false),
+            );
+        }
+        $defaults = $root->map('defaults');
+        $defaultPolicy = $defaults === null ? McpPolicy::Required : ($this->parsePolicy($defaults, $errors) ?? McpPolicy::Required);
+
+        $workflow = new WorkflowDefinition($version, $name, $artifacts, $roles, $steps, $mcpServers, $defaultPolicy);
 
         $all = $errors->all();
         if ($errors->isEmpty()) {
@@ -134,9 +149,21 @@ final readonly class WorkflowParser
             onFailure: $this->parseOnFailure($node->map('on_failure'), $errors),
             consensusWith: $node->stringList('consensus_with'),
             decisionType: $decision,
+            mcp: $node->stringList('mcp'),
+            mcpPolicy: $this->parsePolicy($node, $errors),
         );
     }
 
+    private function parsePolicy(Node $node, ErrorBag $errors): ?McpPolicy
+    {
+        $name = $node->string('mcp_policy', false);
+        if ($name === null) {
+            return null;
+        }        $policy = McpPolicy::tryFrom($name);
+        if ($policy === null) {
+            $errors->add(sprintf('%s.mcp_policy "%s" must be "required" or "optional"', $node->path, $name));
+        }        return $policy;
+    }
     private function parseOnFailure(?Node $node, ErrorBag $errors): ?OnFailure
     {
         if ($node === null) {

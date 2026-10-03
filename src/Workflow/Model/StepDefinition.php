@@ -15,6 +15,8 @@ final readonly class StepDefinition
      * @param list<string> $commands
      * @param list<GuardDefinition> $guards
      * @param list<string> $consensusWith
+     * @param list<string> $mcp names of MCP servers this step may use, besides its role's
+     * @param McpPolicy|null $mcpPolicy null means the workflow default
      */
     public function __construct(
         public string $id,
@@ -30,6 +32,8 @@ final readonly class StepDefinition
         public ?OnFailure $onFailure = null,
         public array $consensusWith = [],
         public ?DecisionType $decisionType = null,
+        public array $mcp = [],
+        public ?McpPolicy $mcpPolicy = null,
     ) {}
 
     public function isShell(): bool
