@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Indaba\Workflow\Engine;
 
+use Indaba\Core\Exception\McpUnavailableException;
 use Indaba\Observability\SpanStatus;
 use Indaba\Observability\Tracer;
 use Indaba\Workflow\Graph\DagBuilder;
@@ -44,6 +45,14 @@ final readonly class WorkflowEngine
         string $taskId,
         ?\Closure $onOutput = null,
     ): WorkflowResult {
+        $blocking = array_map(
+            static fn(McpIssue $i): string => $i->describe(),
+            array_filter($this->executor->mcpIssues($workflow), static fn(McpIssue $i): bool => $i->isError),
+        );
+        if ($blocking !== []) {
+            throw new McpUnavailableException(array_values($blocking));
+        }
+
         $order = $this->dag->sort($workflow);
 
         $position = [];

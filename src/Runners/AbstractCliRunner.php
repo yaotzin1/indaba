@@ -21,11 +21,21 @@ abstract class AbstractCliRunner implements RunnerInterface
      */
     abstract protected function command(RunRequest $request): array;
 
+    /**
+     * Override when the command needs temporary files (e.g. an MCP configuration). The runner
+     * deletes them once the process ends, however it ends.
+     */
+    protected function prepare(RunRequest $request): PreparedCommand
+    {
+        return new PreparedCommand($this->command($request));
+    }
+
     public function run(RunRequest $request): RunResult
     {
         $started = hrtime(true);
+        $prepared = $this->prepare($request);
         $process = new Process(
-            $this->command($request),
+            $prepared->command,
             $request->workdir,
             $request->env === [] ? null : $request->env,
             null,
@@ -55,6 +65,12 @@ abstract class AbstractCliRunner implements RunnerInterface
         } catch (ProcessTimedOutException) {
             $exit = 124;
             $stderr .= sprintf("\nTimed out after %s seconds.", $request->timeoutSeconds);
+        } finally {
+            foreach ($prepared->temporaryFiles as $file) {
+                if (is_file($file)) {
+                    unlink($file);
+                }
+            }
         }
 
         return new RunResult(

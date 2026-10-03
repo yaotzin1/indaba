@@ -9,8 +9,10 @@ namespace Indaba\Runners;
  * the workspace-write sandbox is requested: an implementer step has to edit files, and the
  * sandbox still confines the edits to the working directory. Authenticate beforehand
  * (`codex login`, or CODEX_API_KEY in the environment).
+ *
+ * MCP servers are injected as `-c mcp_servers.<name>.*` configuration overrides.
  */
-final class CodexRunner extends AbstractCliRunner
+final class CodexRunner extends AbstractCliRunner implements McpCapable
 {
     /**
      * @param list<string> $extraArgs
@@ -28,9 +30,14 @@ final class CodexRunner extends AbstractCliRunner
         return 'codex';
     }
 
+    public function mcpCapability(): McpCapability
+    {
+        return McpCapability::Injected;
+    }
+
     protected function command(RunRequest $request): array
     {
-        $command = [$this->binary, 'exec', ...$this->extraArgs];
+        $command = [$this->binary, 'exec', ...$this->extraArgs, ...McpConfigWriter::codexArgs($request->mcpServers)];
         if ($request->model !== null) {
             array_push($command, '--model', $request->model);
         }

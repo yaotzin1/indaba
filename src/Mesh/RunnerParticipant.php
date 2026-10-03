@@ -6,6 +6,7 @@ namespace Indaba\Mesh;
 
 use Indaba\Runners\RunnerInterface;
 use Indaba\Runners\RunRequest;
+use Indaba\Workflow\Model\McpServerDefinition;
 
 /**
  * Adapts a runner into a debate participant by wrapping the topic and the transcript
@@ -15,6 +16,7 @@ final readonly class RunnerParticipant implements ParticipantInterface
 {
     /**
      * @param (\Closure(RunnerInterface, RunRequest): \Indaba\Runners\RunResult)|null $invoke hook for tracing
+     * @param list<McpServerDefinition> $mcpServers servers to ask the runner to provide
      */
     public function __construct(
         private string $role,
@@ -22,6 +24,7 @@ final readonly class RunnerParticipant implements ParticipantInterface
         private string $workdir,
         private ?string $model = null,
         private ?\Closure $invoke = null,
+        private array $mcpServers = [],
     ) {}
 
     public function role(): string
@@ -31,7 +34,7 @@ final readonly class RunnerParticipant implements ParticipantInterface
 
     public function respond(string $topic, Blackboard $board, int $round): AgentMessage
     {
-        $request = new RunRequest($this->prompt($topic, $board, $round), $this->workdir, $this->model);
+        $request = new RunRequest($this->prompt($topic, $board, $round), $this->workdir, $this->model, mcpServers: $this->mcpServers);
         $result = $this->invoke === null ? $this->runner->run($request) : ($this->invoke)($this->runner, $request);
 
         if (!$result->succeeded()) {

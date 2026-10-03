@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace Indaba\Console;
 
 use Indaba\Core\Exception\IndabaException;
+use Indaba\Runners\RunnerRegistry;
+use Indaba\Workflow\Engine\McpPlanner;
 use Indaba\Workflow\Graph\DagBuilder;
 use Indaba\Workflow\Parser\WorkflowParser;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -47,6 +49,13 @@ final class PlanCommand extends Command
             $output->writeln(sprintf('%d. <info>%s</info> [%s]%s', $n + 1, $step->id, $who, $extra === [] ? '' : ' (' . implode('; ', $extra) . ')'));
         }
 
-        return Command::SUCCESS;
+        $issues = (new McpPlanner(RunnerRegistry::withDefaults()))->preflight($workflow);
+        $failed = false;
+        foreach ($issues as $issue) {
+            $failed = $failed || $issue->isError;
+            $output->writeln(($issue->isError ? '<error>MCP error:</error> ' : '<comment>MCP warning:</comment> ') . $issue->describe());
+        }
+
+        return $failed ? Command::FAILURE : Command::SUCCESS;
     }
 }
