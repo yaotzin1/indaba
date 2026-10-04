@@ -1,6 +1,6 @@
 {
   "name": "@indaba/core",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.0",
   "description": "Pure domain of the Indaba orchestration engine: workflow model, DAG, mesh, runner contract. No dependencies.",
   "license": "MIT",
   "type": "module",

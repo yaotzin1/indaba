@@ -1,6 +1,6 @@
 {
   "name": "@indaba/engine",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.0",
   "description": "Indaba workflow parser, guards, engine, git workspaces and tracing.",
   "license": "MIT",
   "type": "module",

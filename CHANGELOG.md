@@ -15,6 +15,11 @@ Nothing has been published. The entries below describe the repository, and the f
 
 ## [Unreleased]
 
+## [0.1.0-alpha.0] - 2026-10-04
+
+A preview that reserves the package names. It is published under the `next` dist-tag: install it
+with `indaba@next`. The API is not stable.
+
 ### Added
 
 - **The TypeScript port** (major per the semver rules, but nothing was ever published, so no consumer

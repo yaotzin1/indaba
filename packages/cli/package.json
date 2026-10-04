@@ -1,6 +1,6 @@
 {
   "name": "indaba",
-  "version": "0.1.0",
+  "version": "0.1.0-alpha.0",
   "description": "Deterministic orchestration, debate and observability engine for multi-agent AI workflows.",
   "license": "MIT",
   "type": "module",
