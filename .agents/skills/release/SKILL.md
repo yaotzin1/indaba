@@ -11,7 +11,7 @@ The version is in the `package.json` of every package under `packages/` (and the
 is private). `.github/workflows/release.yml` runs on a pushed `v*` tag, and only then. It checks that
 `CHANGELOG.md` has a section for the version and that every package is at that version, runs the full
 gate (`check-workflow`, `pnpm qa`, `pnpm build`, the packed-install smoke test, `pnpm audit`),
-publishes the packed packages with `npm publish` through npm trusted publishing (OIDC) with provenance, and creates the GitHub
+stages the packed packages with `npm stage publish` through npm trusted publishing (OIDC) with provenance; the maintainer then approves each staged version (npmjs.com, Staged Packages tab, or `npm stage approve`, which asks for 2FA), core first, and creates the GitHub
 release from the changelog section.
 
 A pushed tag is therefore a release decision, and it is the maintainer's. An agent pushes one only
@@ -20,8 +20,8 @@ published npm version cannot be replaced; it can only be deprecated.
 
 **State today:** `0.1.0-alpha.0` of all four packages was published by hand to reserve the names. Later
 releases go through the release workflow with npm trusted publishing: each package must have the
-trusted publisher (repository `yaotzin1/indaba`, workflow `release.yml`) configured on npmjs.com by the
-maintainer. Check the registry (`npm view <name> dist-tags`) rather than assuming a version exists.
+trusted publisher (repository `yaotzin1/indaba`, workflow `release.yml`, staged publishing only, direct
+publishing left off) configured on npmjs.com by the maintainer. Check the registry (`npm view <name> dist-tags`) rather than assuming a version exists.
 
 ## The gate
 

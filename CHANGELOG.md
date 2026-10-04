@@ -95,7 +95,7 @@ published, so nothing below was ever released.
     the placeholder command templates; both remain overridable through `INDABA_CODEX_CMD` and
     `INDABA_ANTIGRAVITY_CMD`.
 - GitHub releases publish through npm trusted publishing (OIDC, no stored token or one-time
-  password): the release workflow packs the four packages with pnpm and publishes the tarballs with
-  npm, prereleases under `next`.
+  password): the release workflow packs the four packages with pnpm and stages the tarballs with
+  `npm stage publish`; the maintainer approves each staged version with 2FA, prereleases under `next`.
 - Development governance: `workflow.ai.yml` (the *development* workflow, not the format Indaba
   executes), the agent instruction set, skills, rules, hooks and CI.

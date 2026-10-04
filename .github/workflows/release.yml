@@ -4,7 +4,9 @@ name: Release
 # commit, publishes the packages to npm with provenance, and creates the GitHub release. Nothing here
 # runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC): each of the
 # four packages is configured on npmjs.com to trust this repository's release.yml, so there is no
-# token or one-time password anywhere, and the provenance statement comes with it.
+# token or one-time password anywhere, and the provenance statement comes with it. Versions are
+# staged, not published: the maintainer approves each one on npmjs.com (Staged Packages tab) or with
+# `npm stage approve`, which asks for 2FA, so a tag alone never makes a version public.
 on:
   push:
     tags:
@@ -16,7 +18,7 @@ permissions:
 
 jobs:
   release:
-    name: Publish to npm and create the GitHub release
+    name: Stage on npm and create the GitHub release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -60,14 +62,16 @@ jobs:
           pnpm smoke
           pnpm audit --audit-level low
 
-      # Trusted publishing needs npm 11.5.1 or newer; the npm bundled with Node 22 is older.
+      # Staged publishing needs npm 11.15.0 or newer; the npm bundled with Node 22 is older. Pinned to
+      # the 11 line: npm 12 requires a newer Node 22 than every runner is guaranteed to have.
       - name: Upgrade npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@^11.15.0
 
-      # pnpm pack rewrites the workspace: ranges to real versions; npm publish then authenticates with
-      # the OIDC identity of this job. A version with a hyphen (0.2.0-alpha.1) is a prerelease and goes
-      # to the next tag, so it never becomes what a plain install resolves.
-      - name: Pack and publish to npm
+      # pnpm pack rewrites the workspace: ranges to real versions; npm stage publish then authenticates
+      # with the OIDC identity of this job and parks each tarball for approval. A version with a hyphen
+      # (0.2.0-alpha.1) is a prerelease and goes to the next tag once approved. Approve core first:
+      # indaba and the others depend on it.
+      - name: Pack and stage on npm
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           DIST_TAG=latest
@@ -77,7 +81,7 @@ jobs:
             (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
           done
           for name in indaba-core indaba-engine indaba-runners indaba; do
-            npm publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
+            npm stage publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
           done
 
       - name: Create the GitHub release
