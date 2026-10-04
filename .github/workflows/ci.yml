@@ -112,4 +112,4 @@ jobs:
 
       # The packed packages, not the source tree: what a consumer's `npm install` gets.
       - name: Smoke test the packed install
-        run: node scripts/smoke-pack.mjs
+        run: pnpm smoke

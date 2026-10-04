@@ -57,7 +57,7 @@ jobs:
           node scripts/check-workflow.mjs
           pnpm qa
           pnpm build
-          node scripts/smoke-pack.mjs
+          pnpm smoke
           pnpm audit --audit-level low
 
       # Trusted publishing needs npm 11.5.1 or newer; the npm bundled with Node 22 is older.
