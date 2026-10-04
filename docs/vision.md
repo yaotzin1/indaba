@@ -1,5 +1,9 @@
 # Project INDABA: Multi-Agent Consensus & Observability Engine (original requirement)
 
+> **Superseded in part.** The PHP and Symfony references in sections 1 to 3 and 5 are superseded by
+> [`specs/typescript-port/`](../specs/typescript-port/spec.md): Indaba is implemented in Node/TypeScript with the
+> same domain modules and the same workflow contract. The text below is kept verbatim.
+
 This is the founding requirement, kept verbatim. `workflow.ai.yml` and `AGENTS.md` outrank it.
 
 ## 1. Project mission & context

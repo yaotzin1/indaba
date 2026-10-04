@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Use when writing or updating a spec directory, README, CHANGELOG, DEPENDENCY_MAP, docs pages or docblocks, or when deciding which spec artifacts a feature needs. Covers what each document is for and keeping them in sync with the change.
+description: Use when writing or updating a spec directory, README, CHANGELOG, DEPENDENCY_MAP, docs pages or doc comments, or when deciding which spec artifacts a feature needs. Covers what each document is for and keeping them in sync with the change.
 ---
 
 # Spec & Documentation Architect
@@ -11,14 +11,14 @@ Documentation is part of the change. A feature whose docs lag is unfinished.
 
 | Document | Audience | Holds |
 | :--- | :--- | :--- |
-| `README.md` | someone deciding to use Indaba | what it is, install, a first run |
-| `docs/` | someone using it | the workflow file reference, runners, guards, CLI, observability, extending; one page per topic, indexed in `docs/README.md` |
-| `docs/vision.md` | everyone | the founding requirement, kept verbatim |
+| `README.md` | someone deciding to use Indaba | what it is, `npx indaba`, the packages, a first run |
+| `docs/` | someone using it | getting started, the workflow file reference, extending, runners, guards, CLI, observability; one page per topic, indexed in `docs/README.md` |
+| `docs/vision.md` | everyone | the founding requirement, kept verbatim apart from its supersession note |
 | `CHANGELOG.md` | someone upgrading | what changed, does it affect me, what do I do |
 | `specs/<feature>/` | a maintainer | why it is shaped this way and what it promises |
-| `specs/DEPENDENCY_MAP.md` | a maintainer | module dependencies and what breaks what |
+| `specs/DEPENDENCY_MAP.md` | a maintainer | package dependencies and what breaks what |
 | `AGENTS.md`, `CLAUDE.md` | agents | how to work here |
-| docblocks | the person reading the class | the why and the types PHP cannot express |
+| doc comments (TSDoc) | the person reading the code | the why, and what the types cannot express |
 
 ## Spec directories
 
@@ -33,26 +33,28 @@ self-review" while it has not. Do not write answers for a review nobody did.
 
 ## Distinguish the two workflows
 
-The root `workflow.ai.yml` is the development workflow. The Indaba runtime format is documented
-under `docs/`. Never document one as the other, and say which is meant when a page says "workflow".
+The root `workflow.ai.yml` is the development workflow. The Indaba runtime format is documented in
+`docs/workflow-format.md`. Never document one as the other, and say which is meant when a page says
+"workflow".
 
 ## CHANGELOG
 
 Keep a Changelog headings (Added, Changed, Deprecated, Removed, Fixed, Security). Each entry gives the
-semver classification and, for a break, a before and after. Add it in the same change.
+semver classification and, for a break, a before and after. Add it in the same change. Never claim
+a version is published until it is.
 
 ## DEPENDENCY_MAP
 
-Update the Mermaid graph and the "what breaks what" notes when a module gains or loses a dependency.
-The boundary test is the enforcement; the map is the explanation.
+Update the Mermaid graph and the "what breaks what" notes when a package gains or loses a dependency.
+The architecture and layers tests are the enforcement; the map is the explanation.
 
-## Docblocks and comments
+## Doc comments
 
-Explain why, or give a type: `@param list<StepDefinition>`, `@return array<string, TokenUsage>`,
-`@throws`. Do not restate the signature. A comment that records a bug the code once had is worth
-keeping.
+Explain why, or state what the type cannot: units, defaults, what `undefined` means, what is thrown.
+Do not restate the signature or repeat the types in `@param`. A comment that records a bug the code
+once had is worth keeping.
 
 ## Examples run
 
-A workflow snippet in the docs should be run by a test, or be a file a test loads, so it cannot
-rot.
+A workflow snippet in the docs should be run by a test, or be a file a test loads (the files under
+`examples/`), so it cannot rot.

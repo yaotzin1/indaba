@@ -7,20 +7,20 @@ rest.
 
 ## 1. Banned constructs, everywhere
 
-`src/`, `tests/`, `bin/`, `scripts/`:
+`packages/`, `scripts/`, `.githooks/`:
 
-- `eval`; `shell_exec`, `exec`, `system`, `passthru`, `popen`, `proc_open`, `pcntl_exec`; the
-  backtick operator.
-- The `@` error-suppression operator.
-- `unserialize` of data that is not provably ours (JSON, or `['allowed_classes' => false]`).
-- `include` or `require` of a path held in a variable; `extract`.
-- Raw `curl_*` and socket functions: HTTP goes through `symfony/http-client`.
-- Inline analysis ignores (`@phpstan-ignore*`) and `ignoreErrors` or a baseline in `phpstan.neon`.
-- In the node scripts: `eval`, `new Function`, `exec`/`execSync` with a string, `shell: true`.
+- `eval`, `new Function`, and the `node:vm` module.
+- `exec` and `execSync` (a command given as a string), and `shell: true`: processes are started with
+  `spawn` or `execFile` and an argument array.
+- A shell interpreter named with its command flag (`sh -c`, `cmd.exe /c`) anywhere but
+  `packages/runners/src/shell-runner.ts`.
+- `any`, the `!` non-null assertion, and inline suppressions (`@ts-ignore`, `@ts-expect-error`,
+  `@ts-nocheck`, `biome-ignore`, `eslint-disable`); weakening a strictness flag in
+  `tsconfig.base.json` or a rule in `biome.json`.
 
-Under `src/` additionally: debug output (`var_dump`, `dump`, `print_r`), and `Process::fromShellCommandline`
-outside `ShellRunner`. Under `src/Core`, `src/Workflow` and `src/Mesh`: the wall clock, randomness
-and the environment.
+In shipped source (`packages/*/src`) additionally: `console.log` and its siblings, which can print
+prompts, paths and credentials. Under `packages/core/src` and `packages/engine/src`: the wall clock,
+randomness and the environment, except in the three engine edge files the audit names.
 
 ## 2. Untrusted data never becomes a command line
 
@@ -31,33 +31,35 @@ model's output, a file name or a branch name.
 ## 3. Paths are confined
 
 A path from a workflow, a guard, a model or an artifact name is resolved and checked to lie under its
-root before use. Worktrees live under `.indaba/worktrees/<taskId>`. Symlinks are not followed out of
-a root.
+root before use (compare with `path.relative`, and resolve symlinks for artifacts). Worktrees live
+under `.indaba/worktrees/<taskId>`. Symlinks are not followed out of a root.
 
 ## 4. Secrets are never logged
 
 Keys come from the environment of the process that needs them. They are absent from traces, events,
-exception messages, artifacts, prompts and the `RunResult`. Redaction is tested, not assumed.
+error messages, artifacts, prompts and the `RunResult`. Redaction is tested, not assumed.
 
 ## 5. HTTP is bounded
 
-One shared client, explicit timeouts, a bounded body, TLS verification on, redirects off or
-limited. The host a runner calls is configuration, not data from a model.
+Global `fetch` with an explicit timeout through an `AbortSignal`, a bounded body, TLS verification
+on, redirects off or limited. The host a runner calls is configuration, not data from a model.
 
 ## 6. Nothing runs at install
 
-No `pre-install-cmd`, `post-install-cmd` or `post-autoload-dump` script, no wildcard
-`allow-plugins`. A Composer plugin is a recorded decision.
+No `preinstall`, `install`, `postinstall` or `prepare` script in any `package.json`, and no
+dependency on a git URL, a tarball URL or a local path. `node-pty`, which builds or downloads a
+native module, is optional and its absence is handled.
 
-## 7. The dist archive is an allowlist
+## 7. A package publishes an allowlist
 
-`.gitattributes` `export-ignore`s everything a consumer does not need: tests, specs, `.agents`,
-`.claude`, `.github`, `.githooks`, `scripts`, Docker files. Check with `git archive`.
+Each package's `files` lists `dist` and nothing else; tests, specs, `.agents`, `.claude`, `.github`,
+`.githooks` and `scripts` never reach npm. `scripts/smoke-pack.mjs` installs the packed tarballs in
+a clean directory to check it.
 
 ## 8. Dependencies are audited
 
-`composer audit` is a required check at any severity. A new advisory failing an unrelated pull
-request is the point: the fix is an upgrade, not a waiver.
+`pnpm audit` is a required check at any severity. A new advisory failing an unrelated pull request
+is the point: the fix is an upgrade, not a waiver.
 
 ## 9. Skill files are scanned
 

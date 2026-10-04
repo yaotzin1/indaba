@@ -1,7 +1,0 @@
-<?php
-
-declare(strict_types=1);
-
-namespace Indaba\Core\Exception;
-
-final class WorkspaceException extends IndabaException {}

@@ -36,4 +36,7 @@ try {
 
 console.log(`core.hooksPath set to ${HOOKS_DIR}`);
 console.log('The pre-commit gates and the track check now run on every commit in this clone.');
-console.log('Document gates always run; the PHP toolchain gates run through Docker when it is reachable.');
+console.log('Document gates always run; the quality gate (pnpm qa) runs on the host.');
+if (!fs.existsSync(path.join(ROOT_DIR, 'node_modules'))) {
+    console.warn('node_modules is missing: run `pnpm install` (Node 22 and pnpm 9), or the pre-commit hook will refuse every commit.');
+}

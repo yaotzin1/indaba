@@ -1,6 +1,4 @@
-/vendor/
-/.phpunit.cache/
-/.php-cs-fixer.cache
+# Indaba's own runtime state
 /.indaba/worktrees/
 /.indaba/traces/
 /.indaba/artifacts/
@@ -9,3 +7,8 @@
 /.env
 /.env.*
 !/.env.example
+
+# Node
+node_modules/
+/packages/*/dist/
+*.tsbuildinfo

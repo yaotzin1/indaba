@@ -29,7 +29,8 @@ the way you would run an untrusted script.
 ## How the project defends itself
 
 The rules are in `.agents/rules/security.md` and are enforced on every commit by
-`scripts/security-audit.mjs`, with the checks that need PHP running in CI: no `eval`, shell
-functions, backtick operator, `@` operator or untrusted `unserialize`; processes started with
-argument arrays; paths confined to their root; secrets absent from telemetry; PHPStan at level 9
-with no ignores; `composer audit` as a required check; no install-time scripts.
+`scripts/security-audit.mjs`, with the checks that need the toolchain running in CI: no `eval`,
+`new Function`, `vm`, string-form `exec` or `shell: true`; processes started with argument arrays;
+paths confined to their root; secrets absent from telemetry; TypeScript strict with no `any`, no
+non-null assertion and no suppression comment; `pnpm audit` as a required check; no install-time
+scripts in any package. Packages are published with provenance.

@@ -11,10 +11,10 @@
 #
 # THIS FILE IS NOT INDABA'S RUNTIME WORKFLOW FORMAT. Indaba is a product that executes
 # `workflow.ai.yml` files written by its users (the contract is in docs/vision.md, section 4, and
-# will be documented under docs/). This file, at the repository root, is the workflow the
+# documented in docs/workflow-format.md). This file, at the repository root, is the workflow the
 # *developers and agents of Indaba* follow to change Indaba. It shares a file name and a family
 # resemblance (stages, gates, roles) and nothing else: it has its own schema, parsed by
-# scripts/lib/workflow-yaml.mjs, not by src/Workflow/Parser. Running this file's stages with Indaba
+# scripts/lib/workflow-yaml.mjs, not by the parser in packages/engine. Running this file's stages with Indaba
 # itself (dogfooding) is a goal for later and an explicit non-goal today. Do not make the two
 # schemas agree, and do not point the engine at this file.
 #
@@ -34,7 +34,7 @@
 
 version: "2.0"
 name: indaba
-description: "Deterministic orchestration, debate and observability engine for multi-agent AI workflows, written in PHP 8.4+. A DAG of steps, a blackboard where agents cross-examine each other, unified runners, git-worktree isolation and OpenTelemetry GenAI traces."
+description: "Deterministic orchestration, debate and observability engine for multi-agent AI workflows, written in TypeScript for Node 22+. A DAG of steps, a blackboard where agents cross-examine each other, unified runners, git-worktree isolation and OpenTelemetry GenAI traces."
 
 # ------------------------------------------------------------------------------
 # 0. Governance & Precedence
@@ -57,31 +57,30 @@ governance:
 # ------------------------------------------------------------------------------
 # 1. Facts about the repository (enforced: scripts/check-workflow.mjs)
 # ------------------------------------------------------------------------------
-# Compared with composer.json and phpstan.neon on every commit, so a toolchain upgrade that forgets
-# this file fails instead of leaving agents a stale description of the project.
+# Compared with package.json, packages/*/package.json, tsconfig.base.json, biome.json and the CI file
+# on every commit, so a toolchain upgrade that forgets this file fails instead of leaving agents a
+# stale description of the project.
 project:
-  architecture: "A framework-agnostic core and pure domain (src/Core, src/Workflow/Model, Graph and State, src/Mesh) with infrastructure around it: the engine and parser (src/Workflow), runners (src/Runners), git workspaces (src/Workspace), telemetry (src/Observability) and the Symfony Console front end (src/Console). The domain imports no Symfony class, enforced by an architecture test."
-  distribution: "Composer package and CLI (bin/indaba), MIT licensed, semver. Packagist is webhook-driven: it reads the repository's tags, so a pushed v* tag is the release and that is the maintainer's call."
-  development_environment: "PHP 8.4 runs only inside the Docker image in this repository (docker compose run --rm php composer ...). The host has no PHP; the Node scripts run on the host."
+  architecture: "A framework-agnostic core and pure domain (packages/core: workflow model, DAG, step state, mesh, runner and extension contracts, telemetry value types) with infrastructure around it: the parser, guards, engine, git workspaces and span exporter (packages/engine), the runners (packages/runners) and the command line front end that composes them (packages/cli, the indaba package). The domain imports no node: module and no other package, enforced by the architecture test in packages/core/test; engine and runners are held to their layers by packages/*/test/layers.test.ts."
+  distribution: "npm packages indaba (the CLI, bin: indaba), @indaba/core, @indaba/engine and @indaba/runners, MIT licensed, semver. A pushed v* tag runs .github/workflows/release.yml, which publishes them with provenance, so a pushed tag is the release and that is the maintainer's call. Nothing has been published yet."
+  development_environment: "Node 22 or newer and pnpm 9 on any OS (Windows, macOS, Linux), natively. Nothing else is needed on the host: no container, no WSL, no other language runtime. Every command in this repository, the gates included, is a pnpm script or a Node script run from the repository root."
   workflow_distinction: "This file is the development workflow of Indaba, not the workflow format Indaba executes. See the header. Executing it with Indaba is a non-goal for now."
   runtime:
-    php: ">=8.4"
+    node: ">=22"
+  package_manager: 9
+  packages: ["indaba", "@indaba/core", "@indaba/engine", "@indaba/runners"]
   runtime_dependencies:
-    - "psr/clock"
-    - "psr/event-dispatcher"
-    - "symfony/clock"
-    - "symfony/console"
-    - "symfony/event-dispatcher"
-    - "symfony/http-client"
-    - "symfony/process"
-    - "symfony/yaml"
-  symfony_constraint: "^7.2"
+    - "yaml"
+  optional_dependencies:
+    - "node-pty"
   toolchain:
-    phpstan: 2
-    phpunit: 11
-    php_cs_fixer: 3
-  phpstan_level: 9
-  composer_scripts: [test, stan, cs, "cs:fix", qa]
+    typescript: 5
+    vitest: 5
+    biome: 2
+  strictness: [strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes, verbatimModuleSyntax]
+  biome_rules: [suspicious.noExplicitAny, suspicious.noTsIgnore, style.noNonNullAssertion]
+  scripts: [build, typecheck, lint, "lint:fix", test, qa, smoke]
+  supported_os: [ubuntu-latest, windows-latest, macos-latest]
 
 # ------------------------------------------------------------------------------
 # 2. Tracks: which stages a change goes through (guidance)
@@ -107,14 +106,14 @@ tracks:
     when: "Documentation, agent instructions, tests, CI, tooling or dev dependencies, with nothing a consumer installs changing."
     stages: [verify, review_ship]
     deliverables:
-      - "CHANGELOG.md entry only when it reaches a consumer: the PHP floor, a runtime dependency, the files in the dist archive"
+      - "CHANGELOG.md entry only when it reaches a consumer: the Node floor, a runtime dependency, the files an npm package publishes"
   - id: release
     when: "Cutting a version: moving Unreleased under a number and tagging."
     stages: [verify, review_ship]
     guidance: ".agents/skills/release/SKILL.md"
     deliverables:
       - "CHANGELOG.md section for the version, with its date and the compare links"
-      - "a v<version> tag on the merge commit on main. Pushing it runs .github/workflows/release.yml, which creates the GitHub release, and Packagist picks the tag up by webhook: a pushed tag is a release decision, and it is the maintainer's"
+      - "a v<version> tag on the merge commit on main. Pushing it runs .github/workflows/release.yml, which publishes the packages to npm with provenance and creates the GitHub release: a pushed tag is a release decision, and it is the maintainer's"
 
 # ------------------------------------------------------------------------------
 # 2b. Agents (enforced: scripts/check-workflow.mjs reads `loads` and `max_chars`)
@@ -188,7 +187,7 @@ stages:
     lead_skills: [api_surface, application_security, security_guard, static_analysis, performance]
     deliverables: []
     guidance: ".agents/skills/spec_driven_development/SKILL.md"
-    description: "Audits the plan before code: breaking changes without a major, a framework class in the domain, a new runtime dependency, untrusted data reaching a shell, a path or a log, a wall clock in decision logic, an unbounded loop. A failure returns to Plan."
+    description: "Audits the plan before code: breaking changes without a major, a node: import in the domain, a new runtime dependency, untrusted data reaching a shell, a path or a log, a wall clock in decision logic, an unbounded loop. A failure returns to Plan."
 
   - id: implement
     phase: 6
@@ -204,7 +203,7 @@ stages:
     lead_skills: [qa, smoke_tests, static_analysis, verification, debugger]
     deliverables: []
     guidance: ".agents/skills/verification/SKILL.md"
-    description: "Runs docker compose run --rm php composer qa and the node gates end to end and reports their actual output. A failing gate is investigated from its own output; after three failed attempts the plan is wrong, not the code."
+    description: "Runs pnpm qa and the node gates end to end and reports their actual output. A failing gate is investigated from its own output; after three failed attempts the plan is wrong, not the code."
 
   - id: review_ship
     phase: 8
@@ -221,7 +220,7 @@ stages:
 # ------------------------------------------------------------------------------
 # The tracks above are guidance; this is the part of them a script can check. Every commit carries a
 # `Track:` trailer, and scripts/check-track.mjs holds the diff to it: a chore touches no source, a
-# release touches only the changelog and composer.json, a fix that changes source also changes a
+# release touches only the changelog and the package manifests, a fix that changes source also changes a
 # test and a changelog, a feature carries a complete spec directory and a changelog entry. A pull
 # request is held to the heaviest track any of its commits declares. A commit that touches the files
 # that define or enforce the workflow also carries `Workflow-Change: <why>`, so weakening a check is
@@ -230,13 +229,13 @@ stages:
 enforcement:
   # Commits this one contains predate the check and are not held to it. "none" until the first
   # commit exists; replace it with that commit's full hash when the check should start there.
-  baseline: "bed3e786c6f30895200e7004c8ba388aa18b8210"
+  baseline: "351d960a925e97f43de08c0f2ca10ba9d2108679"
   tracks: [feature, fix, chore, release]
-  source_paths: ["src/", "bin/"]
-  test_paths: ["tests/"]
+  source_paths: ["packages/*/src/"]
+  test_paths: ["packages/*/test/"]
   changelogs: ["CHANGELOG.md"]
-  release_paths: ["CHANGELOG.md", "composer.json"]
-  protected_paths: ["workflow.ai.yml", "scripts/check-*", "scripts/sync-*", "scripts/validate-skills.mjs", "scripts/security-audit.mjs", "scripts/install-hooks.mjs", "scripts/lib/", ".githooks/", ".github/workflows/", ".claude/settings*.json", "phpstan.neon", ".php-cs-fixer.dist.php", "phpunit.xml.dist", "tests/Unit/Architecture/"]
+  release_paths: ["CHANGELOG.md", "package.json", "packages/*/package.json"]
+  protected_paths: ["workflow.ai.yml", "scripts/check-*", "scripts/sync-*", "scripts/validate-skills.mjs", "scripts/security-audit.mjs", "scripts/install-hooks.mjs", "scripts/lib/", ".githooks/", ".github/workflows/", ".claude/settings*.json", "package.json", "pnpm-workspace.yaml", "tsconfig.base.json", "tsconfig.json", "biome.json", "vitest.config.ts", "packages/core/test/architecture.test.ts", "packages/*/test/layers.test.ts"]
 
 # ------------------------------------------------------------------------------
 # 4. Spec directories (enforced: scripts/check-workflow.mjs)
@@ -269,11 +268,11 @@ skills:
     - name: architect
       role: "Architecture & Boundary Steward"
       path: ".agents/skills/architect/SKILL.md"
-      scope: "The pure domain versus infrastructure boundary, layering, dependency direction, deciding which module a behaviour belongs in"
+      scope: "The pure domain versus infrastructure boundary, package layering, dependency direction, deciding which package a behaviour belongs in"
     - name: api_surface
       role: "Public API & Semver Steward"
       path: ".agents/skills/api_surface/SKILL.md"
-      scope: "Public classes and interfaces, final and readonly decisions, breaking-change classification, workflow file schema and CLI as public contract, Packagist tags"
+      scope: "Exported types, classes and interfaces, readonly and interface-versus-class decisions, breaking-change classification, workflow file schema and CLI as public contract, npm versions and the packages' exports maps"
 
     # Domain modules
     - name: workflow_engine
@@ -287,7 +286,7 @@ skills:
     - name: runner_adapter
       role: "Runner Adapter Specialist"
       path: ".agents/skills/runner_adapter/SKILL.md"
-      scope: "RunnerInterface, RunRequest and RunResult, PTY CLI runners, the OpenRouter SSE runner, ShellRunner, cancellation, timeouts and the registry"
+      scope: "The Runner contract, RunRequest and RunResult, CLI runners (node-pty with a piped fallback), the OpenRouter SSE runner, ShellRunner, cancellation through AbortSignal, timeouts and the registry"
     - name: create_runner
       role: "Runner Author's Guide"
       path: ".agents/skills/create_runner/SKILL.md"
@@ -295,7 +294,7 @@ skills:
     - name: extensibility
       role: "Extension Point Steward"
       path: ".agents/skills/extensibility/SKILL.md"
-      scope: "The contracts third parties extend (runners, guards, PSR-14 listeners, pricing, exporters), the no-privileged-access rule, extensions failing alone"
+      scope: "The contracts third parties extend through the Plugin and PluginHost in @indaba/core (runners, guard types, event listeners), the no-privileged-access rule, extensions failing alone"
     - name: create_guard
       role: "Guard Author's Guide"
       path: ".agents/skills/create_guard/SKILL.md"
@@ -307,29 +306,29 @@ skills:
     - name: observability
       role: "Observability & Telemetry Specialist"
       path: ".agents/skills/observability/SKILL.md"
-      scope: "Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, PSR-14 events and streaming"
+      scope: "Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, the typed event dispatcher and streaming"
 
     # Quality
     - name: qa
-      role: "PHPUnit Test Specialist"
+      role: "Vitest Test Specialist"
       path: ".agents/skills/qa/SKILL.md"
-      scope: "PHPUnit 11, contract-first tests, fakes for runners and the clock, deterministic engine tests, git fixtures, what to assert"
+      scope: "Vitest, contract-first tests, fakes for runners and the clock, deterministic engine tests, temporary git repositories as fixtures, what to assert"
     - name: static_analysis
       role: "Static Analysis Specialist"
       path: ".agents/skills/static_analysis/SKILL.md"
-      scope: "PHPStan level 9 with no ignoreErrors, PHP-CS-Fixer PER-CS2.0, typing arrays and generics honestly, strict_types"
+      scope: "TypeScript strict with the extra flags in tsconfig.base.json, Biome with no suppression, no any and no non-null assertion, narrowing unknown honestly, readonly types"
     - name: application_security
       role: "Application Security Guardian"
       path: ".agents/skills/application_security/SKILL.md"
-      scope: "Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, unserialize and YAML, prompt-injected data reaching a shell. Banned constructs, no exceptions"
+      scope: "Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, YAML and JSON parsing, prompt-injected data reaching a shell. Banned constructs, no exceptions"
     - name: security_guard
       role: "Supply Chain & Publish Safety Specialist"
       path: ".agents/skills/security_guard/SKILL.md"
-      scope: "Runtime dependency policy, composer audit, Composer plugins and scripts, the lockfile, what the dist archive contains, CI and release secrets"
+      scope: "Runtime dependency policy, pnpm audit, install scripts, the lockfile, what each npm package publishes, CI and release secrets and provenance"
     - name: smoke_tests
       role: "Built-Artifact Verification Specialist"
       path: ".agents/skills/smoke_tests/SKILL.md"
-      scope: "The production install smoke test (git archive, composer install --no-dev, the CLI boots) and the export-ignore archive audit"
+      scope: "The packed-install smoke test (pnpm pack, install the tarballs in a clean directory, the CLI boots) and the published-files audit"
     - name: performance
       role: "Performance & Resource Specialist"
       path: ".agents/skills/performance/SKILL.md"
@@ -337,21 +336,21 @@ skills:
     - name: debugger
       role: "Systematic Debugging Specialist"
       path: ".agents/skills/debugger/SKILL.md"
-      scope: "Reading the actual failure output, running one gate alone in Docker, isolating engine from runner, reproducing a report as a test first"
+      scope: "Reading the actual failure output, running one gate alone, isolating engine from runner, reproducing a report as a test first"
 
     # Craft & delivery
     - name: refactor
       role: "Refactoring & Technical Debt Specialist"
       path: ".agents/skills/refactor/SKILL.md"
-      scope: "Behaviour-preserving change, splitting an overgrown class, deprecating a public symbol without breaking it"
+      scope: "Behaviour-preserving change, splitting an overgrown module or class, deprecating a public symbol without breaking it"
     - name: documentation
       role: "Spec & Documentation Architect"
       path: ".agents/skills/documentation/SKILL.md"
-      scope: "Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, docblocks that explain why"
+      scope: "Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, doc comments that explain why"
     - name: release
-      role: "Release & Packagist Specialist"
+      role: "Release & npm Specialist"
       path: ".agents/skills/release/SKILL.md"
-      scope: "Version selection, CHANGELOG entries, tags, the GitHub release workflow, what Packagist reads from a tag"
+      scope: "Version selection, CHANGELOG entries, tags, the release workflow that publishes with provenance, what npm receives from a tag"
     - name: spec_driven_development
       role: "Change Process Steward"
       path: ".agents/skills/spec_driven_development/SKILL.md"
@@ -359,7 +358,7 @@ skills:
     - name: verification
       role: "Verification Steward"
       path: ".agents/skills/verification/SKILL.md"
-      scope: "composer qa in Docker, the node gates, reading a failing gate from its own output, and the manual checks no gate can make"
+      scope: "pnpm qa, the node gates, reading a failing gate from its own output, and the manual checks no gate can make"
     - name: branching
       role: "Branch & Merge Steward"
       path: ".agents/skills/branching/SKILL.md"
@@ -371,9 +370,9 @@ skills:
 quality_gates:
   # `.git/hooks` is not versioned, so the hook lives in `.githooks/` and `core.hooksPath` points at
   # it. check-workflow.mjs fails when a gate listed here is missing from the hook or from CI.
-  # The document gates are pure Node and always run. The PHP gate runs through Docker because the
-  # host has no PHP 8.4; when Docker is unreachable the hook says so loudly and skips it, and CI is
-  # the wall.
+  # Every gate runs on the host, on any OS: the document gates are pure Node, and `pnpm qa` needs only
+  # `pnpm install`. A hook that cannot run `pnpm qa` (no node_modules) fails and says how to install;
+  # it never skips quietly. CI runs every gate unconditionally.
   local_hook:
     path: ".githooks/pre-commit"
     commit_msg_path: ".githooks/commit-msg"
@@ -387,12 +386,12 @@ quality_gates:
       command: "node scripts/sync-agent-docs.mjs --check"
     - name: "Workflow Claims Match the Repository"
       command: "node scripts/check-workflow.mjs"
-    - name: "Security Audit (banned constructs, secrets, phpstan.neon, composer.json)"
+    - name: "Security Audit (banned constructs, secrets, manifests, tsconfig, biome.json)"
       command: "node scripts/security-audit.mjs --source"
     - name: "Script Self-Tests"
       command: "node --test scripts/*.test.mjs"
-    - name: "PHP Quality Gate (PHP-CS-Fixer, PHPStan level 9, PHPUnit)"
-      command: "composer qa"
+    - name: "Quality Gate (Biome, tsc strict, Vitest)"
+      command: "pnpm qa"
   # Runs from the commit-msg hook, where the message exists, and in CI over every commit in a pull
   # request. Same script, same rules.
   commit_msg:
@@ -410,8 +409,9 @@ ci:
     - "Agent instruction set"
     - "Track and deliverables"
     - "Dependency audit"
-    - "Verify on PHP 8.4"
-    - "Verify on PHP 8.5"
+    - "Verify on ubuntu-latest"
+    - "Verify on windows-latest"
+    - "Verify on macos-latest"
 
 # ------------------------------------------------------------------------------
 # 7. Architectural rules
@@ -420,32 +420,36 @@ ci:
 # paths in it are checked to exist. A rule whose enforcement is "review" is exactly as strong as the
 # review, so the pull request template asks about each one.
 architectural_rules:
-  - rule: "The core is framework-agnostic. Nothing under src/Core, src/Workflow/Model, src/Workflow/Graph, src/Workflow/State or src/Mesh may import or name a Symfony class, and those directories import upward into nothing but themselves and src/Core. Symfony lives at the edges: the parser (Yaml), the runners (Process, HttpClient), the console, the event dispatcher bridge. A change that needs an exception belongs in infrastructure, behind an interface the domain owns."
-    enforced_by: "`tests/Unit/Architecture/BoundaryTest.php` (token scan of the pure directories), reviewed under dimension 1"
-  - rule: "PHPStan runs at level 9 with zero errors and no ignoreErrors: not in phpstan.neon, not as a baseline file, not as an inline @phpstan-ignore comment. A type the analyser cannot follow is fixed in the code, with a precise docblock, a value object or an assertion at the boundary, never silenced."
-    enforced_by: "`scripts/security-audit.mjs` (phpstan.neon and inline ignores), `scripts/check-workflow.mjs` (the level), and CI (Verify on PHP 8.4 and 8.5)"
-  - rule: "The engine is deterministic. Given the same workflow, the same runner outputs and the same injected clock and id source, a run takes the same steps in the same order and ends in the same state. Decision logic under src/Core, src/Workflow and src/Mesh reads no wall clock, no randomness and no environment: time arrives as a Psr Clock, ids as an injected generator, configuration as constructor arguments. DAG ordering breaks ties by declaration order, never by hash order."
-    enforced_by: "`scripts/security-audit.mjs` (determinism rules for those directories); tie-breaking and replay by review (.agents/rules/review.md, dimension 2)"
+  - rule: "The core is framework-agnostic and platform-agnostic. Nothing under packages/core/src may import a node: module, a third-party package or another Indaba package; it imports only its own relative modules, so it runs in a browser as well as in Node. Node and every dependency live at the edges: the YAML parser, git and the span exporter (engine), processes and HTTP (runners), the command line (cli). A change that needs an exception belongs in infrastructure, behind an interface the domain owns."
+    enforced_by: "`packages/core/test/architecture.test.ts` (scans every import in the package), `packages/engine/test/layers.test.ts` and `packages/runners/test/layers.test.ts` (engine and runners may not reach upward), reviewed under dimension 1"
+  - rule: "TypeScript runs strict with no escape hatch. tsconfig.base.json keeps strict, noUncheckedIndexedAccess, exactOptionalPropertyTypes and verbatimModuleSyntax on; Biome keeps noExplicitAny, noTsIgnore and noNonNullAssertion at error. No any, no non-null assertion, and no suppression comment of any tool (@ts-ignore, @ts-expect-error, @ts-nocheck, biome-ignore, eslint-disable). A type the compiler cannot follow is fixed in the code, with a precise type, a narrowing function or a check at the boundary, never silenced."
+    enforced_by: "`scripts/security-audit.mjs` (suppression comments, any, non-null assertions, tsconfig and biome.json), `scripts/check-workflow.mjs` (the flags and rules stay as project states them), and CI (Verify on ubuntu-latest, windows-latest and macos-latest)"
+  - rule: "The engine is deterministic. Given the same workflow, the same runner outputs and the same injected Clock and IdGenerator, a run takes the same steps in the same order and ends in the same state. Decision logic under packages/core/src and packages/engine/src reads no wall clock, no randomness and no environment: time arrives as a Clock, ids as an IdGenerator, configuration as constructor arguments. The edge files that own the system clock, the id source and git (git.ts, system.ts, jsonl-span-exporter.ts in the engine) are the only exceptions. DAG ordering breaks ties by declaration order, never by hash order."
+    enforced_by: "`scripts/security-audit.mjs` (determinism rules for those directories) and `packages/engine/test/layers.test.ts`; tie-breaking and replay by review (.agents/rules/review.md, dimension 2)"
   - rule: "Retry-loop isolation. When a step fails and on_failure retries a target, the next prompt receives only the isolated failure of the last attempt (the stderr or the failing assertion), never the accumulated error history. The retry count is bounded by max_retries, and a bounded exhaustion ends in the declared escalation, not another loop."
-    enforced_by: "review (.agents/rules/review.md, dimension 2); the engine's retry tests under tests/Unit/Workflow are the evidence a review asks for"
-  - rule: "One runner contract. Every way of running an agent or a command implements RunnerInterface and returns a RunResult; the engine, the mesh and the console depend on the interface and the registry, never on a concrete runner. A runner owns its process or connection, honours the timeout and cancellation in its RunRequest, reports token usage when it knows it, and never leaks a child process."
-    enforced_by: "`tests/Unit/Architecture/BoundaryTest.php` (only the registry's composition code may name a concrete runner); the contract itself by review (dimension 2)"
+    enforced_by: "review (.agents/rules/review.md, dimension 2); the engine's retry tests in packages/engine/test are the evidence a review asks for"
+  - rule: "One runner contract. Every way of running an agent or a command implements the Runner interface from @indaba/core and returns a RunResult; the engine and the mesh depend on the interface and the registry, never on a concrete runner, and the command line composes the built-ins through the same PluginHost a third party uses. A runner owns its process or connection, honours the timeout and the AbortSignal, reports token usage when it knows it, and never leaks a child process (the whole process tree is killed on timeout or abort)."
+    enforced_by: "`packages/engine/test/layers.test.ts` and `packages/runners/test/layers.test.ts` (the engine never imports the runners package); the contract itself by review (dimension 2)"
   - rule: "Secrets are never logged. API keys and tokens reach a runner through the environment of its own process or its own Authorization header and nowhere else: not in a trace attribute, an event, an exception message, a result artifact, a prompt or a log line. Every outgoing representation of a request redacts them."
-    enforced_by: "`scripts/security-audit.mjs` (credential shapes in source, committed .env files, a heuristic for logging a credential); redaction behaviour by review (dimension 4)"
-  - rule: "No shell string interpolation of untrusted data. Processes are started with an argument array through Symfony Process. The only code that may hand a string to a shell is the runner for commands the workflow author declared (ShellRunner), and nothing derived from a model's output, a file name, a branch name or an artifact path is concatenated into a command line. eval, the shell functions, the backtick operator, unserialize of untrusted data and the @ operator are banned everywhere."
-    enforced_by: "`scripts/security-audit.mjs` (banned constructs, the fromShellCommandline allowlist); the data flow into ShellRunner by review (dimension 4)"
+    enforced_by: "`scripts/security-audit.mjs` (credential shapes in source, committed .env files); redaction behaviour by review (dimension 4)"
+  - rule: "No shell string interpolation of untrusted data. Processes are started with spawn or execFile and an argument array, with shell: false. The only code that may hand a string to a shell is the runner for commands the workflow author declared (ShellRunner), and nothing derived from a model's output, a file name, a branch name or an artifact path is concatenated into a command line. eval, new Function, the vm module, exec and execSync, and shell: true are banned everywhere."
+    enforced_by: "`scripts/security-audit.mjs` (banned constructs, and the shell interpreter allowlist that names only the ShellRunner file); the data flow into ShellRunner by review (dimension 4)"
   - rule: "Paths are confined. A path taken from a workflow file, a model, a guard or an artifact name is resolved against its root and rejected if it leaves it, before it is read, written, diffed or handed to git. Worktrees live under .indaba/worktrees/<taskId> and nowhere else, and teardown removes only what the manager created."
     enforced_by: "review (.agents/rules/review.md, dimension 4); the confinement tests named in the owning spec"
   - rule: "Observability follows the OpenTelemetry GenAI semantic conventions. A task is a trace, a workflow step a span, an LLM call, a tool execution or a shell verification a child span, with gen_ai.* attribute names for the system, the model and the input and output token counts, and cost as a separate, documented attribute. The conventions are still developing; the attribute set in use is recorded in the observability spec, and a rename follows the convention, not taste."
     enforced_by: "review (.agents/rules/review.md, dimension 5); the span and attribute tests of the observability feature"
   - rule: "Every feature has a specs/<feature-name>/ directory containing spec.md, api-surface.md and review.md. Each of plan.md, tasks.md, data-model.md, research.md and events.md is either written or named in spec.md under Artifacts not written, with the reason it does not apply."
     enforced_by: "`scripts/check-workflow.mjs`; the track check holds a feature commit to it (`scripts/check-track.mjs`)"
-  - rule: "Runtime dependencies are a recorded decision. composer.json require lists exactly the packages project.runtime_dependencies names, every Symfony component on one constraint, and composer audit is clean. A new entry requires the decision in the feature's spec, because every one is a version Indaba can force onto a consumer's tree."
-    enforced_by: "`scripts/check-workflow.mjs` (the list and the Symfony constraint) and CI (Dependency audit)"
-  - rule: "Public API changes are classified before they are written. Adding a class, an optional constructor argument with a default or a method is a minor; changing a signature, a default, an enum case, the workflow file schema, a CLI option or an emitted event or span attribute is a major. Record the classification in the spec and in CHANGELOG.md. Below 1.0 a major takes the next minor and says so."
+  - rule: "Runtime dependencies are a recorded decision. The dependencies and optionalDependencies of the packages, apart from links between them, are exactly the packages project.runtime_dependencies and project.optional_dependencies name, and pnpm audit is clean. A new entry requires the decision in the feature's spec, because every one is a version Indaba can force onto a consumer's tree. @indaba/core has none."
+    enforced_by: "`scripts/check-workflow.mjs` (the lists against every package.json) and CI (Dependency audit)"
+  - rule: "Public API changes are classified before they are written. Adding an export, an optional parameter or option with a default, or a method is a minor; changing a signature, a default, a member of a union, the workflow file schema, a CLI option or an emitted event or span attribute is a major. Record the classification in the spec and in CHANGELOG.md. Below 1.0 a major takes the next minor and says so."
     enforced_by: "review (.agents/rules/review.md, dimension 3)"
-  - rule: "PHP runs in Docker. The host has no PHP 8.4, and a result from any other interpreter is not evidence. Every PHP command in this repository, in a hook, in documentation and in a report, is docker compose run --rm php composer <script> or the equivalent vendor/bin call inside it."
-    enforced_by: "review; the pre-commit hook and CI both run composer qa, so a change that only works on another PHP fails in CI"
+  - rule: "Extension contracts live in @indaba/core, and built-ins get no privileged access. Runner, Guard, Plugin, PluginHost, EventDispatcher and their types are defined in core; engine, runners and the command line only compose them. The built-in runners and the git-diff guard register through the same PluginHost a third party's plugin gets, so adding a runner, a guard type or a listener never edits core, engine or runners."
+    enforced_by: "`packages/cli/test/plugins.test.ts` (a plugin registers a runner, a guard type and a listener from outside the packages) and `packages/core/test/extension.test.ts`, `packages/engine/test/layers.test.ts` and `packages/runners/test/layers.test.ts`; the no-privileged-access rule itself by review (dimension 1)"
+  - rule: "One command, any OS. `pnpm qa` (Biome, tsc strict, Vitest) plus the node gates is the definition of done, and it runs natively on Windows, macOS and Linux with Node 22 and pnpm 9. A result from another Node major, another package manager or a stale node_modules is not evidence. Hooks, documentation and reports name the pnpm script, not a tool invoked by hand."
+    enforced_by: "`scripts/check-workflow.mjs` (the Node floor, the pnpm major and the scripts exist, and the CI os matrix equals project.supported_os); the pre-commit hook and CI both run pnpm qa, so a change that only works in one environment fails in CI"
+  - rule: "Nothing is published or tagged unless the maintainer asks. A pushed v* tag runs the release workflow, which publishes the packages to npm with provenance and cannot be undone. An agent never pushes a tag, never runs npm publish, and says what a tag would start before the maintainer decides."
+    enforced_by: "review (.agents/skills/release/SKILL.md); the release workflow runs only on a pushed v* tag, and main is protected so the tag lands on a merged commit"
   - rule: "Repository documentation moves with the change: AGENTS.md, README.md, CHANGELOG.md and specs/DEPENDENCY_MAP.md whenever the public surface, the architecture or the release contents change, and the files under docs/ in the same change as any added, removed or changed workflow field, guard, runner option, CLI option or default."
     enforced_by: "review (.github/PULL_REQUEST_TEMPLATE.md)"
   - rule: "No invented numbers. A token count, a cost or a duration that Indaba reports was measured or received from the provider, or is labelled an estimate with its source (the pricing table's date). A cost is never silently zero because a model is missing from the table: unknown is reported as unknown."

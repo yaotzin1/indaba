@@ -11,18 +11,19 @@ alongside the code. A change without it is incomplete.
 
 | Where | Question |
 | :--- | :--- |
-| `tests/Unit/<Module>` | is the logic right, with fakes at every boundary |
-| `tests/Unit/Architecture` | does the code still obey the boundary rules |
-| integration tests that use a real temporary git repository or a real `ShellRunner` command (`echo`, `php -r`) | does the infrastructure do what the fake pretended |
-| the smoke step in CI (`composer install --no-dev`, then the CLI) | does the installed package start at all |
+| `packages/<name>/test/*.test.ts` | is the logic right, with fakes at every boundary |
+| `packages/core/test/architecture.test.ts`, `packages/*/test/layers.test.ts` | does the code still obey the boundary rules |
+| integration tests that use a real temporary git repository or a real `ShellRunner` command (`node -e`, `git`) | does the infrastructure do what the fake pretended |
+| `scripts/smoke-pack.mjs` in CI (pack, install the tarballs in a clean directory, run `indaba --version`) | does the installed package start at all |
 
 An integration test is allowed a real git and real child processes; it is not allowed the network or a
-real agent CLI.
+real agent CLI. A test that spawns a child uses `process.execPath` (Node itself), never `sh`, `echo`
+or another program that is missing on one of the three CI operating systems.
 
 ## 3. Fakes, not mocks of the unit under test
 
-Runners are tested through a scripted fake `RunnerInterface`; time through `Symfony\Component\Clock\MockClock`;
-ids through a counter. A test that needs sleeping needs a clock.
+Runners are tested through a scripted fake `Runner`; time through a fixed `Clock`; ids through a
+counting `IdGenerator`. A test that needs sleeping needs a clock (or Vitest's fake timers).
 
 ## 4. Deterministic engine tests
 
@@ -42,16 +43,17 @@ contains shell metacharacters, a secret in an environment variable that must not
 has a test that fails if the defence is removed. Build hostile strings from fragments so the test
 file itself stays clean of the scanner's patterns.
 
-## 7. Coverage and speed
+## 7. Runs everywhere, runs fast
 
-PHPUnit 11 with `failOnWarning` and `failOnRisky`. Unit tests are fast enough to run on every
-commit. Lowering a threshold or marking a test skipped to pass is a change to the rules and belongs
-in a spec.
+The suite passes on Windows, macOS and Linux (the CI matrix): no hard-coded separators, no shell
+builtins, no assumptions about line endings. Unit tests are fast enough to run on every commit.
+Skipping a test with `it.skip`, or lowering an assertion, to pass is a change to the rules and
+belongs in a spec.
 
 ## 8. Before reporting a change complete
 
 ```bash
-docker compose run --rm php composer qa
+pnpm qa
 ```
 
 Report what it actually printed. A summary of a test run is not a test run.

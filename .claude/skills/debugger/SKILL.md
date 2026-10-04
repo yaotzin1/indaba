@@ -1,6 +1,6 @@
 ---
 name: debugger
-description: Use when a gate, a test or a run fails and the cause is not obvious, when a bug is reported, or after a second failed attempt at the same fix. Covers reading actual output, running one gate in Docker, and reproducing a report as a test first. Scope: Reading the actual failure output, running one gate alone in Docker, isolating engine from runner, reproducing a report as a test first
+description: Use when a gate, a test or a run fails and the cause is not obvious, when a bug is reported, or after a second failed attempt at the same fix. Covers reading actual output, running one gate alone, and reproducing a report as a test first. Scope: Reading the actual failure output, running one gate alone, isolating engine from runner, reproducing a report as a test first
 ---
 
 # debugger

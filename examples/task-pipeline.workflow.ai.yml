@@ -34,8 +34,8 @@ steps:
     depends_on: ["code"]
     runner: "shell"
     commands:
-      - "composer test"
-      - "vendor/bin/phpstan"
+      - "pnpm test"
+      - "pnpm typecheck"
     on_failure:
       action: "retry_step"
       target: "code"

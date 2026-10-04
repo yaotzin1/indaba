@@ -21,14 +21,11 @@ these stages with Indaba itself is a future goal, not a current feature.
 
 ## 1. Specify
 
-```bash
-cp -r specs/_template specs/<feature-name>
-```
-
-Fill `spec.md`: the problem for the person who runs or embeds Indaba, stories, acceptance criteria,
-non-goals, and which module delivers it. Non-goals are load-bearing; an orchestrator grows into a
-platform one reasonable addition at a time. No implementation detail: a sentence that names a file
-belongs in `plan.md`.
+Copy the template (`specs/_template`) to `specs/<feature-name>` (on Windows, with your file manager or
+`cp -r` in Git Bash), then fill `spec.md`: the problem for the person who runs or embeds Indaba,
+stories, acceptance criteria, non-goals, and which package delivers it. Non-goals are load-bearing; an
+orchestrator grows into a platform one reasonable addition at a time. No implementation detail: a
+sentence that names a file belongs in `plan.md`.
 
 ## 2. Clarify
 
@@ -38,8 +35,8 @@ default chosen here is inherited by every consumer.
 
 ## 3. Plan
 
-Always `api-surface.md`: every public class, method, workflow field, CLI option, event and span
-attribute added, changed or removed, with signatures, defaults and the semver classification. Then
+Always `api-surface.md`: every export, method, workflow field, CLI option, event and span attribute
+added, changed or removed, with TypeScript signatures, defaults and the semver classification. Then
 whichever of `plan.md`, `research.md`, `data-model.md`, `events.md` the feature has. Name the ones
 that do not apply under `## Artifacts not written` in `spec.md`.
 
@@ -47,15 +44,15 @@ Write `api-surface.md` precisely enough that two agents who never speak produce 
 
 ## 4. Tasks
 
-When there is more than one step worth tracking, `tasks.md`: domain, then infrastructure, tests
-alongside each, console and documentation last. Each task independently checkable.
+When there is more than one step worth tracking, `tasks.md`: `@indaba/core` first, then infrastructure
+packages, tests alongside each, the CLI and documentation last. Each task independently checkable.
 
 ## 5. Analyze
 
 Audit the plan before code:
 
 - A published signature broken without the right version?
-- Symfony or I/O in the pure domain?
+- A `node:` import or I/O in `@indaba/core`?
 - A new runtime dependency (a recorded decision)?
 - Untrusted data reaching a shell, a path, a URL or a log?
 - A wall clock, randomness or environment read in decision logic?

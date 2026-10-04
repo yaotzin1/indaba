@@ -1,6 +1,6 @@
 ---
 name: security-guard
-description: Use when adding or upgrading a dependency, editing composer.json or composer.lock, changing what the dist archive contains, or touching CI secrets and the release workflow. Covers runtime dependency policy, Composer plugins and scripts, the lockfile and archive contents. Scope: Runtime dependency policy, composer audit, Composer plugins and scripts, the lockfile, what the dist archive contains, CI and release secrets
+description: Use when adding or upgrading a dependency, editing a package.json or pnpm-lock.yaml, changing what an npm package publishes, or touching CI secrets and the release workflow. Covers runtime dependency policy, install scripts, the lockfile and published files. Scope: Runtime dependency policy, pnpm audit, install scripts, the lockfile, what each npm package publishes, CI and release secrets and provenance
 ---
 
 # security-guard

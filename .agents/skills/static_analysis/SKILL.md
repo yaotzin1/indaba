@@ -1,46 +1,59 @@
 ---
 name: static_analysis
-description: Use when PHPStan or PHP-CS-Fixer fails, when typing arrays, generics or callbacks, when tempted to ignore an analyser error, or when changing phpstan.neon. Covers level 9 with no ignoreErrors and PER-CS 2.0.
+description: Use when tsc or Biome fails, when typing unknown data, generics or callbacks, when tempted to suppress a compiler or lint error, or when changing tsconfig.base.json or biome.json. Covers strict TypeScript with no escape hatch.
 ---
 
 # Static Analysis Specialist
 
-`composer stan` runs PHPStan at **level 9 over `src` and `tests`**. `composer cs` checks
-PHP-CS-Fixer with the PER-CS 2.0 ruleset; `composer cs:fix` applies it. Both in Docker.
+`pnpm typecheck` runs `tsc` over every package's `src` and `test` with the flags in
+`tsconfig.base.json`. `pnpm lint` runs Biome (`pnpm lint:fix` applies its fixes and import order).
+Both are part of `pnpm qa`, on any OS.
 
-## The rule: no ignoring
+## The flags that stand in for "level 9"
 
-`phpstan.neon` has no `ignoreErrors`, no baseline include and no `reportUnmatchedIgnoredErrors: false`,
-and source has no `@phpstan-ignore`. `scripts/security-audit.mjs` fails the commit if any appears.
-An error is information: the type is wrong, or the analyser cannot see it and you can help it see.
+`strict`, `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`,
+`noImplicitOverride`, `noFallthroughCasesInSwitch`, `isolatedModules`. `scripts/security-audit.mjs`
+and `scripts/check-workflow.mjs` fail when one is switched off, and when `allowJs` or `checkJs` appear.
+
+## The rule: no escape hatch
+
+No `any`, no `!` non-null assertion, and no suppression comment of any tool: `@ts-ignore`,
+`@ts-expect-error`, `@ts-nocheck`, `biome-ignore`, `eslint-disable`. Biome has `noExplicitAny`,
+`noTsIgnore` and `noNonNullAssertion` at `error`, and `biome.json` has no rule turned off to make a
+file pass. An error is information: the type is wrong, or the compiler cannot see it and you can help
+it see.
 
 ## Fix it properly
 
-| Analyser says | Do this |
+| The compiler says | Do this |
 | :--- | :--- |
-| `array` with no value type | `list<Step>`, `array<string, string>`, or a value object |
-| mixed from `Yaml::parse` or `json_decode` | validate at the boundary into a typed object, throwing `WorkflowValidationException` on a bad shape; assert once, trust after |
-| a nullable you know is set | restructure so it cannot be null (constructor, early return), not `assert()` sprinkled around |
-| callable shape | `callable(string): int` in the docblock, or a small interface |
-| generic collections | `@template` and `@param Collection<T>` in the docblock |
+| `unknown` from `yaml`, `JSON.parse` or `fetch` | validate at the boundary into a typed object, throwing `WorkflowValidationError` (or a `RunnerError`) on a bad shape; narrow once, trust after |
+| `possibly undefined` from an index or `Map.get` | handle the absent case (early return, default, a thrown error naming the key), not `!` |
+| an optional property rejected under `exactOptionalPropertyTypes` | omit the key (`...(x !== undefined ? { x } : {})`) instead of assigning `undefined` |
+| a callback shape | a named function type or a small interface, e.g. `type Listener<E> = (event: E) => Promise<void>` |
+| a union you must handle fully | a `switch` over the discriminant ending in a `never` assertion helper |
+| a type used only as a type | `import type`, as `verbatimModuleSyntax` and Biome require |
 | dead code | delete it |
-| `Process::getOutput()` etc. | wrap in a small typed class so the rest of the code is typed |
+| `child_process` or `fetch` results | wrap in a small typed class so the rest of the code is typed |
 
-`assert()` and `instanceof` checks are fine at a boundary where data enters. `@var` overrides are not:
-they are an ignore in disguise.
+Type predicates (`value is Foo`) and `instanceof` checks are fine at a boundary where data enters.
+`as` casts are not a fix: a cast that widens or asserts a shape you did not check is a suppression in
+disguise; the audit flags `as any`.
 
 ## Style
 
-`declare(strict_types=1);`, `final` classes, `readonly` where possible, constructor promotion, native
-enums, `match` over `switch`, no `else` after `return`, trailing commas in multiline lists. The fixer
-decides formatting; do not argue with it by hand.
+Biome decides formatting (2 spaces, single quotes, semicolons, trailing commas, 110 columns, LF); do
+not argue with it by hand. Prefer `readonly` properties and interfaces, `const` objects with a union
+type over `enum`, `Error` subclasses with `cause`, relative imports with a `.js` extension, and no
+default exports.
 
 ## When a rule is genuinely wrong
 
-Change the configuration in a reviewed commit that carries `Workflow-Change: <why>` (the file is
-protected) and update this skill. Lowering the level is never that.
+Change the configuration in a reviewed commit that carries `Workflow-Change: <why>` (the files are
+protected) and update this skill. Switching a strictness flag off is never that.
 
-## Upgrading PHPStan
+## Upgrading the toolchain
 
-A major PHPStan upgrade can add findings. Fix them in the upgrade change, on the chore track when no
-behaviour changes, and update `project.toolchain` in `workflow.ai.yml`.
+A major TypeScript or Biome upgrade can add findings. Fix them in the upgrade change, on the chore
+track when no behaviour changes, and update `project.toolchain` in `workflow.ai.yml` (the checker
+compares the majors with the root `package.json`).

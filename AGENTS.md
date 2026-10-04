@@ -6,29 +6,28 @@ file; the cycle section below is generated from it.
 ## 1. What this project is
 
 Indaba is a deterministic orchestration, debate and observability engine for multi-agent AI
-workflows, in PHP 8.4+, MIT licensed. The founding requirement is `docs/vision.md`. It provides:
-a workflow DAG with quality gates, a mesh where agents cross-examine each other to consensus,
-unified runners (CLI PTY, OpenRouter SSE, shell), git-worktree isolation, and OpenTelemetry GenAI
-traces with token and cost accounting.
+workflows, in TypeScript for Node 22+, MIT licensed. The founding requirement is `docs/vision.md`
+(its PHP and Symfony references are superseded by `specs/typescript-port/`). It provides: a workflow
+DAG with quality gates, a mesh where agents cross-examine each other to consensus, unified runners
+(agent CLIs, OpenRouter SSE, shell), git-worktree isolation, and OpenTelemetry GenAI traces with
+token and cost accounting. It is distributed as the npm packages `indaba` (the CLI), `@indaba/core`,
+`@indaba/engine` and `@indaba/runners`.
 
 **Two different `workflow.ai.yml`s.** The one at the root of this repository is the *development*
 workflow: how agents and people change Indaba. It is not the file format Indaba executes (that
-contract is in `docs/vision.md`, section 4, and `docs/`). They share a name and nothing else.
-Running this repository's own stages with Indaba is a future goal and a non-goal today.
+contract is in `docs/workflow-format.md`). They share a name and nothing else. Running this
+repository's own stages with Indaba is a future goal and a non-goal today.
 
 ## 2. Repository map
 
 | Path | Holds |
 | :--- | :--- |
-| `src/Core/` | exceptions and shared types: pure domain |
-| `src/Workflow/` | `Model`, `Graph`, `State` (pure domain); `Parser`, `Guard`, `Engine` |
-| `src/Mesh/` | `AgentMessage`, `Blackboard`, `ConsensusArbiter`, `PingPongDetector`: pure domain |
-| `src/Runners/` | `RunnerInterface`, the runners, `RunnerRegistry`, `SseParser` |
-| `src/Workspace/` | `Git`, `GitWorktreeManager` |
-| `src/Observability/` | `Tracer`, `Span`, `TokenUsage`, `PricingTable` |
-| `src/Console/` | Symfony Console commands, the composition root; `bin/indaba` |
-| `tests/Unit/` | unit tests, mirroring `src/`; `tests/Unit/Architecture/` guards the boundary |
-| `scripts/` | Node gates: validation, doc sync, workflow and security checks, hooks |
+| `packages/core/` | `@indaba/core`: the pure domain, no dependencies, no `node:` import. Workflow model, DAG, step state, mesh, `Runner` and `Guard` contracts, `Plugin` and `PluginHost`, tracer and value types |
+| `packages/engine/` | `@indaba/engine`: parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter |
+| `packages/runners/` | `@indaba/runners`: `ShellRunner`, `OpenRouterRunner`, the agent CLI runners, `RunnerRegistry`, `SseParser` |
+| `packages/cli/` | `indaba`: `run`, `plan`, `validate`, plugin loading, the composition root; `bin: indaba` |
+| `packages/*/test/` | Vitest tests; `core/test/architecture.test.ts` and `*/test/layers.test.ts` guard the boundaries |
+| `scripts/` | Node gates: validation, doc sync, workflow and security checks, hooks, the packed-install smoke test |
 | `specs/` | one directory per feature: spec, API surface, review, plus optional artifacts |
 | `docs/` | `vision.md`, and the user documentation (index: `docs/README.md`) |
 | `.agents/` | canonical skills and rules |
@@ -36,47 +35,55 @@ Running this repository's own stages with Indaba is a future goal and a non-goal
 
 ## 3. Commands
 
-PHP 8.4 is **not installed on the host**. It runs only in the Docker image:
+Node 22 and pnpm 9 on any OS (Windows included); nothing else is needed on the host:
 
 ```bash
-docker compose run --rm php composer install
-docker compose run --rm php composer qa          # cs, stan (level 9), test
-docker compose run --rm php composer test        # one gate; also stan, cs, cs:fix
-docker compose run --rm php vendor/bin/phpunit --filter Name
+pnpm install
+pnpm qa                                  # biome, tsc strict, vitest
+pnpm test                                # one gate; also lint, typecheck, lint:fix, build
+pnpm vitest run packages/core -t "name"  # a single test
+pnpm smoke                               # the packed install (after pnpm build)
 
-node scripts/install-hooks.mjs                   # once per clone
-node scripts/check-workflow.mjs                  # the node gates run on the host
+node scripts/install-hooks.mjs           # once per clone
+node scripts/check-workflow.mjs          # the node gates
 ```
 
-`composer qa` plus the node gates is the definition of done. Report their actual output.
+`pnpm qa` plus the node gates is the definition of done. Report their actual output.
 
 ## 4. The rules that are easiest to skip
 
-**The domain imports no framework.** `src/Core`, `src/Workflow/Model|Graph|State` and `src/Mesh` use
-no Symfony class. `tests/Unit/Architecture/BoundaryTest.php` fails the build.
+**The domain imports no `node:` module.** `packages/core/src` imports only itself.
+`packages/core/test/architecture.test.ts` fails the build; the `layers.test.ts` files do the same
+for engine and runners.
 
-**PHPStan level 9, no ignoring.** No `ignoreErrors`, no baseline, no `@phpstan-ignore`. Fix the type.
+**TypeScript strict, no escape hatch.** No `any`, no `!` non-null assertion, no `@ts-ignore`,
+`@ts-expect-error`, `biome-ignore` or `eslint-disable`. Fix the type.
 
 **Determinism.** Decision logic gets the clock, ids and configuration injected; it reads no
-`time()`, `random_int()` or `getenv()`.
+`Date.now()`, `Math.random()` or `process.env`.
 
-**Untrusted data never reaches a shell, a path or a log.** Argument arrays only; paths are confined
-to their root; secrets are in no trace, event, exception or artifact. `eval`, the shell functions,
-backticks, `@` and `unserialize` of untrusted data are banned and
+**Untrusted data never reaches a shell, a path or a log.** Argument arrays only (`spawn`, never a
+shell string); paths are confined to their root; secrets are in no trace, event, exception or
+artifact. `eval`, `new Function`, `vm`, `exec`, `execSync` and `shell: true` are banned and
 `scripts/security-audit.mjs` blocks the commit.
 
 **Retries are isolated and bounded**: the next prompt carries only the last failure.
+
+**Extension contracts live in `@indaba/core`.** A runner, a guard type or a listener is added through
+`Plugin` and `PluginHost` without editing core, engine or runners; built-ins get no privileged access.
 
 **Classify the semver impact before writing the code.** A changed default, workflow field meaning,
 CLI option, event or span attribute is a major. See `.agents/skills/api_surface/SKILL.md`.
 
 **Every feature has `specs/<name>/`**, and every commit declares `Track: feature|fix|chore|release`,
 checked by `scripts/check-track.mjs`. A commit touching the workflow, its checks, the hooks, CI or
-the analyser configuration also carries `Workflow-Change: <why>`.
+the compiler and linter configuration also carries `Workflow-Change: <why>`.
 
 **GitHub flow, `main` is protected.** Never commit or push to `main`. Branch (`feat/`, `fix/`, `chore/`,
 `docs/`, `release/`), open a pull request, and squash-merge when every check in `ci.required_checks`
 is green. No direct pushes for anyone, administrators included; see `.agents/skills/branching`.
+
+**Nothing is published or tagged unless the maintainer asks.** A pushed `v*` tag publishes to npm.
 
 ## 5. Agent skills
 
@@ -127,24 +134,24 @@ adds. Never move down to skip them. The stages, and which skill leads each, are 
 
 ### Blocking gates before a commit
 
-A real git hook: run `node scripts/install-hooks.mjs` once per clone. The pure-Node gates always run, the PHP
-toolchain gates run through Docker when it is available (and say loudly when skipped), and CI enforces all of them.
+A real git hook: run `node scripts/install-hooks.mjs` once per clone. The pure-Node gates and the toolchain gate (`pnpm qa`)
+all run on the host, on any OS; a missing `node_modules` fails the hook instead of skipping the gate, and CI enforces all of them.
 
 - **Skills Syntax & Security Validation** — `node scripts/validate-skills.mjs`
 - **Claude Code Skill Pointer Sync** — `node scripts/sync-claude-skills.mjs --check`
 - **Operating Cycle Mirrored Into AGENTS.md** — `node scripts/sync-agent-docs.mjs --check`
 - **Workflow Claims Match the Repository** — `node scripts/check-workflow.mjs`
-- **Security Audit (banned constructs, secrets, phpstan.neon, composer.json)** — `node scripts/security-audit.mjs --source`
+- **Security Audit (banned constructs, secrets, manifests, tsconfig, biome.json)** — `node scripts/security-audit.mjs --source`
 - **Script Self-Tests** — `node --test scripts/*.test.mjs`
-- **PHP Quality Gate (PHP-CS-Fixer, PHPStan level 9, PHPUnit)** — `composer qa`
+- **Quality Gate (Biome, tsc strict, Vitest)** — `pnpm qa`
 - **Commit Declares Its Track and Matches It** — `node scripts/check-track.mjs`
 
 ### Architectural rules
 
 One line each. The reason and what enforces it are in `.agents/rules/workflow_rules.md`.
 
-- The core is framework-agnostic.
-- PHPStan runs at level 9 with zero errors and no ignoreErrors: not in phpstan.neon, not as a baseline file, not as an inline @phpstan-ignore comment.
+- The core is framework-agnostic and platform-agnostic.
+- TypeScript runs strict with no escape hatch.
 - The engine is deterministic.
 - Retry-loop isolation.
 - One runner contract.
@@ -155,7 +162,9 @@ One line each. The reason and what enforces it are in `.agents/rules/workflow_ru
 - Every feature has a specs/&lt;feature-name&gt;/ directory containing spec.md, api-surface.md and review.md.
 - Runtime dependencies are a recorded decision.
 - Public API changes are classified before they are written.
-- PHP runs in Docker.
+- Extension contracts live in @indaba/core, and built-ins get no privileged access.
+- One command, any OS.
+- Nothing is published or tagged unless the maintainer asks.
 - Repository documentation moves with the change: AGENTS.md, README.md, CHANGELOG.md and specs/DEPENDENCY_MAP.md whenever the public surface, the architecture or the release contents change, and the files under docs/ in...
 - No invented numbers.
 

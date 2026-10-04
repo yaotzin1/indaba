@@ -1,5 +1,11 @@
 # Specification: Command line interface
 
+> **Superseded implementation language.** This spec was written for the PHP prototype, which was never
+> published. Behaviour is unchanged by the TypeScript port; class, method and field names follow
+> [`specs/typescript-port/api-surface.md`](../typescript-port/api-surface.md) (for example
+> `RunnerInterface` is `Runner`, `*Exception` is `*Error`, fields are camelCase). Where this text names a
+> PHP, Composer, Symfony or Docker detail, read the Node and TypeScript equivalent.
+
 > **Status**: Implemented in the initial commit; specified retroactively. The founding requirement
 > names `symfony/console` but does not describe commands, so what follows is taken from the code that
 > exists and must be confirmed in review.

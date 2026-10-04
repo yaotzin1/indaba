@@ -25,21 +25,21 @@ Stages run, and any skipped with the reason:
 - [ ] minor: additions only
 - [ ] major: a signature, a default, a workflow field's meaning, a CLI option, an event or span attribute changed
 
-Public classes, workflow fields, CLI options, events and attributes added, changed or removed:
+Exports, workflow fields, CLI options, events and attributes added, changed or removed:
 
 ## Verification
 
 <!-- Paste what it printed, not a summary of it. -->
 
 ```
-docker compose run --rm php composer qa
+pnpm qa
 ```
 
-- [ ] `composer qa` green (PHP-CS-Fixer, PHPStan level 9 with no ignores, PHPUnit), run in Docker
-- [ ] `composer audit` clean
+- [ ] `pnpm qa` green (Biome, tsc strict with no suppressions, Vitest), and the operating system it ran on named
+- [ ] `pnpm audit --audit-level low` clean
 - [ ] the node gates green (`validate-skills`, `sync-*`, `check-workflow`, `security-audit`, script tests)
-- [ ] `git archive HEAD | tar -t` lists nothing from `tests`, `specs`, `.agents`, `.indaba`, if packaging changed
-- [ ] `node scripts/check-workflow.mjs --remote`, if CI job names or the PHP matrix changed
+- [ ] `pnpm build && pnpm smoke` passes, if packaging or an exported name changed (the packed install boots)
+- [ ] `node scripts/check-workflow.mjs --remote`, if CI job names or the os matrix changed
 
 ## Self-review
 

@@ -1,5 +1,10 @@
 # Specification: Web application (React)
 
+> **Retargeting needed.** This spec assumes the PHP/Symfony implementation. The core is now importable
+> TypeScript (`@indaba/core`, `@indaba/engine`, `@indaba/runners`; see
+> [`specs/typescript-port/`](../typescript-port/spec.md)), which changes the options this spec weighed. It
+> must be re-specified against that stack before any implementation starts.
+
 > **Status**: Draft. **Specification only: nothing in this directory is implemented, and this change
 > adds no code.** Implementation starts only after this spec is clarified and accepted.
 > **Stage entry**: 1

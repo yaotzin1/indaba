@@ -1,6 +1,6 @@
 ---
 name: extensibility
-description: Use when deciding how a third party extends Indaba, adding an extension point, or checking that a built-in has no access an external runner, guard or listener lacks. Covers the contracts that are extension points and the no-privileged-access rule. Scope: The contracts third parties extend (runners, guards, PSR-14 listeners, pricing, exporters), the no-privileged-access rule, extensions failing alone
+description: Use when deciding how a third party extends Indaba, adding an extension point, or checking that a built-in has no access an external runner, guard or listener lacks. Covers the contracts that are extension points and the no-privileged-access rule. Scope: The contracts third parties extend through the Plugin and PluginHost in @indaba/core (runners, guard types, event listeners), the no-privileged-access rule, extensions failing alone
 ---
 
 # extensibility

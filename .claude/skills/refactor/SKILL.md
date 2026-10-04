@@ -1,6 +1,6 @@
 ---
 name: refactor
-description: Use when restructuring code without changing behaviour, splitting an overgrown class, moving code across the domain boundary, or deprecating a public symbol. Covers keeping tests green at every step and the semver cost of moving things. Scope: Behaviour-preserving change, splitting an overgrown class, deprecating a public symbol without breaking it
+description: Use when restructuring code without changing behaviour, splitting an overgrown class, moving code across the domain boundary, or deprecating a public symbol. Covers keeping tests green at every step and the semver cost of moving things. Scope: Behaviour-preserving change, splitting an overgrown module or class, deprecating a public symbol without breaking it
 ---
 
 # refactor

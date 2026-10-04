@@ -1,0 +1,30 @@
+{
+  "name": "indaba",
+  "version": "0.1.0-alpha.0",
+  "description": "Deterministic orchestration, debate and observability engine for multi-agent AI workflows.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "!dist/.tsbuildinfo"
+  ],
+  "sideEffects": false,
+  "bin": {
+    "indaba": "./dist/bin.js"
+  },
+  "dependencies": {
+    "@indaba/core": "workspace:*",
+    "@indaba/engine": "workspace:*",
+    "@indaba/runners": "workspace:*"
+  }
+}
