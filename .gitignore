@@ -12,3 +12,6 @@
 node_modules/
 /packages/*/dist/
 *.tsbuildinfo
+.stryker/
+coverage/
+coverage-tmp/

@@ -12,14 +12,20 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
-    "qa": "pnpm lint && pnpm typecheck && pnpm test",
+    "coverage": "vitest run --coverage",
+    "e2e": "pnpm build && vitest run --config vitest.e2e.config.ts",
+    "mutation": "stryker run",
+    "qa": "pnpm lint && pnpm typecheck && pnpm coverage",
     "smoke": "node scripts/smoke-pack.mjs",
     "try:agent": "node scripts/try-agent.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "4.1.9",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.3"
+    "vitest": "^4.1.9"
   }
 }

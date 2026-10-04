@@ -9,7 +9,8 @@
       "tsconfig.base.json",
       "biome.json",
       "!**/dist",
-      "!**/node_modules"
+      "!**/node_modules",
+      "!**/.stryker"
     ]
   },
   "formatter": {

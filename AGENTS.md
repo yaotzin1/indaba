@@ -39,7 +39,9 @@ Node 22 and pnpm 9 on any OS (Windows included); nothing else is needed on the h
 
 ```bash
 pnpm install
-pnpm qa                                  # biome, tsc strict, vitest
+pnpm qa                                  # biome, tsc strict, vitest with the 85% coverage floor
+pnpm e2e                                 # build, then run the built CLI end to end
+pnpm mutation                            # StrykerJS, tens of minutes; weekly in CI
 pnpm test                                # one gate; also lint, typecheck, lint:fix, build
 pnpm vitest run packages/core -t "name"  # a single test
 pnpm smoke                               # the packed install (after pnpm build)
@@ -166,6 +168,7 @@ One line each. The reason and what enforces it are in `.agents/rules/workflow_ru
 - One command, any OS.
 - Nothing is published or tagged unless the maintainer asks.
 - Repository documentation moves with the change: AGENTS.md, README.md, CHANGELOG.md and specs/DEPENDENCY_MAP.md whenever the public surface, the architecture or the release contents change, and the files under docs/ in...
+- Everything is tested, and coverage is at least 85% on statements, branches, functions and lines, measured by Vitest with the v8 provider over packages/*/src.
 - No invented numbers.
 
 <!-- END GENERATED: ai-workflow-cycle -->
