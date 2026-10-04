@@ -107,3 +107,15 @@ runners and CLI build on them.
 - `StepState` keeps the accessor methods `status()`, `attempts()`, `reason()`.
 - Extra exports: `canTransition`, `isTerminalStatus`, `SHELL_RUNNER`, `DEFAULT_TIMEOUT_SECONDS`, `RunnerParticipant` and the option and attribute types.
 - `McpUnavailableError` and `WorkflowValidationError` carry `problems` and keep the PHP message format.
+
+## Amendment: extension without touching core (maintainer request)
+
+Core owns every contract a third party implements; engine, runners and the CLI only compose them.
+
+- `@indaba/core` gains `Guard` (`readonly type: string; check(def, workdir): Promise<GuardResult>`), `GuardResult` (`pass()`, `fail(message)`, `passed`, `message`), `Plugin` (`name`, `register(host)`) and `PluginHost` (`registerRunner`, `registerGuard`, `addListener`). These move out of `@indaba/engine`.
+- `GuardDefinition.type` is an open `string`; the `GuardType` const lists only the built-ins. The engine's parser validates a guard type against the `GuardRegistry` it was given, so a plugin's guard type is a valid workflow value. Runner names were already open strings resolved by `RunnerRegistry`.
+- `@indaba/engine` exports `GuardRegistry` and `GitDiffEmptyGuard` (implementing core's `Guard`), but not `Guard` or `GuardResult`.
+- `indaba` (CLI) loads plugins: `createEngine({ plugins })` and the repeatable option `--plugin <module-specifier-or-path>` on `run`, `plan` and `validate`; a plugin module default-exports a `Plugin`. The built-in runners and the git-diff guard register through the same `PluginHost`.
+- Semver: additive, same major as the port.
+
+Acceptance criterion added to the spec: **AC-11** a test registers a runner, a guard type and a listener from outside the core, engine and runners packages, and runs a workflow that uses all three without editing any of them.

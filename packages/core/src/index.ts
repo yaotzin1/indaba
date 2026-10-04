@@ -6,6 +6,8 @@ export {
   WorkflowValidationError,
   WorkspaceError,
 } from './errors/index.js';
+export type { Guard, Plugin, PluginHost } from './extension/index.js';
+export { GuardResult } from './extension/index.js';
 export { Blackboard } from './mesh/blackboard.js';
 export type { ConsensusArbiterOptions, Participant } from './mesh/consensus.js';
 export { ConsensusArbiter, ConsensusOutcome, ConsensusResult, PingPongDetector } from './mesh/consensus.js';

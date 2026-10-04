@@ -15,10 +15,11 @@ export const FailureAction = {
 } as const;
 export type FailureAction = (typeof FailureAction)[keyof typeof FailureAction];
 
+/** Guard types Indaba ships. A guard type is an open string: a plugin registers its own without touching core. */
 export const GuardType = {
   GitDiffEmpty: 'git_diff_empty',
 } as const;
-export type GuardType = (typeof GuardType)[keyof typeof GuardType];
+export type GuardType = string;
 
 export const Isolation = {
   None: 'none',

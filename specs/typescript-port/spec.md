@@ -40,6 +40,7 @@ runners. That needs no new engine feature, only a runtime that runs where the us
 - [ ] AC-08: every PHP file, `composer.*`, `Dockerfile`, `docker-compose.yml`, `phpstan.neon`, `phpunit.xml.dist` and `vendor/` is gone from the repository.
 - [ ] AC-09: the CI matrix runs `pnpm qa` and the node gates on Windows, Linux and macOS.
 - [ ] AC-10: `npm pack` of the `indaba` package installs and boots `indaba --version` in a clean directory (smoke test).
+- [ ] AC-11: a test registers a runner, a guard type and a listener from outside the core, engine and runners packages, and runs a workflow using all three without editing any of them (see `api-surface.md`, "extension without touching core").
 
 ## 4. Non-goals
 
