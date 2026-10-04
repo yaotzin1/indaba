@@ -4,10 +4,23 @@
   "description": "Indaba runners: shell, OpenRouter SSE, and agent CLIs (Claude, Codex, Cursor, Antigravity).",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
-  "dependencies": { "@indaba/core": "workspace:*" },
-  "optionalDependencies": { "node-pty": "^1.1.0" }
+  "dependencies": {
+    "@indaba/core": "workspace:*"
+  },
+  "optionalDependencies": {
+    "node-pty": "^1.1.0"
+  }
 }

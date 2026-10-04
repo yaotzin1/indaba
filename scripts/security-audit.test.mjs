@@ -110,6 +110,8 @@ test('flags eval, string exec, the shell option, the vm module, any and non-null
     assert.ok(ts("import vm from 'node:vm';").includes('ts/vm'));
     assert.ok(ts(`const x: ${tsAny} = 1;`).includes('ts/any'));
     assert.ok(ts('const x = map.get(k)!.value;').includes('ts/non-null-assertion'));
+    assert.ok(ts(`cp.${execFn}('ls');`).includes('ts/exec-string'));
+    assert.deepEqual(ts(`const m = /a/.${execFn}(s);`), []);
     assert.deepEqual(ts('const ok = a !== b && !c;'), []);
     assert.deepEqual(ts(`// ${eva}() and ${tsAny} are fine in a comment`), []);
 });

@@ -213,7 +213,7 @@ export const TS_RULES = [
     { id: 'ts/vm', pattern: /from\s+['"](?:node:)?vm['"]|require\s*\(\s*['"](?:node:)?vm['"]/, message: 'The vm module executes strings as code.', raw: true },
     {
         id: 'ts/exec-string',
-        pattern: /(?<![\w$])(?:exec|execSync)\s*\(/,
+        pattern: /(?<![\w$.])(?:exec|execSync)\s*\(|\b(?:child_process|childProcess|cp)\s*\.\s*(?:exec|execSync)\s*\(/,
         message: 'A command given as a string goes through a shell. Use spawn or execFile with an argument array.',
     },
     { id: 'ts/shell-true', pattern: /\bshell\s*:\s*true\b/, message: 'shell: true parses the command line with a shell. Use an argument array.' },

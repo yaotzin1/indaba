@@ -89,3 +89,21 @@ Every PHP symbol keeps its name unless listed under renames. All packages: ESM, 
 - [ ] Extension points are interfaces; implementations are not meant to be subclassed
 - [ ] No `any`, no non-null assertion, no suppression comment
 - [ ] `pnpm typecheck` passes
+
+## Amendment after `@indaba/core` was built (stage 3 revisited)
+
+The core port found these points the first draft left open. They are now the contract; engine,
+runners and CLI build on them.
+
+- `IdGenerator.next(hexLength: number): string`: 32 for a trace id, 16 for a span id.
+- `Tracer`: `new Tracer(clock, events, ids, pricing = new PricingTable())`; `startTrace`, `startSpan` and `endSpan` are async (event dispatch is async); `recordUsage` is sync.
+- `Participant` has `readonly role: string` and async `respond`. `RunnerParticipant` lives in core (it only uses `Runner`).
+- `ConsensusArbiter`: `new ConsensusArbiter({ maxRounds?, pingPong? })`, async `deliberate`.
+- `DagBuilder.build()` replaces `sort()`; `ancestorsOf` and `descendantsOf` are kept. A cycle or unknown dependency throws `WorkflowValidationError`.
+- Model types require their defaulted collections; `defineStep(partial)` fills the defaults; `isShellStep`, `isConsensusStep`, `stepOf` and `roleOf` replace the PHP methods.
+- `RunResult` is built from an init object: `new RunResult({ exitCode, output, ... })`. `PricingTable.costUsd` returns `undefined` for an unknown model.
+- `AgentMessage.fingerprint()` is `type:normalisedContent` (no hash; core imports no `node:` module).
+- `SimpleEventDispatcher` (core): `addListener(EventClass, listener)`, sequential, listener errors reported through an optional constructor callback and never thrown.
+- `StepState` keeps the accessor methods `status()`, `attempts()`, `reason()`.
+- Extra exports: `canTransition`, `isTerminalStatus`, `SHELL_RUNNER`, `DEFAULT_TIMEOUT_SECONDS`, `RunnerParticipant` and the option and attribute types.
+- `McpUnavailableError` and `WorkflowValidationError` carry `problems` and keep the PHP message format.

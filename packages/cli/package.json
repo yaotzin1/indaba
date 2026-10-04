@@ -4,10 +4,25 @@
   "description": "Deterministic orchestration, debate and observability engine for multi-agent AI workflows.",
   "license": "MIT",
   "type": "module",
-  "engines": { "node": ">=22" },
-  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
-  "files": ["dist"],
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
   "sideEffects": false,
-  "bin": { "indaba": "./dist/bin.js" },
-  "dependencies": { "@indaba/core": "workspace:*", "@indaba/engine": "workspace:*", "@indaba/runners": "workspace:*" }
+  "bin": {
+    "indaba": "./dist/bin.js"
+  },
+  "dependencies": {
+    "@indaba/core": "workspace:*",
+    "@indaba/engine": "workspace:*",
+    "@indaba/runners": "workspace:*"
+  }
 }

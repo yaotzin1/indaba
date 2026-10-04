@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "packageManager": "pnpm@9.15.1",
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "scripts": {
     "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
