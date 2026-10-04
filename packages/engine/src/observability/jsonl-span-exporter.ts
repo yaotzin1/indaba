@@ -7,7 +7,7 @@ const TRACE_ID = /^[0-9a-f]+$/;
 
 /**
  * Appends every ended span to `<dir>/<traceId>.jsonl`. Register `onSpanEnded` as a SpanEnded
- * listener. The record shape matches the PHP exporter. Spans only ever carry names and counts
+ * listener. The record shape is the documented trace format. Spans only ever carry names and counts
  * (the engine records MCP server names, never definitions), so nothing is redacted here.
  */
 export class JsonlSpanExporter {

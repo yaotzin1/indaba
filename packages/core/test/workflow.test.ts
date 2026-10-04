@@ -93,7 +93,7 @@ describe('model helpers and errors', () => {
     expect(isConsensusStep(defineStep({ id: 'a', decisionType: 'majority' }))).toBe(true);
   });
 
-  it('looks up steps and roles or fails with the PHP messages', () => {
+  it('looks up steps and roles or fails with the documented messages', () => {
     const wf = workflow({ a: [] });
     expect(stepOf(wf, 'a').id).toBe('a');
     expect(() => stepOf(wf, 'zz')).toThrow('Unknown step "zz".');

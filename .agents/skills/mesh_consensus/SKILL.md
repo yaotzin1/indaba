@@ -6,44 +6,51 @@ description: Use when changing AgentMessage envelopes, the blackboard, turn-taki
 # Agent Mesh & Consensus Specialist
 
 The mesh is where heterogeneous agents cross-examine each other. Its value is that the outcome of a
-debate is a pure function of the messages, so it can be tested, replayed and audited.
+debate is a pure function of the messages, so it can be tested, replayed and audited. It lives in
+`packages/core/src/mesh` and so imports no `node:` module.
 
 ## Messages are immutable envelopes
 
-`Mesh\AgentMessage` is a `final readonly` value object: id, sender role, optional recipient,
-`MessageType` (`PROPOSAL`, `CRITIQUE`, `AGREEMENT`, `QUESTION`, `TOOL_INTENT`), content, a reference
-to the message it answers, and the timestamp **passed in by the caller** (from the injected clock). A
-message is never edited; a correction is a new message.
+`AgentMessage` has `readonly` fields: sender role, `MessageType` (`PROPOSAL`, `CRITIQUE`,
+`AGREEMENT`, `QUESTION`, `TOOL_INTENT`), content, and the round it was posted in. A message is never
+edited; a correction is a new message. `AgentMessage.fromReply(sender, reply, round)` parses a
+model's reply: a leading type keyword sets the type, and anything else is a `PROPOSAL`, which can
+never count as approval. Core has no clock in the message; anything time-related is passed in.
 
 ## The blackboard
 
-`Mesh\Blackboard` is an append-only log with read views (by round, by sender, the latest proposal).
+`Blackboard` is an append-only log (`post`, `messages`, `latestBy`, `transcript`) plus named facts.
 It holds no I/O and no clock. It is the single source the arbiter and the detector read, so a debate
 can be reconstructed from it alone.
 
 ## Turn-taking and rounds
 
-Who speaks next is decided by rule, not by who answers first: a round order fixed by the workflow's
-declaration order. A role that does not answer within its deadline records a timeout message type or
-a failed step, per the spec; it does not stall the round.
+Who speaks next is decided by rule, not by who answers first: participants speak in the order given
+(the workflow's declaration order), once per round. A `Participant` is `{ role, respond(topic,
+board, round): Promise<AgentMessage> }`; `RunnerParticipant` adapts a `Runner` to it. A participant
+that fails throws, which fails the step; it does not stall the round.
 
 ## Consensus
 
-`Mesh\ConsensusArbiter` evaluates a quorum over the blackboard: for example unanimous `AGREEMENT`
-from `architect` and `reviewer` on the same proposal id. Rules to keep:
+`ConsensusArbiter` (`new ConsensusArbiter({ maxRounds?, pingPong? })`, default 4 rounds) runs
+`deliberate(topic, participants, decision)` and evaluates the quorum once per full round over each
+participant's latest message. Rules to keep:
 
-- agreement refers to a specific proposal id; an agreement to a superseded proposal does not count;
-- a `CRITIQUE` after an agreement reopens the question;
-- the verdict is `Reached`, `Pending` or `Deadlocked`, with the reason, never a boolean;
-- quorum kinds (unanimous, majority, named roles) are data in `GuardDefinition`/`StepDefinition`,
-  evaluated by the arbiter without a switch on role names.
+- only a participant's **latest** message counts: an `AGREEMENT` followed by a `CRITIQUE` is no
+  longer agreement, so a reopened question is automatic;
+- the quorum comes from `DecisionType`: consensus needs every participant, majority needs strictly
+  more than half;
+- the outcome is `reached`, `stalled` or `max_rounds_exceeded`, never a boolean, and
+  `ConsensusResult.openObjections()` says what is unresolved;
+- the quorum kind is data in the step definition, evaluated without a switch on role names.
 
 ## Ping-pong detection
 
-`Mesh\PingPongDetector` recognises a debate that is not converging: the same two roles trading
-messages whose content repeats (normalised, then compared by hash) or whose proposal id never
-advances, past a bound. Detection ends the debate with an escalation. Bound every loop: a round
-limit, a message limit, a repeat limit. An unbounded debate is a cost incident.
+`PingPongDetector.isStalled(messages, participants)` recognises a debate that is not converging:
+with N participants, the last N messages repeat the N before them (compared by
+`AgentMessage.fingerprint()`, whitespace- and case-normalised). Detection ends the debate with
+`stalled`. Core has no crypto, so the fingerprint is the normalised text, compared for equality
+only. Bound every loop: a round limit, a repeat check. An unbounded debate is a cost incident.
 
 ## TOOL_INTENT
 
@@ -52,5 +59,6 @@ through the engine and a runner, under the same guards as any step. The mesh nev
 
 ## Testing
 
-Table-driven: a list of message sequences and the expected verdict. Include the deadlock, the
-reopened agreement, the stale agreement and the repeated-critique loop.
+Table-driven Vitest cases in `packages/core/test/mesh.test.ts`: a list of scripted participants and
+the expected outcome. Include the stalled debate, the reopened agreement, the majority that is one
+short, and the round budget spent. Participants are plain objects, so no runner is needed.

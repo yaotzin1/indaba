@@ -1,6 +1,6 @@
 ---
 name: qa
-description: Use when writing or changing PHPUnit tests, choosing what to assert, building fakes for runners, the clock or git, or when a test is flaky. Covers contract-first and deterministic testing for Indaba. Scope: PHPUnit 11, contract-first tests, fakes for runners and the clock, deterministic engine tests, git fixtures, what to assert
+description: Use when writing or changing Vitest tests, choosing what to assert, building fakes for runners, the clock or git, or when a test is flaky. Covers contract-first and deterministic testing for Indaba. Scope: Vitest, contract-first tests, fakes for runners and the clock, deterministic engine tests, temporary git repositories as fixtures, what to assert
 ---
 
 # qa

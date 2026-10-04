@@ -11,8 +11,8 @@
 | :--- | :--- |
 | `feature` | a specs/&lt;feature-name&gt;/ directory satisfying spec_kit<br>CHANGELOG.md entry under Unreleased with the semver classification<br>docs/ and README.md updated where the surface appears |
 | `fix` | a test that fails before the fix and passes after it<br>CHANGELOG.md entry under Unreleased, in Fixed<br>if a public signature still changes, its classification in the owning spec's api-surface.md |
-| `chore` | CHANGELOG.md entry only when it reaches a consumer: the PHP floor, a runtime dependency, the files in the dist archive |
-| `release` | CHANGELOG.md section for the version, with its date and the compare links<br>a v&lt;version&gt; tag on the merge commit on main. Pushing it runs .github/workflows/release.yml, which creates the GitHub release, and Packagist picks the tag up by webhook: a pushed tag is a release decision, and it is the maintainer's |
+| `chore` | CHANGELOG.md entry only when it reaches a consumer: the Node floor, a runtime dependency, the files an npm package publishes |
+| `release` | CHANGELOG.md section for the version, with its date and the compare links<br>a v&lt;version&gt; tag on the merge commit on main. Pushing it runs .github/workflows/release.yml, which publishes the packages to npm with provenance and creates the GitHub release: a pushed tag is a release decision, and it is the maintainer's |
 
 ## Stages
 
@@ -22,9 +22,9 @@
 | 2. Clarify — Resolves naming, defaults, failure behaviour and which side of the domain/infrastructure boundary a behaviour sits on. Every default chosen here is a decision a consumer inherits. | `architect`, `api_surface`, `documentation` | `specs/<feature-name>/spec.md (clarifications)` | `.agents/skills/spec_driven_development/SKILL.md` |
 | 3. Plan — Designs the change, the state shape, and the exact public classes, signatures and semver classification. api-surface.md is the contract implementation is written against. | `architect`, `api_surface`, `workflow_engine`, `mesh_consensus`, `runner_adapter`, `workspace_git`, `observability`, `performance`, `documentation` | `specs/<feature-name>/api-surface.md`<br>`specs/<feature-name>/plan.md, data-model.md, research.md, events.md where the feature has one (see spec_kit)` | `.agents/skills/spec_driven_development/SKILL.md` |
 | 4. Tasks — An ordered checklist of testable tasks: domain first, infrastructure second, console and documentation last. | `architect`, `refactor`, `documentation` | `specs/<feature-name>/tasks.md, where the work has more than one step worth tracking` | `.agents/skills/spec_driven_development/SKILL.md` |
-| 5. Analyze — Audits the plan before code: breaking changes without a major, a framework class in the domain, a new runtime dependency, untrusted data reaching a shell, a path or a log, a wall clock in decision logic, an unbounded loop. A failure returns to Plan. | `api_surface`, `application_security`, `security_guard`, `static_analysis`, `performance` | — | `.agents/skills/spec_driven_development/SKILL.md` |
+| 5. Analyze — Audits the plan before code: breaking changes without a major, a node: import in the domain, a new runtime dependency, untrusted data reaching a shell, a path or a log, a wall clock in decision logic, an unbounded loop. A failure returns to Plan. | `api_surface`, `application_security`, `security_guard`, `static_analysis`, `performance` | — | `.agents/skills/spec_driven_development/SKILL.md` |
 | 6. Implement — Writes the change against api-surface.md, tests first. It may be split between a domain agent and an infrastructure agent when the contract is precise enough; an agent that finds the contract wrong stops and reports rather than editing it. | `architect`, `workflow_engine`, `mesh_consensus`, `runner_adapter`, `workspace_git`, `observability`, `application_security` | — | `.agents/rules/agent_orchestration.md` |
-| 7. Verify — Runs docker compose run --rm php composer qa and the node gates end to end and reports their actual output. A failing gate is investigated from its own output; after three failed attempts the plan is wrong, not the code. | `qa`, `smoke_tests`, `static_analysis`, `verification`, `debugger` | — | `.agents/skills/verification/SKILL.md` |
+| 7. Verify — Runs pnpm qa and the node gates end to end and reports their actual output. A failing gate is investigated from its own output; after three failed attempts the plan is wrong, not the code. | `qa`, `smoke_tests`, `static_analysis`, `verification`, `debugger` | — | `.agents/skills/verification/SKILL.md` |
 | 8. Review and ship — The 7-dimension self-review, documentation synchronised with the change, and a pull request whose required CI checks are green before it merges. | `documentation`, `release`, `application_security`, `security_guard`, `api_surface` | `specs/<feature-name>/review.md (feature track), or the review answers in the pull request`<br>`AGENTS.md, README.md, CHANGELOG.md, specs/DEPENDENCY_MAP.md and docs/ where they changed` | `.agents/rules/review.md` |
 
 ## Spec directories
@@ -42,28 +42,28 @@ with no skill discovery of their own get this table, and open the canonical file
 
 | Skill | Claude Code | Applies to |
 | :--- | :--- | :--- |
-| `architect` | `/architect` | The pure domain versus infrastructure boundary, layering, dependency direction, deciding which module a behaviour belongs in |
-| `api_surface` | `/api-surface` | Public classes and interfaces, final and readonly decisions, breaking-change classification, workflow file schema and CLI as public contract, Packagist tags |
+| `architect` | `/architect` | The pure domain versus infrastructure boundary, package layering, dependency direction, deciding which package a behaviour belongs in |
+| `api_surface` | `/api-surface` | Exported types, classes and interfaces, readonly and interface-versus-class decisions, breaking-change classification, workflow file schema and CLI as public contract, npm versions and the packages' exports maps |
 | `workflow_engine` | `/workflow-engine` | The workflow parser and validation, DAG ordering, the step state machine, guards, on_failure and retry-loop isolation, determinism |
 | `mesh_consensus` | `/mesh-consensus` | AgentMessage envelopes, the blackboard, turn-taking, quorum and the consensus arbiter, ping-pong detection |
-| `runner_adapter` | `/runner-adapter` | RunnerInterface, RunRequest and RunResult, PTY CLI runners, the OpenRouter SSE runner, ShellRunner, cancellation, timeouts and the registry |
+| `runner_adapter` | `/runner-adapter` | The Runner contract, RunRequest and RunResult, CLI runners (node-pty with a piped fallback), the OpenRouter SSE runner, ShellRunner, cancellation through AbortSignal, timeouts and the registry |
 | `create_runner` | `/create-runner` | Writing a new runner end to end: the contract, process or HTTP handling, streaming, usage reporting, registration, tests and documentation |
-| `extensibility` | `/extensibility` | The contracts third parties extend (runners, guards, PSR-14 listeners, pricing, exporters), the no-privileged-access rule, extensions failing alone |
+| `extensibility` | `/extensibility` | The contracts third parties extend through the Plugin and PluginHost in @indaba/core (runners, guard types, event listeners), the no-privileged-access rule, extensions failing alone |
 | `create_guard` | `/create-guard` | Adding a workflow guard type end to end: the verdict contract, schema, path confinement, tests and documentation |
 | `workspace_git` | `/workspace-git` | Worktree-per-task isolation, the Git wrapper, diff generation and git apply, deterministic teardown, branch and path safety |
-| `observability` | `/observability` | Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, PSR-14 events and streaming |
-| `qa` | `/qa` | PHPUnit 11, contract-first tests, fakes for runners and the clock, deterministic engine tests, git fixtures, what to assert |
-| `static_analysis` | `/static-analysis` | PHPStan level 9 with no ignoreErrors, PHP-CS-Fixer PER-CS2.0, typing arrays and generics honestly, strict_types |
-| `application_security` | `/application-security` | Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, unserialize and YAML, prompt-injected data reaching a shell. Banned constructs, no exceptions |
-| `security_guard` | `/security-guard` | Runtime dependency policy, composer audit, Composer plugins and scripts, the lockfile, what the dist archive contains, CI and release secrets |
-| `smoke_tests` | `/smoke-tests` | The production install smoke test (git archive, composer install --no-dev, the CLI boots) and the export-ignore archive audit |
+| `observability` | `/observability` | Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, the typed event dispatcher and streaming |
+| `qa` | `/qa` | Vitest, contract-first tests, fakes for runners and the clock, deterministic engine tests, temporary git repositories as fixtures, what to assert |
+| `static_analysis` | `/static-analysis` | TypeScript strict with the extra flags in tsconfig.base.json, Biome with no suppression, no any and no non-null assertion, narrowing unknown honestly, readonly types |
+| `application_security` | `/application-security` | Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, YAML and JSON parsing, prompt-injected data reaching a shell. Banned constructs, no exceptions |
+| `security_guard` | `/security-guard` | Runtime dependency policy, pnpm audit, install scripts, the lockfile, what each npm package publishes, CI and release secrets and provenance |
+| `smoke_tests` | `/smoke-tests` | The packed-install smoke test (pnpm pack, install the tarballs in a clean directory, the CLI boots) and the published-files audit |
 | `performance` | `/performance` | Streaming without buffering whole outputs, process and worktree lifetime, trace volume, measuring before changing |
-| `debugger` | `/debugger` | Reading the actual failure output, running one gate alone in Docker, isolating engine from runner, reproducing a report as a test first |
-| `refactor` | `/refactor` | Behaviour-preserving change, splitting an overgrown class, deprecating a public symbol without breaking it |
-| `documentation` | `/documentation` | Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, docblocks that explain why |
-| `release` | `/release` | Version selection, CHANGELOG entries, tags, the GitHub release workflow, what Packagist reads from a tag |
+| `debugger` | `/debugger` | Reading the actual failure output, running one gate alone, isolating engine from runner, reproducing a report as a test first |
+| `refactor` | `/refactor` | Behaviour-preserving change, splitting an overgrown module or class, deprecating a public symbol without breaking it |
+| `documentation` | `/documentation` | Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, doc comments that explain why |
+| `release` | `/release` | Version selection, CHANGELOG entries, tags, the release workflow that publishes with provenance, what npm receives from a tag |
 | `spec_driven_development` | `/spec-driven-development` | Choosing the track and running a change through specify, clarify, plan, tasks, analyze, implement, verify and ship |
-| `verification` | `/verification` | composer qa in Docker, the node gates, reading a failing gate from its own output, and the manual checks no gate can make |
+| `verification` | `/verification` | pnpm qa, the node gates, reading a failing gate from its own output, and the manual checks no gate can make |
 | `branching` | `/branching` | Branch names, conventional commits and track trailers, squash merging, and what protects main |
 
 ## Required before a pull request merges
@@ -74,5 +74,6 @@ GitHub still requires exactly these with `node scripts/check-workflow.mjs --remo
 - Agent instruction set
 - Track and deliverables
 - Dependency audit
-- Verify on PHP 8.4
-- Verify on PHP 8.5
+- Verify on ubuntu-latest
+- Verify on windows-latest
+- Verify on macos-latest

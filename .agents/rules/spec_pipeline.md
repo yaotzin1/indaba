@@ -6,7 +6,7 @@ Elaborates the `tracks`, `stages` and `spec_kit` sections of `workflow.ai.yml`.
 
 | Track | When | Stages |
 | :--- | :--- | :--- |
-| `feature` | a consumer would notice: a public class, workflow field, guard, runner, CLI option, default, event or span attribute | all eight |
+| `feature` | a consumer would notice: a public export, workflow field, guard, runner, CLI option, default, event or span attribute | all eight |
 | `fix` | restores documented behaviour, with no new surface | implement, verify, review and ship |
 | `chore` | docs, agent instructions, tests, CI, tooling, dev dependencies | verify, review and ship |
 | `release` | the changelog section, the tag | verify, review and ship, then the `release` skill |
@@ -22,7 +22,7 @@ Enforced by `scripts/check-workflow.mjs`. `specs/_template/` holds the full set.
 | File | Stage | Purpose | Required |
 | :--- | :--- | :--- | :--- |
 | `spec.md` | 1, 2 | The problem, stories, acceptance criteria, non-goals | always |
-| `api-surface.md` | 3 | **Contract.** Public classes, signatures, defaults, semver classification | always |
+| `api-surface.md` | 3 | **Contract.** Public exports, signatures, defaults, semver classification | always |
 | `review.md` | 8 | The 7-dimension self-review | always |
 | `plan.md` | 3 | Modules touched, seams, trade-offs | or a reason |
 | `research.md` | 3 | Options considered and rejected, with reasons and measurements | or a reason |

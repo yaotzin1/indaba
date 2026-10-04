@@ -9,7 +9,6 @@ import {
     checkSpecDirectory,
     checkStructure,
     ciJobNames,
-    floorOf,
     majorOf,
     matchesLoad,
     runChecks,
@@ -17,45 +16,90 @@ import {
 } from './check-workflow.mjs';
 import { parseWorkflowYaml } from './lib/workflow-yaml.mjs';
 
-const composer = {
-    require: { php: '>=8.4', 'symfony/yaml': '^7.2', 'symfony/process': '^7.2', 'psr/clock': '^1.0' },
-    'require-dev': { 'phpstan/phpstan': '^2.1', 'phpunit/phpunit': '^11.5', 'friendsofphp/php-cs-fixer': '^3.75' },
-    scripts: { test: 'phpunit', qa: ['@test'] },
+const manifests = {
+    root: {
+        engines: { node: '>=22' },
+        packageManager: 'pnpm@9.15.1',
+        scripts: { test: 'vitest run', qa: 'pnpm lint && pnpm test' },
+        devDependencies: { typescript: '^5.9.3', vitest: '^5.0.3', '@biomejs/biome': '2.5.15' },
+    },
+    packages: [
+        { file: 'packages/core/package.json', json: { name: '@indaba/core', engines: { node: '>=22' } } },
+        {
+            file: 'packages/engine/package.json',
+            json: { name: '@indaba/engine', engines: { node: '>=22' }, dependencies: { '@indaba/core': 'workspace:*', yaml: '^2.9.1' } },
+        },
+        {
+            file: 'packages/runners/package.json',
+            json: { name: '@indaba/runners', engines: { node: '>=22' }, optionalDependencies: { 'node-pty': '^1.1.0' } },
+        },
+    ],
 };
+const tsconfig = { compilerOptions: { strict: true, noUncheckedIndexedAccess: true } };
+const biome = { linter: { rules: { suspicious: { noExplicitAny: 'error' } } } };
 const project = {
-    runtime: { php: '>=8.4' },
-    runtime_dependencies: ['psr/clock', 'symfony/process', 'symfony/yaml'],
-    symfony_constraint: '^7.2',
-    toolchain: { phpstan: 2, phpunit: 11, php_cs_fixer: 3 },
-    composer_scripts: ['test', 'qa'],
-    phpstan_level: 9,
+    runtime: { node: '>=22' },
+    package_manager: 9,
+    packages: ['@indaba/core', '@indaba/engine', '@indaba/runners'],
+    runtime_dependencies: ['yaml'],
+    optional_dependencies: ['node-pty'],
+    toolchain: { typescript: 5, vitest: 5, biome: 2 },
+    scripts: ['test', 'qa'],
+    strictness: ['strict', 'noUncheckedIndexedAccess'],
+    biome_rules: ['suspicious.noExplicitAny'],
+    supported_os: ['ubuntu-latest', 'windows-latest'],
 };
 
 test('version helpers', () => {
     assert.equal(majorOf('^2.1'), 2);
-    assert.equal(floorOf('>=8.4'), '8.4');
+    assert.equal(majorOf('pnpm@9.15.1'), 9);
+    assert.equal(majorOf(undefined), null);
 });
 
-test('checkProject passes for a matching composer.json and phpstan.neon', () => {
-    assert.deepEqual(checkProject(project, composer, 'parameters:\n    level: 9\n'), []);
+test('checkProject passes for matching manifests, tsconfig and biome.json', () => {
+    assert.deepEqual(checkProject(project, manifests, tsconfig, biome), []);
 });
 
 test('checkProject reports every kind of drift', () => {
     const drifted = {
         ...project,
-        runtime: { php: '>=8.3' },
-        runtime_dependencies: ['psr/clock', 'symfony/yaml'],
-        symfony_constraint: '^6.4',
-        toolchain: { phpstan: 1, phpunit: 11 },
-        composer_scripts: ['test', 'missing'],
+        runtime: { node: '>=20' },
+        package_manager: 8,
+        packages: ['@indaba/core', '@indaba/ghost'],
+        runtime_dependencies: [],
+        optional_dependencies: ['node-pty', 'fsevents'],
+        toolchain: { typescript: 4, vitest: 5, jest: 1 },
+        scripts: ['test', 'missing'],
+        strictness: ['strict', 'exactOptionalPropertyTypes'],
+        biome_rules: ['suspicious.noExplicitAny', 'style.noNonNullAssertion'],
     };
-    const errors = checkProject(drifted, composer, 'parameters:\n    level: 8\n').join('\n');
-    assert.match(errors, /runtime\.php/);
-    assert.match(errors, /requires symfony\/process, which project\.runtime_dependencies does not list/);
-    assert.match(errors, /symfony_constraint/);
-    assert.match(errors, /toolchain\.phpstan is 1/);
+    const errors = checkProject(drifted, manifests, tsconfig, biome).join('\n');
+    assert.match(errors, /project\.runtime\.node is ">=20"/);
+    assert.match(errors, /engines\.node is ">=22" but project\.runtime\.node is ">=20"/);
+    assert.match(errors, /package_manager is 8/);
+    assert.match(errors, /@indaba\/ghost, which no packages/);
+    assert.match(errors, /publishes @indaba\/engine, which project\.packages does not list/);
+    assert.match(errors, /has yaml, which project\.runtime_dependencies does not list/);
+    assert.match(errors, /fsevents, which no package\.json optionalDependencies has/);
+    assert.match(errors, /toolchain\.typescript is 4/);
+    assert.match(errors, /jest/);
     assert.match(errors, /"missing"/);
-    assert.match(errors, /level 8/);
+    assert.match(errors, /exactOptionalPropertyTypes/);
+    assert.match(errors, /style\.noNonNullAssertion/);
+});
+
+test('checkProject treats workspace links as internal, not as dependencies', () => {
+    const linked = structuredClone(manifests);
+    linked.packages[0].json.dependencies = { '@indaba/engine': 'workspace:*' };
+    assert.deepEqual(checkProject(project, linked, tsconfig, biome), []);
+    linked.packages[0].json.dependencies = { left: '^1.0.0' };
+    assert.match(checkProject(project, linked, tsconfig, biome).join(), /has left, which project\.runtime_dependencies does not list/);
+});
+
+test('checkProject reports a missing tsconfig or biome.json when it claims flags', () => {
+    const errors = checkProject(project, manifests, null, null).join('\n');
+    assert.match(errors, /tsconfig\.base\.json does not exist/);
+    assert.match(errors, /biome\.json does not exist/);
 });
 
 const ciText = [
@@ -63,26 +107,32 @@ const ciText = [
     '  a:',
     '    name: Agent instruction set',
     '  verify:',
-    '    name: Verify on PHP ${{ matrix.php }}',
+    '    name: Verify on ${{ matrix.os }}',
+    '    runs-on: ${{ matrix.os }}',
     '    strategy:',
+    '      fail-fast: false',
     '      matrix:',
-    '        php: ["8.4", "8.5"]',
+    '        os: [ubuntu-latest, windows-latest]',
 ].join('\n');
 
-test('ciJobNames expands the PHP matrix', () => {
-    assert.deepEqual(ciJobNames(ciText).names, ['Agent instruction set', 'Verify on PHP 8.4', 'Verify on PHP 8.5']);
+test('ciJobNames expands the os matrix', () => {
+    const { names, matrices } = ciJobNames(ciText);
+    assert.deepEqual(names, ['Agent instruction set', 'Verify on ubuntu-latest', 'Verify on windows-latest']);
+    assert.deepEqual(matrices.verify, ['ubuntu-latest', 'windows-latest']);
 });
 
-test('checkCi compares required checks and the matrix floor', () => {
-    const ci = { workflow: 'ci.yml', required_checks: ['Agent instruction set', 'Verify on PHP 8.4', 'Verify on PHP 8.5'] };
-    assert.deepEqual(checkCi(ci, ciText, composer), []);
-    assert.match(checkCi({ ...ci, required_checks: ['Agent instruction set'] }, ciText, composer).join(), /does not require/);
-    assert.match(checkCi(ci, ciText, { require: { php: '>=8.3' } }).join(), /matrix starts at PHP 8\.4/);
+test('checkCi compares required checks and the os matrix with project.supported_os', () => {
+    const ci = { workflow: 'ci.yml', required_checks: ['Agent instruction set', 'Verify on ubuntu-latest', 'Verify on windows-latest'] };
+    assert.deepEqual(checkCi(ci, ciText, project), []);
+    assert.match(checkCi({ ...ci, required_checks: ['Agent instruction set'] }, ciText, project).join(), /does not require/);
+    assert.match(checkCi({ ...ci, required_checks: [...ci.required_checks, 'Gone'] }, ciText, project).join(), /"Gone", which no job/);
+    assert.match(checkCi(ci, ciText, { supported_os: ['ubuntu-latest', 'windows-latest', 'macos-latest'] }).join(), /macos-latest, but no verify job runs on it/);
+    assert.match(checkCi(ci, ciText, { supported_os: ['ubuntu-latest'] }).join(), /runs windows-latest, which project\.supported_os does not list/);
 });
 
 test('runsCommand matches whole commands', () => {
-    assert.ok(runsCommand('docker compose run --rm php composer qa', 'composer qa'));
-    assert.ok(!runsCommand('composer qatar', 'composer qa'));
+    assert.ok(runsCommand('      run: pnpm qa', 'pnpm qa'));
+    assert.ok(!runsCommand('pnpm qatar', 'pnpm qa'));
 });
 
 test('checkGates needs the hook and CI to run each gate', () => {
@@ -118,13 +168,13 @@ test('checkStructure finds unregistered skills, unknown stages and missing files
         stages: [{ id: 's', phase: 1, lead_skills: ['nope'], guidance: 'g.md' }],
         tracks: [{ id: 't', stages: ['s', 'ghost'] }],
         skills: { registry: [{ name: 'a', path: 'a.md' }] },
-        architectural_rules: [{ rule: 'r', enforced_by: '`tests/X.php`' }, { rule: 'only a rule' }],
+        architectural_rules: [{ rule: 'r', enforced_by: '`packages/x/test/X.test.ts`' }, { rule: 'only a rule' }],
     };
     const errors = checkStructure(workflow, { fileExists: () => false, skillDirectories: ['a', 'extra'] }).join('\n');
     assert.match(errors, /not in skills\.registry/);
     assert.match(errors, /ghost/);
     assert.match(errors, /g\.md, which does not exist/);
-    assert.match(errors, /tests\/X\.php/);
+    assert.match(errors, /packages\/x\/test\/X\.test\.ts/);
     assert.match(errors, /needs both/);
     assert.match(errors, /extra is not in skills\.registry/);
 });

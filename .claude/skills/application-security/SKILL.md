@@ -1,6 +1,6 @@
 ---
 name: application-security
-description: Use before touching anything that starts a process, runs git, builds a path, reads or writes files, calls HTTP, parses YAML or JSON, handles an API key, or emits a log, trace or exception message. Covers the exploit classes Indaba has, with banned constructs and no exceptions. Scope: Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, unserialize and YAML, prompt-injected data reaching a shell. Banned constructs, no exceptions
+description: Use before touching anything that starts a process, runs git, builds a path, reads or writes files, calls HTTP, parses YAML or JSON, handles an API key, or emits a log, trace or exception message. Covers the exploit classes Indaba has, with banned constructs and no exceptions. Scope: Command injection, path traversal for artifacts and guards, secret handling and redaction, SSRF and HTTP, YAML and JSON parsing, prompt-injected data reaching a shell. Banned constructs, no exceptions
 ---
 
 # application-security

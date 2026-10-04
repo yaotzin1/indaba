@@ -58,7 +58,7 @@ runners. That needs no new engine feature, only a runtime that runs where the us
 | a runner exits non-zero | same as PHP: `RunResult.exitCode` carries it, the engine's `on_failure` decides |
 | the timeout elapses | the child process tree is killed, the result reports failure; the deadline is honoured through `AbortSignal` |
 | the run is cancelled | an `AbortSignal` aborts the runner, worktrees are removed in `finally` |
-| `node-pty` is missing or fails to load | CLI runners use piped stdio and say so in the span; they never crash on import |
+| `node-pty` is missing or fails to load | CLI runners use piped stdio and report the mode on the result (`ProcessRunResult.mode`); they never crash on import. Recording the mode as a span attribute is a follow-up |
 | the workflow file is invalid | `WorkflowValidationError` listing every problem, exit code unchanged |
 
 ## 6. Security and data handling

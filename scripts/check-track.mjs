@@ -13,7 +13,7 @@
  *   release   touches only version files and changelogs
  *   fix       with source changed, the range also changes a test and a changelog
  *   feature   the range carries a complete specs/<name>/ directory (its api-surface.md is where the
- *             public PHP surface and its semver classification live) and a changelog entry
+ *             public surface and its semver classification live) and a changelog entry
  *
  * A pull request is held to the heaviest track any of its commits declares, so splitting a feature
  * into commits labelled `chore` does not shed its deliverables.

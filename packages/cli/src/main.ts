@@ -29,7 +29,7 @@ export interface Io {
 
 export const EXIT_OK = 0;
 export const EXIT_FAILURE = 1;
-/** A usage error, and also what an escalated run returns (the PHP CLI used 2 for escalation). */
+/** A usage error, and also what an escalated run returns. */
 export const EXIT_USAGE = 2;
 export const EXIT_INTERRUPTED = 130;
 

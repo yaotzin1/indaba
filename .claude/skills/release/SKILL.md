@@ -1,6 +1,6 @@
 ---
 name: release
-description: Use when cutting a release, choosing a version number, pushing a tag, or changing what the dist archive contains. Covers the verification gate, the tag that releases, and how Packagist picks up versions. Scope: Version selection, CHANGELOG entries, tags, the GitHub release workflow, what Packagist reads from a tag
+description: Use when cutting a release, choosing a version number, pushing a tag, or changing what an npm package publishes. Covers the verification gate, the tag that releases, and how the release workflow publishes to npm with provenance. Scope: Version selection, CHANGELOG entries, tags, the release workflow that publishes with provenance, what npm receives from a tag
 ---
 
 # release

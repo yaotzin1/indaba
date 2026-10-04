@@ -4,14 +4,16 @@
  * The workflow file is what agents obey, and a claim nothing checks drifts. Each check below turns
  * one claim into a failure:
  *
- * - `project`: the PHP floor, the runtime requirements, the Symfony constraint, the toolchain
- *   majors, the composer scripts and the PHPStan level match composer.json and phpstan.neon
+ * - `project`: the Node floor, the package manager, the package names, the runtime and optional
+ *   dependencies, the toolchain majors, the root scripts, the tsconfig strictness flags and the Biome
+ *   escape-hatch rules match package.json, each packages/<name>/package.json, tsconfig.base.json
+ *   and biome.json
  * - `stages` and `tracks`: every lead skill is registered, every stage a track names exists, every
  *   guidance file exists
  * - `skills.registry`: exactly the directories under .agents/skills, each with its SKILL.md
  * - `quality_gates.pre_commit`: every gate is run by the hook and by CI
- * - `ci.required_checks`: exactly the job names the CI file produces, with the PHP matrix starting
- *   at the composer floor
+ * - `ci.required_checks`: exactly the job names the CI file produces (a matrix is expanded), with the
+ *   `os` matrix equal to `project.supported_os`
  * - `spec_kit`: every feature directory has the required files and accounts for the optional ones
  * - `architectural_rules`: each names its enforcement, and every file it names exists
  * - `agents`: no instruction file is longer than the smallest limit among the agents that load it,
@@ -31,83 +33,108 @@ import { ROOT_DIR, readWorkflow } from './lib/workflow-yaml.mjs';
 const read = (relative) => fs.readFileSync(path.join(ROOT_DIR, relative), 'utf8').replace(/\r\n/g, '\n');
 const exists = (relative) => fs.existsSync(path.join(ROOT_DIR, relative));
 
-/** The first major version a range admits: `^5.0.0` and `^2.1` give 5 and 2. */
+/** The first major version a range admits: `^5.0.0` and `pnpm@9.15.1` give 5 and 9. */
 export function majorOf(range) {
     const match = /(\d+)/.exec(String(range ?? ''));
     return match ? Number(match[1]) : null;
 }
 
-/** The first `major.minor` a PHP constraint admits: `>=8.4` gives "8.4". */
-export function floorOf(range) {
-    const match = /(\d+)\.(\d+)/.exec(String(range ?? ''));
-    return match ? `${match[1]}.${match[2]}` : null;
-}
-
-/** Compares two `major.minor` strings numerically. */
-export function compareVersions(a, b) {
-    const [aMajor, aMinor] = a.split('.').map(Number);
-    const [bMajor, bMinor] = b.split('.').map(Number);
-    return aMajor - bMajor || aMinor - bMinor;
-}
-
-/** The composer package behind each short toolchain name in `project.toolchain`. */
+/** The npm package behind each short toolchain name in `project.toolchain`. */
 export const TOOLCHAIN_PACKAGES = {
-    phpstan: 'phpstan/phpstan',
-    phpunit: 'phpunit/phpunit',
-    php_cs_fixer: 'friendsofphp/php-cs-fixer',
+    typescript: 'typescript',
+    vitest: 'vitest',
+    biome: '@biomejs/biome',
 };
 
-/** Compares `project` with composer.json. `phpstanNeon` is the text of phpstan.neon, or null. */
-export function checkProject(project, composer, phpstanNeon = null) {
+/** A dependency on another package of this workspace, which is not a third-party decision. */
+const isWorkspaceLink = (range) => String(range).startsWith('workspace:');
+
+/** The third-party entries of one dependency section over every manifest: name to the ranges seen. */
+function externalDependencies(manifests, section) {
+    const found = new Map();
+    for (const manifest of manifests) {
+        for (const [name, range] of Object.entries(manifest[section] ?? {})) {
+            if (!isWorkspaceLink(range)) found.set(name, [...(found.get(name) ?? []), String(range)]);
+        }
+    }
+    return found;
+}
+
+function compareLists(errors, key, claimed, section, found, hint) {
+    for (const name of claimed) {
+        if (!found.has(name)) errors.push(`project.${key} lists ${name}, which no package.json ${section} has`);
+    }
+    for (const name of found.keys()) {
+        if (!claimed.includes(name)) errors.push(`a package.json ${section} has ${name}, which project.${key} does not list; ${hint}`);
+    }
+}
+
+/**
+ * Compares `project` with the manifests. `manifests` is `{ root, packages: [{ file, json }] }`;
+ * `tsconfig` and `biome` are the parsed tsconfig.base.json and biome.json, or null when missing.
+ */
+export function checkProject(project, manifests, tsconfig = null, biome = null) {
     const errors = [];
     if (!project) return ['workflow.ai.yml has no project section'];
 
-    const require = composer.require ?? {};
-    const requireDev = composer['require-dev'] ?? {};
+    const root = manifests.root ?? {};
+    const members = manifests.packages ?? [];
+    const all = [root, ...members.map((entry) => entry.json)];
 
-    if (project.runtime?.php !== require.php) {
-        errors.push(`project.runtime.php is "${project.runtime?.php}" but composer.json require.php is "${require.php}"`);
+    if (project.runtime?.node !== root.engines?.node) {
+        errors.push(`project.runtime.node is "${project.runtime?.node}" but package.json engines.node is "${root.engines?.node}"`);
     }
-
-    const declared = Object.keys(require).filter((name) => name !== 'php');
-    const claimed = project.runtime_dependencies ?? [];
-    for (const name of claimed) {
-        if (!declared.includes(name)) errors.push(`project.runtime_dependencies lists ${name}, which composer.json require does not`);
-    }
-    for (const name of declared) {
-        if (!claimed.includes(name)) errors.push(`composer.json requires ${name}, which project.runtime_dependencies does not list; a new runtime dependency is a recorded decision`);
-    }
-
-    if (project.symfony_constraint) {
-        for (const name of declared.filter((entry) => entry.startsWith('symfony/'))) {
-            if (require[name] !== project.symfony_constraint) {
-                errors.push(`composer.json requires ${name} "${require[name]}" but project.symfony_constraint is "${project.symfony_constraint}"; Symfony components move together`);
-            }
+    for (const entry of members) {
+        if (entry.json.private !== true && entry.json.engines?.node !== project.runtime?.node) {
+            errors.push(`${entry.file} engines.node is "${entry.json.engines?.node}" but project.runtime.node is "${project.runtime?.node}"`);
         }
     }
+
+    if (project.package_manager !== undefined && majorOf(root.packageManager) !== project.package_manager) {
+        errors.push(`project.package_manager is ${project.package_manager} but package.json packageManager is "${root.packageManager}"`);
+    }
+
+    const names = members.filter((entry) => entry.json.private !== true).map((entry) => entry.json.name);
+    for (const name of project.packages ?? []) {
+        if (!names.includes(name)) errors.push(`project.packages lists ${name}, which no packages/*/package.json names`);
+    }
+    for (const name of names) {
+        if (!(project.packages ?? []).includes(name)) errors.push(`a packages/*/package.json publishes ${name}, which project.packages does not list`);
+    }
+
+    compareLists(errors, 'runtime_dependencies', project.runtime_dependencies ?? [], 'dependencies', externalDependencies(all, 'dependencies'), 'a new runtime dependency is a recorded decision');
+    compareLists(errors, 'optional_dependencies', project.optional_dependencies ?? [], 'optionalDependencies', externalDependencies(all, 'optionalDependencies'), 'a new optional dependency is a recorded decision');
 
     for (const [name, major] of Object.entries(project.toolchain ?? {})) {
         const pkg = TOOLCHAIN_PACKAGES[name];
         if (!pkg) {
-            errors.push(`project.toolchain lists ${name}, which this checker does not know a composer package for`);
+            errors.push(`project.toolchain lists ${name}, which this checker does not know an npm package for`);
             continue;
         }
-        const constraint = requireDev[pkg];
-        if (constraint === undefined) errors.push(`project.toolchain lists ${name} (${pkg}), which composer.json require-dev does not`);
-        else if (majorOf(constraint) !== major) errors.push(`project.toolchain.${name} is ${major} but composer.json require-dev has "${constraint}"`);
+        const range = root.devDependencies?.[pkg];
+        if (range === undefined) errors.push(`project.toolchain lists ${name} (${pkg}), which package.json devDependencies does not`);
+        else if (majorOf(range) !== major) errors.push(`project.toolchain.${name} is ${major} but package.json devDependencies has "${range}"`);
     }
 
-    for (const script of project.composer_scripts ?? []) {
-        if (!Object.hasOwn(composer.scripts ?? {}, script)) errors.push(`project.composer_scripts lists "${script}", which composer.json scripts does not define`);
+    for (const script of project.scripts ?? []) {
+        if (!Object.hasOwn(root.scripts ?? {}, script)) errors.push(`project.scripts lists "${script}", which package.json scripts does not define`);
     }
 
-    if (project.phpstan_level !== undefined) {
-        if (phpstanNeon === null) {
-            errors.push('project.phpstan_level is set but phpstan.neon does not exist');
-        } else {
-            const level = /^\s*level:\s*(\S+)\s*$/m.exec(phpstanNeon)?.[1];
-            if (String(level) !== String(project.phpstan_level)) errors.push(`project.phpstan_level is ${project.phpstan_level} but phpstan.neon sets level ${level}`);
+    for (const flag of project.strictness ?? []) {
+        if (!tsconfig) {
+            errors.push('project.strictness is set but tsconfig.base.json does not exist');
+            break;
         }
+        if (tsconfig.compilerOptions?.[flag] !== true) errors.push(`project.strictness lists ${flag}, but tsconfig.base.json does not set it to true`);
+    }
+
+    for (const entry of project.biome_rules ?? []) {
+        const [group, rule] = String(entry).split('.');
+        if (!biome) {
+            errors.push('project.biome_rules is set but biome.json does not exist');
+            break;
+        }
+        if (biome.linter?.rules?.[group]?.[rule] !== 'error') errors.push(`project.biome_rules lists ${entry}, but biome.json does not set it to "error"`);
     }
     return errors;
 }
@@ -152,8 +179,8 @@ export function ciJobNames(ciText) {
     return { names: expanded, matrices };
 }
 
-/** Compares the required checks with the CI file and the PHP matrix with the composer floor. */
-export function checkCi(ci, ciText, composer) {
+/** Compares the required checks with the CI file, and the `os` matrix with `project.supported_os`. */
+export function checkCi(ci, ciText, project = {}) {
     const errors = [];
     if (!ci) return ['workflow.ai.yml has no ci section'];
 
@@ -168,12 +195,14 @@ export function checkCi(ci, ciText, composer) {
         if (!required.has(name)) errors.push(`${ci.workflow} runs "${name}", which ci.required_checks does not require`);
     }
 
-    const floor = floorOf(composer.require?.php);
-    for (const [job, values] of Object.entries(matrices)) {
-        const versions = values.filter((value) => /^\d+\.\d+$/.test(value));
-        if (versions.length > 0 && floor !== null) {
-            const lowest = versions.reduce((a, b) => (compareVersions(b, a) < 0 ? b : a));
-            if (lowest !== floor) errors.push(`the ${job} matrix starts at PHP ${lowest} but composer.json requires PHP ${floor}; a declared floor nothing tests is a guess`);
+    const supported = project?.supported_os ?? [];
+    if (supported.length > 0) {
+        const tested = Object.values(matrices).find((values) => values.some((value) => /^(ubuntu|windows|macos)/.test(value))) ?? [];
+        for (const os of supported) {
+            if (!tested.includes(os)) errors.push(`project.supported_os lists ${os}, but no verify job runs on it; a supported platform nothing tests is a guess`);
+        }
+        for (const os of tested) {
+            if (!supported.includes(os)) errors.push(`the CI os matrix runs ${os}, which project.supported_os does not list`);
         }
     }
     return errors;
@@ -186,11 +215,7 @@ export function runsCommand(text, command) {
     return pattern.test(text);
 }
 
-/**
- * Every document gate must be run by the hook and by CI, or it is a gate in name only. A gate with
- * `toolchain: true` runs through Docker in the hook when it is reachable, so only CI has to name
- * it as a literal command; the hook must name the composer script it calls.
- */
+/** Every gate must be run by the hook and by CI, or it is a gate in name only. */
 export function checkGates(gates, hookText, ciText) {
     const errors = [];
     for (const gate of gates ?? []) {
@@ -413,9 +438,9 @@ function instructionFiles(agents) {
 }
 
 const WORKFLOW_REFERENCE = /\.agents\/workflows\b/;
-const SKIPPED_DIRECTORIES = new Set(['vendor', 'node_modules', '.git', '.indaba', 'specs', '.phpunit.cache']);
+const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git', '.indaba', 'specs', 'dist']);
 
-/** Every text file outside specs, the changelog and vendor, found by walking the tree: no git history is needed. */
+/** Every text file outside specs, the changelog and node_modules, found by walking the tree: no git history is needed. */
 function* walkFiles(directory = '') {
     for (const entry of fs.readdirSync(path.join(ROOT_DIR, directory), { withFileTypes: true })) {
         const relative = directory === '' ? entry.name : `${directory}/${entry.name}`;
@@ -432,14 +457,24 @@ function filesReferringToWorkflows() {
     const own = new Set(['scripts/check-workflow.mjs', 'scripts/check-workflow.test.mjs']);
     return [...walkFiles()].filter((file) => {
         if (own.has(file) || /(^|\/)CHANGELOG\.md$/.test(file)) return false;
-        if (!/\.(md|mjs|php|yml|yaml|json)$/.test(file)) return false;
+        if (!/\.(md|mjs|ts|yml|yaml|json)$/.test(file)) return false;
         return WORKFLOW_REFERENCE.test(read(file));
     });
 }
 
 export function runChecks({ remote = false } = {}) {
     const workflow = readWorkflow();
-    const composer = JSON.parse(read('composer.json'));
+    const readJson = (relative) => (exists(relative) ? JSON.parse(read(relative)) : null);
+    const packagesDir = path.join(ROOT_DIR, 'packages');
+    const manifests = {
+        root: readJson('package.json') ?? {},
+        packages: fs.existsSync(packagesDir)
+            ? fs
+                  .readdirSync(packagesDir, { withFileTypes: true })
+                  .filter((entry) => entry.isDirectory() && exists(`packages/${entry.name}/package.json`))
+                  .map((entry) => ({ file: `packages/${entry.name}/package.json`, json: readJson(`packages/${entry.name}/package.json`) }))
+            : [],
+    };
     const ciText = read(workflow.ci?.workflow ?? '.github/workflows/ci.yml');
     const hookText = read(workflow.quality_gates?.local_hook?.path ?? '.githooks/pre-commit');
     const commitMsgPath = workflow.quality_gates?.local_hook?.commit_msg_path ?? '.githooks/commit-msg';
@@ -447,12 +482,12 @@ export function runChecks({ remote = false } = {}) {
     const skillDirectories = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 
     const errors = [
-        ...checkProject(workflow.project, composer, exists('phpstan.neon') ? read('phpstan.neon') : null),
+        ...checkProject(workflow.project, manifests, readJson('tsconfig.base.json'), readJson('biome.json')),
         ...checkStructure(workflow, { skillDirectories }),
         ...checkGates(workflow.quality_gates?.pre_commit, hookText, ciText),
         ...checkCommitMsgGates(workflow.quality_gates?.commit_msg, exists(commitMsgPath) ? read(commitMsgPath) : null, ciText),
         ...checkEnforcement(workflow.enforcement, workflow.tracks),
-        ...checkCi(workflow.ci, ciText, composer),
+        ...checkCi(workflow.ci, ciText, workflow.project),
         ...checkAgents(workflow.agents, instructionFiles(workflow.agents)),
         ...checkNoWorkflowDirectory({ directoryExists: exists('.agents/workflows'), references: filesReferringToWorkflows() }),
     ];

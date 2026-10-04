@@ -1,6 +1,6 @@
 ---
 name: smoke-tests
-description: Use when verifying the installed package rather than the source tree, changing .gitattributes export-ignore, the bin entry, autoloading or composer.json packaging fields. Covers the production install smoke test and the dist archive audit. Scope: The production install smoke test (git archive, composer install --no-dev, the CLI boots) and the export-ignore archive audit
+description: Use when verifying the installed package rather than the source tree, or changing a package's files, exports or bin entry. Covers the packed-install smoke test and the published-files audit. Scope: The packed-install smoke test (pnpm pack, install the tarballs in a clean directory, the CLI boots) and the published-files audit
 ---
 
 # smoke-tests

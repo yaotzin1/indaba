@@ -1,5 +1,11 @@
 # Specification: Git workspace isolation
 
+> **Superseded implementation language.** This spec was written for the PHP prototype, which was never
+> published. Behaviour is unchanged by the TypeScript port; class, method and field names follow
+> [`specs/typescript-port/api-surface.md`](../typescript-port/api-surface.md) (for example
+> `RunnerInterface` is `Runner`, `*Exception` is `*Error`, fields are camelCase). Where this text names a
+> PHP, Composer, Symfony or Docker detail, read the Node and TypeScript equivalent.
+
 > **Status**: Implemented in the initial commit; specified retroactively from `docs/vision.md`
 > section 3D. Treat as a description to be corrected by review.
 > **Stage entry**: 1 (retroactive)

@@ -38,8 +38,8 @@ jobs:
       - name: workflow.ai.yml matches the repository
         run: node scripts/check-workflow.mjs
 
-      # Banned constructs, secrets, phpstan.neon and composer.json. Pure Node.
-      - name: Security audit (source, composer.json, phpstan.neon)
+      # Banned constructs, secrets, manifests, tsconfig and biome.json. Pure Node.
+      - name: Security audit
         run: node scripts/security-audit.mjs --source
 
       - name: Script self-tests
@@ -71,33 +71,32 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          php-version: "8.4"
-          tools: composer:v2
-      - run: composer install --no-interaction --prefer-dist
-      - name: composer audit
-        run: composer audit
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: pnpm audit
+        run: pnpm audit --audit-level low
 
+  # Windows is a first-class target: the point of the TypeScript port was a runtime that works where
+  # the user already is. Git needs an identity for the workspace tests.
   verify:
-    name: Verify on PHP ${{ matrix.php }}
-    runs-on: ubuntu-latest
+    name: Verify on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
-        # Oldest first, starting at the composer.json floor: a declaration nothing tests is a guess.
-        php: ["8.4", "8.5"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
-      - uses: shivammathur/setup-php@v2
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
         with:
-          php-version: ${{ matrix.php }}
-          tools: composer:v2
-          extensions: pcntl, zip
-
-      # The same script the pre-commit hook runs through Docker: PHP-CS-Fixer, PHPStan level 9,
-      # PHPUnit, in that order. Git needs an identity for the workspace tests.
-      - run: composer install --no-interaction --prefer-dist
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
 
       - name: Git identity for the workspace tests
         run: |
@@ -106,13 +105,11 @@ jobs:
           git config --global init.defaultBranch main
 
       - name: Quality gate
-        run: composer qa
+        run: pnpm qa
 
-      # The installed package, not the source tree: what a consumer's `composer install` gets.
-      - name: Smoke test the production install
-        run: |
-          rm -rf "$RUNNER_TEMP/smoke" && mkdir "$RUNNER_TEMP/smoke"
-          git archive HEAD | tar -x -C "$RUNNER_TEMP/smoke"
-          cd "$RUNNER_TEMP/smoke"
-          composer install --no-dev --no-interaction --prefer-dist
-          php bin/indaba list
+      - name: Build
+        run: pnpm build
+
+      # The packed packages, not the source tree: what a consumer's `npm install` gets.
+      - name: Smoke test the packed install
+        run: node scripts/smoke-pack.mjs

@@ -1,6 +1,6 @@
 ---
 name: observability
-description: Use when changing the tracer, spans, token usage, the pricing table or PSR-14 events, or when naming a span or attribute. Covers OpenTelemetry GenAI conventions, cost honesty and keeping secrets out of telemetry. Scope: Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, PSR-14 events and streaming
+description: Use when changing the tracer, spans, token usage, the pricing table or the event dispatcher, or when naming a span or attribute. Covers OpenTelemetry GenAI conventions, cost honesty and keeping secrets out of telemetry. Scope: Trace, span and child-span structure, OpenTelemetry GenAI attribute names, token and cost accounting, the pricing table, the typed event dispatcher and streaming
 ---
 
 # observability

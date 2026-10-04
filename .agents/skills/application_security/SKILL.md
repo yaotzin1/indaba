@@ -12,52 +12,58 @@ rest is yours.
 
 ## Banned, everywhere, no exceptions
 
-`eval`, the shell functions (`exec`, `shell_exec`, `system`, `passthru`, `popen`, `proc_open`,
-`pcntl_exec`), the backtick operator, the `@` operator, `unserialize` on non-JSON data without
-`allowed_classes => false`, variable includes, `extract`, raw `curl_*` and sockets, inline
-`@phpstan-ignore`. A design that seems to need one needs a different design.
+`eval`, `new Function`, the `vm` module, `exec` and `execSync` (a command given as one string),
+`shell: true`, any, `!` non-null assertions and inline suppressions (`@ts-ignore`,
+`@ts-expect-error`, `@ts-nocheck`, `biome-ignore`, `eslint-disable`). A design that seems to need
+one needs a different design.
 
 ## Command injection
 
-- Start processes with `new Process(['git', 'worktree', 'add', '--', $path, $branch])`: an argument
-  array, no shell, no quoting problem to get wrong.
-- `Process::fromShellCommandline` exists only inside `ShellRunner`, for the commands the workflow
-  author declared. Nothing derived from model output, file names, branch names, task ids or
-  artifacts is ever placed in that string. If you need to pass data to a command, pass it as an argv
-  element, stdin or an environment variable.
+- Start processes with `spawn` or `execFile` and an argument array, `shell: false`:
+  `spawn('git', ['worktree', 'add', '--', path, branch], { cwd })`. No shell, no quoting problem to
+  get wrong. On Windows that means a native executable: a `.cmd` shim cannot be started without a
+  shell, so do not reach for `shell: true`; resolve the real binary instead.
+- A shell interpreter (`/bin/sh -c`, `cmd.exe /c`) is named only inside `ShellRunner`
+  (`packages/runners/src/shell-runner.ts`), for the commands the workflow author declared. The audit
+  allowlist names that file and nothing else. Nothing derived from model output, file names, branch
+  names, task ids or artifacts is ever placed in that string. To pass data to a command, pass it as
+  an argv element, stdin or an environment variable.
 - A value that starts with `-` can be taken as an option. Put `--` before untrusted positionals and
   validate names against a strict pattern (`^[A-Za-z0-9._-]+$`, no leading dash).
 
 ## Path traversal
 
 Artifacts, guard paths, worktree ids and file names from a workflow or a model are joined to a
-root and then **resolved and checked to lie inside it** (`realpath` of the parent for new files;
-reject `..`, absolute paths, NUL bytes, and symlinks leading out). Do the check once in one helper
-and use that helper everywhere. A guard path that escapes the workspace is a validation error at
-parse time.
+root and then **resolved and checked to lie inside it**: `path.resolve`, then `path.relative(root,
+candidate)` must not start with `..` or be absolute, and `fs.realpath` of the existing parent for
+files that exist so a symlink cannot lead out. Reject NUL bytes. Do the check once in one helper
+(the engine's `isInside`) and use it everywhere. Windows has drive letters and backslashes: compare
+with `path.relative`, never with string prefixes. A guard path that escapes the workspace is a
+validation error at parse time.
 
 ## Secrets
 
-- Keys are read from the environment at the edge and passed to the one component that needs them.
-- They are absent from: logs, spans, events, exception messages, `RunResult`, artifacts, prompts, the
-  workflow file, fixtures. Exceptions that include a request must include a redacted request.
-- Authorization headers are set on the HTTP client, not in URLs, and never echoed.
+- Keys are read from the environment at the edge (the CLI) and passed to the one component that
+  needs them. Decision logic never reads `process.env`.
+- They are absent from: logs, spans, events, error messages, `RunResult`, artifacts, prompts, the
+  workflow file, fixtures. An error that includes a request must include a redacted request.
+- Authorization headers are set on the `fetch` call, not in URLs, and never echoed.
 - A key in a repository is revoked, not just deleted. `.env` is gitignored; the audit fails if a
   `.env` exists in the tree.
 
 ## HTTP and SSRF
 
-One shared `symfony/http-client` with timeouts, a maximum body size, TLS verification on, and
-redirects limited. The target of a request is configuration chosen by the operator, never a URL
-taken from model output or a repository file. If a feature must fetch a user-supplied URL, it
-resolves the host and refuses loopback, link-local, private and metadata addresses, and re-checks
-after each redirect.
+Global `fetch` with an `AbortSignal.timeout`, a bounded body, and redirects handled deliberately. The
+target of a request is configuration chosen by the operator, never a URL taken from model output or
+a repository file. If a feature must fetch a user-supplied URL, it resolves the host and refuses
+loopback, link-local, private and metadata addresses, and re-checks after each redirect.
 
 ## Deserialization and parsing
 
-YAML: `Yaml::parse` with no `PARSE_OBJECT*` or `PARSE_CONSTANT` flags. JSON: `json_decode` with
-`JSON_THROW_ON_ERROR`, then validate shape before use. Never `unserialize` data from a file, a
-process or a provider.
+YAML: the `yaml` package in core-schema mode, no custom tags, parsed into `unknown` and validated
+field by field. JSON: `JSON.parse` inside a try, result typed `unknown`, shape checked before use.
+No dynamic `import()` or `require` of a path taken from data; the only dynamic import is the CLI
+loading a plugin the operator named with `--plugin`.
 
 ## Prompt injection reaches the shell
 
@@ -73,4 +79,5 @@ denial of wallet.
 ## When you find one
 
 Fix the code, add a test that fails without the fix, and record a `Security` entry in the changelog.
-Report privately per `SECURITY.md` if it affects released versions.
+Build hostile test strings from fragments so test files stay clean for the audit. Report privately
+per `SECURITY.md` if it affects released versions.

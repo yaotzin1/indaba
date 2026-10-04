@@ -2,51 +2,53 @@
 
 ## Before changing anything
 
-Read the file you are about to change, in full, including its docblocks and comments. A comment in
-this codebase records a bug that already happened once; a change that deletes one usually
+Read the file you are about to change, in full, including its doc comments and comments. A comment
+in this codebase records a bug that already happened once; a change that deletes one usually
 reinstates the bug.
 
 ## While changing
 
-- `declare(strict_types=1);` in every PHP file. PER-CS 2.0 formatting, applied by PHP-CS-Fixer
-  (`composer cs:fix`), never by hand.
-- `final` by default, `readonly` for value objects, native enums for closed sets, constructor
-  promotion, no public mutable properties. Open a class for extension only when a spec says so.
-- Comments say why, not what. If the comment restates the line, delete the comment. Docblocks exist
-  to give PHPStan a type the language cannot express (`list<StepDefinition>`,
-  `array<string, string>`), not to repeat the signature.
-- Prefer a new class behind an interface over a new option, and an option over a special case.
+- TypeScript strict, ESM, `.js` extensions in relative imports. Formatting and import order are
+  Biome's (`pnpm lint:fix`), never done by hand.
+- No `any`, no `!` non-null assertion, no suppression comment of any tool. Narrow `unknown`.
+- `readonly` fields and `readonly` arrays for value objects, string-literal unions (with a frozen
+  const object where a runtime list is needed) for closed sets, `interface` for contracts a third
+  party implements, no mutable public state. Open a class for extension only when a spec says so.
+- Comments say why, not what. If the comment restates the line, delete the comment. Doc comments
+  exist to explain a contract the type cannot express, not to repeat the signature.
+- Prefer a new module behind an interface over a new option, and an option over a special case.
 
-## Run PHP in Docker, and only there
+## One command, any OS
 
-The host has no PHP 8.4. Every PHP command is
-`docker compose run --rm php composer <script>` (or `vendor/bin/<tool>` inside the container). A
-result from any other interpreter is not evidence. The Node scripts (`node scripts/...`) run on the
-host.
+Node 22 and pnpm 9 are the whole toolchain, on Windows, macOS and Linux alike. Every gate is
+`pnpm <script>` (or a `node scripts/...` file) run from the repository root. A result from another
+Node major, another package manager or a stale `node_modules` is not evidence: run `pnpm install`
+first.
 
 ## Paths
 
 No absolute paths anywhere in source, tests, configs or fixtures: no `C:\...`, no `/home/...`.
-Resolve from `__DIR__`, the workspace root a caller passes in, or `sys_get_temp_dir()` plus a unique
-name for test fixtures, so the same suite passes on Windows checkouts, in the container and on CI.
-Tests that need a git repository create one in a temporary directory and remove it.
+Resolve from `import.meta.url`, the workspace root a caller passes in, or `os.tmpdir()` plus a
+unique `mkdtemp` name for test fixtures, and join with `node:path`, so the same suite passes on
+every OS in the CI matrix. Tests that need a git repository create one in a temporary directory and
+remove it.
 
 ## Tests do not touch the network or real agents
 
-A unit test uses a fake `RunnerInterface` and a fixed clock. No test calls OpenRouter, starts
-`claude` or `cursor`, or reads the real environment's API keys.
+A unit test uses a fake `Runner` and a fixed clock. No test calls OpenRouter, starts `claude` or
+`cursor`, or reads the real environment's API keys.
 
 ## Update the examples and docs with the feature
 
-A feature is not finished when the tests pass. A sample workflow under `docs/` (or an `examples/`
-directory once one exists) demonstrates it, and the docs page that names the field, guard, runner
-option or CLI flag changes in the same commit.
+A feature is not finished when the tests pass. A sample workflow under `examples/` demonstrates it,
+and the page under `docs/` that names the field, guard, runner option or CLI flag changes in the
+same commit.
 
 ## Before reporting complete
 
-Run `docker compose run --rm php composer qa` and the node gates, and report their actual output. If
-a gate failed, say which one and what it printed. A change reported as done while a gate is red is a
-false report, and it is worse than an unfinished change because the next agent builds on it.
+Run `pnpm qa` and the node gates, and report their actual output. If a gate failed, say which one
+and what it printed. A change reported as done while a gate is red is a false report, and it is
+worse than an unfinished change because the next agent builds on it.
 
 ## When blocked
 

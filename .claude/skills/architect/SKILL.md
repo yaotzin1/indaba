@@ -1,6 +1,6 @@
 ---
 name: architect
-description: Use when deciding which module a behaviour belongs in, when a Symfony class is about to appear in the pure domain, or when touching layering and dependency direction. Covers the domain/infrastructure boundary and the engine invariants. Scope: The pure domain versus infrastructure boundary, layering, dependency direction, deciding which module a behaviour belongs in
+description: Use when deciding which package a behaviour belongs in, when a node: import or a dependency is about to appear in the pure domain, or when touching layering and dependency direction. Covers the domain/infrastructure boundary and the engine invariants. Scope: The pure domain versus infrastructure boundary, package layering, dependency direction, deciding which package a behaviour belongs in
 ---
 
 # architect

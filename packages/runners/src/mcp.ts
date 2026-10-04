@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type McpServerDefinition, type Runner, RunnerError } from '@indaba/core';
+import { type McpServerDefinition, RunnerError } from '@indaba/core';
 
 /** A private temporary configuration file and the directory that confines it. */
 export interface McpConfigFile {

@@ -1,5 +1,11 @@
 # Specification: MCP support through agents
 
+> **Superseded implementation language.** This spec was written for the PHP prototype, which was never
+> published. Behaviour is unchanged by the TypeScript port; class, method and field names follow
+> [`specs/typescript-port/api-surface.md`](../typescript-port/api-surface.md) (for example
+> `RunnerInterface` is `Runner`, `*Exception` is `*Error`, fields are camelCase). Where this text names a
+> PHP, Composer, Symfony or Docker detail, read the Node and TypeScript equivalent.
+
 > **Status**: Draft
 > **Stage entry**: 1
 > **Semver impact**: minor (new optional workflow keys and public classes; below 1.0)

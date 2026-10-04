@@ -1,6 +1,6 @@
 ---
 name: api-surface
-description: Use when adding, renaming or changing a public class, interface, enum, workflow field, guard type, CLI option, event or span attribute, or when deciding whether a change is a patch, a minor or a major. Covers semver classification and the PHP public surface. Scope: Public classes and interfaces, final and readonly decisions, breaking-change classification, workflow file schema and CLI as public contract, Packagist tags
+description: Use when adding, renaming or changing an exported type, class, interface, union member, workflow field, guard type, CLI option, event or span attribute, or when deciding whether a change is a patch, a minor or a major. Covers semver classification and the public surface of the npm packages. Scope: Exported types, classes and interfaces, readonly and interface-versus-class decisions, breaking-change classification, workflow file schema and CLI as public contract, npm versions and the packages' exports maps
 ---
 
 # api-surface

@@ -1,6 +1,6 @@
 ---
 name: documentation
-description: Use when writing or updating a spec directory, README, CHANGELOG, DEPENDENCY_MAP, docs pages or docblocks, or when deciding which spec artifacts a feature needs. Covers what each document is for and keeping them in sync with the change. Scope: Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, docblocks that explain why
+description: Use when writing or updating a spec directory, README, CHANGELOG, DEPENDENCY_MAP, docs pages or doc comments, or when deciding which spec artifacts a feature needs. Covers what each document is for and keeping them in sync with the change. Scope: Spec directories and which artifacts a feature needs, README, CHANGELOG, DEPENDENCY_MAP, docs/, doc comments that explain why
 ---
 
 # documentation

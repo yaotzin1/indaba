@@ -1,6 +1,6 @@
 ---
 name: static-analysis
-description: Use when PHPStan or PHP-CS-Fixer fails, when typing arrays, generics or callbacks, when tempted to ignore an analyser error, or when changing phpstan.neon. Covers level 9 with no ignoreErrors and PER-CS 2.0. Scope: PHPStan level 9 with no ignoreErrors, PHP-CS-Fixer PER-CS2.0, typing arrays and generics honestly, strict_types
+description: Use when tsc or Biome fails, when typing unknown data, generics or callbacks, when tempted to suppress a compiler or lint error, or when changing tsconfig.base.json or biome.json. Covers strict TypeScript with no escape hatch. Scope: TypeScript strict with the extra flags in tsconfig.base.json, Biome with no suppression, no any and no non-null assertion, narrowing unknown honestly, readonly types
 ---
 
 # static-analysis

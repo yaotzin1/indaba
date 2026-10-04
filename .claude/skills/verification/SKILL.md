@@ -1,6 +1,6 @@
 ---
 name: verification
-description: Use at stage 7 of every change, and whenever a gate fails. Covers composer qa in Docker, the node gates, reading a failing gate from its own output, and the manual checks no gate can make. Scope: composer qa in Docker, the node gates, reading a failing gate from its own output, and the manual checks no gate can make
+description: Use at stage 7 of every change, and whenever a gate fails. Covers pnpm qa, the node gates, reading a failing gate from its own output, and the manual checks no gate can make. Scope: pnpm qa, the node gates, reading a failing gate from its own output, and the manual checks no gate can make
 ---
 
 # verification

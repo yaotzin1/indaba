@@ -11,12 +11,12 @@ This file is about the agents that *develop* Indaba, and the two must not be con
 ## When to fan out
 
 Parallel subagents earn their cost when the work splits along a real seam with a written contract
-between the halves. In this repository the seams are domain versus infrastructure, and one runner
-versus another, and the contract is `api-surface.md` (plus `events.md` when events or span
-attributes are part of it).
+between the halves. In this repository the seams are package against package (core against engine
+against runners against the CLI), and one runner against another, and the contract is
+`api-surface.md` (plus `events.md` when events or span attributes are part of it).
 
 Do not fan out for: a single-file change, an exploratory task where the shape is not yet known, or
-work whose halves would both edit the same class (the engine, `RunnerInterface`).
+work whose halves would both edit the same module (the engine, the `Runner` contract).
 
 ## Roles
 
@@ -26,15 +26,15 @@ When work is split, give each agent one of these roles and hold it to the scope.
 | :--- | :--- | :--- |
 | `research` | anywhere | read-only |
 | `doc_architect` | `specs/`, `docs/` | full |
-| `domain_developer` | `src/Core/`, `src/Workflow/Model`, `Graph`, `State`, `src/Mesh/` | full, own branch |
-| `infra_developer` | `src/Workflow/Parser`, `Guard`, `Engine`, `src/Runners/`, `src/Workspace/`, `src/Observability/`, `src/Console/` | full, own branch |
-| `qa_auditor` | `tests/` | full, own branch |
+| `domain_developer` | `packages/core/` | full, own branch |
+| `infra_developer` | `packages/engine/`, `packages/runners/`, `packages/cli/` | full, own branch |
+| `qa_auditor` | `packages/*/test/` | full, own branch |
 | `api_auditor`, `security_auditor` | anywhere | read-only |
 
 A subagent stays inside its scope. Work that needs both scopes is coordinated through the contract,
-not by widening a scope. The compose volume is one shared directory, so parallel agents work in git
-worktrees created outside the repository (not under `.indaba/worktrees/`, which is runtime state
-for Indaba itself), each with its own `vendor/`, so two `composer` runs never share a write.
+not by widening a scope. Parallel agents work in git worktrees created outside the repository (not
+under `.indaba/worktrees/`, which is runtime state for Indaba itself), each with its own
+`node_modules` from `pnpm install`, so two installs never share a write.
 
 ## Contracts do not change during implementation
 

@@ -1,10 +1,9 @@
 name: Release
 
-# Composer packages have no publish step. Packagist is webhook-driven: once the repository is
-# submitted on packagist.org and its GitHub webhook is enabled, Packagist reads the repository's tags
-# itself, and the tag *is* the version. This workflow therefore publishes nothing to Packagist. It
-# verifies the tagged commit and creates the GitHub release, so a pushed tag is always a deliberate
-# act with a verified commit behind it. composer.json carries no "version" field, on purpose.
+# A pushed v* tag is a release decision, and it is the maintainer's. This workflow verifies the tagged
+# commit, publishes the packages to npm with provenance, and creates the GitHub release. Nothing here
+# runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC) when the
+# packages are configured for it on npmjs.com, and falls back to the NPM_TOKEN secret otherwise.
 on:
   push:
     tags:
@@ -12,25 +11,24 @@ on:
 
 permissions:
   contents: write
+  id-token: write
 
 jobs:
   release:
-    name: Create GitHub release
+    name: Publish to npm and create the GitHub release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - uses: shivammathur/setup-php@v2
-        with:
-          php-version: "8.4"
-          tools: composer:v2
-          extensions: pcntl, zip
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+          cache: pnpm
+          registry-url: https://registry.npmjs.org
 
-      - run: composer install --no-interaction --prefer-dist
+      - run: pnpm install --frozen-lockfile
 
       - name: Git identity for the workspace tests
         run: |
@@ -38,19 +36,34 @@ jobs:
           git config --global user.name "CI"
           git config --global init.defaultBranch main
 
-      - name: The tag must have a changelog section
+      - name: The tag must have a changelog section and match the package version
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
           if ! grep -q "^## \[$VERSION\]" CHANGELOG.md; then
             echo "CHANGELOG.md has no section for $VERSION. Release from a merged release pull request."
             exit 1
           fi
+          for dir in packages/*; do
+            PKG_VERSION="$(node -p "require('./$dir/package.json').version")"
+            if [ "$PKG_VERSION" != "$VERSION" ]; then
+              echo "$dir is at $PKG_VERSION, the tag is $VERSION."
+              exit 1
+            fi
+          done
 
       - name: Full verification gate
         run: |
           node scripts/check-workflow.mjs
-          composer qa
-          composer audit
+          pnpm qa
+          pnpm build
+          node scripts/smoke-pack.mjs
+          pnpm audit --audit-level low
+
+      - name: Publish to npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "true"
+        run: pnpm -r publish --access public --no-git-checks
 
       - name: Create the GitHub release
         env:

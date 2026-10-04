@@ -4,18 +4,20 @@ Binding.
 
 ## 1. What the public surface is
 
-Everything a consumer can depend on. A consumer here is a PHP application that requires
-`indaba/indaba`, a person who runs `bin/indaba`, or the author of a workflow file:
+Everything a consumer can depend on. A consumer here is a program that imports `@indaba/core`,
+`@indaba/engine` or `@indaba/runners`, a person who runs `indaba`, or the author of a workflow file
+or a plugin:
 
-- every `public` and `protected` member of a class, interface or enum under `src/` not marked
-  `@internal`;
+- every name exported from a package's `index.ts` (the `exports` map in `package.json` allows no
+  deep import), and every member of an exported class or interface not marked `@internal` in its
+  doc comment;
 - the **workflow file schema** (fields, guard types, `on_failure` actions, defaults);
 - the **CLI** (commands, arguments, options, exit codes, machine-readable output);
 - **emitted events** and **span and attribute names** (dashboards and alerts are built on them);
 - configuration keys and environment variables.
 
-A class marked `@internal` in its docblock is outside the contract. Mark wiring and helpers that way
-rather than leaving a consumer to guess.
+A symbol marked `@internal` is outside the contract, and is not exported from `index.ts`. Keep
+wiring and helpers out of the index rather than leaving a consumer to guess.
 
 ## 2. Classify before implementing
 
@@ -30,19 +32,21 @@ a quorum rule, the order ties are broken in. This is the change most often miscl
 
 ## 4. Everything reachable must be nameable
 
-A type appearing in a public signature is itself public. A consumer who cannot name the type of an
-argument cannot write a wrapper, a fake runner or a test double.
+A type appearing in a public signature is itself exported. A consumer who cannot name the type of an
+argument cannot write a wrapper, a fake runner or a test double. Adding a member to a union (a new
+`StepStatus`) is a break for anyone who switches over it exhaustively.
 
-## 5. Contracts are interfaces; implementations are `final`
+## 5. Contracts are interfaces; implementations are not meant to be subclassed
 
-`RunnerInterface` is the extension point and is public. Concrete runners, the engine and value
-objects are `final`: extension is by composition, and `final` makes adding a method a minor instead
-of a break for subclassers.
+`Runner`, `Guard`, `Plugin` and `PluginHost` are the extension points, are defined in
+`@indaba/core`, and are interfaces. Concrete runners, the engine and value objects are classes
+whose fields are `readonly`: extension is by composition, and not documenting a subclassing contract
+makes adding a method a minor instead of a break.
 
 ## 6. Removal waits for a major
 
-Deprecate with `@deprecated` naming the replacement, forward the implementation, and remove in the
-next major. Trigger `E_USER_DEPRECATED` only where a consumer's call, not their configuration, is
+Deprecate with a `@deprecated` doc comment naming the replacement, forward the implementation, and
+remove in the next major. A runtime warning is for a consumer's call, not their configuration, being
 the thing that is wrong.
 
 ## 7. Below 1.0

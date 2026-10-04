@@ -1,46 +1,54 @@
 ---
 name: smoke_tests
-description: Use when verifying the installed package rather than the source tree, changing .gitattributes export-ignore, the bin entry, autoloading or composer.json packaging fields. Covers the production install smoke test and the dist archive audit.
+description: Use when verifying the installed package rather than the source tree, or changing a package's files, exports or bin entry. Covers the packed-install smoke test and the published-files audit.
 ---
 
 # Built-Artifact Verification Specialist
 
 A green unit suite proves the source works with the development tree around it. It says nothing
-about what a consumer receives: the autoloader, the `bin` entry, the files in the archive and the
-runtime dependencies without `require-dev`.
+about what a consumer receives: the compiled `dist`, the `exports` maps, the `bin` entry, the files
+in each tarball and the runtime dependencies without the dev toolchain.
 
 ## What the artifact is
 
-A Composer package: the `git archive` of a tag (what Packagist serves) plus `composer install
---no-dev`. Indaba has no build step and no phar yet; if one is added, this skill gains its checks.
+Four npm tarballs (`indaba`, `@indaba/core`, `@indaba/engine`, `@indaba/runners`) produced by
+`pnpm pack`, which rewrites `workspace:` ranges to real versions.
 
 ## The smoke test
 
-CI runs it as a step of the verify job, and you can run it locally in Docker:
-
 ```bash
-docker compose run --rm php sh -c 'rm -rf /tmp/smoke && mkdir /tmp/smoke && git archive HEAD | tar -x -C /tmp/smoke && cd /tmp/smoke && composer install --no-dev --no-interaction && php bin/indaba list'
+pnpm build
+pnpm smoke
 ```
 
-It proves: the archive contains what the autoloader needs, `composer.lock` and `composer.json`
-agree, no dev-only class is required at runtime, and the CLI boots. Extend it with a tiny workflow
-run through `ShellRunner` once the CLI has a `run` command.
+`scripts/smoke-pack.mjs` packs every package under `packages/`, installs the tarballs into an empty
+temporary project and boots the `indaba` binary (`indaba --version`). It must be started through
+pnpm so `npm_execpath` names pnpm's own script: Node refuses to start a `.cmd` shim without a shell,
+and this repository never uses a shell for that. CI runs it on Linux, Windows and macOS as a step of
+the verify job.
 
-## The archive audit
+It proves: each tarball contains what its `exports` and `bin` name, the dependency list is
+sufficient without dev dependencies, imports resolve across packages, and the CLI boots. Extend it
+with a tiny workflow run through `ShellRunner` when that adds coverage.
 
-`.gitattributes` marks everything a consumer does not need `export-ignore`: `tests`, `specs`, `.agents`,
-`.claude`, `.github`, `.githooks`, `scripts`, `docs` as decided, Docker files, `phpunit.xml.dist`,
-`phpstan.neon`, `.php-cs-fixer.dist.php`, `workflow.ai.yml`. Check the list with
-`git archive HEAD | tar -t` and read it. A stray `.env`, `.indaba/` content or `vendor/` is a leak.
+## The published-files audit
 
-`src/`, `bin/`, `composer.json`, `LICENSE`, `README.md` and `CHANGELOG.md` must be present.
+Each package's `files` is `["dist"]`. After a change to packaging, read what would ship:
+
+```bash
+pnpm --filter @indaba/core pack --pack-destination <tmp>
+tar -tf <tmp>/indaba-core-0.1.0.tgz
+```
+
+`dist/**`, `package.json`, `README.md` and `LICENSE` belong; tests, specs, `.agents`, `.indaba`, a
+stray `.env` or a `node_modules` directory are a leak.
 
 ## When to run it
 
-Any change to `composer.json`, `.gitattributes`, `bin/`, autoload configuration, or a new runtime
-dependency; and before every release.
+Any change to a `package.json` (`files`, `exports`, `bin`, `dependencies`), a `tsconfig.build.json`,
+the build script, or a new runtime dependency; and before every release.
 
 ## Known limit
 
-A git archive needs a commit. Before the first commit exists, this cannot run; CI runs it from the
-first pushed commit on.
+`pnpm smoke` needs `dist/`, so it runs after `pnpm build`. It tests the packed install, not the
+registry: it cannot show that a published version resolves from npm.

@@ -14,51 +14,65 @@ what it needs (binary, key, base URL), and classify it a minor in `api-surface.m
 
 ## 2. Write the test first
 
-Extend the shared runner contract test case in `tests/Unit/Runners` with a subclass that builds your
-runner against a fake backend: a tiny PHP or shell script written to a temp directory for a CLI, a
-`MockHttpClient` response sequence for HTTP. The contract cases (success, non-zero exit, timeout,
-cancellation, missing binary, large output) must pass without changes to the base class.
+Vitest, in `packages/runners/test` for a built-in or in your own package for a plugin. Build the
+runner against a fake backend: for a CLI runner, a `ProcessSpawner` fake (see
+`packages/runners/test/support.ts`) that records the `ProcessSpec` and answers with a canned
+outcome, plus one real run of a tiny `node -e` program as an argument vector so it works on every
+OS; for HTTP, an injected `fetch` that returns a scripted `ReadableStream`. The contract cases
+(success, non-zero exit, timeout, abort, missing binary, large output) must pass. Never make a unit
+test depend on a real agent CLI.
 
-## 3. Implement `RunnerInterface`
+## 3. Implement `Runner`
 
-```php
-declare(strict_types=1);
+The contract is in `@indaba/core`:
 
-namespace Indaba\Runners;
+```ts
+import { RunResult, RunnerError, type RunRequest, type Runner } from '@indaba/core';
 
-final class ExampleRunner implements RunnerInterface
-{
-    public function __construct(private readonly string $binary = 'example') {}
+export class ExampleRunner implements Runner {
+  readonly name = 'example';
 
-    public function run(RunRequest $request): RunResult
-    {
-        // build an argument ARRAY, start the Process, stream output to the request's sink,
-        // stop the child in finally, map the outcome to a RunResult
-    }
+  constructor(private readonly binary = 'example') {}
+
+  async run(request: RunRequest, signal?: AbortSignal): Promise<RunResult> {
+    // build an argument ARRAY, start the process, stream chunks to request.onOutput,
+    // kill the whole tree on timeout or abort, map the outcome to a RunResult
+    throw new RunnerError(`${this.binary} is not implemented`);
+  }
 }
 ```
 
+For an agent CLI, extend `AbstractCliRunner` and implement `command(request)`, which returns the
+argument vector; the base class handles the PTY or piped process, the timeout, abort and output
+streaming. `CommandRunner` covers a CLI that is only a command template.
+
 Checklist while writing it:
 
-- the command is an array; the prompt goes through stdin or a dedicated argument, never into a shell
-  string;
+- the command is an array and `shell` is never enabled; the prompt goes through stdin or a dedicated
+  argument, never into a shell string. On Windows an npm `.cmd` shim cannot be started without a
+  shell: point the runner at a native executable;
 - environment: only what the agent needs; the API key from the caller's environment, never logged;
-- the timeout and cancellation in the request are honoured and the child is killed with its group;
-- a missing binary or refused connection throws `RunnerException` with a message that names the
-  fix and contains no secret;
-- usage is parsed from the provider's own reporting; unknown is `null`, not zero.
+- `request.timeoutSeconds` (default 900) and the `AbortSignal` are honoured and the child's whole
+  process tree is killed;
+- PTY comes from the optional `node-pty` and falls back to piped stdio when it is missing; a runner
+  never crashes on import and says which mode ran;
+- a missing binary or refused connection throws `RunnerError` with a message that names the fix and
+  contains no secret;
+- usage is parsed from the provider's own reporting; unknown is `undefined`, not zero.
 
 ## 4. Register it
 
-Add its name to `RunnerRegistry` (and the console composition root's default registry). The name is
-public schema: choose it once.
+A plugin registers it: `host.registerRunner(new ExampleRunner())`. The built-in set is registered by
+the CLI through the same `PluginHost`, with no private path. The name is public schema: choose it
+once.
 
 ## 5. Document it
 
-A section in `docs/` with a workflow snippet, required binary or key, what usage it reports and its
-limits (for PTY runners, the Linux-only caveat). The snippet is run by a test where it can be.
+A section in `docs/getting-started.md` (or `docs/extending.md` for a plugin) with a workflow snippet,
+the required binary or key, what usage it reports and its limits. The snippet is run by a test where
+it can be.
 
 ## 6. Verify and ship
 
-`docker compose run --rm php composer qa`, the self-review in `review.md`, the changelog entry under
-Added. A runner with side effects outside its workspace is a security question: say so in the spec.
+`pnpm qa`, the self-review in `review.md`, the changelog entry under Added. A runner with side
+effects outside its workspace is a security question: say so in the spec.

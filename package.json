@@ -12,7 +12,8 @@
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
-    "qa": "pnpm lint && pnpm typecheck && pnpm test"
+    "qa": "pnpm lint && pnpm typecheck && pnpm test",
+    "smoke": "node scripts/smoke-pack.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

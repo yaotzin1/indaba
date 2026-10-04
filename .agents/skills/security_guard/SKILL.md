@@ -1,51 +1,50 @@
 ---
 name: security_guard
-description: Use when adding or upgrading a dependency, editing composer.json or composer.lock, changing what the dist archive contains, or touching CI secrets and the release workflow. Covers runtime dependency policy, Composer plugins and scripts, the lockfile and archive contents.
+description: Use when adding or upgrading a dependency, editing a package.json or pnpm-lock.yaml, changing what an npm package publishes, or touching CI secrets and the release workflow. Covers runtime dependency policy, install scripts, the lockfile and published files.
 ---
 
 # Supply Chain & Publish Safety Specialist
 
 Every dependency is code that runs with a developer's API keys. The policy keeps that list short,
-explicit and audited.
+explicit and audited. `@indaba/core` has no dependencies at all.
 
 ## Runtime dependencies are a recorded decision
 
-`composer.json` `require` lists exactly the packages in `project.runtime_dependencies` of
-`workflow.ai.yml`; `scripts/check-workflow.mjs` fails otherwise. Symfony components share one
-constraint (`project.symfony_constraint`). To add one: a decision in the feature's `spec.md`
-(what it does, why the standard library or an existing component cannot, its maintenance and licence),
-a change to the YAML list, and a minor classification, because it enters every consumer's tree.
+The `dependencies` and `optionalDependencies` of the packages (links between them aside) are exactly
+`project.runtime_dependencies` (`yaml`) and `project.optional_dependencies` (`node-pty`) in
+`workflow.ai.yml`; `scripts/check-workflow.mjs` fails otherwise. To add one: a decision in the
+feature's `spec.md` (what it does, why Node's standard library or an existing dependency cannot, its
+maintenance and licence), a change to the YAML list, and a minor classification, because it enters
+every consumer's tree. Ranges are released and bounded (`^1.2.3`), never `*`, `latest`, a git URL or a
+file path; the security audit fails them.
 
 ## Audit
 
-`composer audit` is the required CI check "Dependency audit", blocking at any severity. Run it in
-Docker before adding or upgrading. A new advisory on an unrelated pull request is fixed by upgrading
-or removing the package, not by a waiver.
+`pnpm audit --audit-level low` is the required CI check "Dependency audit", blocking at any severity,
+dev tooling included. Run it before adding or upgrading. A new advisory on an unrelated pull request
+is fixed by upgrading or removing the package, not by a waiver.
 
-## Composer behaviour
+## Install behaviour
 
-- No lifecycle scripts (`post-install-cmd`, `post-update-cmd`, `post-autoload-dump`, ...). The
-  security audit fails them.
-- `allow-plugins` names plugins one by one, as a recorded decision, never `*` or `true`.
-- `minimum-stability` stays `stable`; no `dev-` constraints; no plain `http` repositories.
-- `composer.lock` is committed for the application and reviewed like code: a lockfile diff that
-  touches packages the change did not mention is a question.
-- Use `composer install` in CI and Docker images, never `update`, so what runs is what was reviewed.
+- No lifecycle scripts in any `package.json` (`preinstall`, `install`, `postinstall`, `prepare`, ...).
+  The security audit fails them; they run code on every consumer's machine.
+- `node-pty` is optional and builds or downloads a native binary: that is why it is optional, and why
+  the code must work without it.
+- `pnpm-lock.yaml` is committed and reviewed like code: a lockfile diff that touches packages the
+  change did not mention is a question.
+- CI and the release workflow use `pnpm install --frozen-lockfile`, never a plain install, so what
+  runs is what was reviewed.
 
-## The dist archive
+## What each package publishes
 
-What Packagist serves is the tag's `git archive`, shaped by `.gitattributes` `export-ignore`. It
-contains `src`, `bin`, `composer.json`, `LICENSE`, `README.md`, `CHANGELOG.md` and nothing about our
-development workflow, secrets or runtime state. See `smoke_tests` for the check.
+Each package's `files` is `["dist"]`; npm adds `package.json`, `README` and `LICENSE`. Tests, specs,
+`.agents`, `.indaba`, `scripts` and source maps' sources are not published. Check with `pnpm pack` (see
+`smoke_tests`) before every release, and after any change to `files`, `exports` or `bin`.
 
 ## CI and release secrets
 
-The release workflow needs only `contents: write` to create a GitHub release. No Packagist token is
-stored: Packagist is updated by its GitHub webhook. Third-party actions are pinned to a major
-version at least, and a new action is a reviewed change to a protected file.
-
-## Docker image
-
-The Dockerfile pins the PHP minor and installs only what the toolchain needs. Treat it as
-development infrastructure: it never carries real credentials, and the compose file passes
-`OPENROUTER_API_KEY` through from the host environment rather than storing it.
+The release workflow needs `contents: write` (the GitHub release) and `id-token: write` (provenance
+and npm trusted publishing). The `NPM_TOKEN` secret, if used, is scoped to publish only and is exposed
+to the publish step alone. Provenance is on (`NPM_CONFIG_PROVENANCE`). Third-party actions are pinned
+to a major version at least, and a new action is a reviewed change to a protected file. Nothing in the
+repository holds a credential; `OPENROUTER_API_KEY` reaches a process from the environment only.

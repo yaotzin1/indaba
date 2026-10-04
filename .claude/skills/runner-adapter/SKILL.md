@@ -1,6 +1,6 @@
 ---
 name: runner-adapter
-description: Use when changing RunnerInterface, RunRequest, RunResult, a PTY CLI runner, the OpenRouter SSE runner, ShellRunner or the runner registry. Covers the contract, process lifetime, streaming, cancellation and token usage reporting. Scope: RunnerInterface, RunRequest and RunResult, PTY CLI runners, the OpenRouter SSE runner, ShellRunner, cancellation, timeouts and the registry
+description: Use when changing the Runner interface, RunRequest, RunResult, a CLI agent runner, the OpenRouter SSE runner, ShellRunner or the runner registry. Covers the contract, process lifetime, streaming, cancellation and token usage reporting. Scope: The Runner contract, RunRequest and RunResult, CLI runners (node-pty with a piped fallback), the OpenRouter SSE runner, ShellRunner, cancellation through AbortSignal, timeouts and the registry
 ---
 
 # runner-adapter

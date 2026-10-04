@@ -10,7 +10,7 @@ export interface ShellInvocation {
 /**
  * How a declared command line reaches the platform shell. The interpreter is started with an
  * argument array; only the declared line itself is parsed by it (`/bin/sh -c` on POSIX, as
- * Process::fromShellCommandline did in the PHP version; `cmd.exe /d /s /c "line"` on Windows,
+ * a shell would for a declared command line; `cmd.exe /d /s /c "line"` on Windows,
  * passed verbatim so cmd.exe does the quote handling instead of Node).
  */
 export function shellInvocation(line: string, platform: NodeJS.Platform = process.platform): ShellInvocation {
