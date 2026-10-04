@@ -104,6 +104,21 @@ describe('validate', () => {
   });
 });
 
+describe('no file given', () => {
+  it('says which default was tried and how to name a file', async () => {
+    const dir = await makeTempDir();
+    const r = await run(['run'], dir);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('cannot read workflow file');
+    expect(r.out).toContain('no file was given, so .indaba/workflow.ai.yml was tried');
+  });
+
+  it('adds no hint when a file was named', async () => {
+    const r = await run(['validate', 'nope.yml']);
+    expect(r.out).not.toContain('no file was given');
+  });
+});
+
 describe('plan', () => {
   it('prints the execution order of the example', async () => {
     const r = await run(['plan', example]);

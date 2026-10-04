@@ -14,7 +14,7 @@ import {
   type WorkflowDefinition,
   WorkflowValidationError,
 } from '@indaba/core';
-import { WorkflowStatus } from '@indaba/engine';
+import { type WorkflowParser, WorkflowStatus } from '@indaba/engine';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 
@@ -221,12 +221,31 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   }
 }
 
+/** Reads the workflow file; when none was named and the default is missing, says what to do about it. */
+async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Promise<WorkflowDefinition> {
+  try {
+    return await parser.parseFile(resolve(io.cwd, parsed.file));
+  } catch (error) {
+    if (
+      error instanceof WorkflowValidationError &&
+      parsed.file === DEFAULT_FILE &&
+      error.problems.some((problem) => problem.startsWith('cannot read workflow file'))
+    ) {
+      throw new WorkflowValidationError([
+        ...error.problems,
+        `no file was given, so ${DEFAULT_FILE} was tried; name one: indaba <command> <workflow-file>`,
+      ]);
+    }
+    throw error;
+  }
+}
+
 async function validate(parsed: Parsed, io: Io): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, plugins });
   let workflow: WorkflowDefinition;
   try {
-    workflow = await parser.parseFile(resolve(io.cwd, parsed.file));
+    workflow = await loadWorkflow(parser, parsed, io);
   } catch (error) {
     if (!(error instanceof WorkflowValidationError)) {
       throw error;
@@ -246,7 +265,7 @@ async function validate(parsed: Parsed, io: Io): Promise<number> {
 async function plan(parsed: Parsed, io: Io): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { parser, planner } = await createEngine({ projectDir: io.cwd, env: io.env, plugins });
-  const workflow = await parser.parseFile(resolve(io.cwd, parsed.file));
+  const workflow = await loadWorkflow(parser, parsed, io);
   const order = new DagBuilder().build(workflow);
 
   order.forEach((step, n) => {
@@ -291,7 +310,7 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
       io.stderr.write(`Listener failed: ${redact(reason, io.env)}\n`);
     },
   });
-  const workflow = await parser.parseFile(resolve(io.cwd, parsed.file));
+  const workflow = await loadWorkflow(parser, parsed, io);
 
   events.addListener(StepStatusChanged, (e) => {
     const reason = e.reason === undefined ? '' : ` (${e.reason.split('\n')[0] ?? ''})`;

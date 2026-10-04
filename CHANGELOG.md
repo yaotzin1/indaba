@@ -10,15 +10,21 @@ a major. Until 1.0, a breaking change takes the next minor and is labelled as su
 file schema, the command line, emitted events and span attribute names are part of the public
 surface.
 
-Nothing has been published. The entries below describe the repository, and the first release will be
-`0.1.0`, an npm release of the packages named under "The TypeScript port".
+The first published version is `0.1.0-alpha.0`, a preview of the packages named under "The TypeScript
+port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Fixed
+
+- `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default
+  they tried and how to name a file, instead of only reporting that the default could not be read.
+
 ## [0.1.0-alpha.0] - 2026-10-04
 
-A preview that reserves the package names. It is published under the `next` dist-tag: install it
-with `indaba@next`. The API is not stable.
+A preview that reserves the package names, published by hand with a security-key login. Because it is
+the first version, npm also pointed `latest` at it; from the next prerelease on, prereleases go to
+`next`. The API is not stable.
 
 ### Added
 
@@ -88,5 +94,8 @@ published, so nothing below was ever released.
     (`agy -p`), their invocations taken from the vendors' headless-mode documentation, replacing
     the placeholder command templates; both remain overridable through `INDABA_CODEX_CMD` and
     `INDABA_ANTIGRAVITY_CMD`.
+- GitHub releases publish through npm trusted publishing (OIDC, no stored token or one-time
+  password): the release workflow packs the four packages with pnpm and publishes the tarballs with
+  npm, prereleases under `next`.
 - Development governance: `workflow.ai.yml` (the *development* workflow, not the format Indaba
   executes), the agent instruction set, skills, rules, hooks and CI.
