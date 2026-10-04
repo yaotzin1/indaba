@@ -1,5 +1,5 @@
 export type { RunnerLookup, Speaker } from './engine/mcp.js';
-export { McpIssue, McpPlanner, McpResolution, McpSupport } from './engine/mcp.js';
+export { McpIssue, McpPlanner, McpResolution } from './engine/mcp.js';
 export { StepOutcome, WorkflowResult, WorkflowStatus } from './engine/outcome.js';
 export { PromptBuilder } from './engine/prompt-builder.js';
 export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor.js';

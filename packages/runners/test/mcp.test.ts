@@ -3,15 +3,14 @@ import { readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname } from 'node:path';
 import type { McpServerDefinition, Runner } from '@indaba/core';
+import { McpCapability, mcpCapabilityOf } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import {
   ClaudeRunner,
   CodexRunner,
   CommandRunner,
   CursorRunner,
-  McpCapability,
   McpConfigWriter,
-  mcpCapabilityOf,
   ShellRunner,
 } from '../src/index.js';
 import { FakeSpawner, TMP } from './support.js';

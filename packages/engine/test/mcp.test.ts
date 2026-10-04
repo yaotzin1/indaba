@@ -1,6 +1,13 @@
-import { McpUnavailableError, type Runner, type RunRequest, RunResult, SpanEnded } from '@indaba/core';
+import {
+  McpCapability,
+  McpUnavailableError,
+  type Runner,
+  type RunRequest,
+  RunResult,
+  SpanEnded,
+} from '@indaba/core';
 import { describe, expect, it } from 'vitest';
-import { type McpIssue, McpPlanner, McpSupport, parseWorkflow, WorkflowStatus } from '../src/index.js';
+import { type McpIssue, McpPlanner, parseWorkflow, WorkflowStatus } from '../src/index.js';
 import { FakeRegistry, FakeRunner, harness, makeGitRepo } from './support.js';
 
 const ok = (): RunResult => new RunResult({ exitCode: 0, output: 'ok' });
@@ -16,10 +23,10 @@ function capable(name: string, capability: string): Runner & { mcpCapability(): 
 
 describe('McpPlanner', () => {
   it('reads a runner capability, defaulting to none', () => {
-    expect(McpPlanner.capabilityOf(capable('a', 'injected'))).toBe(McpSupport.Injected);
-    expect(McpPlanner.capabilityOf(capable('a', 'agent_managed'))).toBe(McpSupport.AgentManaged);
-    expect(McpPlanner.capabilityOf(capable('a', 'nonsense'))).toBe(McpSupport.None);
-    expect(McpPlanner.capabilityOf(new FakeRunner('plain', ok))).toBe(McpSupport.None);
+    expect(McpPlanner.capabilityOf(capable('a', 'injected'))).toBe(McpCapability.Injected);
+    expect(McpPlanner.capabilityOf(capable('a', 'agent_managed'))).toBe(McpCapability.AgentManaged);
+    expect(McpPlanner.capabilityOf(capable('a', 'nonsense'))).toBe(McpCapability.None);
+    expect(McpPlanner.capabilityOf(new FakeRunner('plain', ok))).toBe(McpCapability.None);
   });
 
   it('preflight follows policy and capability', () => {

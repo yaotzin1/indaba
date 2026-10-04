@@ -1,13 +1,5 @@
 import type { McpServerDefinition, Runner, StepDefinition, WorkflowDefinition } from '@indaba/core';
-import { isConsensusStep, McpPolicy, RunnerError } from '@indaba/core';
-
-/** How a runner offers MCP. Mirrors the runners package's `McpCapability` values; matched by value. */
-export const McpSupport = {
-  Injected: 'injected',
-  AgentManaged: 'agent_managed',
-  None: 'none',
-} as const;
-export type McpSupport = (typeof McpSupport)[keyof typeof McpSupport];
+import { isConsensusStep, McpCapability, McpPolicy, mcpCapabilityOf, RunnerError } from '@indaba/core';
 
 /** Anything that resolves a runner by the name a workflow uses; `RunnerRegistry` satisfies it. */
 export interface RunnerLookup {
@@ -56,13 +48,8 @@ export class McpPlanner {
   constructor(private readonly runners: RunnerLookup) {}
 
   /** A runner that does not declare `mcpCapability()` has no MCP. */
-  static capabilityOf(runner: Runner): McpSupport {
-    const declared: unknown = (runner as { mcpCapability?: unknown }).mcpCapability;
-    if (typeof declared !== 'function') {
-      return McpSupport.None;
-    }
-    const value: unknown = declared.call(runner);
-    return value === McpSupport.Injected || value === McpSupport.AgentManaged ? value : McpSupport.None;
+  static capabilityOf(runner: Runner): McpCapability {
+    return mcpCapabilityOf(runner);
   }
 
   /** @param roleName the role speaking in this step (a consensus has several), if any */
@@ -92,9 +79,9 @@ export class McpPlanner {
       const definition = Object.hasOwn(workflow.mcpServers, name) ? workflow.mcpServers[name] : undefined;
       if (definition === undefined) {
         missing.push(name); // unreachable after validation; fail closed regardless
-      } else if (capability === McpSupport.Injected) {
+      } else if (capability === McpCapability.Injected) {
         injected.push(definition);
-      } else if (capability === McpSupport.AgentManaged) {
+      } else if (capability === McpCapability.AgentManaged) {
         assumed.push(name);
       } else if (policy === McpPolicy.Optional) {
         skipped.push(name);

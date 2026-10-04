@@ -1,6 +1,7 @@
 import type { RunRequest } from '@indaba/core';
+import { McpCapability, type McpCapable } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions, PreparedCommand } from './abstract-cli-runner.js';
-import { McpCapability, type McpCapable, McpConfigWriter } from './mcp.js';
+import { McpConfigWriter } from './mcp.js';
 
 export interface ClaudeRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;

@@ -3,30 +3,6 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { type McpServerDefinition, type Runner, RunnerError } from '@indaba/core';
 
-export const McpCapability = {
-  /** Indaba passes the server configuration to the agent for each run. */
-  Injected: 'injected',
-  /** The agent keeps its own MCP configuration; Indaba can neither inject nor verify it. */
-  AgentManaged: 'agent_managed',
-  /** The engine has no MCP at all. */
-  None: 'none',
-} as const;
-export type McpCapability = (typeof McpCapability)[keyof typeof McpCapability];
-
-/** Implemented by runners that can say what MCP support they offer. */
-export interface McpCapable {
-  mcpCapability(): McpCapability;
-}
-
-export function isMcpCapable(runner: Runner): runner is Runner & McpCapable {
-  return 'mcpCapability' in runner && typeof runner.mcpCapability === 'function';
-}
-
-/** A runner that does not implement McpCapable is treated as McpCapability.None. */
-export function mcpCapabilityOf(runner: Runner): McpCapability {
-  return isMcpCapable(runner) ? runner.mcpCapability() : McpCapability.None;
-}
-
 /** A private temporary configuration file and the directory that confines it. */
 export interface McpConfigFile {
   readonly file: string;

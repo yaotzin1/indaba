@@ -10,8 +10,8 @@ export type { CommandRunnerOptions } from './command-runner.js';
 export { CommandRunner } from './command-runner.js';
 export type { CursorRunnerOptions } from './cursor-runner.js';
 export { CursorRunner } from './cursor-runner.js';
-export type { McpCapable, McpConfigFile } from './mcp.js';
-export { isMcpCapable, McpCapability, McpConfigWriter, mcpCapabilityOf } from './mcp.js';
+export type { McpConfigFile } from './mcp.js';
+export { McpConfigWriter } from './mcp.js';
 export type { FetchFunction, OpenRouterRunnerOptions } from './openrouter-runner.js';
 export { OpenRouterRunner } from './openrouter-runner.js';
 export type {

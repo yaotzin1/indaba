@@ -1,6 +1,6 @@
 import type { RunRequest } from '@indaba/core';
+import { McpCapability, type McpCapable } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
-import { McpCapability, type McpCapable } from './mcp.js';
 
 export interface AntigravityRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
