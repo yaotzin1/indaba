@@ -1,0 +1,12 @@
+{
+  "name": "@indaba/engine",
+  "version": "0.1.0",
+  "description": "Indaba workflow parser, guards, engine, git workspaces and tracing.",
+  "license": "MIT",
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "exports": { ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" } },
+  "files": ["dist"],
+  "sideEffects": false,
+  "dependencies": { "@indaba/core": "workspace:*", "yaml": "^2.9.1" }
+}

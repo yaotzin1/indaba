@@ -1,0 +1,21 @@
+{
+  "name": "indaba-monorepo",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@9.15.1",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "test": "vitest run",
+    "qa": "pnpm lint && pnpm typecheck && pnpm test"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "^22.20.5",
+    "typescript": "^5.9.3",
+    "vitest": "^5.0.3"
+  }
+}

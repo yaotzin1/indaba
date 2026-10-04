@@ -26,12 +26,12 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SELF = path.relative(ROOT, fileURLToPath(import.meta.url)).split(path.sep).join('/');
 
 /** Directories scanned for source rules. Tests are included: a test is code that runs too. */
-export const SOURCE_DIRECTORIES = ['src', 'tests', 'bin', 'scripts', '.githooks'];
-const SOURCE_EXTENSIONS = new Set(['.php', '.mjs', '.js']);
-const IGNORED_DIRECTORIES = new Set(['vendor', 'node_modules', '.git', '.indaba', '.phpunit.cache']);
+export const SOURCE_DIRECTORIES = ['src', 'tests', 'bin', 'scripts', '.githooks', 'packages', 'apps'];
+const SOURCE_EXTENSIONS = new Set(['.php', '.mjs', '.js', '.ts', '.mts']);
+const IGNORED_DIRECTORIES = new Set(['vendor', 'node_modules', '.git', '.indaba', '.phpunit.cache', 'dist']);
 
 /** Directories holding decision logic, where the clock and randomness must be injected. */
-export const DETERMINISTIC_DIRECTORIES = ['src/Core/', 'src/Workflow/', 'src/Mesh/'];
+export const DETERMINISTIC_DIRECTORIES = ['src/Core/', 'src/Workflow/', 'src/Mesh/', 'packages/core/src/'];
 
 /** The only files that may build a shell command line from a string: the declared-command runner. */
 export const SHELL_LINE_ALLOWED = ['src/Runners/ShellRunner.php'];
@@ -172,6 +172,71 @@ export const NODE_RULES = [
     { id: 'node/shell-true', pattern: /\bshell\s*:\s*true\b/, message: 'shell: true parses the command line with a shell. Use an argument array.' },
 ];
 
+/**
+ * Blanks comments and string contents in TypeScript source, keeping line structure. Template literal
+ * bodies are blanked, expressions inside them with it: a scanner, not a parser.
+ */
+export function stripTs(text) {
+    let out = '';
+    let i = 0;
+    const blank = (chunk) => chunk.replace(/[^\n]/g, ' ');
+    while (i < text.length) {
+        const char = text[i];
+        const next = text[i + 1];
+        if (char === '/' && next === '/') {
+            const end = text.indexOf('\n', i);
+            const stop = end === -1 ? text.length : end;
+            out += blank(text.slice(i, stop));
+            i = stop;
+        } else if (char === '/' && next === '*') {
+            const end = text.indexOf('*/', i + 2);
+            const stop = end === -1 ? text.length : end + 2;
+            out += blank(text.slice(i, stop));
+            i = stop;
+        } else if (char === "'" || char === '"' || char === '`') {
+            let j = i + 1;
+            while (j < text.length && text[j] !== char && (char === '`' || text[j] !== '\n')) j += text[j] === '\\' ? 2 : 1;
+            out += char + blank(text.slice(i + 1, j)) + (j < text.length && text[j] === char ? char : '');
+            i = j + 1;
+        } else {
+            out += char;
+            i += 1;
+        }
+    }
+    return out;
+}
+
+/** Rules applied to the stripped code of every TypeScript file. */
+export const TS_RULES = [
+    { id: 'ts/eval', pattern: /(?<![\w.$])eval\s*\(/, message: 'eval executes a string as code.' },
+    { id: 'ts/new-function', pattern: /\bnew\s+Function\s*\(|(?<![\w.$])Function\s*\(/, message: 'Function() executes a string as code.' },
+    { id: 'ts/vm', pattern: /from\s+['"](?:node:)?vm['"]|require\s*\(\s*['"](?:node:)?vm['"]/, message: 'The vm module executes strings as code.', raw: true },
+    {
+        id: 'ts/exec-string',
+        pattern: /(?<![\w$])(?:exec|execSync)\s*\(/,
+        message: 'A command given as a string goes through a shell. Use spawn or execFile with an argument array.',
+    },
+    { id: 'ts/shell-true', pattern: /\bshell\s*:\s*true\b/, message: 'shell: true parses the command line with a shell. Use an argument array.' },
+    { id: 'ts/any', pattern: /:\s*any\b|\bas\s+any\b|<any>|\bany\[\]|Array<any>|Record<[^>]*,\s*any>/, message: 'any switches the type checker off. Use unknown and narrow it.' },
+    { id: 'ts/non-null-assertion', pattern: /[\w)\]]!(?:[.[(]|\s*[,;)])/, message: 'A non-null assertion hides a possible undefined. Handle the case.' },
+    {
+        id: 'ts/debug-output',
+        pattern: /\bconsole\s*\.\s*(?:log|debug|dir|trace)\s*\(/,
+        message: 'Debug output in shipped code can print prompts, paths and credentials. Write through the injected output.',
+        shippedOnly: true,
+    },
+];
+
+/** Rules for decision logic in TypeScript: the clock, randomness and environment are injected. */
+export const TS_DETERMINISTIC_RULES = [
+    { id: 'determinism/wall-clock', pattern: /\bDate\s*\.\s*now\s*\(|\bnew\s+Date\s*\(\s*\)|\bperformance\s*\.\s*now\s*\(|\bhrtime\b/, message: 'Decision logic reads no wall clock. Take a Clock in the constructor.' },
+    { id: 'determinism/randomness', pattern: /\bMath\s*\.\s*random\s*\(|\brandomUUID\s*\(|\brandomBytes\s*\(|\brandomInt\s*\(|\bgetRandomValues\s*\(/, message: 'Decision logic draws no randomness. Inject an IdGenerator so a run can be replayed.' },
+    { id: 'determinism/environment', pattern: /\bprocess\s*\.\s*env\b/, message: 'Decision logic reads no environment. Configuration arrives as constructor arguments.' },
+];
+
+/** Inline suppressions are an ignoreErrors in disguise, whatever the tool. Read in the raw text. */
+const TS_SUPPRESSION = /@ts-ignore|@ts-expect-error|@ts-nocheck|biome-ignore|eslint-disable|istanbul ignore/;
+
 /** Secret and credential shapes, scanned in the raw text of every file, comments included. */
 export const SECRET_PATTERNS = [
     { id: 'secrets/openai-style-key', pattern: /\bsk-(?:proj-|ant-|or-v1-)?[a-zA-Z0-9_-]{20,}\b/ },
@@ -194,13 +259,18 @@ export function auditSource(relativePath, text) {
     const findings = [];
     const extension = path.extname(relativePath);
     const isPhp = extension === '.php';
-    const isShipped = relativePath.startsWith('src/');
+    const isTs = extension === '.ts' || extension === '.mts';
+    const isTestFile = /(^|\/)tests?\//.test(relativePath) || /\.test\.[mc]?[jt]s$/.test(relativePath);
+    const isShipped = relativePath.startsWith('src/') || (isTs && /^(packages|apps)\/[^/]+\/src\//.test(relativePath));
     const isDeterministic = DETERMINISTIC_DIRECTORIES.some((directory) => relativePath.startsWith(directory));
 
     // Secrets are read in the raw text: a key in a comment is still a leaked key.
     text.split(/\r?\n/).forEach((line, index) => {
         for (const rule of SECRET_PATTERNS) {
             if (rule.pattern.test(line)) findings.push(finding(relativePath, index + 1, rule.id, 'Something shaped like a credential is committed. Use an environment variable, and rotate the key if it was real.'));
+        }
+        if (isTs && TS_SUPPRESSION.test(line)) {
+            findings.push(finding(relativePath, index + 1, 'suppression/static-analysis-ignore', 'An inline ignore is an ignoreErrors in disguise. Fix the type, or change the rule in a reviewed commit.'));
         }
         if (/@phpstan-ignore|@psalm-suppress|@phpcsSuppress|phpcs:ignore/.test(line)) {
             findings.push(finding(relativePath, index + 1, 'suppression/static-analysis-ignore', 'An inline analysis ignore is an ignoreErrors in disguise. Fix the type, or change the rule in a reviewed commit.'));
@@ -224,6 +294,17 @@ export function auditSource(relativePath, text) {
         if ((isShipped || relativePath.startsWith('tests/')) && !/declare\s*\(\s*strict_types\s*=\s*1\s*\)\s*;/.test(text)) {
             findings.push(finding(relativePath, 1, 'php/strict-types', 'Every PHP file under src/ and tests/ starts with declare(strict_types=1);.'));
         }
+    } else if (isTs) {
+        const code = stripTs(text).split(/\r?\n/);
+        const raw = text.split(/\r?\n/);
+        const rules = [...TS_RULES, ...(isDeterministic && !isTestFile ? TS_DETERMINISTIC_RULES : [])];
+        code.forEach((line, index) => {
+            for (const rule of rules) {
+                if (rule.shippedOnly && !isShipped) continue;
+                if (!rule.pattern.test(rule.raw ? (raw[index] ?? '') : line)) continue;
+                findings.push(finding(relativePath, index + 1, rule.id, rule.message));
+            }
+        });
     } else {
         text.split(/\r?\n/).forEach((line, index) => {
             for (const rule of NODE_RULES) {
@@ -280,6 +361,49 @@ export function auditPhpstanNeon(text, file = 'phpstan.neon') {
     return findings;
 }
 
+/** A package.json: no install-time code, no unbounded versions. Exported for the tests. */
+export function auditPackageJson(pkg, file = 'package.json') {
+    const findings = [];
+    const add = (rule, message) => findings.push(finding(file, 0, rule, message));
+    for (const hook of ['preinstall', 'install', 'postinstall', 'prepare', 'prepublish', 'preprepare', 'postprepare']) {
+        if (pkg.scripts?.[hook]) add('supply-chain/lifecycle-script', `The "${hook}" script runs code on a machine that installs this package.`);
+    }
+    for (const section of ['dependencies', 'devDependencies', 'optionalDependencies', 'peerDependencies']) {
+        for (const [name, range] of Object.entries(pkg[section] ?? {})) {
+            const value = String(range);
+            if (value.startsWith('workspace:')) continue;
+            if (/^\*$|^latest$|^x$|^(?:git|github|https?|file|link):|\//.test(value)) add('supply-chain/unpinned-dependency', `${section} ${name} "${value}" is not a released, bounded version.`);
+        }
+    }
+    return findings;
+}
+
+/** tsconfig.base.json: the flags that stand in for PHPStan level 9. Exported for the tests. */
+export function auditTsconfig(config, file = 'tsconfig.base.json') {
+    const findings = [];
+    const options = config.compilerOptions ?? {};
+    for (const flag of ['strict', 'noUncheckedIndexedAccess', 'exactOptionalPropertyTypes', 'verbatimModuleSyntax']) {
+        if (options[flag] !== true) findings.push(finding(file, 0, 'tsconfig/strictness', `compilerOptions.${flag} must be true.`));
+    }
+    for (const flag of ['allowJs', 'checkJs']) {
+        if (options[flag] === true) findings.push(finding(file, 0, 'tsconfig/strictness', `compilerOptions.${flag} must not be enabled.`));
+    }
+    if (options.noImplicitAny === false) findings.push(finding(file, 0, 'tsconfig/strictness', 'compilerOptions.noImplicitAny must not be false.'));
+    return findings;
+}
+
+/** biome.json: the lint rules that ban the escape hatches cannot be weakened. Exported for the tests. */
+export function auditBiome(config, file = 'biome.json') {
+    const findings = [];
+    const rules = config.linter?.rules ?? {};
+    const required = [['suspicious', 'noExplicitAny'], ['suspicious', 'noTsIgnore'], ['style', 'noNonNullAssertion']];
+    for (const [group, rule] of required) {
+        if (rules[group]?.[rule] !== 'error') findings.push(finding(file, 0, 'biome/escape-hatch', `linter.rules.${group}.${rule} must be "error".`));
+    }
+    if (config.linter?.enabled === false) findings.push(finding(file, 0, 'biome/disabled', 'The linter must stay enabled.'));
+    return findings;
+}
+
 function* walk(directory) {
     if (!fs.existsSync(directory)) return;
     for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
@@ -309,6 +433,27 @@ export function runAudit() {
 
     const phpstanFile = path.join(ROOT, 'phpstan.neon');
     if (fs.existsSync(phpstanFile)) findings.push(...auditPhpstanNeon(fs.readFileSync(phpstanFile, 'utf8')));
+
+    const readJson = (name) => {
+        const file = path.join(ROOT, name);
+        return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null;
+    };
+    const rootPackage = readJson('package.json');
+    if (rootPackage) findings.push(...auditPackageJson(rootPackage));
+    for (const directory of ['packages', 'apps']) {
+        const base = path.join(ROOT, directory);
+        if (!fs.existsSync(base)) continue;
+        for (const entry of fs.readdirSync(base, { withFileTypes: true })) {
+            const manifest = path.join(base, entry.name, 'package.json');
+            if (entry.isDirectory() && fs.existsSync(manifest)) {
+                findings.push(...auditPackageJson(JSON.parse(fs.readFileSync(manifest, 'utf8')), relative(manifest)));
+            }
+        }
+    }
+    const tsconfig = readJson('tsconfig.base.json');
+    if (tsconfig) findings.push(...auditTsconfig(tsconfig));
+    const biome = readJson('biome.json');
+    if (biome) findings.push(...auditBiome(biome));
 
     // A committed .env is a leaked secret waiting for a push. Only .env.example belongs in git.
     for (const name of fs.readdirSync(ROOT)) {
