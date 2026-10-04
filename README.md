@@ -11,8 +11,9 @@ npx indaba plan workflow.ai.yml
 npx indaba run workflow.ai.yml
 ```
 
-> **Status.** The first release, `0.1.0`, has not been published yet. `npx indaba` will work once it
-> is; until then, run from a checkout (see [Development](#development)). The API is not stable below 1.0.
+> **Status.** `0.1.0-alpha.0` is published, mainly to reserve the package names: `npx indaba@next` runs it.
+> It is a preview and the API is not stable below 1.0. To work on Indaba, run from a checkout (see
+> [Development](#development)).
 
 - **Deterministic pipelines.** A declarative workflow file is a DAG of steps with quality gates,
   filesystem guards and artifact handoffs. The engine, not a model, decides what runs next.
@@ -112,8 +113,8 @@ See [`docs/extending.md`](docs/extending.md) for a complete example.
 
 ## Versioning
 
-Indaba follows [Semantic Versioning 2.0.0](https://semver.org/). The first release will be `0.1.0` and
-has not been published. While the major version is `0`, a breaking change bumps the minor version. The
+Indaba follows [Semantic Versioning 2.0.0](https://semver.org/). The first
+published version is `0.1.0-alpha.0`; prereleases go to the `next` dist-tag. While the major version is `0`, a breaking change bumps the minor version. The
 public surface is the workflow file schema, the command line, the exported API of the four packages,
 emitted events and span attribute names. See [`CHANGELOG.md`](CHANGELOG.md).
 

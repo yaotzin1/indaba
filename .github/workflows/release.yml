@@ -2,8 +2,9 @@ name: Release
 
 # A pushed v* tag is a release decision, and it is the maintainer's. This workflow verifies the tagged
 # commit, publishes the packages to npm with provenance, and creates the GitHub release. Nothing here
-# runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC) when the
-# packages are configured for it on npmjs.com, and falls back to the NPM_TOKEN secret otherwise.
+# runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC): each of the
+# four packages is configured on npmjs.com to trust this repository's release.yml, so there is no
+# token or one-time password anywhere, and the provenance statement comes with it.
 on:
   push:
     tags:
@@ -59,11 +60,25 @@ jobs:
           node scripts/smoke-pack.mjs
           pnpm audit --audit-level low
 
-      - name: Publish to npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-          NPM_CONFIG_PROVENANCE: "true"
-        run: pnpm -r publish --access public --no-git-checks
+      # Trusted publishing needs npm 11.5.1 or newer; the npm bundled with Node 22 is older.
+      - name: Upgrade npm
+        run: npm install -g npm@latest
+
+      # pnpm pack rewrites the workspace: ranges to real versions; npm publish then authenticates with
+      # the OIDC identity of this job. A version with a hyphen (0.2.0-alpha.1) is a prerelease and goes
+      # to the next tag, so it never becomes what a plain install resolves.
+      - name: Pack and publish to npm
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          DIST_TAG=latest
+          case "$VERSION" in *-*) DIST_TAG=next ;; esac
+          mkdir "$RUNNER_TEMP/tarballs"
+          for dir in core engine runners cli; do
+            (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
+          done
+          for name in indaba-core indaba-engine indaba-runners indaba; do
+            npm publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
+          done
 
       - name: Create the GitHub release
         env:

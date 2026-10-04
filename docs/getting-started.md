@@ -3,9 +3,9 @@
 Indaba runs a workflow file: a graph of steps executed by agent CLIs, an LLM API or plain commands,
 with quality gates, retries and a trace of what happened. This page gets you from nothing to a run.
 
-The first release of the `indaba` package (0.1.0) has not been published yet. Until it is, `npx indaba`
-cannot download it; use a checkout of the repository (see "Running from a checkout" below). The commands
-are written for the published package so they stay correct once it exists.
+The `indaba` package is published as a preview, `0.1.0-alpha.0`. `npx indaba@next` downloads it; the
+commands below write `npx indaba`, which resolves to the same version for now. To work on Indaba itself,
+use a checkout of the repository (see "Running from a checkout" below).
 
 ## Prerequisites
 

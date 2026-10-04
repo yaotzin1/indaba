@@ -44,7 +44,8 @@ Each package's `files` is `["dist"]`; npm adds `package.json`, `README` and `LIC
 ## CI and release secrets
 
 The release workflow needs `contents: write` (the GitHub release) and `id-token: write` (provenance
-and npm trusted publishing). The `NPM_TOKEN` secret, if used, is scoped to publish only and is exposed
-to the publish step alone. Provenance is on (`NPM_CONFIG_PROVENANCE`). Third-party actions are pinned
+and npm trusted publishing). Publishing uses npm trusted publishing, so there is no `NPM_TOKEN` or other publish
+credential in the repository or its secrets; adding one is a reviewed change to a protected file.
+Provenance is on (`NPM_CONFIG_PROVENANCE`). Third-party actions are pinned
 to a major version at least, and a new action is a reviewed change to a protected file. Nothing in the
 repository holds a credential; `OPENROUTER_API_KEY` reaches a process from the environment only.
