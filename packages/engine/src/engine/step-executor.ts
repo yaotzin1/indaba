@@ -88,13 +88,13 @@ export class StepExecutor {
     options: StepRunOptions = {},
   ): Promise<StepOutcome> {
     try {
-      if (isShellStep(step)) {
-        return await this.runShell(step, workdir, span, options);
-      }
-      if (isConsensusStep(step)) {
-        return await this.runConsensus(step, workflow, workdir, span, options);
-      }
-      return await this.runAgent(step, workflow, workdir, span, options);
+      const outcome = isShellStep(step)
+        ? await this.runShell(step, workdir, span, options)
+        : isConsensusStep(step)
+          ? await this.runConsensus(step, workflow, workdir, span, options)
+          : await this.runAgent(step, workflow, workdir, span, options);
+      // The process runners report an abort as a failed result (exit 130), not as an exception.
+      return !outcome.ok && options.signal?.aborted === true ? StepOutcome.cancelled() : outcome;
     } catch (error) {
       if (options.signal?.aborted === true) {
         return StepOutcome.cancelled();

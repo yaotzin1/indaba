@@ -89,6 +89,9 @@ version reached npm, and the tag stays as it is. Its contents are released as `0
 - ACP tool-call events now carry the kind of the call they belong to (an update repeats only the id).
 - `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default
   they tried and how to name a file, instead of only reporting that the default could not be read.
+- Cancelling a run (Ctrl+C) while a step is running now ends it as `CANCELLED` with exit code 130. The
+  process runners report an abort as a failed result rather than an exception, so the engine recorded
+  the run as `FAILED`. Found by the new end-to-end test on Linux.
 
 ## [0.1.0-alpha.0] - 2026-10-04
 
