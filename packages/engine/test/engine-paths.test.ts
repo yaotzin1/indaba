@@ -1,5 +1,5 @@
-import { mkdir, readFile, stat, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { mkdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
+import { basename, join } from 'node:path';
 import { RunResult, SimpleEventDispatcher, StepStatus, Tracer } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import {
@@ -140,12 +140,20 @@ steps:
   it('writes no patch for a target outside the project', async () => {
     const repo = await makeGitRepo();
     const { engine } = harness(repo, [new FakeRunner('agent', ok)]);
-    const yaml = ISOLATED('  patch: "../indaba-escaped.patch"', '');
+    // A name unique to this repository: a fixed one shared between runs would hide a real escape
+    // behind a stale file, or blame this run for another one's.
+    const escapedName = `${basename(repo)}-escaped.patch`;
+    const escaped = join(repo, '..', escapedName);
+    const yaml = ISOLATED(`  patch: "../${escapedName}"`, '');
 
-    const result = await engine.run(parseWorkflow(yaml), { taskId: 'W3' });
+    try {
+      const result = await engine.run(parseWorkflow(yaml), { taskId: 'W3' });
 
-    expect(result.status, result.failureReason).toBe(WorkflowStatus.Completed);
-    expect(await exists(join(repo, '..', 'indaba-escaped.patch'))).toBe(false);
+      expect(result.status, result.failureReason).toBe(WorkflowStatus.Completed);
+      expect(await exists(escaped)).toBe(false);
+    } finally {
+      await rm(escaped, { force: true });
+    }
   });
 
   it('writes no patch when the workflow declares no patch artifact', async () => {

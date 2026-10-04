@@ -35,6 +35,9 @@ function lookup<T extends string>(values: Readonly<Record<string, T>>, name: str
 }
 
 /** Parses and validates a workflow file. Every problem found is reported at once. */
+/** Top-level keys of a repository's development workflow, a different format that shares the file name. */
+const DEVELOPMENT_WORKFLOW_KEYS = ['governance', 'tracks', 'stages', 'quality_gates'];
+
 export class WorkflowParser {
   static readonly SUPPORTED_VERSION = '1.0';
 
@@ -70,6 +73,11 @@ export class WorkflowParser {
     const version = root.string('version') ?? '';
     if (version !== '' && version !== WorkflowParser.SUPPORTED_VERSION) {
       errors.add(`unsupported version "${version}" (expected "${WorkflowParser.SUPPORTED_VERSION}")`);
+      if (DEVELOPMENT_WORKFLOW_KEYS.some((key) => data.has(key))) {
+        errors.add(
+          'this looks like a development workflow (stages, governance), not an Indaba workflow: see docs/workflow-format.md',
+        );
+      }
     }
     const name = root.string('name') ?? '';
 

@@ -79,6 +79,11 @@ const INVALID: [string, string, string[]][] = [
   ['not yaml mapping', '- a\n- b\n', ['root must be a mapping']],
   ['bad version', 'version: "9"\nname: t\nsteps: []\n', ['unsupported version']],
   [
+    'a development workflow',
+    'version: "2.0"\nname: dev\nstages: []\ngovernance: {}\n',
+    ['unsupported version "2.0"', 'looks like a development workflow'],
+  ],
+  [
     'unknown dependency',
     `${HEAD}steps:\n  - {id: x, role: a, depends_on: [nope]}\n`,
     ['unknown step "nope"'],

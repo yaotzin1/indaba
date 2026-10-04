@@ -92,6 +92,9 @@ version reached npm, and the tag stays as it is. Its contents are released as `0
 - Cancelling a run (Ctrl+C) while a step is running now ends it as `CANCELLED` with exit code 130. The
   process runners report an abort as a failed result rather than an exception, so the engine recorded
   the run as `FAILED`. Found by the new end-to-end test on Linux.
+- Giving `indaba` a development workflow (`version: "2.0"` with `stages`, `governance`, `tracks` or
+  `quality_gates`, like this repository's own `workflow.ai.yml`) now says it looks like a development
+  workflow instead of only reporting an unsupported version.
 
 ## [0.1.0-alpha.0] - 2026-10-04
 
