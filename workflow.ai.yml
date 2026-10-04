@@ -230,7 +230,7 @@ stages:
 enforcement:
   # Commits this one contains predate the check and are not held to it. "none" until the first
   # commit exists; replace it with that commit's full hash when the check should start there.
-  baseline: "bed3e786c6f30895200e7004c8ba388aa18b8210"
+  baseline: "351d960a925e97f43de08c0f2ca10ba9d2108679"
   tracks: [feature, fix, chore, release]
   source_paths: ["src/", "bin/"]
   test_paths: ["tests/"]
