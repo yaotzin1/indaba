@@ -15,6 +15,12 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.1] - 2026-10-05
+
+The second preview. It makes the API and ACP the primary ways to reach an agent, with the agent CLIs as a
+fallback. The API is still not stable. It is published under the `next` tag; `latest` stays on
+`0.1.0-alpha.0` until the maintainer decides otherwise.
+
 ### Added
 
 - `pnpm try:agent` (`scripts/try-agent.mjs`): tries a real ACP agent from a clean state (a throwaway project,

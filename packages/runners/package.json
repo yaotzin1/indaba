@@ -1,6 +1,6 @@
 {
   "name": "@indaba/runners",
-  "version": "0.1.0-alpha.0",
+  "version": "0.1.0-alpha.1",
   "description": "Indaba runners: shell, OpenRouter SSE, and agent CLIs (Claude, Codex, Cursor, Antigravity).",
   "license": "MIT",
   "type": "module",
