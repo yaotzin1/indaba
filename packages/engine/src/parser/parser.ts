@@ -249,7 +249,10 @@ export class WorkflowParser {
     return { runner, fallbackRunners };
   }
 
-  /** A preset name, or `{ command: [program, ...arguments] }`. */
+  /**
+   * A preset name, or a mapping with a `preset` or a `command` list (`[program, ...arguments]`) and
+   * optionally `auth`, the agent's own id for how to log in.
+   */
   private parseAgent(node: Node, errors: ErrorBag): AgentSpec | undefined {
     const value = node.stringOrMap('agent');
     if (value === undefined) {
@@ -258,12 +261,18 @@ export class WorkflowParser {
     if (value.text !== undefined) {
       return { preset: value.text };
     }
-    const command = value.node?.stringList('command') ?? [];
-    if (command.length === 0) {
+    const block = value.node;
+    const preset = block?.string('preset', false);
+    const command = block?.stringList('command') ?? [];
+    const auth = block?.string('auth', false);
+    if (preset === undefined && command.length === 0) {
       errors.add(`${node.path}.agent needs a preset name or a non-empty command list`);
       return undefined;
     }
-    return { command };
+    return {
+      ...(command.length > 0 ? { command } : { preset: preset ?? '' }),
+      ...(auth !== undefined ? { auth } : {}),
+    };
   }
 
   /** Scope for a step's agent. A block with no `terminal` key denies the terminal. */

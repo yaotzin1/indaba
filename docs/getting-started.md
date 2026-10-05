@@ -135,8 +135,28 @@ Things to know:
 - Only an allowlist of your environment reaches the agent: `PATH`, home and temp folders, proxy and
   certificate settings, the variables with the agent's own prefix (`ANTHROPIC_`, `OPENAI_`, `GEMINI_`
   and so on), plus whatever `INDABA_ACP_PASS_ENV` names. Your other keys do not.
-- An agent that needs you to log in first cannot run headless; log in with its own tool beforehand.
+- An agent may need you to log in; see the next section.
 - Indaba does not offer the agent a terminal. File access is offered only to a step with `permissions`.
+
+### Logging in to an ACP agent
+
+An ACP agent lists the ways it can log in (Gemini, for example: "Log in with Google", an API key, Vertex
+AI). Some agents accept a session without being logged in and fail only when they first call the model,
+for example Gemini with `403 ... unregistered callers`. So Indaba logs in up front, the way an editor does:
+
+- **Name the method in the workflow** to log in without being asked, for any run, including unattended
+  ones: `agent: { command: [...], auth: "gemini-api-key" }`. The ids are the agent's own; if you name one
+  it does not offer, the step fails with the list it does offer. An API-key method reads the key from the
+  agent's own environment variable, which has to be passed on (`GEMINI_API_KEY` is, through the
+  `GEMINI_` prefix; others by `INDABA_ACP_PASS_ENV`).
+- **Or be asked.** When you run `indaba run` in a terminal, the workflow names no method and the agent
+  offers some, Indaba lists them and you pick one by number. `0` or Enter goes on without logging in
+  (for an agent that is already logged in). The question names the `auth:` line that skips it next time.
+  With no terminal (CI, a pipe) Indaba never asks and does not log in.
+
+A browser-based method (`Log in with Google`) opens the agent's own login; Indaba waits for it. The
+agent keeps the credentials itself, so the next run's login is quick. A login that fails is a runner that
+could not run: a fallback list moves on to the next runner.
 
 ### Pseudo-terminal, and the piped fallback
 

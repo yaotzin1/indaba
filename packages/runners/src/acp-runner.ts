@@ -48,8 +48,24 @@ export const ACP_AGENT_PRESETS: Readonly<Record<'claude' | 'codex' | 'gemini', A
   gemini: { command: ['gemini', '--acp'], envPrefixes: ['GEMINI_', 'GOOGLE_'] },
 };
 
+/** One way an agent offers to log in, as it lists them in its `initialize` answer. */
+export interface AuthMethodInfo {
+  readonly id: string;
+  readonly name: string;
+  readonly description?: string;
+}
+
+/**
+ * Asked when an agent offers ways to log in and the workflow named none. Returns the id to
+ * authenticate with, or undefined to go on without (the agent may already be logged in). A terminal
+ * front end asks the person; with none, the runner never asks.
+ */
+export type AuthChooser = (agent: string, methods: readonly AuthMethodInfo[]) => Promise<string | undefined>;
+
 export interface AcpRunnerOptions {
   readonly spawner?: StreamingProcessSpawner;
+  /** Lets a person pick how to log in when the workflow does not say. */
+  readonly chooseAuthMethod?: AuthChooser;
   /** Replaces the built-in presets (a composition root can add its own). */
   readonly presets?: Readonly<Record<string, AcpAgentPreset>>;
   /** The environment the agent's own is taken from; only an allowlist of it is passed on. */
@@ -130,8 +146,10 @@ export class AcpRunner implements Runner, McpCapable {
   private readonly env: Readonly<Record<string, string | undefined>>;
   private readonly passEnv: readonly string[];
   private readonly cancelGraceMs: number;
+  private readonly chooseAuthMethod: AuthChooser | undefined;
 
   constructor(options: AcpRunnerOptions = {}) {
+    this.chooseAuthMethod = options.chooseAuthMethod;
     this.spawner = options.spawner ?? new NodeStreamingProcessSpawner();
     this.presets = options.presets ?? ACP_AGENT_PRESETS;
     this.env = options.env ?? {};
@@ -281,6 +299,7 @@ export class AcpRunner implements Runner, McpCapable {
         );
       }
       emit('indaba.acp.session', { 'acp.protocol_version': ACP_PROTOCOL_VERSION });
+      await this.authenticate(connection, init, request.agent?.auth, emit);
       const httpMcp =
         isRecord(init.agentCapabilities) &&
         isRecord(init.agentCapabilities.mcpCapabilities) &&
@@ -356,6 +375,49 @@ export class AcpRunner implements Runner, McpCapable {
     }
   }
 
+  /**
+   * Logs in the way the workflow names, or the way the person picks, when the agent offers any. An agent
+   * that lists methods may still accept a session without one and then fail at its first model call, so
+   * this is done up front. A failed login is a runner that could not run: nothing has been prompted yet.
+   */
+  private async authenticate(
+    connection: AcpConnection,
+    init: Record<string, unknown>,
+    configured: string | undefined,
+    emit: (name: string, attributes?: SpanAttributes) => void,
+  ): Promise<void> {
+    const methods = parseAuthMethods(init.authMethods);
+    if (methods.length === 0) {
+      return;
+    }
+    let methodId = configured;
+    if (methodId !== undefined && !methods.some((m) => m.id === methodId)) {
+      throw new RunnerUnavailableError(
+        `The agent has no login method "${methodId}". It offers: ${methods.map((m) => m.id).join(', ')}.`,
+      );
+    }
+    if (methodId === undefined && this.chooseAuthMethod !== undefined) {
+      const info = isRecord(init.agentInfo) ? init.agentInfo : {};
+      const label = str(info.title) ?? str(info.name) ?? 'The agent';
+      methodId = await this.chooseAuthMethod(label, methods);
+      if (methodId !== undefined && !methods.some((m) => m.id === methodId)) {
+        throw new RunnerUnavailableError(
+          `The chosen login method "${methodId}" is not one the agent offers.`,
+        );
+      }
+    }
+    if (methodId === undefined) {
+      return;
+    }
+    emit('indaba.acp.authenticate', { 'acp.auth.method': methodId });
+    try {
+      await connection.request('authenticate', { methodId });
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : 'unknown error';
+      throw new RunnerUnavailableError(`The agent could not log in with "${methodId}": ${detail}`);
+    }
+  }
+
   private permissionAnswer(
     params: unknown,
     permissions: RunRequest['permissions'],
@@ -426,6 +488,25 @@ export class AcpRunner implements Runner, McpCapable {
     }
     return { ...env, ...(extra ?? {}) };
   }
+}
+
+/** The agent's list of login methods, read defensively; anything malformed is dropped. */
+function parseAuthMethods(value: unknown): AuthMethodInfo[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+  const methods: AuthMethodInfo[] = [];
+  for (const item of value as unknown[]) {
+    if (isRecord(item) && typeof item.id === 'string' && item.id !== '') {
+      const description = str(item.description);
+      methods.push({
+        id: item.id,
+        name: str(item.name) ?? item.id,
+        ...(description !== undefined ? { description } : {}),
+      });
+    }
+  }
+  return methods;
 }
 
 function sleep(ms: number): Promise<void> {

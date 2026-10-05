@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { main } from './main.js';
+import { terminalAuthChooser } from './prompt.js';
 
 const controller = new AbortController();
 
@@ -17,5 +18,9 @@ const code = await main(process.argv.slice(2), {
   env: process.env,
   cwd: process.cwd(),
   signal: controller.signal,
+  // Only a person at a terminal can be asked how an agent should log in.
+  ...(process.stdin.isTTY && process.stdout.isTTY
+    ? { chooseAuthMethod: terminalAuthChooser(process.stdin, process.stdout) }
+    : {}),
 });
 process.exitCode = controller.signal.aborted ? 130 : code;

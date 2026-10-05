@@ -130,3 +130,12 @@ the semver classification.
 
 Behaviour changes listed here and in the CHANGELOG: the step-over-role precedence, and the
 `openrouter` unavailable cases above.
+
+## Amendment after the first run against a real agent
+
+Added to the same change (not yet released): `AgentSpec.auth?: string`; the workflow field
+`agent: { preset | command, auth }`; `AuthMethodInfo { id; name; description? }` and
+`AuthChooser = (agent, methods) => Promise<string | undefined>` exported from `@indaba/runners`;
+`AcpRunnerOptions.chooseAuthMethod?` and `DefaultRunnerOptions.chooseAuthMethod?`; the command
+line's `Io.chooseAuthMethod?` and `CreateEngineOptions.chooseAuthMethod?`; the span event
+`indaba.acp.authenticate` (`acp.auth.method`, the id only). Additive; the classification is unchanged.

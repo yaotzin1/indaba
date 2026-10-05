@@ -1,6 +1,6 @@
 export type { CliRunnerOptions } from './abstract-cli-runner.js';
 export { AbstractCliRunner, PreparedCommand } from './abstract-cli-runner.js';
-export type { AcpAgentPreset, AcpRunnerOptions } from './acp-runner.js';
+export type { AcpAgentPreset, AcpRunnerOptions, AuthChooser, AuthMethodInfo } from './acp-runner.js';
 export { ACP_AGENT_PRESETS, ACP_PROTOCOL_VERSION, AcpRunner } from './acp-runner.js';
 export type { AntigravityRunnerOptions } from './antigravity-runner.js';
 export { AntigravityRunner } from './antigravity-runner.js';

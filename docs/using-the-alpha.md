@@ -134,8 +134,10 @@ and write `runner: local`. A key goes in a variable of your choice, named by
 
 ### 4. A real ACP agent
 
-1. Install and log in to the agent with its own tool; Indaba does not log you in and an agent that asks
-   for a login cannot run headless.
+1. Install the agent. If it offers ways to log in, Indaba asks you to pick one when you run in a terminal,
+   or you can name one with `auth:` in the workflow (see
+   [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). An agent that is not
+   logged in may only fail at its first model call, for example Gemini with a 403 "unregistered callers".
 2. Name it: `agent: claude`, `codex` or `gemini` (presets), or `agent: { command: [program, args...] }`.
 3. Scope it, and run it in a worktree:
 

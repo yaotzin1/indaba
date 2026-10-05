@@ -21,6 +21,7 @@ import {
   WorkflowStatus,
   WorkflowValidator,
 } from '@indaba/engine';
+import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 
@@ -31,6 +32,8 @@ export interface Io {
   readonly cwd: string;
   /** Aborting it cancels a running workflow; teardown still runs. */
   readonly signal?: AbortSignal;
+  /** Present only when a person is at a terminal: lets them pick how an ACP agent logs in. */
+  readonly chooseAuthMethod?: AuthChooser;
 }
 
 export const EXIT_OK = 0;
@@ -324,6 +327,7 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
     projectDir,
     env: io.env,
     plugins,
+    ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),
     ...(parsed.timeout === undefined ? {} : { stepTimeoutSeconds: parsed.timeout }),
     onListenerError: (error) => {
       const reason = error instanceof Error ? error.message : String(error);

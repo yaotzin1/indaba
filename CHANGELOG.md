@@ -38,6 +38,11 @@ port". The PHP prototype that preceded them was never published.
     them): `indaba.runner.skipped`, `indaba.acp.*`. `RunRequest` gains `permissions`, `agent` and
     `onEvent`; `RunResult` gains `reportedCostUsd`. Through the command line, an unknown runner name is
     now a validation error.
+  - Logging in to an ACP agent: `agent: { preset | command, auth }` names the agent's own login method
+    (from the `authMethods` it lists), and when it is left out and a person is at a terminal, `indaba run`
+    lists the methods and asks, as an editor does. Without a terminal it never asks. A failed login is a
+    runner that could not run. Found by a first run against the real Gemini CLI, which accepts a session
+    without a login and fails at its first model call.
   - Examples `examples/transport-fallback.workflow.ai.yml` and `examples/api-only.workflow.ai.yml`, and a
     guide to this alpha: `docs/using-the-alpha.md`.
 
