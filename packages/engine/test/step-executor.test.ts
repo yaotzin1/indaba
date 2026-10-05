@@ -224,7 +224,8 @@ describe('StepExecutor.run', () => {
     const outcome = await executor.run(step({ id: 's', role: 'a', mcp: ['docs'] }), wf, '.', span);
 
     expect(outcome.ok).toBe(false);
-    expect(outcome.feedback).toContain('Required MCP server(s) unavailable for runner agent: docs');
+    expect(outcome.feedback).toContain('No runner could run');
+    expect(outcome.feedback).toContain('agent: Required MCP server(s) unavailable: docs');
     expect(bare.requests).toHaveLength(0);
   });
 

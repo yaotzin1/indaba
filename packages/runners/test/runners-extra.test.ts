@@ -1,4 +1,4 @@
-import { type McpServerDefinition, RunnerError } from '@indaba/core';
+import { type McpServerDefinition, RunnerError, RunnerUnavailableError } from '@indaba/core';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   ClaudeRunner,
@@ -196,10 +196,22 @@ describe('OpenRouterRunner stream handling', () => {
     expect(result.usage?.outputTokens).toBe(4);
   });
 
-  it('reports a transport failure that is not an Error', async () => {
-    const result = await runWith(async () => {
+  it('is a runner that could not run when the request fails with something that is not an Error', async () => {
+    const error = await runWith(async () => {
       throw 'plain failure';
+    }).catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(RunnerUnavailableError);
+    expect((error as Error).message).toContain('unknown error');
+  });
+
+  it('reports a failure after the response started as a failed result, not a runner that could not run', async () => {
+    const body = new ReadableStream<Uint8Array>({
+      pull() {
+        throw 'plain failure';
+      },
     });
+    const result = await runWith(async () => new Response(body));
 
     expect(result.exitCode).toBe(1);
     expect(result.errorOutput).toContain('unknown error');
