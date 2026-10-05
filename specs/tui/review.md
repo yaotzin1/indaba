@@ -1,10 +1,10 @@
-# Self-review: Terminal UI (`symfony/tui`)
+# Self-review: Terminal UI (`@indaba/tui`)
 
-> **Status**: pending self-review
+> **Status**: pending self-review. This change is a specification only; there is no implementation to
+> review yet.
 
-Answer all seven. See [`.agents/rules/review.md`](../../.agents/rules/review.md). Do not write
-answers for a review that has not happened: leave the status above and the sections empty until it
-has.
+Answer all seven when there is something to review. See [`.agents/rules/review.md`](../../.agents/rules/review.md).
+Do not write answers for a review that has not happened.
 
 ## 1. Boundary and layering
 
@@ -21,11 +21,12 @@ has.
 ## 7. Verification
 
 ```
-<paste the actual output of: docker compose run --rm php composer qa>
+<paste the actual output of: pnpm qa, and node scripts/check-workflow.mjs>
 ```
 
 ## Known gaps
 
-- Specification only; nothing is implemented and nothing was run.
-- The Symfony 7 versus 8 decision (question 1) is open and blocks planning.
-- `symfony/tui` is experimental; its requirements were read from Packagist, not from a trial install.
+- Specification only; nothing is implemented and nothing was run beyond measuring the candidate dependency.
+- The dependency decision (Ink, pinned versions), the event-stream shape and the JSX question (spec
+  section 8, questions 1 to 4) are open and block planning.
+- Windows behaviour of Ink was not tested.
