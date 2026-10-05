@@ -26,6 +26,7 @@ import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
+import { loadTui, type TuiLoad } from './tui-loader.js';
 import { watch } from './watch.js';
 
 export interface Io {
@@ -37,6 +38,10 @@ export interface Io {
   readonly signal?: AbortSignal;
   /** Present only when a person is at a terminal: lets them pick how an ACP agent logs in. */
   readonly chooseAuthMethod?: AuthChooser;
+  /** Present only when a person is at a terminal: where the dashboard of `indaba watch` is drawn and read from. */
+  readonly terminal?: { readonly stdin: NodeJS.ReadableStream; readonly stdout: NodeJS.WritableStream };
+  /** Loads the optional dashboard package. Defaults to importing `@indaba/tui`; tests replace it. */
+  readonly loadTui?: () => Promise<TuiLoad>;
 }
 
 export const EXIT_OK = 0;
@@ -195,7 +200,10 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   }
   if (command === 'watch') {
     try {
-      return await watch(rest, io, { noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '' });
+      return await watch(rest, io, {
+        noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
+        loadTui: io.loadTui ?? loadTui,
+      });
     } catch (error) {
       const message = redact(error instanceof Error ? error.message : String(error), io.env);
       (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}

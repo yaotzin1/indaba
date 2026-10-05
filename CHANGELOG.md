@@ -31,7 +31,11 @@ port". The PHP prototype that preceded them was never published.
   below 80 columns, and a notice below 40x8. Every state is a glyph and a word as well as a colour, text from an
   agent is stripped of terminal control sequences before it is drawn, and the terminal is always given back
   (raw mode off, cursor shown) even when drawing fails. It follows a live run or replays a finished one at 1x or
-  10x. This change adds the package and its tests; `indaba watch` does not load it yet.
+  10x. `indaba watch` opens it on a terminal when it is installed.
+- **`indaba watch` opens the dashboard** on a terminal when `@indaba/tui` is installed (minor; track `feature`).
+  `--plain` or `--output` print lines as before, `--ascii` draws without box or arrow characters, and with no
+  terminal, or with the package absent (it says how to install it), the command prints lines. `indaba` lists
+  `@indaba/tui` as an optional peer dependency, so `indaba` alone installs none of Ink or React.
 - **`indaba watch [run]`**: follow a run from the files it writes, or read a finished one. With no run it lists
   them, newest first; a run is its id, a unique start of it, or `latest`. It prints each step change and runner
   start and end as it happens (`--output` adds the streamed lines), then a final view, and exits the way the run

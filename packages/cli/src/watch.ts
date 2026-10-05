@@ -14,6 +14,7 @@ import {
   watchExitCode,
 } from '@indaba/engine';
 import type { Io } from './main.js';
+import type { TuiLoad } from './tui-loader.js';
 
 export const WATCH_USAGE = `Usage: indaba watch [run] [options]
 
@@ -22,12 +23,16 @@ newest first. A run is its 32-character id (printed when it ends), a unique star
 
 Options:
   -w, --workdir <dir>   The project directory (default: .)
-      --plain           Line-oriented output; the only kind this command prints until a terminal UI is installed
+      --plain           Line-oriented output, even on a terminal that could show the dashboard
+      --ascii           Draw the dashboard without box or arrow characters
       --output          Also print each line of output a step streams
       --replay          Replay a finished run with its original timing
       --speed <n>       Replay speed: 1 (as it happened) or 10 (default: 1)
       --stale <secs>    Give up on a run that writes nothing for this long (default: 120)
       --color           Colour the states (never the only sign of one); NO_COLOR turns it off
+
+On a terminal, with @indaba/tui installed, a run opens as a dashboard (q quits, ? lists the keys); anywhere else,
+and with --plain or --output, it prints lines. Install the dashboard with: npm install @indaba/tui
 
 Exit status mirrors the run: 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a
 final state or the run goes quiet.
@@ -38,6 +43,8 @@ export interface WatchOptions {
   readonly sleep?: (ms: number) => Promise<void>;
   /** NO_COLOR was set: no colour, whatever was asked. Decided by the caller; this module reads no environment. */
   readonly noColor?: boolean;
+  /** Loads the optional terminal view. Without it the command only prints lines. */
+  readonly loadTui?: () => Promise<TuiLoad>;
 }
 
 class WatchUsage extends Error {}
@@ -50,6 +57,9 @@ interface Parsed {
   readonly speed: number;
   readonly staleMs: number;
   readonly color: boolean;
+  readonly plain: boolean;
+  readonly ascii: boolean;
+  readonly noColor: boolean;
   readonly help: boolean;
 }
 
@@ -81,6 +91,9 @@ function parseWatch(args: readonly string[], noColor: boolean): Parsed {
     speed,
     staleMs: stale * 1000,
     color: values.color === true && !noColor,
+    plain: values.plain === true,
+    ascii: values.ascii === true,
+    noColor,
     help: values.help === true,
   };
 }
@@ -94,6 +107,7 @@ function parseOptions(args: readonly string[]) {
       help: { type: 'boolean', short: 'h' },
       workdir: { type: 'string', short: 'w' },
       plain: { type: 'boolean' },
+      ascii: { type: 'boolean' },
       output: { type: 'boolean' },
       replay: { type: 'boolean' },
       speed: { type: 'string' },
@@ -219,6 +233,49 @@ async function follow(
   return { state, quiet };
 }
 
+/**
+ * The dashboard, when there is a terminal to draw it on and the person did not ask for lines. Returns the exit status
+ * once it has run, or `undefined` to carry on with plain output (and says why when the view is wanted but unavailable).
+ */
+async function showScreen(
+  io: Io,
+  directory: string,
+  runId: string,
+  parsed: Parsed,
+  options: WatchOptions,
+): Promise<number | undefined> {
+  if (io.terminal === undefined || parsed.plain || parsed.output || options.loadTui === undefined) {
+    return undefined;
+  }
+  const loaded = await options.loadTui();
+  if ('missing' in loaded) {
+    io.stderr.write(
+      'The dashboard needs @indaba/tui (npm install @indaba/tui); showing plain output. --plain hides this.\n',
+    );
+    return undefined;
+  }
+  try {
+    const result = await loaded.tui.watch({
+      directory,
+      runId,
+      replay: parsed.replay,
+      speed: parsed.speed === 10 ? 10 : 1,
+      attached: false,
+      ascii: parsed.ascii,
+      color: !parsed.noColor,
+      stdout: io.terminal.stdout,
+      stdin: io.terminal.stdin,
+      ...(io.signal === undefined ? {} : { signal: io.signal }),
+    });
+    return result.code;
+  } catch (error) {
+    io.stderr.write(
+      `The dashboard failed (${error instanceof Error ? error.message : String(error)}); showing plain output.\n`,
+    );
+    return undefined;
+  }
+}
+
 /** `indaba watch`: see the usage text. Returns the exit status. */
 export async function watch(args: readonly string[], io: Io, options: WatchOptions = {}): Promise<number> {
   let parsed: Parsed;
@@ -253,6 +310,11 @@ export async function watch(args: readonly string[], io: Io, options: WatchOptio
   if ('error' in chosen) {
     io.stdout.write(`${chosen.error}\n`);
     return 1;
+  }
+
+  const screened = await showScreen(io, directory, chosen.id, parsed, options);
+  if (screened !== undefined) {
+    return screened;
   }
 
   const records = await reader.readAll(chosen.id);

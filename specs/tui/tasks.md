@@ -19,22 +19,22 @@ independently checkable; tests are written with each task.
 
 ## `@indaba/tui` (pure part)
 
-- [ ] **T-09** new package `packages/tui`: manifest (`ink` and `react` pinned exactly, nothing else), tsconfig, build, `files`, added to the workspace, `smoke-pack`, release workflow, `check-workflow`
-- [ ] **T-10** `sanitize` moved here from the CLI (the CLI re-exports it); hostile and split-sequence tests carried over
-- [ ] **T-11** `reduceRun`: total over every record type including unknown; steps, attempts, runner chain and skips, tool calls, permission decisions, output tail (bounded), cost with the `unknown` and partial rules, elapsed; property-style tests with shuffled and truncated input
-- [ ] **T-12** plain renderer `formatPlain(state)`: glyph, word and colour never the only carrier; `NO_COLOR`; ASCII fallback; tests
-- [ ] **T-13** replay: `play`, pause, 1x and 10x over `readAll`, driven by an injected clock; tests
+- [x] **T-09** new package `packages/tui`: manifest (`ink` and `react` pinned exactly, nothing else), tsconfig, build, `files`, added to the workspace, `smoke-pack`, release workflow, `check-workflow`
+- [x] **T-10** `sanitize` moved here from the CLI (the CLI re-exports it); hostile and split-sequence tests carried over
+- [x] **T-11** `reduceRun`: total over every record type including unknown; steps, attempts, runner chain and skips, tool calls, permission decisions, output tail (bounded), cost with the `unknown` and partial rules, elapsed; property-style tests with shuffled and truncated input
+- [x] **T-12** plain renderer `formatPlain(state)`: glyph, word and colour never the only carrier; `NO_COLOR`; ASCII fallback; tests
+- [x] **T-13** replay: `play`, pause, 1x and 10x over `readAll`, driven by an injected clock; tests
 
 ## `@indaba/tui` (Ink)
 
-- [ ] **T-14** `h` helper over `React.createElement` and the single adapter folder that imports `ink` and `react`; layers test that nothing else does
-- [ ] **T-15** components: header, DAG list, step detail (runners and skips, tool calls, permissions, output tail), key legend; resize and minimum-size notice; every agent string through `sanitize`; rendered with `ink-testing-library`-style output capture (no extra dependency: use Ink's own `render` with a fake stdout)
-- [ ] **T-16** keyboard: select step, switch pane, scroll output, quit; restores the terminal on exit and on an exception (AC-11); test that an exception restores state
-- [ ] **T-17** `watch(options)` entry: the live view and replay, with `--plain` and non-TTY choosing the plain renderer
+- [x] **T-14** `h` helper over `React.createElement` and the single adapter folder that imports `ink` and `react`; layers test that nothing else does
+- [x] **T-15** components: header, DAG list, step detail (runners and skips, tool calls, permissions, output tail), key legend; resize and minimum-size notice; every agent string through `sanitize`; rendered with `ink-testing-library`-style output capture (no extra dependency: use Ink's own `render` with a fake stdout)
+- [x] **T-16** keyboard: select step, switch pane, scroll output, quit; restores the terminal on exit and on an exception (AC-11); test that an exception restores state
+- [x] **T-17** `watch(options)` entry: the live view and replay, with `--plain` and non-TTY choosing the plain renderer
 
 ## Console, the rest
 
-- [ ] **T-18** the CLI loads `@indaba/tui` with a dynamic import that may fail; `watch` uses it when present and prints how to install it when not; `run --tui` (child process, attach, detach or cancel); tests with a fake module and one end-to-end run
+- [ ] **T-18** (done for `watch`; `run --tui` is open) the CLI loads `@indaba/tui` with a dynamic import that may fail; `watch` uses it when present and prints how to install it when not; `run --tui` (child process, attach, detach or cancel); tests with a fake module and one end-to-end run
 - [ ] **T-19** `run --tui` closing: detach leaves the run going, cancel stops it and tears the worktree down; tests
 
 ## Tests
@@ -51,3 +51,7 @@ independently checkable; tests are written with each task.
 
 - [ ] `pnpm qa`, `pnpm e2e`, `pnpm smoke` and the node gates green; output recorded in review.md
 - [ ] a manual run on this Windows machine (Windows Terminal) and the result noted; Linux and macOS by CI
+
+> T-10 to T-12 live in `@indaba/engine` (`sanitize`, `reduceRun`, the plain formatter) rather than in `@indaba/tui`,
+> so the plain `watch` needs none of Ink; T-13's replay lives in `@indaba/tui`. Open: T-18 (`run --tui`), T-19, the
+> mutation re-run of T-20, the rest of T-22, and T-23.

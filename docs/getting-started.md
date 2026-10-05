@@ -182,6 +182,7 @@ confirmed on real installs yet.
 
 | Path (under the project directory) | Content |
 | :--- | :--- |
+| `.indaba/traces/<traceId>.events.jsonl` | The run as it happens: span starts and ends, step status changes and the output steps stream (credentials redacted, 2 MiB at most). `indaba watch` reads it |
 | `.indaba/traces/<traceId>.jsonl` | One JSON object per ended span: the task, each step, each agent call or command, with `gen_ai.*` attributes, token counts and cost where known. Safe to read and diff; it never contains secrets |
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
 | the paths your workflow names under `artifacts` | Whatever the steps wrote there, and the diff of an isolated worktree if you named a `patch` artifact |
@@ -190,6 +191,23 @@ confirmed on real installs yet.
 
 A cost is shown only when the model's price is known and the usage was reported; an unknown cost is
 absent, not zero.
+
+## Watching a run
+
+```bash
+npx indaba watch                  # list the runs, newest first
+npx indaba watch latest           # follow the newest, or read it if it has finished
+npx indaba watch latest --replay  # replay a finished run with its original timing (--speed 10 for ten times faster)
+npx indaba watch latest --plain   # lines instead of the dashboard (also the default without a terminal)
+```
+
+Open a second terminal, or run it after the fact: `watch` only reads the files above, so it never touches the run.
+On a terminal, with the optional dashboard package installed (`npm install @indaba/tui`), a run opens as a
+dashboard: steps on the left, the selected step's output on the right (stacked below 80 columns). `?` lists the
+keys: arrows or `j`/`k` select, `PgUp`/`PgDn` scroll, `f` follows the newest output, `q` quits. States are
+shown as a symbol and a word, never by colour alone; `--ascii` avoids box and arrow characters, and `NO_COLOR`
+turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
+0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state.
 
 ## Running from a checkout
 

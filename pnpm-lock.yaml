@@ -44,6 +44,10 @@ importers:
       '@indaba/runners':
         specifier: workspace:*
         version: link:../runners
+    devDependencies:
+      '@indaba/tui':
+        specifier: workspace:*
+        version: link:../tui
 
   packages/core: {}
 

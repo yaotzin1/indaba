@@ -35,5 +35,16 @@
     "@indaba/core": "workspace:*",
     "@indaba/engine": "workspace:*",
     "@indaba/runners": "workspace:*"
+  },
+  "peerDependencies": {
+    "@indaba/tui": ">=0.1.0-alpha.2"
+  },
+  "peerDependenciesMeta": {
+    "@indaba/tui": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@indaba/tui": "workspace:*"
   }
 }
