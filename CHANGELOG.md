@@ -17,6 +17,9 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- `pnpm try:agent` (`scripts/try-agent.mjs`): tries a real ACP agent from a clean state (a throwaway project,
+  the agent from npm into a cache, no machine-specific paths) with three scenarios, `read`, `edit` and
+  `outside` a write scope, and checks the trace and patch. Needs `--yes`; never part of CI.
 - **Transport priority: API and ACP first, the CLI as a fallback** (minor; track `feature`; spec
   `specs/transport-priority`).
   - `runner` accepts a name or a list in priority order, on a role and on a step. A runner that could
@@ -38,6 +41,11 @@ port". The PHP prototype that preceded them was never published.
     them): `indaba.runner.skipped`, `indaba.acp.*`. `RunRequest` gains `permissions`, `agent` and
     `onEvent`; `RunResult` gains `reportedCostUsd`. Through the command line, an unknown runner name is
     now a validation error.
+  - Logging in to an ACP agent: `agent: { preset | command, auth }` names the agent's own login method
+    (from the `authMethods` it lists), and when it is left out and a person is at a terminal, `indaba run`
+    lists the methods and asks, as an editor does. Without a terminal it never asks. A failed login is a
+    runner that could not run. Found by a first run against the real Gemini CLI, which accepts a session
+    without a login and fails at its first model call.
   - Examples `examples/transport-fallback.workflow.ai.yml` and `examples/api-only.workflow.ai.yml`, and a
     guide to this alpha: `docs/using-the-alpha.md`.
 
@@ -53,6 +61,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- `indaba run` printed a status line glued to the end of an agent's answer when the answer did not end with a
+  newline; it now starts on a fresh line.
+- `indaba run -vv` wrote an agent's streamed output to the terminal as it came, so escape sequences in it
+  (clear screen, window title, hyperlinks, carriage returns, bidirectional overrides) acted on the
+  terminal. It now prints plain text only, newlines and tabs kept, including when a sequence is split
+  across two chunks. Applies to every runner.
+- ACP tool-call events now carry the kind of the call they belong to (an update repeats only the id).
 - `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default
   they tried and how to name a file, instead of only reporting that the default could not be read.
 

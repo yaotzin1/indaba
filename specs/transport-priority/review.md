@@ -131,8 +131,14 @@ the `indaba.runner.skipped` event for `openrouter` and the `indaba.acp.session` 
 
 ## Known gaps
 
-- **No real agent.** The ACP runner has been exercised against a scripted fake in-process and a scripted
-  child process, not against the real Claude, Codex or Gemini ACP agents. Their real behaviour (login
+- **Real-agent coverage (`pnpm try:agent`, Windows, 2026-10-05).** Claude (`@agentclientprotocol/claude-agent-acp`
+  0.85.1, installed from a clean cache): `read`, `edit` and `outside` all pass, including the permission gate
+  refusing an edit outside the write scope and the agent reporting it. Antigravity ACP 1.1.1: a read-only run
+  passes. Codex and Gemini with an API key are unverified.
+- **Earlier note, superseded above.** The ACP runner has been exercised against a scripted fake in-process and a
+  scripted child process. A first run against the real Gemini CLI (0.52.0) confirmed `initialize` and
+  `session/new` and found that it needs an explicit login (`authenticate`), which is now supported
+  (AC-15, AC-16). Claude and Codex, and an actual completed turn with Gemini, are still unverified. Their real behaviour (login
   requirements, which tool kinds and locations they report, how they react to a refused permission) may
   differ. Condition to close: a manual run against each, recorded here.
 - **Consensus steps ignore `permissions` and `agent`.** Participants of a consensus are built from role

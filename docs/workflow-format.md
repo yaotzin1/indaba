@@ -95,7 +95,7 @@ isolated step that succeeds.
 | Field | Required | Meaning |
 | :--- | :--- | :--- |
 | `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, or the name of a runner a plugin registers |
-| `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`) or `{ command: [program, arg, ...] }`. Other runners ignore it |
+| `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`) or a mapping with a `preset` or a `command: [program, arg, ...]` and optionally `auth`, the agent's own id for how to log in (see [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). Other runners ignore it |
 | `model` | no | Passed to the runner as its model. API runners require one |
 | `mcp` | no | List of `mcp_servers` names that every step of the role may use |
 

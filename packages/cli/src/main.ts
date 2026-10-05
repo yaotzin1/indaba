@@ -21,8 +21,10 @@ import {
   WorkflowStatus,
   WorkflowValidator,
 } from '@indaba/engine';
+import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
+import { createPrintableFilter } from './printable.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -31,6 +33,8 @@ export interface Io {
   readonly cwd: string;
   /** Aborting it cancels a running workflow; teardown still runs. */
   readonly signal?: AbortSignal;
+  /** Present only when a person is at a terminal: lets them pick how an ACP agent logs in. */
+  readonly chooseAuthMethod?: AuthChooser;
 }
 
 export const EXIT_OK = 0;
@@ -310,6 +314,36 @@ async function plan(parsed: Parsed, io: Io): Promise<number> {
   return failed ? EXIT_FAILURE : EXIT_OK;
 }
 
+/**
+ * What a run prints. An agent's streamed text rarely ends with a newline, so a status line printed
+ * after it would be glued to its last word: `line` starts on a fresh line when it has to.
+ */
+interface Screen {
+  write(text: string): void;
+  line(text: string): void;
+}
+
+function screenOf(io: Io): Screen {
+  let atLineStart = true;
+  const write = (text: string): void => {
+    if (text === '') {
+      return;
+    }
+    io.stdout.write(text);
+    atLineStart = text.endsWith('\n');
+  };
+  return {
+    write,
+    line: (text) => write(atLineStart ? text : `\n${text}`),
+  };
+}
+
+/** What an agent streams is shown as plain text only: see printable.ts. One filter per run, so a split sequence is still caught. */
+function printed(screen: Screen): (chunk: string) => void {
+  const filter = createPrintableFilter();
+  return (chunk) => screen.write(filter(chunk));
+}
+
 async function run(parsed: Parsed, io: Io): Promise<number> {
   let projectDir: string;
   try {
@@ -324,6 +358,7 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
     projectDir,
     env: io.env,
     plugins,
+    ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),
     ...(parsed.timeout === undefined ? {} : { stepTimeoutSeconds: parsed.timeout }),
     onListenerError: (error) => {
       const reason = error instanceof Error ? error.message : String(error);
@@ -332,29 +367,30 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
   });
   const workflow = await loadWorkflow(parser, parsed, io);
 
+  const screen = screenOf(io);
   events.addListener(StepStatusChanged, (e) => {
     const reason = e.reason === undefined ? '' : ` (${e.reason.split('\n')[0] ?? ''})`;
-    io.stdout.write(`  ${e.stepId.padEnd(14)} ${e.from} -> ${e.to}${reason}\n`);
+    screen.line(`  ${e.stepId.padEnd(14)} ${e.from} -> ${e.to}${reason}\n`);
   });
   if (parsed.verbosity >= 1) {
     events.addListener(SpanEnded, (e) => {
       const cost = e.span.attributes[Tracer.ATTR_COST_USD];
       if (typeof cost === 'number') {
-        io.stdout.write(`    ${e.span.name}: $${cost.toFixed(4)}\n`);
+        screen.line(`    ${e.span.name}: $${cost.toFixed(4)}\n`);
       }
     });
   }
 
-  io.stdout.write(`Running ${workflow.name}\n`);
+  screen.line(`Running ${workflow.name}\n`);
   const result = await engine.run(workflow, {
     ...(io.signal === undefined ? {} : { signal: io.signal }),
     ...(parsed.taskId === undefined ? {} : { taskId: parsed.taskId }),
-    ...(parsed.verbosity >= 2 ? { onOutput: (chunk: string) => io.stdout.write(chunk) } : {}),
+    ...(parsed.verbosity >= 2 ? { onOutput: printed(screen) } : {}),
   });
 
-  io.stdout.write(`Task ${result.taskId} finished: ${result.status} (trace ${result.traceId})\n`);
+  screen.line(`Task ${result.taskId} finished: ${result.status} (trace ${result.traceId})\n`);
   if (result.failureReason !== undefined) {
-    io.stdout.write(`${redact(result.failureReason, io.env)}\n`);
+    screen.line(`${redact(result.failureReason, io.env)}\n`);
   }
 
   switch (result.status) {

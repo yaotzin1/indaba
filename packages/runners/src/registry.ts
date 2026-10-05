@@ -1,6 +1,6 @@
 import type { Runner } from '@indaba/core';
 import { RunnerUnavailableError } from '@indaba/core';
-import { AcpRunner } from './acp-runner.js';
+import { AcpRunner, type AuthChooser } from './acp-runner.js';
 import { AntigravityRunner } from './antigravity-runner.js';
 import { ClaudeRunner } from './claude-runner.js';
 import { CodexRunner } from './codex-runner.js';
@@ -21,6 +21,8 @@ export interface DefaultRunnerOptions {
    * Defaults to `env`, which is too small for an agent that needs PATH and HOME.
    */
   readonly hostEnv?: Readonly<Record<string, string | undefined>>;
+  /** Lets a person pick how an `acp` agent logs in; only a terminal front end supplies one. */
+  readonly chooseAuthMethod?: AuthChooser;
 }
 
 /**
@@ -84,6 +86,7 @@ export class RunnerRegistry {
       .register(
         new AcpRunner({
           env: options.hostEnv ?? env,
+          ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
           passEnv: (env.INDABA_ACP_PASS_ENV ?? '')
             .split(',')
             .map((name) => name.trim())

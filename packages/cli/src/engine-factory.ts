@@ -18,7 +18,7 @@ import {
   WorkflowEngine,
   WorkflowParser,
 } from '@indaba/engine';
-import { openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
+import { type AuthChooser, openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
 import { RegistryPluginHost } from './plugin-host.js';
 
 /** The environment values the built-in runners read. Nothing else is forwarded. */
@@ -52,6 +52,8 @@ export interface CreateEngineOptions {
   /** The only source of configuration and secrets; never logged. */
   readonly env?: Readonly<Record<string, string | undefined>>;
   readonly plugins?: readonly Plugin[];
+  /** Lets a person pick how an ACP agent logs in. Only an interactive front end passes one. */
+  readonly chooseAuthMethod?: AuthChooser;
   /** Per-step timeout in seconds. */
   readonly stepTimeoutSeconds?: number;
   /** Receives what a failing event listener threw; by default it is dropped. */
@@ -84,7 +86,10 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
 
   const ids = new RandomIdGenerator();
   const tracer = new Tracer(new SystemClock(), events, ids, PricingTable.defaults());
-  const runners = RunnerRegistry.withDefaults(env, options.env === undefined ? {} : { hostEnv: options.env });
+  const runners = RunnerRegistry.withDefaults(env, {
+    ...(options.env === undefined ? {} : { hostEnv: options.env }),
+    ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
+  });
   const guards = GuardRegistry.withDefaults();
 
   const host = new RegistryPluginHost(runners, guards, events);

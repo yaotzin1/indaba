@@ -73,6 +73,8 @@ export interface Script {
   prompt?: (message: ClientMessage, wire: Wire, reply: (result: unknown) => void) => void | Promise<void>;
   initialize?: (message: ClientMessage, wire: Wire, reply: (result: unknown) => void) => void;
   newSession?: (message: ClientMessage, wire: Wire, reply: (result: unknown) => void) => void;
+  /** Called for `authenticate`; the default accepts any method. */
+  authenticate?: (message: ClientMessage, wire: Wire, reply: (result: unknown) => void) => void;
   /** Any other client message, such as `session/cancel`. */
   other?: (message: ClientMessage, wire: Wire) => void;
 }
@@ -123,6 +125,13 @@ export class FakeAgent implements StreamingProcessSpawner {
             this.script.initialize(message, wire, reply);
           } else {
             reply({ protocolVersion: 1, agentCapabilities: {} });
+          }
+          return;
+        case 'authenticate':
+          if (this.script.authenticate !== undefined) {
+            this.script.authenticate(message, wire, reply);
+          } else {
+            reply({});
           }
           return;
         case 'session/new':

@@ -156,7 +156,7 @@ describe('AcpRunner: a normal run', () => {
         ['indaba.acp.session', { 'acp.protocol_version': 1 }],
         ['indaba.acp.plan', { 'acp.plan.entries': 3 }],
         ['indaba.acp.tool_call', { 'acp.tool.kind': 'edit', 'acp.tool.status': 'pending' }],
-        ['indaba.acp.tool_call', { 'acp.tool.kind': 'other', 'acp.tool.status': 'completed' }],
+        ['indaba.acp.tool_call', { 'acp.tool.kind': 'edit', 'acp.tool.status': 'completed' }],
         ['indaba.acp.usage', { 'acp.context.used': 1200, 'acp.context.size': 200000 }],
       ]),
     );
@@ -768,5 +768,28 @@ describe('AcpRunner: errors stay RunnerErrors', () => {
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(RunnerError);
     expect(error).toBeInstanceOf(RunnerUnavailableError);
+  });
+});
+
+describe('AcpRunner: tool call kinds', () => {
+  it('gives an update the kind of the tool call it belongs to', async () => {
+    const { recorded } = await run({
+      prompt: (_m, wire, reply) => {
+        wire.update({ sessionUpdate: 'tool_call', toolCallId: 'a', kind: 'read', status: 'in_progress' });
+        wire.update({ sessionUpdate: 'tool_call', toolCallId: 'b', kind: 'edit', status: 'pending' });
+        wire.update({ sessionUpdate: 'tool_call_update', toolCallId: 'a', status: 'completed' });
+        wire.update({ sessionUpdate: 'tool_call_update', toolCallId: 'b', status: 'failed' });
+        wire.update({ sessionUpdate: 'tool_call_update', toolCallId: 'unknown', status: 'completed' });
+        reply({ stopReason: 'end_turn' });
+      },
+    });
+    const calls = recorded.events.filter((e) => e.name === 'indaba.acp.tool_call').map((e) => e.attributes);
+    expect(calls).toEqual([
+      { 'acp.tool.kind': 'read', 'acp.tool.status': 'in_progress' },
+      { 'acp.tool.kind': 'edit', 'acp.tool.status': 'pending' },
+      { 'acp.tool.kind': 'read', 'acp.tool.status': 'completed' },
+      { 'acp.tool.kind': 'edit', 'acp.tool.status': 'failed' },
+      { 'acp.tool.kind': 'other', 'acp.tool.status': 'completed' },
+    ]);
   });
 });

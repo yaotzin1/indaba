@@ -60,6 +60,15 @@ exactly one runner, and a runner that cannot run fails the step.
       runner, so it is the enforcement that holds when an agent bypasses the ACP client methods, or
       when the list fell back to a CLI runner. Only `git_diff_empty` exists today; this is new
       surface and is added through the guard contract, with no privileged access.
+- [ ] AC-15. The ACP runner logs in up front when the agent lists `authMethods`: with the method named
+      by `agent.auth`, or, when none is named and a chooser is available, the one the person picks. A named
+      method the agent does not offer, a rejected login and an unknown choice are a runner that could not
+      run, and the first lists what the agent does offer. With no chooser and no `auth`, nothing is
+      authenticated and nothing is asked.
+- [ ] AC-16. The command line supplies a chooser only when stdin and stdout are a terminal. It lists
+      the methods by number, treats 0 or Enter as "go on without logging in", asks again up to three times,
+      and shows nothing an agent sent as a control sequence. (Added after a first run against the real Gemini
+      CLI, which accepts a session unauthenticated and fails at its first model call with a 403.)
 - [ ] AC-13. ACP session updates (plan, tool call, tool result, file edit, completion) are recorded as
       span events on the step span, with secrets redacted.
 - [ ] AC-07. CLI runners (`claude-code`, `codex`, `antigravity`, `cursor`) are unchanged in

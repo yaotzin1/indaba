@@ -134,8 +134,36 @@ and write `runner: local`. A key goes in a variable of your choice, named by
 
 ### 4. A real ACP agent
 
-1. Install and log in to the agent with its own tool; Indaba does not log you in and an agent that asks
-   for a login cannot run headless.
+**Try it in one command**, from a clean state, with nothing preinstalled. From a checkout, after `pnpm build`:
+
+```bash
+pnpm try:agent --agent claude --yes
+# other agents:   pnpm try:agent --agent gemini --auth gemini-api-key --yes
+#                 pnpm try:agent --agent codex --yes
+# any ACP agent, by its command:   pnpm try:agent --yes -- <program> [args...]
+```
+
+It makes a throwaway git project in your temp folder, downloads the agent from npm into a cache (install
+scripts disabled, started with `node`, so it works the same on Windows), runs three small workflows
+through the built `indaba`, and checks the **files the run leaves behind**, not what the agent says:
+
+| Scenario | The agent is asked to | It passes when |
+| :--- | :--- | :--- |
+| `read` | read a file and answer | the run completes and nothing changed |
+| `edit` | change one file inside its write scope | the patch changes only that file, to the right value |
+| `outside` | change a file **outside** its write scope | that file is unchanged (the permission gate refused it, or the scope guard stopped the step) |
+
+It sends real prompts with your login or API key and may cost money, so it never runs in CI and needs
+`--yes`. `--scenario read` runs one, `--keep` leaves the project to look at, `--auth <id>` names a login
+method, `--cli <bin.js>` tests another `indaba`. If your agent asks how to log in, you are asked in the
+terminal.
+
+The pieces, if you prefer to do it by hand:
+
+1. Install the agent. If it offers ways to log in, Indaba asks you to pick one when you run in a terminal,
+   or you can name one with `auth:` in the workflow (see
+   [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). An agent that is not
+   logged in may only fail at its first model call, for example Gemini with a 403 "unregistered callers".
 2. Name it: `agent: claude`, `codex` or `gemini` (presets), or `agent: { command: [program, args...] }`.
 3. Scope it, and run it in a worktree:
 
@@ -158,6 +186,10 @@ agent changed it; the worktree keeps your project untouched until you apply the 
 
 Things to know:
 
+- **Gemini:** its personal Google login is discontinued; use `auth: "gemini-api-key"` with `GEMINI_API_KEY`
+  set, or Vertex AI. Antigravity (`agy`) is separate: it has no ACP mode of its own, so use its CLI runner
+  (`antigravity`) as the fallback, or a community ACP adapter for it at your own risk (third-party code that
+  drives your Antigravity session; check its license and source first).
 - `claude`, `codex` start with `npx`, which downloads code each time and, on Windows, is a `.cmd` shim
   Indaba does not start. Install the agent and use `agent: { command: [...] }` with the native
   executable there, or when you want a pinned version.

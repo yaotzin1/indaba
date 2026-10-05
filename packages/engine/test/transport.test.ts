@@ -407,3 +407,17 @@ describe('span events in the trace file', () => {
     ]);
   });
 });
+
+describe('parsing the agent login', () => {
+  it('reads a map with a preset or a command, and an auth method', () => {
+    const named = parseWorkflow(oneStep('    agent: {preset: gemini, auth: oauth-personal}\n'));
+    expect(named.steps[0]?.agent).toEqual({ preset: 'gemini', auth: 'oauth-personal' });
+    const literal = parseWorkflow(oneStep('    agent: {command: [my-agent, --acp], auth: key}\n'));
+    expect(literal.steps[0]?.agent).toEqual({ command: ['my-agent', '--acp'], auth: 'key' });
+  });
+
+  it('leaves auth out when it is not written, and needs a preset or a command in a map', () => {
+    expect(parseWorkflow(oneStep('    agent: gemini\n')).steps[0]?.agent).toEqual({ preset: 'gemini' });
+    expect(() => parseWorkflow(oneStep('    agent: {auth: key}\n'))).toThrow('needs a preset name');
+  });
+});

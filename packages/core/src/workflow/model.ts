@@ -40,6 +40,8 @@ export interface StepPermissions {
 export interface AgentSpec {
   readonly preset?: string;
   readonly command?: readonly string[];
+  /** The agent's own id for how to log in (from its `authMethods`), e.g. `oauth-personal`. */
+  readonly auth?: string;
 }
 
 export const Isolation = {
