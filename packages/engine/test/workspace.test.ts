@@ -120,7 +120,7 @@ describe('GuardRegistry', () => {
       type: 'always_fail',
       check: async () => GuardResult.fail('nope'),
     });
-    expect(registry.types()).toEqual(['git_diff_empty', 'always_fail']);
+    expect(registry.types()).toEqual(['git_diff_empty', 'diff_within_scope', 'always_fail']);
     expect((await registry.check({ type: 'always_fail', paths: [] }, '.')).message).toBe('nope');
   });
 });

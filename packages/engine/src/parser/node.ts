@@ -74,6 +74,59 @@ export class Node {
     return out;
   }
 
+  /**
+   * A string, or a non-empty list of strings. Undefined when absent, and when it is malformed (the
+   * problem is recorded). An empty string or list is malformed.
+   */
+  stringOrList(key: string, required = false): string[] | undefined {
+    const value = this.present(key);
+    if (value === undefined) {
+      if (required) {
+        this.errors.add(`${this.path}.${key} is required`);
+      }
+      return undefined;
+    }
+    const items = Array.isArray(value) ? (value as unknown[]) : [value];
+    const out: string[] = [];
+    for (const [i, item] of items.entries()) {
+      if (typeof item !== 'string' || item.trim() === '') {
+        this.errors.add(
+          `${this.path}.${key}${Array.isArray(value) ? `[${i}]` : ''} must be a non-empty string`,
+        );
+        return undefined;
+      }
+      out.push(item);
+    }
+    if (out.length === 0) {
+      this.errors.add(`${this.path}.${key} must not be an empty list`);
+      return undefined;
+    }
+    if (new Set(out).size !== out.length) {
+      this.errors.add(`${this.path}.${key} lists the same runner twice`);
+      return undefined;
+    }
+    return out;
+  }
+
+  /** Either a string (returned as `text`) or a mapping (returned as `node`); anything else is an error. */
+  stringOrMap(key: string): { readonly text?: string; readonly node?: Node } | undefined {
+    const value = this.present(key);
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value === 'string' && value.trim() !== '') {
+      return { text: value };
+    }
+    const node = isYamlMap(value) ? this.asNode(value, `${this.path}.${key}`) : undefined;
+    if (node === undefined) {
+      if (!isYamlMap(value)) {
+        this.errors.add(`${this.path}.${key} must be a name or a mapping`);
+      }
+      return undefined;
+    }
+    return { node };
+  }
+
   map(key: string): Node | undefined {
     const value = this.present(key);
     return value === undefined ? undefined : this.asNode(value, `${this.path}.${key}`);

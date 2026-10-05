@@ -1,6 +1,14 @@
 import { lstat, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
-import type { Runner, RunRequest, RunResult, Span, StepDefinition, WorkflowDefinition } from '@indaba/core';
+import type {
+  Runner,
+  RunRequest,
+  RunResult,
+  SkippedRunner,
+  Span,
+  StepDefinition,
+  WorkflowDefinition,
+} from '@indaba/core';
 import {
   ConsensusArbiter,
   DEFAULT_TIMEOUT_SECONDS,
@@ -9,13 +17,17 @@ import {
   isConsensusStep,
   isShellStep,
   McpUnavailableError,
+  RunnerChainExhaustedError,
+  RunnerError,
   RunnerParticipant,
-  roleOf,
+  RunnerUnavailableError,
   SHELL_RUNNER,
   SpanStatus,
   Tracer,
 } from '@indaba/core';
 import type { GuardRegistry } from '../guard/registry.js';
+import type { RunnerPlan } from './chain.js';
+import { effectiveGuards, planForRole, planForStep } from './chain.js';
 import type { McpIssue, McpResolution, RunnerLookup } from './mcp.js';
 import { McpPlanner } from './mcp.js';
 import { StepOutcome } from './outcome.js';
@@ -102,7 +114,7 @@ export class StepExecutor {
       }
     }
 
-    for (const guard of step.guards) {
+    for (const guard of effectiveGuards(step)) {
       const result = await this.guards.check(guard, workdir);
       if (!result.passed) {
         return StepOutcome.failed(`Guard ${guard.type} failed: ${result.message ?? ''}`);
@@ -173,29 +185,101 @@ export class StepExecutor {
     span: Span,
     options: StepRunOptions,
   ): Promise<StepOutcome> {
-    const { runner, model } = this.resolveRunner(step, workflow);
-    const mcp = this.mcp.resolve(workflow, step, step.role, runner);
-    this.recordMcp(span, mcp);
-    if (mcp.missing.length > 0) {
-      return StepOutcome.failed(
-        `Required MCP server(s) unavailable for runner ${runner.name}: ${mcp.missing.join(', ')}`,
-      );
-    }
+    const plan = planForStep(step, workflow);
+    const chain = this.chainRunner(
+      plan,
+      workflow,
+      step,
+      step.role,
+      span,
+      plan.names[0] ?? '',
+      options.signal,
+    );
     const request: RunRequest = {
       prompt: this.prompts.build(step, options.feedback),
       workdir,
-      ...(model !== undefined ? { model } : {}),
+      ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: this.timeoutSeconds,
       ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
-      mcpServers: mcp.injected,
+      ...(step.permissions !== undefined ? { permissions: step.permissions } : {}),
+      ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
     };
-    const result = await this.invoke(runner, request, span, 'invoke_agent', runner.name, options.signal);
+    const result = await chain.run(request, options.signal);
 
     return result.succeeded()
       ? StepOutcome.ok()
       : StepOutcome.failed(
-          `Runner ${runner.name} exited with code ${result.exitCode}.\n${this.prompts.tail(result.failureText())}`,
+          `Runner ${chain.name} exited with code ${result.exitCode}.
+${this.prompts.tail(result.failureText())}`,
         );
+  }
+
+  /**
+   * Tries each runner of the plan in order. Only a runner that could not run at all (it threw
+   * RunnerUnavailableError, or is unknown, or cannot provide a required MCP server) is passed over;
+   * a runner that ran, successfully or not, ends the walk, so a failed task is never replayed. Every
+   * attempt gets the original request, never anything an earlier runner produced.
+   */
+  private chainRunner(
+    plan: RunnerPlan,
+    workflow: WorkflowDefinition,
+    step: StepDefinition,
+    roleName: string | undefined,
+    span: Span,
+    label: string,
+    signal: AbortSignal | undefined,
+  ): Runner {
+    return {
+      name: plan.names[0] ?? '',
+      run: async (request) => {
+        const skipped: SkippedRunner[] = [];
+        const skip = (runner: string, reason: string): void => {
+          const bounded = reason.length > 300 ? `${reason.slice(0, 300)}...` : reason;
+          skipped.push({ runner, reason: bounded });
+          span.addEvent('indaba.runner.skipped', {
+            'indaba.runner': runner,
+            'indaba.runner.skip_reason': bounded,
+          });
+        };
+
+        for (const name of plan.names) {
+          signal?.throwIfAborted();
+          let runner: Runner;
+          try {
+            runner = this.runners.get(name);
+          } catch (error) {
+            if (error instanceof RunnerError) {
+              skip(name, error.message);
+              continue;
+            }
+            throw error;
+          }
+          const mcp = this.mcp.resolve(workflow, step, roleName, runner);
+          if (mcp.missing.length > 0) {
+            skip(name, `Required MCP server(s) unavailable: ${mcp.missing.join(', ')}`);
+            continue;
+          }
+          this.recordMcp(span, mcp);
+          try {
+            return await this.invoke(
+              runner,
+              { ...request, mcpServers: mcp.injected },
+              span,
+              'invoke_agent',
+              label,
+              signal,
+            );
+          } catch (error) {
+            if (error instanceof RunnerUnavailableError) {
+              skip(name, error.message);
+              continue;
+            }
+            throw error;
+          }
+        }
+        throw new RunnerChainExhaustedError(skipped);
+      },
+    };
   }
 
   private async runConsensus(
@@ -208,20 +292,21 @@ export class StepExecutor {
     const roles = [...new Set([...(step.role === undefined ? [] : [step.role]), ...step.consensusWith])];
 
     const participants = roles.map((roleName) => {
-      const role = roleOf(workflow, roleName);
-      const runner = this.runners.get(role.runner);
-      const mcp = this.mcp.resolve(workflow, step, roleName, runner);
-      this.recordMcp(span, mcp);
-      if (mcp.missing.length > 0) {
-        throw new McpUnavailableError([`step "${step.id}", role "${roleName}": ${mcp.missing.join(', ')}`]);
+      const plan = planForRole(workflow, roleName);
+      if (plan.names.length === 1) {
+        // One runner and no way round it: refuse before the debate starts, as always.
+        const only = this.runners.get(plan.names[0] ?? '');
+        const mcp = this.mcp.resolve(workflow, step, roleName, only);
+        if (mcp.missing.length > 0) {
+          throw new McpUnavailableError([`step "${step.id}", role "${roleName}": ${mcp.missing.join(', ')}`]);
+        }
       }
       return new RunnerParticipant({
         role: roleName,
-        runner,
+        runner: this.chainRunner(plan, workflow, step, roleName, span, roleName, options.signal),
         workdir,
-        ...(role.model !== undefined ? { model: role.model } : {}),
-        invoke: (r, request) => this.invoke(r, request, span, 'invoke_agent', roleName, options.signal),
-        mcpServers: mcp.injected,
+        ...(plan.model !== undefined ? { model: plan.model } : {}),
+        invoke: (chain, request) => chain.run(request, options.signal),
       });
     });
 
@@ -267,20 +352,6 @@ export class StepExecutor {
       const all = [typeof existing === 'string' ? existing : '', names.join(',')].filter((s) => s !== '');
       span.setAttribute(attribute, all.join(','));
     }
-  }
-
-  private resolveRunner(
-    step: StepDefinition,
-    workflow: WorkflowDefinition,
-  ): { runner: Runner; model: string | undefined } {
-    if (step.role !== undefined) {
-      const role = roleOf(workflow, step.role);
-      return { runner: this.runners.get(role.runner), model: role.model };
-    }
-    if (step.runner === undefined) {
-      throw new IndabaError('Step has neither role nor runner.');
-    }
-    return { runner: this.runners.get(step.runner), model: undefined };
   }
 
   private async invoke(

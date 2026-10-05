@@ -30,6 +30,9 @@ with **one behaviour change** that would be a major after 1.0: a step that sets 
 | `@indaba/core` `observability` | method | `Span.addEvent(name: string, attributes?: Readonly<Record<string, SpanAttributeValue>>): void` |
 | `@indaba/core` `observability` | interface | `SpanEvent { readonly name: string; readonly attributes: Readonly<Record<string, SpanAttributeValue>> }`, and `Span.events: readonly SpanEvent[]` |
 | `@indaba/engine` `guard` | class | `DiffWithinScopeGuard implements Guard` (`type` is `diff_within_scope`) |
+| `@indaba/engine` `engine` | functions | `planForStep(step, workflow)`, `planForRole(workflow, roleName)`, `effectiveGuards(step)`; interface `RunnerPlan { names; model; agent }` |
+| `@indaba/engine` `parser` | method | `WorkflowValidator.warnings(workflow): string[]` |
+| `@indaba/engine` `engine` | method | `McpPlanner.chains(workflow, step)`; preflight now judges a speaker by the first runner of its chain that can provide the required servers |
 | `@indaba/runners` | class | `OpenAiCompatibleRunner implements Runner`, constructor `{ name; baseUrl; apiKeyEnv; defaultModel?; extraHeaders?; fetch? }` |
 | `@indaba/runners` | class | `AcpRunner implements Runner` (`name` is `acp`), constructor `{ spawner?: StreamingProcessSpawner; presets?: Readonly<Record<string, AcpAgentPreset>>; env?: Readonly<Record<string, string>> }` |
 | `@indaba/runners` | interface | `AcpAgentPreset { readonly command: readonly string[] }` |
@@ -49,7 +52,7 @@ with **one behaviour change** that would be a major after 1.0: a step that sets 
 | `RunRequest` | no permissions | adds `permissions?: StepPermissions` and `agent?: AgentSpec`; runners that cannot honour them ignore them | additive; runners are not required to enforce |
 | `RunResult` / `RunResultInit` | no cost | adds optional `reportedCostUsd?: number` | additive |
 | `GuardRegistry.withDefaults()` | registers `git_diff_empty` | also registers `diff_within_scope` | additive |
-| `WorkflowParser` constructor | `(guards?)` | `(guards?, runners?: { has(name: string): boolean })` | additive; absent means run-time check as today |
+| `WorkflowParser` constructor | `(guards?, validator?)` | `(guards?, validator?, runners?: { has(name: string): boolean })` | additive; absent means run-time check as today |
 | `RunnerRegistry.withDefaults` | registers `openrouter` as `OpenRouterRunner` | registers it as an `OpenAiCompatibleRunner` preset, plus `acp` | `OpenRouterRunner` stays exported and behaves identically |
 | process, registry, MCP "cannot start" sites | throw `RunnerError` | throw `RunnerUnavailableError` (a subclass) | `instanceof RunnerError` still true |
 | `StepExecutor` runner choice | role's runner beats step's | step's runner beats role's | see Defaults |
@@ -70,7 +73,7 @@ with **one behaviour change** that would be a major after 1.0: a step that sets 
 | workflow | `roles.<role>.agent`, `steps.<step>.agent` | new; a preset name (`claude`, `codex`, `gemini`) or `{ command: [..] }`; meaningful only to the `acp` runner |
 | workflow | `steps.<step>.permissions.fs.read`, `.fs.write` | new; list of globs |
 | workflow | `steps.<step>.permissions.terminal` | new; `allow` or `deny`, default `deny` when `permissions` is present |
-| workflow | guard `type: diff_within_scope` | new; `paths` are the allowed globs; implied by `permissions.fs.write` |
+| workflow | guard `type: diff_within_scope` | new; `paths` are the allowed globs (empty means nothing may change); implied by any `permissions` block, with `fs.write` as its globs |
 | validate | errors | empty runner list; duplicate name within one list; unknown runner name when a lookup is given; `permissions` on a step with no ACP runner in its chain is a **warning** |
 | validate | warnings | `permissions.fs.write` with `isolation: none`; step and role both set `runner` and differ |
 | CLI | `indaba plan` | prints each step's runner chain and effective guards |

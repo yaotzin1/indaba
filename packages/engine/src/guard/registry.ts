@@ -1,5 +1,6 @@
 import type { Guard, GuardDefinition } from '@indaba/core';
 import { GuardResult } from '@indaba/core';
+import { DiffWithinScopeGuard } from './diff-within-scope-guard.js';
 import { GitDiffEmptyGuard } from './git-diff-empty-guard.js';
 
 export class GuardRegistry {
@@ -12,7 +13,7 @@ export class GuardRegistry {
   }
 
   static withDefaults(): GuardRegistry {
-    return new GuardRegistry([new GitDiffEmptyGuard()]);
+    return new GuardRegistry([new GitDiffEmptyGuard(), new DiffWithinScopeGuard()]);
   }
 
   /** A later registration of the same type replaces the earlier one. */

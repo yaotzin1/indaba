@@ -1,3 +1,5 @@
+export type { RunnerPlan } from './engine/chain.js';
+export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';
 export type { RunnerLookup, Speaker } from './engine/mcp.js';
 export { McpIssue, McpPlanner, McpResolution } from './engine/mcp.js';
 export { StepOutcome, WorkflowResult, WorkflowStatus } from './engine/outcome.js';
@@ -6,6 +8,7 @@ export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor
 export { StepExecutor } from './engine/step-executor.js';
 export type { RunOptions, WorkflowEngineOptions } from './engine/workflow-engine.js';
 export { WorkflowEngine } from './engine/workflow-engine.js';
+export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';
 export { JsonlSpanExporter } from './observability/jsonl-span-exporter.js';

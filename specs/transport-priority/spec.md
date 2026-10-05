@@ -55,7 +55,8 @@ exactly one runner, and a runner that cannot run fails the step.
       answers `session/request_permission` from the step's declared policy; anything outside is
       rejected at the protocol level and recorded. With no policy declared, the default is deny.
 - [ ] AC-14. A new guard type (working name `diff_within_scope`) fails the step when the worktree
-      diff touches a path outside the step's `permissions.fs.write` globs. It works for every
+      diff touches a path outside the step's `permissions.fs.write` globs (a `permissions` block
+      without `fs.write` means the step may change nothing). It works for every
       runner, so it is the enforcement that holds when an agent bypasses the ACP client methods, or
       when the list fell back to a CLI runner. Only `git_diff_empty` exists today; this is new
       surface and is added through the guard contract, with no privileged access.

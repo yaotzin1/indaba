@@ -52,6 +52,7 @@ task independently checkable. Tests are written with each task, not after (qa sk
 - [ ] **T-30** `docs/workflow-format.md`: runner lists, `agent`, `permissions`, `diff_within_scope`, the fallback boundary in plain words, transport order (API, ACP, CLI last)
 - [ ] **T-31** `docs/extending.md`: writing a runner that throws `RunnerUnavailableError` correctly; adding an OpenAI-compatible endpoint; `docs/README.md` index
 - [ ] **T-32** README transport section, CHANGELOG under Unreleased (Added, and Changed for step-over-role), `specs/DEPENDENCY_MAP.md`, AGENTS.md repository map if a path changed
+- [ ] **T-34** `docs/using-the-alpha.md` (linked from README and `docs/README.md`): how to try this alpha end to end. Install the preview, set an API key, a first workflow on an OpenAI-compatible runner, adding a fallback list, running an ACP agent (`claude`, `codex`, `gemini` presets) with `permissions`, CLI runners as the last resort, reading the trace to see which runner ran and what was skipped, what is alpha (no stability promise, ACP v1 only, presets download via `npx`), and how to report a problem. Every command and YAML snippet in it is run before it is committed.
 - [ ] **T-33** `specs/runner-adapters` gets a pointer to this spec for the ACP and fallback behaviour
 
 ## Stage 7: Verification
