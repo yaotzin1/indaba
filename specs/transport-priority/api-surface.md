@@ -106,3 +106,27 @@ written exactly as before.
 - [ ] `pnpm qa` (Biome, `tsc` strict, Vitest) passes with no suppression comment
 - [ ] `@indaba/core` still imports no `node:` module (`glob`, `runnerChain` and the error classes are pure)
 - [ ] A plugin runner can throw `RunnerUnavailableError` and take part in a chain without an engine change
+
+## Amendments made during stage 6
+
+The contract above was written at stage 3. Building it showed these differences; they are recorded
+here instead of rewriting the tables, so the change from what was planned stays visible. None changes
+the semver classification.
+
+| Planned | As built | Why |
+| :--- | :--- | :--- |
+| ACP details as span **attributes** (`indaba.acp.protocol_version`, `indaba.acp.context_used`, `indaba.acp.context_size`) | span **events** `indaba.acp.session` (`acp.protocol_version`), `indaba.acp.usage` (`acp.context.used`, `acp.context.size`), `indaba.acp.plan` (`acp.plan.entries`), `indaba.acp.completion` (`acp.stop_reason`), besides `indaba.acp.tool_call` and `indaba.acp.permission` as planned | a runner has no span; one channel (`RunRequest.onEvent`) serves all of it |
+| no way for a runner to reach the span | `RunRequest.onEvent?: (name: string, attributes?: SpanAttributes) => void`, wired by the engine to `Span.addEvent` | as above |
+| `ProcessSession.stderr: AsyncIterable<string>` | `ProcessSession.stderrTail(): string` | the only use is a bounded tail in a failure message |
+| `StreamingProcessSpec` unspecified | `{ command; cwd; env }`; `env` is the child's complete environment, not merged with the parent's | an agent must not inherit unrelated secrets |
+| `AcpAgentPreset { command }` | adds optional `envPrefixes` (variables with these prefixes are passed on) | each agent needs its own vendor variables |
+| `AcpRunner` options `{ spawner?; presets?; env? }` | adds `passEnv?: readonly string[]` and `cancelGraceMs?: number`; `env` is the host environment an allowlist is taken from | environment allowlist, cancel grace |
+| `OpenAiCompatibleRunner` options `{ name; baseUrl; apiKeyEnv; defaultModel?; extraHeaders?; fetch? }` | `{ name; label?; apiKey; apiKeyEnv?; keyless?; baseUrl; defaultModel?; extraHeaders?; requestExtras?; fetch? }` | the key is supplied by the composition root (it was already so for `OpenRouterRunner`); local servers are keyless; providers differ in how usage is requested |
+| (not planned) | `openAiCompatibleFromEnv(env, { reserved?, fetch? })` and `OpenAiCompatibleEnvOptions` exported from `@indaba/runners` | the composition root needs one tested place that reads `INDABA_OPENAI_COMPAT_*` |
+| (not planned) | `ACP_PROTOCOL_VERSION` exported; `RunnerRegistry.withDefaults` options gain `streamingSpawner` and `hostEnv`; the environment key `INDABA_ACP_PASS_ENV` is read | wiring |
+| `diff_within_scope` implied by `permissions.fs.write` | implied by any `permissions` block | a read-only step (no write globs) must be enforced too |
+| `OpenRouterRunner` unchanged | its messages, name, URL and request body are unchanged; **behaviour changes**: no key or model, HTTP 401 or 403, and no response at all now throw `RunnerUnavailableError` (it returned a failed result for the last two) | the runner-unavailable boundary of AC-02 |
+| `McpUnavailableError` unchanged | unchanged for a role or step with a single runner; with a chain, a candidate that cannot supply a required server is skipped | AC-02 |
+
+Behaviour changes listed here and in the CHANGELOG: the step-over-role precedence, and the
+`openrouter` unavailable cases above.

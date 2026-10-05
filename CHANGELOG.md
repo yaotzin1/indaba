@@ -15,6 +15,42 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **Transport priority: API and ACP first, the CLI as a fallback** (minor; track `feature`; spec
+  `specs/transport-priority`).
+  - `runner` accepts a name or a list in priority order, on a role and on a step. A runner that could
+    not run is passed over for the next; a runner that ran and failed is a failed task and is never
+    retried elsewhere. New `RunnerUnavailableError` (a `RunnerError`) marks "nothing was sent to the
+    agent"; plugin runners throw it too. `indaba plan` prints the list.
+  - `acp` runner: any agent that speaks the Agent Client Protocol (v1) over stdio, started from a preset
+    (`claude`, `codex`, `gemini`) or `agent: { command: [...] }`. Indaba answers the agent's permission
+    requests and serves its file requests only inside the step's scope; it never selects an "always"
+    option and offers no terminal. Tool calls, plans, permission decisions and context use are recorded as
+    span events. A cost the agent reports in USD is used; no token counts are invented.
+  - `permissions` on a step (`fs.read`, `fs.write` globs, `terminal`) and a `diff_within_scope` guard,
+    added automatically, that fails a step which changed anything outside `fs.write`, for every runner.
+    `indaba validate` warns about `permissions` without a worktree or without an `acp` runner.
+  - `OpenAiCompatibleRunner`: any OpenAI-compatible endpoint (OpenAI, vLLM, Ollama, LM Studio),
+    configured with `INDABA_OPENAI_COMPAT_<NAME>_*` environment variables, never from a workflow file.
+    `openrouter` is unchanged and still registered.
+  - Span events (`Span.addEvent`, written under `events` in the JSONL trace only for spans that have
+    them): `indaba.runner.skipped`, `indaba.acp.*`. `RunRequest` gains `permissions`, `agent` and
+    `onEvent`; `RunResult` gains `reportedCostUsd`. Through the command line, an unknown runner name is
+    now a validation error.
+  - Examples `examples/transport-fallback.workflow.ai.yml` and `examples/api-only.workflow.ai.yml`, and a
+    guide to this alpha: `docs/using-the-alpha.md`.
+
+### Changed
+
+- When a step sets both a `role` and a `runner`, the step's `runner` is now used (before, the role's
+  silently won). The role still supplies the model. `indaba validate` warns when they differ.
+- The `openrouter` runner now reports "could not run" (so a fallback list moves on) when there is no key or
+  model, when the key is rejected (HTTP 401 or 403), and when the endpoint gives no response at all; it
+  used to return a failed result for the last two. Other HTTP errors are still failed results.
+- Every runner's "cannot start" error, and an unknown runner name, is now a `RunnerUnavailableError`
+  (still a `RunnerError`).
+
 ### Fixed
 
 - `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default

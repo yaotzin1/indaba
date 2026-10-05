@@ -39,8 +39,12 @@ interface Guard {
 Behaviour worth knowing:
 
 - A `Runner` returns a `RunResult` for a command that ran, even if it failed (a non-zero `exitCode`);
-  the step's `on_failure` decides what happens. Throw a `RunnerError` only when the runner could not
-  run at all. Honour `request.timeoutSeconds` (default 900) and the `AbortSignal`, and do not leave a
+  the step's `on_failure` decides what happens. Throw a `RunnerUnavailableError` (a `RunnerError`) only when the runner could not
+  run at all **and nothing has been sent to the agent yet**: no key, program not found, endpoint
+  unreachable. A workflow that lists several runners then tries the next one. Once the agent has been
+  given the prompt it may have changed files, so from then on return a `RunResult` (a failed one if
+  need be) and throw nothing that a fallback could mistake for "nothing happened". Any other
+  `RunnerError` fails the step. Honour `request.timeoutSeconds` (default 900) and the `AbortSignal`, and do not leave a
   child process behind.
 - A `Guard` returns `GuardResult.pass()` or `GuardResult.fail(message)`. It decides; it does not act.
   Resolve `guard.paths` against `workdir` and refuse any path that leaves it.
@@ -186,3 +190,5 @@ console.log(result.status);
 - Do not hand a string composed from model output to a shell. Start processes with an argument array.
 - Keep secrets out of what you return, trace or log.
 - Any new name a workflow can use (a runner, a guard type) is public surface of your plugin: version it.
+- A runner takes part in a priority list (`runner: [yours, "claude-code"]`) the same way a built-in does. `RunRequest.permissions` and `agent` are hints you may ignore (the `diff_within_scope` guard still applies). Report what is worth recording through `request.onEvent(name, attributes)`: names and counts only, never prompts, paths, file content or secrets.
+- To add an OpenAI-compatible API you do not need a plugin: set `INDABA_OPENAI_COMPAT_<NAME>_BASE_URL` (see [getting-started.md](getting-started.md#api-runners)). In code, `new OpenAiCompatibleRunner({ name, baseUrl, apiKey, ... })` from `@indaba/runners`, registered with `host.registerRunner`.

@@ -62,7 +62,7 @@ that makes the outcome trustworthy and inspectable:
 | `indaba` | The command line (`validate`, `plan`, `run`), plugin loading, the composition root | the three below |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
-| `@indaba/runners` | `ShellRunner`, `OpenRouterRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
+| `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
 
 All packages are ESM, ship their types, and need Node 22 or newer.
 
@@ -76,6 +76,10 @@ npx indaba plan     examples/task-pipeline.workflow.ai.yml
 npx indaba run      examples/task-pipeline.workflow.ai.yml -w /path/to/project -v
 ```
 
+More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in one workflow) and
+`api-only.workflow.ai.yml` (the smallest one). A guided first run of this alpha is in
+[docs/using-the-alpha.md](docs/using-the-alpha.md).
+
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no
 consensus: a human is needed) and `130` when cancelled.
 
@@ -86,14 +90,30 @@ rules for developing Indaba itself.
 
 ## Runners
 
-| Runner | Runs | Needs |
-| :--- | :--- | :--- |
-| `shell` | commands from the workflow file | nothing |
-| `claude-code` | `claude -p` | the `claude` CLI |
-| `codex` | `codex exec --sandbox workspace-write` | the `codex` CLI |
-| `antigravity` | `agy -p` | the `agy` CLI |
-| `cursor` | `cursor-agent -p` | the `cursor-agent` CLI |
-| `openrouter` | a streamed chat completion | `OPENROUTER_API_KEY` |
+An agent is reached over an **API**, over **ACP** (the Agent Client Protocol), or, as a last resort,
+through its **CLI**. A role lists runners in priority order and the first one that can run is used:
+
+```yaml
+roles:
+  implementer:
+    runner: ["acp", "claude-code"]   # ACP first, the CLI only if ACP cannot start
+    agent: "claude"
+```
+
+| Runner | Runs | Needs | Choose it for |
+| :--- | :--- | :--- | :--- |
+| `openrouter`, and any OpenAI-compatible endpoint you configure | a streamed chat completion | `OPENROUTER_API_KEY`, or your endpoint's variables | text work: specs, reviews, debate |
+| `acp` | any ACP agent (`claude`, `codex`, `gemini`, or your own command) over stdio, with a permission gate | the agent program | agents that edit code |
+| `shell` | commands from the workflow file | nothing | verification |
+| `claude-code` | `claude -p` | the `claude` CLI | last resort |
+| `codex` | `codex exec --sandbox workspace-write` | the `codex` CLI | last resort |
+| `antigravity` | `agy -p` | the `agy` CLI | last resort |
+| `cursor` | `cursor-agent -p` | the `cursor-agent` CLI | last resort |
+
+A runner is skipped for the next one only when it could not run at all (no key, program not found,
+endpoint unreachable). A runner that started and failed is a failed task, never retried elsewhere. See
+[docs/using-the-alpha.md](docs/using-the-alpha.md) to try it, and
+[docs/workflow-format.md](docs/workflow-format.md#transports-and-fallback) for the rules.
 
 The agent CLIs run in a pseudo-terminal when the optional `node-pty` package is available, and over
 plain pipes otherwise. The prompt is always a single argument, never composed into a shell string. On
