@@ -3,6 +3,7 @@ import {
   emptyRun,
   formatCost,
   formatDuration,
+  formatEvent,
   formatPlain,
   type RunRecord,
   type RunState,
@@ -406,5 +407,186 @@ describe('formatPlain', () => {
   it('ends with exactly one newline', () => {
     expect(formatPlain(reduceAll(finished)).endsWith('\n')).toBe(true);
     expect(formatPlain(reduceAll(finished)).endsWith('\n\n')).toBe(false);
+  });
+});
+
+describe('formatEvent', () => {
+  /** The lines for the record at `index`, given the state after it. */
+  const linesFor = (records: RunRecord[], index: number, options?: { output?: boolean }): string[] => {
+    const record = records[index];
+    if (record === undefined) {
+      throw new Error('no such record');
+    }
+    return formatEvent(reduceAll(records.slice(0, index + 1)), record, options);
+  };
+
+  const base: RunRecord[] = [root(), stepStart('code'), change('code', 'RUNNING', undefined, T(3))];
+  const withRunner = [...base, ...runner('code', 'acp', T(4), T(14), { 'indaba.cost.usd': 0.25 })];
+
+  it('prints a step moving, with the first line of its reason', () => {
+    expect(linesFor(base, 2)).toEqual(['12:00:03 code: X -> RUNNING']);
+    const failed = [...base, change('code', 'FAILED', 'tests red\nmore detail', T(9))];
+    expect(linesFor(failed, 3)).toEqual(['12:00:09 code: X -> FAILED (tests red)']);
+    const blank = [...base, change('code', 'FAILED', '', T(9))];
+    expect(linesFor(blank, 3)).toEqual(['12:00:09 code: X -> FAILED']);
+  });
+
+  it('prints a runner starting and ending, with its cost when it has one', () => {
+    expect(linesFor(withRunner, 3)).toEqual(['12:00:04 code: runner acp started']);
+    expect(linesFor(withRunner, 4)).toEqual(['12:00:14 code: runner acp ok $0.2500']);
+  });
+
+  it('calls a shell step a command, and prints an error as such', () => {
+    const records: RunRecord[] = [
+      root(),
+      stepStart('verify'),
+      {
+        type: 'span_started',
+        at: T(2),
+        traceId: TRACE,
+        spanId: 'p-verify-shell',
+        parentSpanId: 's-verify',
+        name: 'execute_tool shell',
+        attributes: { 'indaba.runner': 'shell' },
+      },
+      {
+        type: 'span_ended',
+        at: T(5),
+        traceId: TRACE,
+        spanId: 'p-verify-shell',
+        status: 'error',
+        statusMessage: undefined,
+        attributes: {},
+        events: [],
+      },
+    ];
+    expect(linesFor(records, 2)).toEqual(['12:00:02 verify: command started']);
+    expect(linesFor(records, 3)).toEqual(['12:00:05 verify: command error']);
+  });
+
+  it('prints nothing for the start of the root span or of a span that is neither a step nor a runner', () => {
+    expect(linesFor(base, 0)).toEqual([]);
+    const other: RunRecord[] = [
+      ...base,
+      {
+        type: 'span_started',
+        at: T(5),
+        traceId: TRACE,
+        spanId: 'x',
+        parentSpanId: ROOT,
+        name: 'something else',
+        attributes: {},
+      },
+      {
+        type: 'span_ended',
+        at: T(6),
+        traceId: TRACE,
+        spanId: 'x',
+        status: 'ok',
+        statusMessage: undefined,
+        attributes: {},
+        events: [],
+      },
+    ];
+    expect(linesFor(other, 3)).toEqual([]);
+    expect(linesFor(other, 4)).toEqual([]);
+  });
+
+  it('prints how the run ended', () => {
+    for (const [status, word] of [
+      ['COMPLETED', 'completed'],
+      ['FAILED', 'failed'],
+      ['ESCALATED', 'escalated'],
+      ['CANCELLED', 'cancelled'],
+    ] as const) {
+      const records: RunRecord[] = [
+        root(),
+        {
+          type: 'span_ended',
+          at: T(61),
+          traceId: TRACE,
+          spanId: ROOT,
+          status: 'ok',
+          statusMessage: undefined,
+          attributes: { 'indaba.workflow.status': status },
+          events: [],
+        },
+      ];
+      expect(linesFor(records, 1)).toEqual([`12:01:01 run ${word}`]);
+    }
+  });
+
+  it('prints streamed output only when asked, one line each, and keeps blank lines in the middle', () => {
+    const records = [...withRunner, output('code', 'acp', 'one\n\ntwo\n')];
+    expect(linesFor(records, 5)).toEqual([]);
+    expect(linesFor(records, 5, { output: true })).toEqual([
+      '12:00:03 code | one',
+      '12:00:03 code |',
+      '12:00:03 code | two',
+    ]);
+    expect(linesFor(records, 5, { output: false })).toEqual([]);
+  });
+
+  it('prints nothing for output of a span it does not know, even when asked', () => {
+    const records: RunRecord[] = [
+      root(),
+      { type: 'output', at: T(3), traceId: TRACE, spanId: 'ghost', seq: 0, text: 'lost\n', cut: false },
+    ];
+    expect(linesFor(records, 1, { output: true })).toEqual([]);
+  });
+
+  it('says when stored output ran out, and keeps a note for a line it could not read', () => {
+    const records: RunRecord[] = [
+      ...withRunner,
+      { type: 'truncated', at: T(8), traceId: TRACE, spanId: 'p-code-acp' },
+      { type: 'unknown', text: 'garbled' },
+    ];
+    expect(linesFor(records, 5)).toEqual(['12:00:08 output for this run ran out; the rest is not stored']);
+    expect(linesFor(records, 6)).toEqual(['note: garbled']);
+  });
+
+  it('shows a dashed time for a record whose time it cannot read', () => {
+    const odd: RunRecord = {
+      type: 'step_status',
+      at: 'not a time',
+      traceId: TRACE,
+      taskId: 't',
+      stepId: 'a',
+      from: 'X',
+      to: 'Y',
+      reason: undefined,
+    };
+    expect(formatEvent(reduceAll([root(), odd]), odd)).toEqual(['--:--:-- a: X -> Y']);
+  });
+
+  it('never lets an escape sequence through, in a step name, a reason, a runner, or output', () => {
+    const evil = `x${ESC}[2J${ESC}]0;pwned${BEL}y`;
+    const records: RunRecord[] = [
+      root(),
+      stepStart(evil),
+      change(evil, 'FAILED', `why ${evil}`, T(3)),
+      {
+        type: 'span_started',
+        at: T(4),
+        traceId: TRACE,
+        spanId: 'p-e-r',
+        parentSpanId: `s-${evil}`,
+        name: 'invoke_agent r',
+        attributes: { 'indaba.runner': evil },
+      },
+      {
+        type: 'output',
+        at: T(5),
+        traceId: TRACE,
+        spanId: 'p-e-r',
+        seq: 0,
+        text: `out ${evil}\n`,
+        cut: false,
+      },
+    ];
+    const all = [2, 3, 4].flatMap((i) => linesFor(records, i, { output: true })).join('\n');
+    expect(all).not.toContain(ESC);
+    expect(all).not.toContain(BEL);
+    expect(all).toContain('xy');
   });
 });

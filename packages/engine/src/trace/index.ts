@@ -1,7 +1,7 @@
 export type { RunEventWriterOptions } from './event-writer.js';
 export { DEFAULT_MAX_RECORD_CHARS, DEFAULT_MAX_RUN_CHARS, RunEventWriter } from './event-writer.js';
-export type { PlainOptions } from './plain.js';
-export { formatCost, formatDuration, formatPlain, watchExitCode } from './plain.js';
+export type { EventLineOptions, PlainOptions } from './plain.js';
+export { formatCost, formatDuration, formatEvent, formatPlain, watchExitCode } from './plain.js';
 export type {
   OutputRecord,
   RunRecord,

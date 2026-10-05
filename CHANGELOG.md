@@ -25,6 +25,15 @@ port". The PHP prototype that preceded them was never published.
   own messages (variables named like a key, token, secret, password or credential), cut to 4096 characters a
   record, and capped at 2 MiB a run, after which one `truncated` record is written. It can still hold whatever
   an agent printed, so it stays under `.indaba/` (gitignored, local).
+- **`indaba watch [run]`**: follow a run from the files it writes, or read a finished one. With no run it lists
+  them, newest first; a run is its id, a unique start of it, or `latest`. It prints each step change and runner
+  start and end as it happens (`--output` adds the streamed lines), then a final view, and exits the way the run
+  did (0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state or the run
+  goes quiet for `--stale` seconds). `--replay [--speed 1|10]` plays a finished run with its original timing. Agent
+  text is stripped of terminal control sequences before it is printed. Plain output only for now.
+- `@indaba/engine`: a pure run view model (`reduceRun`, `RunState`) and plain formatters (`formatPlain`,
+  `formatEvent`) over the event stream, and the terminal-text sanitizer (`sanitize`, `createSanitizer`) the CLI
+  used internally, now exported.
 - `@indaba/core`: a `StepOutput` event, dispatched for each streamed chunk. `@indaba/engine`: `RunEventWriter`,
   `TraceReader` (read all, follow live, list runs; tolerates half-written and malformed lines, and reads runs
   written before the stream existed from their trace file), `parseRecord` and the record types.

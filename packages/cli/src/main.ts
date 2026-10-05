@@ -26,6 +26,7 @@ import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
+import { watch } from './watch.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -52,6 +53,7 @@ Commands:
   validate [file]   Validate a workflow file
   plan [file]       Show the execution order of a workflow without running it
   run [file]        Execute a workflow
+  watch [run]       Follow or read a run from the files it writes (no run: list them)
 
 Options:
   -h, --help        Show help
@@ -190,6 +192,16 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === '--version' || command === '-V') {
     io.stdout.write(`${readVersion()}\n`);
     return EXIT_OK;
+  }
+  if (command === 'watch') {
+    try {
+      return await watch(rest, io, { noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '' });
+    } catch (error) {
+      const message = redact(error instanceof Error ? error.message : String(error), io.env);
+      (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}
+`);
+      return EXIT_FAILURE;
+    }
   }
   if (command !== 'validate' && command !== 'plan' && command !== 'run') {
     return usageError(io, `Unknown command "${command}".`);

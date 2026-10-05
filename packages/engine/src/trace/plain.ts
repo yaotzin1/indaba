@@ -1,3 +1,4 @@
+import type { RunRecord } from './records.js';
 import { sanitize } from './sanitize.js';
 import type { RunStatus } from './trace-reader.js';
 import type { RunnerView, RunState, StepView } from './view.js';
@@ -195,4 +196,76 @@ export function watchExitCode(status: RunStatus): number {
     default:
       return 3;
   }
+}
+
+export interface EventLineOptions {
+  /** Also print every line of output a step streams. */
+  readonly output?: boolean;
+}
+
+function clock(at: string): string {
+  return at.match(/^\d{4}-\d{2}-\d{2}T(\d{2}:\d{2}:\d{2})/)?.[1] ?? '--:--:--';
+}
+
+/**
+ * The lines a follower prints for one record, given the state after it. Nothing for a record that is not worth a
+ * line (a span that is not a step or a runner). Text from an agent is sanitised and kept on one line.
+ */
+export function formatEvent(after: RunState, record: RunRecord, options: EventLineOptions = {}): string[] {
+  const time = clock(record.type === 'unknown' ? '' : record.at);
+  const stepOf = (spanId: string): string | undefined => after.owners[spanId]?.stepId;
+  const find = (spanId: string): { step: string; runner: RunnerView } | undefined => {
+    const id = stepOf(spanId);
+    const runner = after.steps.find((s) => s.id === id)?.runners.find((r) => r.spanId === spanId);
+    return id === undefined || runner === undefined ? undefined : { step: id, runner };
+  };
+
+  switch (record.type) {
+    case 'step_status': {
+      const first = record.reason?.split('\n')[0];
+      const why = first === undefined || first === '' ? '' : ` (${oneLine(first)})`;
+      return [`${time} ${oneLine(record.stepId)}: ${record.from} -> ${record.to}${why}`];
+    }
+    case 'span_started': {
+      const found = find(record.spanId);
+      if (found === undefined) {
+        return [];
+      }
+      const what =
+        found.runner.operation === 'execute_tool' ? 'command' : `runner ${oneLine(found.runner.name)}`;
+      return [`${time} ${oneLine(found.step)}: ${what} started`];
+    }
+    case 'span_ended': {
+      const found = find(record.spanId);
+      if (found !== undefined) {
+        const what =
+          found.runner.operation === 'execute_tool' ? 'command' : `runner ${oneLine(found.runner.name)}`;
+        return [`${time} ${oneLine(found.step)}: ${what} ${found.runner.status}${runnerCost(found.runner)}`];
+      }
+      if (after.owners[record.spanId]?.kind === 'root') {
+        return [`${time} run ${RUN_LOOK[after.status].word}`];
+      }
+      return [];
+    }
+    case 'output': {
+      const step = stepOf(record.spanId);
+      if (options.output !== true || step === undefined) {
+        return [];
+      }
+      return record.text
+        .split('\n')
+        .filter((line, i, all) => line !== '' || i < all.length - 1)
+        .map((line) =>
+          line === '' ? `${time} ${oneLine(step)} |` : `${time} ${oneLine(step)} | ${sanitize(line)}`,
+        );
+    }
+    case 'truncated':
+      return [`${time} output for this run ran out; the rest is not stored`];
+    case 'unknown':
+      return [`note: ${oneLine(record.text)}`];
+  }
+}
+
+function runnerCost(runner: RunnerView): string {
+  return runner.costUsd === undefined ? '' : ` $${runner.costUsd.toFixed(4)}`;
 }
