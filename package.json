@@ -13,7 +13,8 @@
     "lint:fix": "biome check --write .",
     "test": "vitest run",
     "qa": "pnpm lint && pnpm typecheck && pnpm test",
-    "smoke": "node scripts/smoke-pack.mjs"
+    "smoke": "node scripts/smoke-pack.mjs",
+    "try:agent": "node scripts/try-agent.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

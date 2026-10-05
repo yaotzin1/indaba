@@ -134,6 +134,32 @@ and write `runner: local`. A key goes in a variable of your choice, named by
 
 ### 4. A real ACP agent
 
+**Try it in one command**, from a clean state, with nothing preinstalled. From a checkout, after `pnpm build`:
+
+```bash
+pnpm try:agent --agent claude --yes
+# other agents:   pnpm try:agent --agent gemini --auth gemini-api-key --yes
+#                 pnpm try:agent --agent codex --yes
+# any ACP agent, by its command:   pnpm try:agent --yes -- <program> [args...]
+```
+
+It makes a throwaway git project in your temp folder, downloads the agent from npm into a cache (install
+scripts disabled, started with `node`, so it works the same on Windows), runs three small workflows
+through the built `indaba`, and checks the **files the run leaves behind**, not what the agent says:
+
+| Scenario | The agent is asked to | It passes when |
+| :--- | :--- | :--- |
+| `read` | read a file and answer | the run completes and nothing changed |
+| `edit` | change one file inside its write scope | the patch changes only that file, to the right value |
+| `outside` | change a file **outside** its write scope | that file is unchanged (the permission gate refused it, or the scope guard stopped the step) |
+
+It sends real prompts with your login or API key and may cost money, so it never runs in CI and needs
+`--yes`. `--scenario read` runs one, `--keep` leaves the project to look at, `--auth <id>` names a login
+method, `--cli <bin.js>` tests another `indaba`. If your agent asks how to log in, you are asked in the
+terminal.
+
+The pieces, if you prefer to do it by hand:
+
 1. Install the agent. If it offers ways to log in, Indaba asks you to pick one when you run in a terminal,
    or you can name one with `auth:` in the workflow (see
    [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). An agent that is not
