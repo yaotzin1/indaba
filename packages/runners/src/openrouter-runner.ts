@@ -1,8 +1,36 @@
 import type { Runner } from '@indaba/core';
-import { DEFAULT_TIMEOUT_SECONDS, RunnerError, type RunRequest, RunResult, TokenUsage } from '@indaba/core';
+import {
+  DEFAULT_TIMEOUT_SECONDS,
+  RunnerError,
+  RunnerUnavailableError,
+  type RunRequest,
+  RunResult,
+  TokenUsage,
+} from '@indaba/core';
 import { SseParser } from './sse-parser.js';
 
 export type FetchFunction = (input: string, init: RequestInit) => Promise<Response>;
+
+export interface OpenAiCompatibleRunnerOptions {
+  /** The name workflows use to select this runner. */
+  readonly name: string;
+  /** How messages refer to the service, e.g. "OpenRouter". Defaults to the name. */
+  readonly label?: string;
+  /** Supplied by the composition root. Never read from the environment here, never logged. */
+  readonly apiKey: string;
+  /** Only named in messages, so the person knows which variable to set. */
+  readonly apiKeyEnv?: string;
+  /** A server that takes no key (a local one): an empty key is then fine and no Authorization is sent. */
+  readonly keyless?: boolean;
+  /** An `http:` or `https:` URL without credentials, up to the version segment (`.../v1`). */
+  readonly baseUrl: string;
+  readonly defaultModel?: string;
+  readonly extraHeaders?: Readonly<Record<string, string>>;
+  /** Added to the request body; how a provider is asked to report usage differs. */
+  readonly requestExtras?: Readonly<Record<string, unknown>>;
+  /** Defaults to the global `fetch`; tests inject a fake. */
+  readonly fetch?: FetchFunction;
+}
 
 export interface OpenRouterRunnerOptions {
   /** Supplied by the composition root. Never read from the environment here, never logged. */
@@ -28,32 +56,59 @@ function parseJson(text: string): unknown {
   }
 }
 
+/** The base URL is configuration, never data from an agent; still, only plain http(s) without credentials. */
+function checkBaseUrl(raw: string, label: string): string {
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    throw new RunnerError(`The ${label} base URL is not a valid URL.`);
+  }
+  if ((url.protocol !== 'https:' && url.protocol !== 'http:') || url.username !== '' || url.password !== '') {
+    throw new RunnerError(`The ${label} base URL must be http(s) and must not contain credentials.`);
+  }
+  return raw;
+}
+
 /**
- * Streams a chat completion from OpenRouter over SSE. Reasoning tokens are not part of the
- * returned output; only the final content is.
+ * Streams a chat completion over SSE from any OpenAI-compatible endpoint (OpenRouter, OpenAI, vLLM,
+ * Ollama, LM Studio, ...). Reasoning tokens are not part of the returned output; only the final
+ * content is. Throws RunnerUnavailableError, so a workflow can fall back, only when nothing has been
+ * run: no key, no model, a rejected key, or no response at all.
  */
-export class OpenRouterRunner implements Runner {
-  readonly name = 'openrouter';
+export class OpenAiCompatibleRunner implements Runner {
+  readonly name: string;
   // A private field: invisible to JSON.stringify, inspection and structured logging.
   readonly #apiKey: string;
+  private readonly label: string;
+  private readonly apiKeyEnv: string | undefined;
+  private readonly keyless: boolean;
   private readonly defaultModel: string | undefined;
   private readonly baseUrl: string;
+  private readonly extraHeaders: Readonly<Record<string, string>>;
+  private readonly requestExtras: Readonly<Record<string, unknown>>;
   private readonly fetchFn: FetchFunction;
 
-  constructor(options: OpenRouterRunnerOptions) {
+  constructor(options: OpenAiCompatibleRunnerOptions) {
+    this.name = options.name;
+    this.label = options.label ?? options.name;
     this.#apiKey = options.apiKey;
+    this.apiKeyEnv = options.apiKeyEnv;
+    this.keyless = options.keyless === true;
     this.defaultModel = options.defaultModel;
-    this.baseUrl = options.baseUrl ?? 'https://openrouter.ai/api/v1';
+    this.baseUrl = checkBaseUrl(options.baseUrl, this.label);
+    this.extraHeaders = options.extraHeaders ?? {};
+    this.requestExtras = options.requestExtras ?? { stream_options: { include_usage: true } };
     this.fetchFn = options.fetch ?? ((input, init) => fetch(input, init));
   }
 
   async run(request: RunRequest, signal?: AbortSignal): Promise<RunResult> {
-    if (this.#apiKey === '') {
-      throw new RunnerError('OPENROUTER_API_KEY is not set.');
+    if (this.#apiKey === '' && !this.keyless) {
+      throw new RunnerUnavailableError(`${this.apiKeyEnv ?? `The ${this.label} API key`} is not set.`);
     }
     const model = request.model ?? this.defaultModel;
     if (model === undefined) {
-      throw new RunnerError('The openrouter runner needs a model (set `model` on the role).');
+      throw new RunnerUnavailableError(`The ${this.name} runner needs a model (set \`model\` on the role).`);
     }
 
     const started = performance.now();
@@ -86,29 +141,35 @@ export class OpenRouterRunner implements Runner {
         ...(withUsage && usage !== undefined ? { usage } : {}),
       });
 
+    let answered = false;
     try {
       const response = await this.fetchFn(`${this.baseUrl.replace(/\/+$/, '')}/chat/completions`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${this.#apiKey}`,
+          ...this.extraHeaders,
+          ...(this.#apiKey === '' ? {} : { Authorization: `Bearer ${this.#apiKey}` }),
           Accept: 'text/event-stream',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model,
           stream: true,
-          usage: { include: true },
+          ...this.requestExtras,
           messages: [{ role: 'user', content: request.prompt }],
         }),
         signal: controller.signal,
       });
+      answered = true;
 
+      if (response.status === 401 || response.status === 403) {
+        throw new RunnerUnavailableError(`${this.label} rejected the API key (HTTP ${response.status}).`);
+      }
       if (response.status >= 400) {
         const body = (await response.text()).slice(0, MAX_ERROR_BODY);
-        return finish(1, `OpenRouter HTTP ${response.status}: ${body}`);
+        return finish(1, `${this.label} HTTP ${response.status}: ${body}`);
       }
       if (response.body === null) {
-        return finish(1, 'OpenRouter transport error: the response has no body.');
+        return finish(1, `${this.label} transport error: the response has no body.`);
       }
 
       const reader = response.body.getReader();
@@ -133,6 +194,9 @@ export class OpenRouterRunner implements Runner {
       }
       await reader.cancel().catch(() => undefined);
     } catch (error) {
+      if (error instanceof RunnerUnavailableError) {
+        throw error;
+      }
       if (timedOut) {
         return finish(124, `\nTimed out after ${timeoutSeconds} seconds.`);
       }
@@ -140,7 +204,12 @@ export class OpenRouterRunner implements Runner {
         return finish(130, '\nAborted.');
       }
       const message = error instanceof Error ? error.message : 'unknown error';
-      return finish(1, `OpenRouter transport error: ${message}`);
+      if (!answered) {
+        // No response at all: nothing ran, so the next runner of a chain may be tried.
+        // No `cause`: the original error can carry the key, and only the redacted text may travel.
+        throw new RunnerUnavailableError(`${this.label} is unreachable: ${this.redact(message)}`);
+      }
+      return finish(1, `${this.label} transport error: ${message}`);
     } finally {
       clearTimeout(timer);
       signal?.removeEventListener('abort', onAbort);
@@ -180,5 +249,21 @@ export class OpenRouterRunner implements Runner {
   /** The key can come back in an upstream error body or a proxy message. */
   private redact(text: string): string {
     return this.#apiKey === '' ? text : text.replaceAll(this.#apiKey, REDACTED);
+  }
+}
+
+/** OpenRouter, as it has always behaved: the same name, messages, base URL and usage request. */
+export class OpenRouterRunner extends OpenAiCompatibleRunner {
+  constructor(options: OpenRouterRunnerOptions) {
+    super({
+      name: 'openrouter',
+      label: 'OpenRouter',
+      apiKey: options.apiKey,
+      apiKeyEnv: 'OPENROUTER_API_KEY',
+      baseUrl: options.baseUrl ?? 'https://openrouter.ai/api/v1',
+      requestExtras: { usage: { include: true } },
+      ...(options.defaultModel !== undefined ? { defaultModel: options.defaultModel } : {}),
+      ...(options.fetch !== undefined ? { fetch: options.fetch } : {}),
+    });
   }
 }

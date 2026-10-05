@@ -1,5 +1,5 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
-import { RunnerError } from '@indaba/core';
+import { RunnerUnavailableError } from '@indaba/core';
 
 /** How the child ran: in a pseudo-terminal (stdout and stderr merged) or on plain pipes. */
 export type ProcessMode = 'pty' | 'piped';
@@ -27,7 +27,7 @@ export interface ProcessOutcome {
 /** The seam between a runner and the operating system. Tests inject a fake. */
 export interface ProcessSpawner {
   /**
-   * Resolves when the child (and its tree) is gone. Rejects with RunnerError when it cannot start.
+   * Resolves when the child (and its tree) is gone. Rejects with RunnerUnavailableError when it cannot start.
    * Timeout and abort kill the whole process tree.
    */
   run(spec: ProcessSpec, signal?: AbortSignal): Promise<ProcessOutcome>;
@@ -145,9 +145,9 @@ function errorCode(error: unknown): string {
     : 'unknown error';
 }
 
-function startFailure(file: string, error: unknown): RunnerError {
+function startFailure(file: string, error: unknown): RunnerUnavailableError {
   // Only the program name and the error code: the arguments carry the prompt, the environment secrets.
-  return new RunnerError(`Cannot start "${file}": ${errorCode(error)}.`, { cause: error });
+  return new RunnerUnavailableError(`Cannot start "${file}": ${errorCode(error)}.`, { cause: error });
 }
 
 function runPiped(spec: ProcessSpec, signal: AbortSignal | undefined): Promise<ProcessOutcome> {
@@ -158,7 +158,7 @@ function runPiped(spec: ProcessSpec, signal: AbortSignal | undefined): Promise<P
     }
     const [file, ...args] = spec.command;
     if (file === undefined) {
-      reject(new RunnerError('Cannot start an empty command.'));
+      reject(new RunnerUnavailableError('Cannot start an empty command.'));
       return;
     }
 

@@ -1,5 +1,5 @@
 import type { Runner } from '@indaba/core';
-import { RunnerError } from '@indaba/core';
+import { RunnerUnavailableError } from '@indaba/core';
 import { AntigravityRunner } from './antigravity-runner.js';
 import { ClaudeRunner } from './claude-runner.js';
 import { CodexRunner } from './codex-runner.js';
@@ -34,7 +34,9 @@ export class RunnerRegistry {
     const runner = this.runners.get(name);
     if (runner === undefined) {
       const known = this.names().join(', ');
-      throw new RunnerError(`Unknown runner "${name}". Registered: ${known === '' ? 'none' : known}.`);
+      throw new RunnerUnavailableError(
+        `Unknown runner "${name}". Registered: ${known === '' ? 'none' : known}.`,
+      );
     }
     return runner;
   }

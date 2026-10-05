@@ -12,8 +12,14 @@ export type { CursorRunnerOptions } from './cursor-runner.js';
 export { CursorRunner } from './cursor-runner.js';
 export type { McpConfigFile } from './mcp.js';
 export { McpConfigWriter } from './mcp.js';
-export type { FetchFunction, OpenRouterRunnerOptions } from './openrouter-runner.js';
-export { OpenRouterRunner } from './openrouter-runner.js';
+export type { OpenAiCompatibleEnvOptions } from './openai-compatible-env.js';
+export { openAiCompatibleFromEnv } from './openai-compatible-env.js';
+export type {
+  FetchFunction,
+  OpenAiCompatibleRunnerOptions,
+  OpenRouterRunnerOptions,
+} from './openrouter-runner.js';
+export { OpenAiCompatibleRunner, OpenRouterRunner } from './openrouter-runner.js';
 export type {
   NodeProcessSpawnerOptions,
   ProcessMode,
