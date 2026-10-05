@@ -1,5 +1,6 @@
 import type { Runner } from '@indaba/core';
 import { RunnerUnavailableError } from '@indaba/core';
+import { AcpRunner } from './acp-runner.js';
 import { AntigravityRunner } from './antigravity-runner.js';
 import { ClaudeRunner } from './claude-runner.js';
 import { CodexRunner } from './codex-runner.js';
@@ -8,10 +9,13 @@ import { CursorRunner } from './cursor-runner.js';
 import { type FetchFunction, OpenRouterRunner } from './openrouter-runner.js';
 import type { ProcessSpawner } from './process.js';
 import { ShellRunner } from './shell-runner.js';
+import type { StreamingProcessSpawner } from './streaming-process.js';
 
 export interface DefaultRunnerOptions {
   readonly fetch?: FetchFunction;
   readonly spawner?: ProcessSpawner;
+  /** For the `acp` runner; tests inject a fake. */
+  readonly streamingSpawner?: StreamingProcessSpawner;
 }
 
 /**
@@ -46,12 +50,13 @@ export class RunnerRegistry {
   }
 
   /**
-   * Built-in runners: shell, claude-code, codex, antigravity, cursor and openrouter.
+   * Built-in runners: shell, claude-code, codex, antigravity, cursor, openrouter and acp.
    *
    * @param env INDABA_CODEX_CMD and INDABA_ANTIGRAVITY_CMD replace the built-in command line
    *   (space separated, `{prompt}` and `{model}` mark where those go); OPENROUTER_API_KEY is the
    *   key of the openrouter runner. The map is the composition root's; nothing else reads the
-   *   process environment for these.
+   *   process environment for these. INDABA_ACP_PASS_ENV lists extra variables (comma separated
+   *   names, or a prefix ending in `*`) the `acp` runner passes on to its agent.
    */
   static withDefaults(
     env: Readonly<Record<string, string | undefined>> = {},
@@ -69,6 +74,16 @@ export class RunnerRegistry {
         new OpenRouterRunner({
           apiKey: env.OPENROUTER_API_KEY ?? '',
           ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+        }),
+      )
+      .register(
+        new AcpRunner({
+          env,
+          passEnv: (env.INDABA_ACP_PASS_ENV ?? '')
+            .split(',')
+            .map((name) => name.trim())
+            .filter((name) => name !== ''),
+          ...(options.streamingSpawner === undefined ? {} : { spawner: options.streamingSpawner }),
         }),
       );
   }

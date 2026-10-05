@@ -1,4 +1,4 @@
-import type { TokenUsage } from '../observability/index.js';
+import type { SpanAttributes, TokenUsage } from '../observability/index.js';
 import type { AgentSpec, McpServerDefinition, StepPermissions } from '../workflow/model.js';
 
 export interface RunRequest {
@@ -16,6 +16,11 @@ export interface RunRequest {
   readonly permissions?: StepPermissions;
   /** Which agent an agent-protocol runner should start; other runners ignore it. */
   readonly agent?: AgentSpec;
+  /**
+   * Things worth recording about this run (a tool call, a permission decision), added to the run's
+   * span by the engine. Names and counts only: never prompts, paths, file content or secrets.
+   */
+  readonly onEvent?: (name: string, attributes?: SpanAttributes) => void;
 }
 
 export const DEFAULT_TIMEOUT_SECONDS = 900;

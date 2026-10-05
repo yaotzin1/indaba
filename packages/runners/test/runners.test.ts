@@ -228,11 +228,11 @@ describe('RunnerRegistry', () => {
   it('looks up runners and explains misses', () => {
     const registry = RunnerRegistry.withDefaults({ INDABA_CODEX_CMD: 'mycodex run {prompt}' });
 
-    for (const name of ['shell', 'claude-code', 'cursor', 'codex', 'antigravity', 'openrouter']) {
+    for (const name of ['shell', 'claude-code', 'cursor', 'codex', 'antigravity', 'openrouter', 'acp']) {
       expect(registry.get(name).name).toBe(name);
       expect(registry.has(name)).toBe(true);
     }
-    expect(registry.names()).toHaveLength(6);
+    expect(registry.names()).toHaveLength(7);
     expect(() => registry.get('nope')).toThrow(RunnerError);
     expect(() => registry.get('nope')).toThrow('Unknown runner "nope"');
     expect(new RunnerRegistry().has('x')).toBe(false);

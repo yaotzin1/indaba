@@ -1,5 +1,7 @@
 export type { CliRunnerOptions } from './abstract-cli-runner.js';
 export { AbstractCliRunner, PreparedCommand } from './abstract-cli-runner.js';
+export type { AcpAgentPreset, AcpRunnerOptions } from './acp-runner.js';
+export { ACP_AGENT_PRESETS, ACP_PROTOCOL_VERSION, AcpRunner } from './acp-runner.js';
 export type { AntigravityRunnerOptions } from './antigravity-runner.js';
 export { AntigravityRunner } from './antigravity-runner.js';
 export type { ClaudeRunnerOptions } from './claude-runner.js';
@@ -36,3 +38,9 @@ export { RunnerRegistry } from './registry.js';
 export type { ShellInvocation, ShellRunnerOptions } from './shell-runner.js';
 export { ShellRunner, shellInvocation } from './shell-runner.js';
 export { SseParser } from './sse-parser.js';
+export type {
+  ProcessSession,
+  StreamingProcessSpawner,
+  StreamingProcessSpec,
+} from './streaming-process.js';
+export { NodeStreamingProcessSpawner } from './streaming-process.js';

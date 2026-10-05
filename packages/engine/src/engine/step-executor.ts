@@ -371,7 +371,10 @@ ${this.prompts.tail(result.failureText())}`,
     let result: RunResult;
     try {
       signal?.throwIfAborted();
-      result = await runner.run(request, signal);
+      result = await runner.run(
+        { ...request, onEvent: (name, attributes) => span.addEvent(name, attributes) },
+        signal,
+      );
     } catch (error) {
       await this.tracer.endSpan(span, SpanStatus.Error, error instanceof Error ? error.message : 'failed');
       throw error;

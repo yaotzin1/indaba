@@ -80,7 +80,7 @@ const KILL_GRACE_MS = 1000;
 const CLOSE_WAIT_MS = 3000;
 
 /** The child plus everything it spawned. `force` is a hard kill. */
-function killTree(pid: number | undefined, force: boolean): void {
+export function killTree(pid: number | undefined, force: boolean): void {
   if (pid === undefined) {
     return;
   }
