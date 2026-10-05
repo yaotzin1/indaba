@@ -14,7 +14,13 @@ import {
   type WorkflowDefinition,
   WorkflowValidationError,
 } from '@indaba/core';
-import { type WorkflowParser, WorkflowStatus } from '@indaba/engine';
+import {
+  effectiveGuards,
+  planForStep,
+  type WorkflowParser,
+  WorkflowStatus,
+  WorkflowValidator,
+} from '@indaba/engine';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 
@@ -259,6 +265,9 @@ async function validate(parsed: Parsed, io: Io): Promise<number> {
   io.stdout.write(
     `${workflow.name} is valid (${workflow.steps.length} steps, ${Object.keys(workflow.roles).length} roles).\n`,
   );
+  for (const warning of new WorkflowValidator().warnings(workflow)) {
+    io.stdout.write(`warning: ${warning}\n`);
+  }
   return EXIT_OK;
 }
 
@@ -278,6 +287,17 @@ async function plan(parsed: Parsed, io: Io): Promise<number> {
     }
     if (isConsensusStep(step)) {
       extra.push(`consensus with ${step.consensusWith.join(', ')}`);
+    }
+    if (!isShellStep(step) && !isConsensusStep(step)) {
+      const names = planForStep(step, workflow).names;
+      if (names.length > 1) {
+        extra.push(`runners ${names.join(' -> ')}`);
+      }
+    }
+    for (const guard of effectiveGuards(step)) {
+      if (guard.type === 'diff_within_scope') {
+        extra.push(`may only change ${guard.paths.length === 0 ? 'nothing' : guard.paths.join(', ')}`);
+      }
     }
     io.stdout.write(`${n + 1}. ${step.id} [${who}]${extra.length === 0 ? '' : ` (${extra.join('; ')})`}\n`);
   });

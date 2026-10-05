@@ -16,6 +16,11 @@ export interface DefaultRunnerOptions {
   readonly spawner?: ProcessSpawner;
   /** For the `acp` runner; tests inject a fake. */
   readonly streamingSpawner?: StreamingProcessSpawner;
+  /**
+   * The environment the `acp` agent's own is taken from (only an allowlist of it is passed on).
+   * Defaults to `env`, which is too small for an agent that needs PATH and HOME.
+   */
+  readonly hostEnv?: Readonly<Record<string, string | undefined>>;
 }
 
 /**
@@ -78,7 +83,7 @@ export class RunnerRegistry {
       )
       .register(
         new AcpRunner({
-          env,
+          env: options.hostEnv ?? env,
           passEnv: (env.INDABA_ACP_PASS_ENV ?? '')
             .split(',')
             .map((name) => name.trim())

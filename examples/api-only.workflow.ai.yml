@@ -1,0 +1,28 @@
+# The smallest workflow: one step on an API runner. Nothing to install, only a key.
+#
+#   export OPENROUTER_API_KEY=...        (the shell syntax of your system)
+#   indaba run examples/api-only.workflow.ai.yml -w /path/to/project
+#
+# To use another OpenAI-compatible endpoint (OpenAI, vLLM, Ollama, LM Studio), configure it in the
+# environment, never in this file, and use its name as the runner. For example, with
+#   INDABA_OPENAI_COMPAT_LOCAL_BASE_URL=http://localhost:11434/v1
+#   INDABA_OPENAI_COMPAT_LOCAL_MODEL=llama3
+# the runner is called `local`. Add INDABA_OPENAI_COMPAT_LOCAL_KEY_ENV=<VARIABLE> when the server
+# needs a key; <VARIABLE> is the name of the variable that holds it. Without it the server is
+# treated as keyless.
+version: "1.0"
+name: "api-only"
+
+artifacts:
+  notes: ".indaba/artifacts/notes.md"
+
+roles:
+  writer:
+    runner: "openrouter"
+    model: "anthropic/claude-3.7-sonnet:thinking"
+
+steps:
+  - id: "notes"
+    role: "writer"
+    goal: "Summarise what this project does in ${{ artifacts.notes }}"
+    outputs: ["${{ artifacts.notes }}"]
