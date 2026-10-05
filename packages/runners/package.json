@@ -1,8 +1,17 @@
 {
   "name": "@indaba/runners",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Indaba runners: shell, OpenRouter SSE, and agent CLIs (Claude, Codex, Cursor, Antigravity).",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaotzin1/indaba.git",
+    "directory": "packages/runners"
+  },
+  "bugs": {
+    "url": "https://github.com/yaotzin1/indaba/issues"
+  },
+  "homepage": "https://github.com/yaotzin1/indaba#readme",
   "type": "module",
   "engines": {
     "node": ">=22"

@@ -1,8 +1,17 @@
 {
   "name": "@indaba/core",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Pure domain of the Indaba orchestration engine: workflow model, DAG, mesh, runner contract. No dependencies.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaotzin1/indaba.git",
+    "directory": "packages/core"
+  },
+  "bugs": {
+    "url": "https://github.com/yaotzin1/indaba/issues"
+  },
+  "homepage": "https://github.com/yaotzin1/indaba#readme",
   "type": "module",
   "engines": {
     "node": ">=22"
