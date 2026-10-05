@@ -24,6 +24,7 @@ import {
 import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
+import { createPrintableFilter } from './printable.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -313,6 +314,12 @@ async function plan(parsed: Parsed, io: Io): Promise<number> {
   return failed ? EXIT_FAILURE : EXIT_OK;
 }
 
+/** What an agent streams is shown as plain text only: see printable.ts. One filter per run, so a split sequence is still caught. */
+function printed(io: Io): (chunk: string) => void {
+  const filter = createPrintableFilter();
+  return (chunk) => io.stdout.write(filter(chunk));
+}
+
 async function run(parsed: Parsed, io: Io): Promise<number> {
   let projectDir: string;
   try {
@@ -353,7 +360,7 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
   const result = await engine.run(workflow, {
     ...(io.signal === undefined ? {} : { signal: io.signal }),
     ...(parsed.taskId === undefined ? {} : { taskId: parsed.taskId }),
-    ...(parsed.verbosity >= 2 ? { onOutput: (chunk: string) => io.stdout.write(chunk) } : {}),
+    ...(parsed.verbosity >= 2 ? { onOutput: printed(io) } : {}),
   });
 
   io.stdout.write(`Task ${result.taskId} finished: ${result.status} (trace ${result.traceId})\n`);

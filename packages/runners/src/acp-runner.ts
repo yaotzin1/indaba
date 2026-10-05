@@ -189,6 +189,8 @@ export class AcpRunner implements Runner, McpCapable {
     let sessionId: string | undefined;
     let promptSent = false;
     let costUsd: number | undefined;
+    /** An update repeats only the id of its tool call, so the kind is remembered from the call itself. */
+    const toolKinds = new Map<string, string>();
 
     const handlers: AcpHandlers = {
       notification: (method, params) => {
@@ -209,9 +211,14 @@ export class AcpRunner implements Runner, McpCapable {
           case 'tool_call':
           case 'tool_call_update': {
             const status = str(update.status);
+            const id = str(update.toolCallId);
+            const kind = str(update.kind) ?? (id === undefined ? undefined : toolKinds.get(id)) ?? 'other';
+            if (id !== undefined && toolKinds.size < 10_000) {
+              toolKinds.set(id, kind);
+            }
             if (str(update.sessionUpdate) === 'tool_call' || status !== undefined) {
               emit('indaba.acp.tool_call', {
-                'acp.tool.kind': str(update.kind) ?? 'other',
+                'acp.tool.kind': kind,
                 'acp.tool.status': status ?? 'pending',
               });
             }

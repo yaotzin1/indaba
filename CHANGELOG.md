@@ -58,6 +58,11 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- `indaba run -vv` wrote an agent's streamed output to the terminal as it came, so escape sequences in it
+  (clear screen, window title, hyperlinks, carriage returns, bidirectional overrides) acted on the
+  terminal. It now prints plain text only, newlines and tabs kept, including when a sequence is split
+  across two chunks. Applies to every runner.
+- ACP tool-call events now carry the kind of the call they belong to (an update repeats only the id).
 - `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default
   they tried and how to name a file, instead of only reporting that the default could not be read.
 
