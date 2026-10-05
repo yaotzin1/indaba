@@ -11,5 +11,7 @@ export type {
   UnknownRecord,
 } from './records.js';
 export { isRunId, parseRecord, serializeRecord } from './records.js';
+export type { Sanitizer } from './sanitize.js';
+export { createSanitizer, sanitize } from './sanitize.js';
 export type { RunStatus, RunSummary, TraceReaderOptions } from './trace-reader.js';
 export { summariseRun, TraceReader } from './trace-reader.js';
