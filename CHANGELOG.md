@@ -15,11 +15,24 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.2] - 2026-10-05
+
+The second preview, and the release `0.1.0-alpha.1` was meant to be. It makes the API and ACP the primary
+ways to reach an agent, with the agent CLIs as a fallback; the changes are listed under
+`0.1.0-alpha.1` below. The API is still not stable. It is published under the `next` tag; `latest` stays on
+`0.1.0-alpha.0` until the maintainer decides otherwise.
+
+### Fixed
+
+- The four packages now declare `repository`, `bugs` and `homepage`. npm's trusted publishing with provenance
+  requires the repository in `package.json` to match the one that built the package; without it, staging
+  failed with `422 ... "repository.url" is ""`.
+
 ## [0.1.0-alpha.1] - 2026-10-05
 
-The second preview. It makes the API and ACP the primary ways to reach an agent, with the agent CLIs as a
-fallback. The API is still not stable. It is published under the `next` tag; `latest` stays on
-`0.1.0-alpha.0` until the maintainer decides otherwise.
+**Never published.** The version was tagged, its verification gate passed, and then npm refused to stage
+`@indaba/core` because the manifests had no `repository` field (see `0.1.0-alpha.2`). No package of this
+version reached npm, and the tag stays as it is. Its contents are released as `0.1.0-alpha.2`.
 
 ### Added
 

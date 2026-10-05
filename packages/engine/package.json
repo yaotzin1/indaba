@@ -1,8 +1,17 @@
 {
   "name": "@indaba/engine",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0-alpha.2",
   "description": "Indaba workflow parser, guards, engine, git workspaces and tracing.",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaotzin1/indaba.git",
+    "directory": "packages/engine"
+  },
+  "bugs": {
+    "url": "https://github.com/yaotzin1/indaba/issues"
+  },
+  "homepage": "https://github.com/yaotzin1/indaba#readme",
   "type": "module",
   "engines": {
     "node": ">=22"
