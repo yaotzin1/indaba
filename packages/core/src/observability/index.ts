@@ -62,11 +62,17 @@ export class PricingTable {
  * A unit of work in a trace: Trace (task) -> Span (step) -> child span (LLM call, tool, verification).
  * The root span of a trace has no parent.
  */
+export interface SpanEvent {
+  readonly name: string;
+  readonly attributes: SpanAttributes;
+}
+
 export class Span {
   private ended: Date | undefined;
   private currentStatus: SpanStatus = SpanStatus.Unset;
   private currentMessage: string | undefined;
   private readonly attrs: Record<string, SpanAttributeValue>;
+  private readonly eventList: SpanEvent[] = [];
 
   constructor(
     readonly traceId: string,
@@ -93,6 +99,14 @@ export class Span {
 
   get attributes(): SpanAttributes {
     return this.attrs;
+  }
+
+  get events(): readonly SpanEvent[] {
+    return this.eventList;
+  }
+
+  addEvent(name: string, attributes: SpanAttributes = {}): void {
+    this.eventList.push({ name, attributes: { ...attributes } });
   }
 
   setAttribute(key: string, value: SpanAttributeValue): void {

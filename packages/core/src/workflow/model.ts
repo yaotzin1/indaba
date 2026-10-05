@@ -18,8 +18,29 @@ export type FailureAction = (typeof FailureAction)[keyof typeof FailureAction];
 /** Guard types Indaba ships. A guard type is an open string: a plugin registers its own without touching core. */
 export const GuardType = {
   GitDiffEmpty: 'git_diff_empty',
+  /** The worktree diff may only touch the allowed globs (`paths`). */
+  DiffWithinScope: 'diff_within_scope',
 } as const;
 export type GuardType = string;
+
+export const PermissionMode = {
+  Allow: 'allow',
+  Deny: 'deny',
+} as const;
+export type PermissionMode = (typeof PermissionMode)[keyof typeof PermissionMode];
+
+/** What a step's agent may touch. Absent on a step means the runner's own defaults. */
+export interface StepPermissions {
+  readonly fsRead: readonly string[];
+  readonly fsWrite: readonly string[];
+  readonly terminal: PermissionMode;
+}
+
+/** An agent for a protocol runner: a named preset, or a literal command and arguments. */
+export interface AgentSpec {
+  readonly preset?: string;
+  readonly command?: readonly string[];
+}
 
 export const Isolation = {
   None: 'none',
@@ -62,6 +83,9 @@ export interface OnFailure {
 export interface RoleDefinition {
   readonly name: string;
   readonly runner: string;
+  /** Tried in order when the primary runner could not run at all. */
+  readonly fallbackRunners?: readonly string[];
+  readonly agent?: AgentSpec;
   readonly model?: string;
   /** Names of MCP servers every step of this role may use. */
   readonly mcp: readonly string[];
@@ -73,6 +97,9 @@ export interface StepDefinition {
   readonly id: string;
   readonly role?: string;
   readonly runner?: string;
+  readonly fallbackRunners?: readonly string[];
+  readonly agent?: AgentSpec;
+  readonly permissions?: StepPermissions;
   readonly goal: string;
   readonly dependsOn: readonly string[];
   readonly inputArtifacts: readonly string[];
