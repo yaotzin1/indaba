@@ -11,7 +11,9 @@ import {
   RunResult,
   SimpleEventDispatcher,
   type Span,
+  SpanStarted,
   type StepDefinition,
+  StepOutput,
   TokenUsage,
   Tracer,
   type WorkflowDefinition,
@@ -380,5 +382,125 @@ describe('StepExecutor.validate and resolvePath', () => {
     const { executor } = await fixture([]);
 
     expect(await executor.resolvePath(dir, 'link/secret.txt')).toBeUndefined();
+  });
+});
+
+describe('StepExecutor: streamed output as events', () => {
+  async function withEvents(runner: Runner) {
+    const events = new SimpleEventDispatcher();
+    const outputs: StepOutput[] = [];
+    events.addListener(StepOutput, (e) => {
+      outputs.push(e);
+    });
+    const spans: Span[] = [];
+    events.addListener(SpanStarted, (e) => {
+      spans.push(e.span);
+    });
+    const tracer = new Tracer(new FixedClock(), events, new SequenceIds());
+    const executor = new StepExecutor({
+      runners: new FakeRegistry([runner]),
+      guards: new GuardRegistry(),
+      tracer,
+      events,
+    });
+    const root = await tracer.startTrace('root');
+    return { executor, root, outputs, spans };
+  }
+
+  const streamer = (chunks: string[]): FakeRunner =>
+    new FakeRunner('agent', (request) => {
+      for (const chunk of chunks) {
+        request.onOutput?.(chunk);
+      }
+      return ok();
+    });
+
+  it('dispatches one event per chunk, in order, tagged with the span of the runner call', async () => {
+    const { executor, root, outputs, spans } = await withEvents(streamer(['one', 'two', 'three']));
+
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', root);
+    await Promise.resolve();
+
+    const invoked = spans.find((s) => s.name === 'invoke_agent agent');
+    expect(invoked).toBeDefined();
+    expect(outputs.map((o) => [o.seq, o.text])).toEqual([
+      [0, 'one'],
+      [1, 'two'],
+      [2, 'three'],
+    ]);
+    for (const output of outputs) {
+      expect(output.traceId).toBe(root.traceId);
+      expect(output.spanId).toBe(invoked?.spanId);
+    }
+  });
+
+  it('numbers the chunks of each runner call from zero', async () => {
+    const { executor, root, outputs } = await withEvents(streamer(['x']));
+
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', root);
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', root);
+    await Promise.resolve();
+
+    expect(outputs.map((o) => o.seq)).toEqual([0, 0]);
+    expect(new Set(outputs.map((o) => o.spanId)).size).toBe(2);
+  });
+
+  it('still hands every chunk to the sink the caller gave', async () => {
+    const { executor, root, outputs } = await withEvents(streamer(['a', 'b']));
+    const seen: string[] = [];
+
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', root, {
+      onOutput: (c) => seen.push(c),
+    });
+    await Promise.resolve();
+
+    expect(seen).toEqual(['a', 'b']);
+    expect(outputs.map((o) => o.text)).toEqual(['a', 'b']);
+  });
+
+  it('covers a shell step too', async () => {
+    const shell = new FakeRunner('shell', (request) => {
+      request.onOutput?.('built\n');
+      return ok();
+    });
+    const { executor, root, outputs } = await withEvents(shell);
+
+    const outcome = await executor.run(
+      step({ id: 's', runner: 'shell', commands: ['make'] }),
+      workflow([]),
+      '.',
+      root,
+    );
+    await Promise.resolve();
+
+    expect(outcome.ok).toBe(true);
+    expect(outputs.map((o) => o.text)).toEqual(['built\n']);
+  });
+
+  it('adds nothing, and leaves the runner without a sink, when there is no dispatcher and no caller sink', async () => {
+    const requests: RunRequest[] = [];
+    const runner = new FakeRunner('agent', (request) => {
+      requests.push(request);
+      return ok();
+    });
+    const { executor, span } = await fixture([runner]);
+
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', span);
+
+    expect(requests[0]?.onOutput).toBeUndefined();
+  });
+
+  it('passes the caller sink through unchanged when there is no dispatcher', async () => {
+    const requests: RunRequest[] = [];
+    const runner = new FakeRunner('agent', (request) => {
+      requests.push(request);
+      return ok();
+    });
+    const { executor, span } = await fixture([runner]);
+    const sink = (_chunk: string): void => undefined;
+
+    await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', span, { onOutput: sink });
+
+    expect(requests[0]?.onOutput).toBe(sink);
   });
 });

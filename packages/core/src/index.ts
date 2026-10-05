@@ -25,6 +25,7 @@ export {
   SpanEnded,
   SpanStarted,
   SpanStatus,
+  StepOutput,
   TokenUsage,
   Tracer,
 } from './observability/index.js';

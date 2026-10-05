@@ -1,6 +1,7 @@
 import { lstat, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type {
+  EventDispatcher,
   Runner,
   RunRequest,
   RunResult,
@@ -23,6 +24,7 @@ import {
   RunnerUnavailableError,
   SHELL_RUNNER,
   SpanStatus,
+  StepOutput,
   Tracer,
 } from '@indaba/core';
 import type { GuardRegistry } from '../guard/registry.js';
@@ -34,6 +36,8 @@ import { StepOutcome } from './outcome.js';
 import { PromptBuilder } from './prompt-builder.js';
 
 export interface StepExecutorOptions {
+  /** When given, each chunk a runner streams is also dispatched as a `StepOutput` event. */
+  readonly events?: EventDispatcher;
   readonly runners: RunnerLookup;
   readonly guards: GuardRegistry;
   readonly tracer: Tracer;
@@ -65,6 +69,7 @@ export class StepExecutor {
   private readonly arbiter: ConsensusArbiter;
   private readonly timeoutSeconds: number;
   private readonly mcp: McpPlanner;
+  private readonly events: EventDispatcher | undefined;
 
   constructor(options: StepExecutorOptions) {
     this.runners = options.runners;
@@ -74,6 +79,7 @@ export class StepExecutor {
     this.arbiter = options.arbiter ?? new ConsensusArbiter();
     this.timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
     this.mcp = new McpPlanner(options.runners);
+    this.events = options.events;
   }
 
   mcpIssues(workflow: WorkflowDefinition): McpIssue[] {
@@ -354,6 +360,25 @@ ${this.prompts.tail(result.failureText())}`,
     }
   }
 
+  /**
+   * What a runner is given to stream into: the caller's own sink, and, when there is a dispatcher, a
+   * `StepOutput` event for each chunk. Nothing is added when neither is wanted.
+   */
+  private outputSink(request: RunRequest, span: Span): Pick<RunRequest, 'onOutput'> {
+    const events = this.events;
+    const sink = request.onOutput;
+    if (events === undefined) {
+      return sink === undefined ? {} : { onOutput: sink };
+    }
+    let seq = 0;
+    return {
+      onOutput: (chunk) => {
+        sink?.(chunk);
+        void events.dispatch(new StepOutput(span.traceId, span.spanId, seq++, chunk));
+      },
+    };
+  }
+
   private async invoke(
     runner: Runner,
     request: RunRequest,
@@ -372,7 +397,11 @@ ${this.prompts.tail(result.failureText())}`,
     try {
       signal?.throwIfAborted();
       result = await runner.run(
-        { ...request, onEvent: (name, attributes) => span.addEvent(name, attributes) },
+        {
+          ...request,
+          onEvent: (name, attributes) => span.addEvent(name, attributes),
+          ...this.outputSink(request, span),
+        },
         signal,
       );
     } catch (error) {
