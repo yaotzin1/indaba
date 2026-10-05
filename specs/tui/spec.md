@@ -1,9 +1,9 @@
 # Specification: Terminal UI (`@indaba/tui`, built on Ink)
 
-> **Status**: Draft, retargeted from the PHP and `symfony/tui` version of this spec to TypeScript and
-> [Ink](https://github.com/vadimdemedes/ink). **Specification only: nothing here is implemented and this
-> change adds no code.** It stacks on `specs/transport-priority` (it reads the span events that spec adds).
-> **Stage entry**: 1 (clarifications in section 8 are open)
+> **Status**: Accepted for implementation: the maintainer chose Ink and said to go. Decisions are in
+> section 8 and `plan.md`. Retargeted from the PHP and `symfony/tui` version of this spec to TypeScript and
+> [Ink](https://github.com/vadimdemedes/ink). It reads the span events added by `specs/transport-priority`.
+> **Stage entry**: 3 (clarified; plan and tasks written)
 > **Semver impact**: minor (a new optional package, a new command and a new trace file; below 1.0)
 > **Siblings**: [`specs/web-app`](../web-app/spec.md) and [`specs/desktop-app`](../desktop-app/spec.md)
 > are separate specs. This one is the smallest of the three and can ship first.
@@ -36,8 +36,9 @@ anything, not only a TUI, follow a run.
 - **US-01.** As a person running a workflow, I see the DAG with each step's live state and attempt number.
 - **US-02.** As a person watching, I see the selected step's output stream as it arrives, and the cost
   and token counts of each agent call and of the whole run so far.
-- **US-03.** As a person whose run escalated, I read the consensus transcript (proposal, critique,
-  agreement, per participant, per round) and the failure that stopped the run.
+- **US-03.** As a person whose run escalated, I read the consensus outcome, its round count and the open
+  objections that stopped the run. (The debate transcript itself is recorded in no file today, so it is out
+  of v1; see section 8, question 9.)
 - **US-04.** As a person using fallback lists, I see which runner ran a step and which were skipped, with
   the reason, and, for an ACP agent, its tool calls and permission decisions.
 - **US-05.** As a person on a remote machine, I attach to a run started earlier (or by another process, or
@@ -136,7 +137,8 @@ Dependencies are open source and MIT-compatible, transitively (see `research.md`
 
 ## 8. Clarifications
 
-Open questions to resolve at stage 2. Recommendations are marked.
+Resolved by the maintainer's go-ahead on the recommendations (recorded in `plan.md`), except question 9,
+which is a deliberate deferral. Recommendations are marked.
 
 1. **Library.** *Recommended: Ink 8 with React 19.* MIT, Node 22 or newer (Indaba's own floor), reported to
    be used by Claude Code and Gemini CLI, with flexbox layout and an actively used test story. The tree is 45
@@ -163,9 +165,11 @@ Open questions to resolve at stage 2. Recommendations are marked.
    "truncated" marker), so a chatty agent cannot fill the disk or the screen. The caps need numbers.
 8. **Replay** (US-06): "play, pause, 1x/10x" is enough for v1; seeking is out unless asked.
 
+9. **Consensus transcript: deferred.** The messages of the mesh are recorded in no file, so v1 shows the
+   outcome, the round count and the open objections only. Recording the messages is a change to the mesh and
+   its own spec.
+
 ## Artifacts not written
 
-- `plan.md`: planning waits for clarifications 1 to 4 of section 8.
-- `tasks.md`: nothing to schedule until the plan exists.
 - `data-model.md`: the view models derive from the record types in `api-surface.md`.
 - `events.md`: the TUI consumes events and emits none; the stream it reads is specified in `api-surface.md`.
