@@ -17,6 +17,9 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- `pnpm try:agent` (`scripts/try-agent.mjs`): tries a real ACP agent from a clean state (a throwaway project,
+  the agent from npm into a cache, no machine-specific paths) with three scenarios, `read`, `edit` and
+  `outside` a write scope, and checks the trace and patch. Needs `--yes`; never part of CI.
 - **Transport priority: API and ACP first, the CLI as a fallback** (minor; track `feature`; spec
   `specs/transport-priority`).
   - `runner` accepts a name or a list in priority order, on a role and on a step. A runner that could
@@ -58,6 +61,8 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- `indaba run` printed a status line glued to the end of an agent's answer when the answer did not end with a
+  newline; it now starts on a fresh line.
 - `indaba run -vv` wrote an agent's streamed output to the terminal as it came, so escape sequences in it
   (clear screen, window title, hyperlinks, carriage returns, bidirectional overrides) acted on the
   terminal. It now prints plain text only, newlines and tabs kept, including when a sequence is split

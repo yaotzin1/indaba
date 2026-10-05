@@ -107,3 +107,64 @@ export default {
     expect(join(dir)).toBeTruthy();
   });
 });
+
+describe('the status line after streamed output', () => {
+  it('starts on a fresh line when the agent text did not end with a newline', async () => {
+    const dir = await makeTempDir();
+    const source = `import { RunResult } from '@indaba/core';
+export default {
+  name: 'noisy-plugin',
+  register(host) {
+    host.registerRunner({
+      name: 'fake',
+      async run(request) {
+        request.onOutput?.('an answer with no newline at the end');
+        return new RunResult({ exitCode: 0, output: 'x' });
+      },
+    });
+  },
+};
+`;
+    const pluginFile = await writePlugin(dir, 'p.mjs', source);
+    const workflow = await writeWorkflow(
+      dir,
+      'w.yml',
+      FIXTURE_WORKFLOW.replace(/guards:\n\s+- type: "always_ok"\n/, ''),
+    );
+    const captured = captureIo(dir);
+    await main(['run', workflow, '--plugin', pluginFile, '-w', dir, '-vv'], captured.io);
+    const out = captured.stdout();
+
+    expect(out).toContain('an answer with no newline at the end\n  work');
+    expect(out).not.toMatch(/at the end {2}work/);
+  });
+
+  it('adds no blank line when the text already ended with one', async () => {
+    const dir = await makeTempDir();
+    const source = `import { RunResult } from '@indaba/core';
+export default {
+  name: 'tidy-plugin',
+  register(host) {
+    host.registerRunner({
+      name: 'fake',
+      async run(request) {
+        request.onOutput?.('ends properly\\n');
+        return new RunResult({ exitCode: 0, output: 'x' });
+      },
+    });
+  },
+};
+`;
+    const pluginFile = await writePlugin(dir, 'p.mjs', source);
+    const workflow = await writeWorkflow(
+      dir,
+      'w.yml',
+      FIXTURE_WORKFLOW.replace(/guards:\n\s+- type: "always_ok"\n/, ''),
+    );
+    const captured = captureIo(dir);
+    await main(['run', workflow, '--plugin', pluginFile, '-w', dir, '-vv'], captured.io);
+
+    expect(captured.stdout()).toContain('ends properly\n  work');
+    expect(captured.stdout()).not.toContain('ends properly\n\n');
+  });
+});
