@@ -21,7 +21,7 @@ has.
 ## 7. Verification
 
 ```
-<paste the actual output of: docker compose run --rm php composer qa>
+<paste the actual output of: pnpm qa, and node scripts/check-workflow.mjs>
 ```
 
 ## Known gaps
