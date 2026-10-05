@@ -30,4 +30,4 @@ task independently checkable.
 
 ## Stage 7: Verification
 
-- [ ] `docker compose run --rm php composer qa` green end to end, output recorded in review.md
+- [ ] `pnpm qa` and the node gates (`node scripts/check-workflow.mjs`) green end to end, output recorded in review.md

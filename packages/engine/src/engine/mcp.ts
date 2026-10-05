@@ -1,5 +1,12 @@
 import type { McpServerDefinition, Runner, StepDefinition, WorkflowDefinition } from '@indaba/core';
-import { isConsensusStep, McpCapability, McpPolicy, mcpCapabilityOf, RunnerError } from '@indaba/core';
+import {
+  isConsensusStep,
+  McpCapability,
+  McpPolicy,
+  mcpCapabilityOf,
+  RunnerError,
+  runnerChain,
+} from '@indaba/core';
 
 /** Anything that resolves a runner by the name a workflow uses; `RunnerRegistry` satisfies it. */
 export interface RunnerLookup {
@@ -97,18 +104,31 @@ export class McpPlanner {
     const issues: McpIssue[] = [];
 
     for (const step of workflow.steps) {
-      for (const [roleName, runnerName] of this.speakers(workflow, step)) {
-        let runner: Runner;
-        try {
-          runner = this.runners.get(runnerName);
-        } catch (error) {
-          if (error instanceof RunnerError) {
-            continue; // an unknown runner is reported when the step runs
+      for (const [roleName, names] of this.chains(workflow, step)) {
+        // What would actually run: the first runner of the chain that can provide every required server.
+        let chosen: { readonly name: string; readonly resolution: McpResolution } | undefined;
+        for (const name of names) {
+          let runner: Runner;
+          try {
+            runner = this.runners.get(name);
+          } catch (error) {
+            if (error instanceof RunnerError) {
+              continue; // an unknown runner is reported when the step runs
+            }
+            throw error;
           }
-          throw error;
+          const resolution = this.resolve(workflow, step, roleName, runner);
+          chosen ??= { name, resolution };
+          if (resolution.missing.length === 0) {
+            chosen = { name, resolution };
+            break;
+          }
+        }
+        if (chosen === undefined) {
+          continue;
         }
 
-        const resolution = this.resolve(workflow, step, roleName, runner);
+        const { name: runnerName, resolution } = chosen;
         for (const name of resolution.missing) {
           issues.push(
             new McpIssue(step.id, runnerName, name, true, 'the runner has no MCP support (policy: required)'),
@@ -139,6 +159,39 @@ export class McpPlanner {
       }
     }
     return issues;
+  }
+
+  /** Each speaker of a step with the runners it may use, in order (a step's own runner beats its role's). */
+  chains(
+    workflow: WorkflowDefinition,
+    step: StepDefinition,
+  ): [roleName: string | undefined, names: string[]][] {
+    const own =
+      step.runner === undefined
+        ? undefined
+        : [
+            ...runnerChain({
+              runner: step.runner,
+              ...(step.fallbackRunners ? { fallbackRunners: step.fallbackRunners } : {}),
+            }),
+          ];
+    const roles = isConsensusStep(step)
+      ? [...new Set([...(step.role === undefined ? [] : [step.role]), ...step.consensusWith])]
+      : step.role === undefined
+        ? []
+        : [step.role];
+
+    if (roles.length === 0) {
+      return [[undefined, own ?? []]];
+    }
+    const chains: [string | undefined, string[]][] = [];
+    for (const role of roles) {
+      const definition = Object.hasOwn(workflow.roles, role) ? workflow.roles[role] : undefined;
+      if (definition !== undefined) {
+        chains.push([role, !isConsensusStep(step) && own !== undefined ? own : [...runnerChain(definition)]]);
+      }
+    }
+    return chains;
   }
 
   /** Who runs a step: one speaker, or every participant of a consensus. */

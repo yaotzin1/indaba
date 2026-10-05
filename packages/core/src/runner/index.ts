@@ -1,5 +1,5 @@
-import type { TokenUsage } from '../observability/index.js';
-import type { McpServerDefinition } from '../workflow/model.js';
+import type { SpanAttributes, TokenUsage } from '../observability/index.js';
+import type { AgentSpec, McpServerDefinition, StepPermissions } from '../workflow/model.js';
 
 export interface RunRequest {
   readonly prompt: string;
@@ -12,6 +12,15 @@ export interface RunRequest {
   readonly onOutput?: (chunk: string) => void;
   /** Servers the runner is asked to make available; only honoured by runners whose capability is Injected. */
   readonly mcpServers?: readonly McpServerDefinition[];
+  /** What the step may touch. Runners that cannot enforce it ignore it; the scope guard still applies. */
+  readonly permissions?: StepPermissions;
+  /** Which agent an agent-protocol runner should start; other runners ignore it. */
+  readonly agent?: AgentSpec;
+  /**
+   * Things worth recording about this run (a tool call, a permission decision), added to the run's
+   * span by the engine. Names and counts only: never prompts, paths, file content or secrets.
+   */
+  readonly onEvent?: (name: string, attributes?: SpanAttributes) => void;
 }
 
 export const DEFAULT_TIMEOUT_SECONDS = 900;
@@ -23,6 +32,8 @@ export interface RunResultInit {
   readonly usage?: TokenUsage;
   readonly durationMs?: number;
   readonly model?: string;
+  /** USD cost the provider or agent itself reported. Never computed from anything else. */
+  readonly reportedCostUsd?: number;
 }
 
 export class RunResult {
@@ -32,6 +43,7 @@ export class RunResult {
   readonly usage?: TokenUsage;
   readonly durationMs: number;
   readonly model?: string;
+  readonly reportedCostUsd?: number;
 
   constructor(init: RunResultInit) {
     this.exitCode = init.exitCode;
@@ -43,6 +55,9 @@ export class RunResult {
     }
     if (init.model !== undefined) {
       this.model = init.model;
+    }
+    if (init.reportedCostUsd !== undefined) {
+      this.reportedCostUsd = init.reportedCostUsd;
     }
   }
 
@@ -60,4 +75,19 @@ export interface Runner {
   /** The name workflows use to select this runner, e.g. "claude-code". */
   readonly name: string;
   run(request: RunRequest, signal?: AbortSignal): Promise<RunResult>;
+}
+
+export interface SkippedRunner {
+  readonly runner: string;
+  readonly reason: string;
+}
+
+export interface RunnerChainOwner {
+  readonly runner: string;
+  readonly fallbackRunners?: readonly string[];
+}
+
+/** The runners to try, in order: the primary, then each fallback. A runner is listed once. */
+export function runnerChain(owner: RunnerChainOwner): readonly string[] {
+  return [...new Set([owner.runner, ...(owner.fallbackRunners ?? [])])];
 }

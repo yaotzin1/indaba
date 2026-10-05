@@ -1,0 +1,77 @@
+# Which transport does each step use, and what happens when one is unavailable.
+#
+#   API  (openrouter, or your own OpenAI-compatible endpoint)  text work: specs, reviews, debate
+#   ACP  (acp, with an agent: preset or command)                work that edits code, with a permission gate
+#   CLI  (claude-code, codex, cursor, antigravity)              last resort only
+#
+# A `runner` is one name or a list. The first entry that CAN RUN is used. "Cannot run" means nothing
+# was sent to the agent: no API key, program not found, endpoint unreachable, ACP handshake failed.
+# A runner that started and then failed is a failed task: nothing falls back, `on_failure` decides.
+#
+# Try it:
+#   indaba validate examples/transport-fallback.workflow.ai.yml
+#   indaba plan     examples/transport-fallback.workflow.ai.yml
+#   indaba run      examples/transport-fallback.workflow.ai.yml -w /path/to/project -v
+version: "1.0"
+name: "transport-fallback"
+
+artifacts:
+  spec: ".indaba/artifacts/spec.md"
+  patch: ".indaba/artifacts/change.patch"
+
+roles:
+  # Text only: the API is the right tool and needs nothing installed. Needs OPENROUTER_API_KEY.
+  architect:
+    runner: "openrouter"
+    model: "anthropic/claude-3.7-sonnet:thinking"
+
+  # Edits files: ACP first (structured events, permissions). If ACP cannot start, for example
+  # because `npx` is not available, the CLI runs instead. `agent` is for the acp entry only.
+  implementer:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+
+  # Reviews in a debate with the architect: API again, no local agent needed.
+  reviewer:
+    runner: "openrouter"
+    model: "anthropic/claude-3.7-sonnet:thinking"
+
+steps:
+  - id: "rfc"
+    role: "architect"
+    goal: "Prepare technical specification in ${{ artifacts.spec }}"
+    outputs: ["${{ artifacts.spec }}"]
+    guards:
+      - type: "git_diff_empty"
+        paths: ["src/", "tests/"]
+
+  - id: "code"
+    depends_on: ["rfc"]
+    role: "implementer"
+    input_artifacts: ["${{ artifacts.spec }}"]
+    goal: "Implement changes satisfying the technical specification."
+    isolation: "git_worktree"
+    # What this step's agent may touch. Over ACP, requests outside it are refused as they happen.
+    # For every runner, a guard fails the step afterwards if anything outside `write` changed.
+    permissions:
+      fs:
+        read: ["src/**", "tests/**", "docs/**"]
+        write: ["src/**", "tests/**"]
+      terminal: "deny"
+
+  - id: "verify"
+    depends_on: ["code"]
+    runner: "shell"
+    commands:
+      - "pnpm test"
+      - "pnpm typecheck"
+    on_failure:
+      action: "retry_step"
+      target: "code"
+      max_retries: 3
+
+  - id: "debate_review"
+    depends_on: ["verify"]
+    role: "reviewer"
+    consensus_with: ["architect"]
+    decision_type: "consensus"

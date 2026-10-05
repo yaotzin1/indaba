@@ -1,14 +1,23 @@
 import { readFile } from 'node:fs/promises';
 import type {
+  AgentSpec,
   DecisionType as DecisionTypeValue,
   GuardDefinition,
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
   StepDefinition,
+  StepPermissions,
   WorkflowDefinition,
 } from '@indaba/core';
-import { DecisionType, FailureAction, Isolation, McpPolicy, WorkflowValidationError } from '@indaba/core';
+import {
+  DecisionType,
+  FailureAction,
+  Isolation,
+  McpPolicy,
+  PermissionMode,
+  WorkflowValidationError,
+} from '@indaba/core';
 import { parseAllDocuments } from 'yaml';
 import { GuardRegistry } from '../guard/registry.js';
 import { ErrorBag } from './error-bag.js';
@@ -32,6 +41,8 @@ export class WorkflowParser {
   constructor(
     private readonly guards: GuardRegistry = GuardRegistry.withDefaults(),
     private readonly validator: WorkflowValidator = new WorkflowValidator(),
+    /** When given, a runner name it does not know is a parse error instead of a failure at run time. */
+    private readonly runners?: { has(name: string): boolean },
   ) {}
 
   async parseFile(path: string): Promise<WorkflowDefinition> {
@@ -64,12 +75,20 @@ export class WorkflowParser {
 
     const roleEntries: [string, RoleDefinition][] = [];
     for (const [roleName, node] of root.nodeMap('roles')) {
-      const runner = node.string('runner');
-      if (runner !== undefined) {
+      const chain = this.runnerChain(node, true, errors);
+      if (chain !== undefined) {
         const model = node.string('model', false);
+        const agent = this.parseAgent(node, errors);
         roleEntries.push([
           roleName,
-          { name: roleName, runner, ...(model !== undefined ? { model } : {}), mcp: node.stringList('mcp') },
+          {
+            name: roleName,
+            runner: chain.runner,
+            ...(chain.fallbackRunners.length > 0 ? { fallbackRunners: chain.fallbackRunners } : {}),
+            ...(agent !== undefined ? { agent } : {}),
+            ...(model !== undefined ? { model } : {}),
+            mcp: node.stringList('mcp'),
+          },
         ]);
       }
     }
@@ -179,14 +198,21 @@ export class WorkflowParser {
     }
 
     const role = node.string('role', false);
-    const runner = node.string('runner', false);
+    const chain = this.runnerChain(node, false, errors);
+    const agent = this.parseAgent(node, errors);
+    const permissions = this.parsePermissions(node, errors);
     const onFailure = this.parseOnFailure(node.map('on_failure'), errors);
     const mcpPolicy = this.parsePolicy(node, errors);
 
     return {
       id,
       ...(role !== undefined ? { role } : {}),
-      ...(runner !== undefined ? { runner } : {}),
+      ...(chain !== undefined ? { runner: chain.runner } : {}),
+      ...(chain !== undefined && chain.fallbackRunners.length > 0
+        ? { fallbackRunners: chain.fallbackRunners }
+        : {}),
+      ...(agent !== undefined ? { agent } : {}),
+      ...(permissions !== undefined ? { permissions } : {}),
       goal: node.string('goal', false, true) ?? '',
       dependsOn: node.stringList('depends_on'),
       inputArtifacts: node.stringList('input_artifacts', true),
@@ -199,6 +225,63 @@ export class WorkflowParser {
       ...(decision !== undefined ? { decisionType: decision } : {}),
       mcp: node.stringList('mcp'),
       ...(mcpPolicy !== undefined ? { mcpPolicy } : {}),
+    };
+  }
+
+  /** `runner` is a name or a list; the first is the primary, the rest are fallbacks. */
+  private runnerChain(
+    node: Node,
+    required: boolean,
+    errors: ErrorBag,
+  ): { readonly runner: string; readonly fallbackRunners: readonly string[] } | undefined {
+    const names = node.stringOrList('runner', required);
+    const [runner, ...fallbackRunners] = names ?? [];
+    if (runner === undefined) {
+      return undefined;
+    }
+    if (this.runners !== undefined) {
+      for (const name of [runner, ...fallbackRunners]) {
+        if (!this.runners.has(name)) {
+          errors.add(`${node.path}.runner "${name}" is not a known runner`);
+        }
+      }
+    }
+    return { runner, fallbackRunners };
+  }
+
+  /** A preset name, or `{ command: [program, ...arguments] }`. */
+  private parseAgent(node: Node, errors: ErrorBag): AgentSpec | undefined {
+    const value = node.stringOrMap('agent');
+    if (value === undefined) {
+      return undefined;
+    }
+    if (value.text !== undefined) {
+      return { preset: value.text };
+    }
+    const command = value.node?.stringList('command') ?? [];
+    if (command.length === 0) {
+      errors.add(`${node.path}.agent needs a preset name or a non-empty command list`);
+      return undefined;
+    }
+    return { command };
+  }
+
+  /** Scope for a step's agent. A block with no `terminal` key denies the terminal. */
+  private parsePermissions(node: Node, errors: ErrorBag): StepPermissions | undefined {
+    const block = node.map('permissions');
+    if (block === undefined) {
+      return undefined;
+    }
+    const fs = block.map('fs');
+    const terminalName = block.string('terminal', false) ?? PermissionMode.Deny;
+    const terminal = lookup(PermissionMode, terminalName);
+    if (terminal === undefined) {
+      errors.add(`${block.path}.terminal "${terminalName}" must be "allow" or "deny"`);
+    }
+    return {
+      fsRead: fs?.stringList('read') ?? [],
+      fsWrite: fs?.stringList('write') ?? [],
+      terminal: terminal ?? PermissionMode.Deny,
     };
   }
 

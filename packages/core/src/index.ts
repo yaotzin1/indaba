@@ -2,7 +2,9 @@ export {
   IndabaError,
   InvalidTransitionError,
   McpUnavailableError,
+  RunnerChainExhaustedError,
   RunnerError,
+  RunnerUnavailableError,
   WorkflowValidationError,
   WorkspaceError,
 } from './errors/index.js';
@@ -16,7 +18,7 @@ export { ConsensusArbiter, ConsensusOutcome, ConsensusResult, PingPongDetector }
 export { AgentMessage, MessageType } from './mesh/message.js';
 export type { RunnerParticipantOptions } from './mesh/runner-participant.js';
 export { RunnerParticipant } from './mesh/runner-participant.js';
-export type { ModelRate, SpanAttributes, SpanAttributeValue } from './observability/index.js';
+export type { ModelRate, SpanAttributes, SpanAttributeValue, SpanEvent } from './observability/index.js';
 export {
   PricingTable,
   Span,
@@ -26,17 +28,26 @@ export {
   TokenUsage,
   Tracer,
 } from './observability/index.js';
-export type { Runner, RunRequest, RunResultInit } from './runner/index.js';
-export { DEFAULT_TIMEOUT_SECONDS, RunResult } from './runner/index.js';
+export type {
+  Runner,
+  RunnerChainOwner,
+  RunRequest,
+  RunResultInit,
+  SkippedRunner,
+} from './runner/index.js';
+export { DEFAULT_TIMEOUT_SECONDS, RunResult, runnerChain } from './runner/index.js';
+export { matchesAny, matchesGlob } from './support/glob.js';
 export type { Clock, EventDispatcher, IdGenerator } from './support/index.js';
 export { SimpleEventDispatcher } from './support/index.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {
+  AgentSpec,
   GuardDefinition,
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
   StepDefinition,
+  StepPermissions,
   WorkflowDefinition,
 } from './workflow/model.js';
 export {
@@ -48,6 +59,7 @@ export {
   isConsensusStep,
   isShellStep,
   McpPolicy,
+  PermissionMode,
   roleOf,
   SHELL_RUNNER,
   stepOf,

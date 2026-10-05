@@ -67,7 +67,11 @@ Indaba reads only these from its environment, and passes only these to the runne
 
 | Variable | Used by | Meaning |
 | :--- | :--- | :--- |
-| `OPENROUTER_API_KEY` | `openrouter` runner | Your OpenRouter key. A step that uses the runner without it fails with `OPENROUTER_API_KEY is not set.` |
+| `OPENROUTER_API_KEY` | `openrouter` runner | Your OpenRouter key. Without it the runner cannot run (`OPENROUTER_API_KEY is not set.`), and a workflow that lists another runner after it moves on to that one |
+| `INDABA_OPENAI_COMPAT_<NAME>_BASE_URL` | an OpenAI-compatible runner | Adds a runner named `<name>` in lower case with `_` as `-` (`LM_STUDIO` is `lm-studio`). The URL is `http` or `https`, up to the version segment, for example `http://localhost:11434/v1` |
+| `INDABA_OPENAI_COMPAT_<NAME>_KEY_ENV` | the same | The **name** of the variable that holds that endpoint's key. Without it the endpoint is treated as keyless (a local server) |
+| `INDABA_OPENAI_COMPAT_<NAME>_MODEL` | the same | The model used when a role names none |
+| `INDABA_ACP_PASS_ENV` | `acp` runner | Extra variables to pass on to an ACP agent: comma-separated names, or a prefix ending in `*`. See [ACP agents](#acp-agents) |
 | `INDABA_CODEX_CMD` | `codex` runner | Replaces the built-in Codex command line. Space-separated words; `{prompt}` and `{model}` mark where those go |
 | `INDABA_ANTIGRAVITY_CMD` | `antigravity` runner | The same, for Antigravity |
 
@@ -82,13 +86,57 @@ A runner is what a role's `runner:` (or a step's) names.
 | Runner | What it runs | Needs on your `PATH` or in the environment |
 | :--- | :--- | :--- |
 | `shell` | A command line from the workflow file, through the platform shell | nothing |
-| `claude-code` | `claude -p <prompt> --permission-mode acceptEdits` (plus `--model`, MCP config) | the `claude` CLI, logged in |
+| `openrouter` | A streamed chat completion over HTTPS. The API choice for text work | `OPENROUTER_API_KEY`, and a `model` on the role |
+| `acp` | An agent over the Agent Client Protocol. The choice for agents that edit code | the agent program (see [ACP agents](#acp-agents)) |
+| `claude-code` | `claude -p <prompt> --permission-mode acceptEdits` (plus `--model`, MCP config). A last resort | the `claude` CLI, logged in |
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
-| `openrouter` | A streamed chat completion over HTTPS | `OPENROUTER_API_KEY`, and a `model` on the role |
 
 Each agent CLI authenticates itself; Indaba does not log you in.
+
+### Which runner when
+
+Prefer the API for text work, ACP for agents that edit code, and a CLI only as a last resort; put the
+first choice first in a `runner` list and the rest after it. The reasoning, the fallback rules and a
+step-by-step walkthrough are in [using-the-alpha.md](using-the-alpha.md) and
+[workflow-format.md](workflow-format.md#transports-and-fallback).
+
+### API runners
+
+`openrouter` needs `OPENROUTER_API_KEY` and a `model` on the role. Any other OpenAI-compatible service
+(OpenAI, vLLM, Ollama, LM Studio) is added by environment variables, never by the workflow file:
+
+```
+INDABA_OPENAI_COMPAT_LOCAL_BASE_URL=http://localhost:11434/v1
+INDABA_OPENAI_COMPAT_LOCAL_MODEL=llama3
+```
+
+makes a runner called `local`. Add `INDABA_OPENAI_COMPAT_LOCAL_KEY_ENV=MY_KEY_VARIABLE` when the server
+needs a key, and set `MY_KEY_VARIABLE` to it. A built-in runner's name cannot be reused.
+
+### ACP agents
+
+`acp` talks the Agent Client Protocol (version 1) to an agent program over its standard input and output,
+so there is no terminal to scrape. The role or step names the agent:
+
+| `agent:` | Starts |
+| :--- | :--- |
+| `claude` | `npx --yes @agentclientprotocol/claude-agent-acp` |
+| `codex` | `npx --yes @agentclientprotocol/codex-acp` |
+| `gemini` | `gemini --acp` |
+| `{ command: [program, arg, ...] }` | exactly that, for any other agent or a pinned, locally installed copy |
+
+Things to know:
+
+- The `npx` presets download code when they run, and on Windows `npx` is a `.cmd` shim that Indaba does
+  not start (see below): use `{ command: [...] }` with a native executable there, or install the agent
+  and name it. A start failure is a runner that could not run, so a fallback list moves on.
+- Only an allowlist of your environment reaches the agent: `PATH`, home and temp folders, proxy and
+  certificate settings, the variables with the agent's own prefix (`ANTHROPIC_`, `OPENAI_`, `GEMINI_`
+  and so on), plus whatever `INDABA_ACP_PASS_ENV` names. Your other keys do not.
+- An agent that needs you to log in first cannot run headless; log in with its own tool beforehand.
+- Indaba does not offer the agent a terminal. File access is offered only to a step with `permissions`.
 
 ### Pseudo-terminal, and the piped fallback
 

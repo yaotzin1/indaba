@@ -1,5 +1,7 @@
 export type { CliRunnerOptions } from './abstract-cli-runner.js';
 export { AbstractCliRunner, PreparedCommand } from './abstract-cli-runner.js';
+export type { AcpAgentPreset, AcpRunnerOptions } from './acp-runner.js';
+export { ACP_AGENT_PRESETS, ACP_PROTOCOL_VERSION, AcpRunner } from './acp-runner.js';
 export type { AntigravityRunnerOptions } from './antigravity-runner.js';
 export { AntigravityRunner } from './antigravity-runner.js';
 export type { ClaudeRunnerOptions } from './claude-runner.js';
@@ -12,8 +14,14 @@ export type { CursorRunnerOptions } from './cursor-runner.js';
 export { CursorRunner } from './cursor-runner.js';
 export type { McpConfigFile } from './mcp.js';
 export { McpConfigWriter } from './mcp.js';
-export type { FetchFunction, OpenRouterRunnerOptions } from './openrouter-runner.js';
-export { OpenRouterRunner } from './openrouter-runner.js';
+export type { OpenAiCompatibleEnvOptions } from './openai-compatible-env.js';
+export { openAiCompatibleFromEnv } from './openai-compatible-env.js';
+export type {
+  FetchFunction,
+  OpenAiCompatibleRunnerOptions,
+  OpenRouterRunnerOptions,
+} from './openrouter-runner.js';
+export { OpenAiCompatibleRunner, OpenRouterRunner } from './openrouter-runner.js';
 export type {
   NodeProcessSpawnerOptions,
   ProcessMode,
@@ -30,3 +38,9 @@ export { RunnerRegistry } from './registry.js';
 export type { ShellInvocation, ShellRunnerOptions } from './shell-runner.js';
 export { ShellRunner, shellInvocation } from './shell-runner.js';
 export { SseParser } from './sse-parser.js';
+export type {
+  ProcessSession,
+  StreamingProcessSpawner,
+  StreamingProcessSpec,
+} from './streaming-process.js';
+export { NodeStreamingProcessSpawner } from './streaming-process.js';

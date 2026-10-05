@@ -11,7 +11,7 @@ Reasoning:
 
 ## Public symbols added
 
-| Name (FQCN) | Kind | Signature |
+| Export (package, module) | Kind | Signature |
 | :--- | :--- | :--- |
 
 ## Public symbols changed
@@ -40,7 +40,7 @@ Reasoning:
 
 ## Checks
 
-- [ ] Every type appearing in a new public signature is itself public (or deliberately `@internal`)
-- [ ] Implementations are `final`; the extension point is an interface
-- [ ] Arrays are typed precisely (`list<...>`, `array<string, ...>`)
-- [ ] `composer stan` passes without an ignore
+- [ ] Every type appearing in a new public signature is itself public (or deliberately marked `@internal` and not re-exported from the package index)
+- [ ] Implementations are not exported for subclassing; the extension point is an interface
+- [ ] Collections are typed precisely and read-only where they are not mutated (`readonly T[]`, `Readonly<Record<string, V>>`)
+- [ ] `pnpm qa` (Biome, `tsc` strict, Vitest) passes with no suppression comment

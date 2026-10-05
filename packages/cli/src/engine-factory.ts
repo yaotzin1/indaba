@@ -18,11 +18,33 @@ import {
   WorkflowEngine,
   WorkflowParser,
 } from '@indaba/engine';
-import { RunnerRegistry } from '@indaba/runners';
+import { openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
 import { RegistryPluginHost } from './plugin-host.js';
 
 /** The environment values the built-in runners read. Nothing else is forwarded. */
-const RUNNER_ENV_KEYS = ['OPENROUTER_API_KEY', 'INDABA_CODEX_CMD', 'INDABA_ANTIGRAVITY_CMD'] as const;
+const RUNNER_ENV_KEYS = [
+  'OPENROUTER_API_KEY',
+  'INDABA_CODEX_CMD',
+  'INDABA_ANTIGRAVITY_CMD',
+  'INDABA_ACP_PASS_ENV',
+] as const;
+
+/** Endpoints configured as `INDABA_OPENAI_COMPAT_<NAME>_*`, and the variables their keys are read from. */
+function compatibleEndpointEnv(source: Readonly<Record<string, string | undefined>>): Record<string, string> {
+  const picked: Record<string, string> = {};
+  for (const [name, value] of Object.entries(source)) {
+    if (value !== undefined && name.startsWith('INDABA_OPENAI_COMPAT_')) {
+      picked[name] = value;
+      if (name.endsWith('_KEY_ENV')) {
+        const keyValue = source[value];
+        if (keyValue !== undefined) {
+          picked[value] = keyValue;
+        }
+      }
+    }
+  }
+  return picked;
+}
 
 export interface CreateEngineOptions {
   /** The project the workflow runs against; traces go under `<projectDir>/.indaba/traces`. */
@@ -62,10 +84,17 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
 
   const ids = new RandomIdGenerator();
   const tracer = new Tracer(new SystemClock(), events, ids, PricingTable.defaults());
-  const runners = RunnerRegistry.withDefaults(env);
+  const runners = RunnerRegistry.withDefaults(env, options.env === undefined ? {} : { hostEnv: options.env });
   const guards = GuardRegistry.withDefaults();
 
   const host = new RegistryPluginHost(runners, guards, events);
+  // Endpoints from the environment join through the same door a plugin's runners use.
+  const endpoints = openAiCompatibleFromEnv(compatibleEndpointEnv(options.env ?? {}), {
+    reserved: runners.names(),
+  });
+  for (const endpoint of endpoints) {
+    host.registerRunner(endpoint);
+  }
   for (const plugin of options.plugins ?? []) {
     try {
       await plugin.register(host);
@@ -92,7 +121,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
 
   return {
     engine,
-    parser: new WorkflowParser(guards),
+    parser: new WorkflowParser(guards, undefined, runners),
     planner: new McpPlanner(runners),
     runners,
     guards,

@@ -2,6 +2,7 @@ import type { WorkflowDefinition } from '@indaba/core';
 import {
   DagBuilder,
   FailureAction,
+  Isolation,
   isConsensusStep,
   isShellStep,
   WorkflowValidationError,
@@ -13,6 +14,41 @@ const HTTP_URL = /^https?:\/\/\S+$/i;
 /** Semantic checks that need the whole document. */
 export class WorkflowValidator {
   constructor(private readonly dag: DagBuilder = new DagBuilder()) {}
+
+  /** Things that are legal but probably not what the author meant. They never block a run. */
+  warnings(workflow: WorkflowDefinition): string[] {
+    const warnings: string[] = [];
+    for (const step of workflow.steps) {
+      const at = `step "${step.id}"`;
+      if (step.permissions !== undefined && step.isolation === Isolation.None) {
+        warnings.push(
+          `${at} declares permissions but has no isolation: the scope guard then sees every change in the working tree, not only the step's. Use isolation: git_worktree.`,
+        );
+      }
+      const role = step.role === undefined ? undefined : workflow.roles[step.role];
+      if (step.runner !== undefined && role !== undefined) {
+        const own = [step.runner, ...(step.fallbackRunners ?? [])].join(', ');
+        const theirs = [role.runner, ...(role.fallbackRunners ?? [])].join(', ');
+        if (own !== theirs) {
+          warnings.push(
+            `${at} sets runner (${own}), which takes precedence over role "${role.name}" (${theirs}).`,
+          );
+        }
+      }
+      if (step.permissions !== undefined) {
+        const names =
+          step.runner !== undefined || role === undefined
+            ? [step.runner, ...(step.fallbackRunners ?? [])]
+            : [role.runner, ...(role.fallbackRunners ?? [])];
+        if (!names.includes('acp')) {
+          warnings.push(
+            `${at} declares permissions but no acp runner is in its chain: only the scope guard enforces them, after the step has run.`,
+          );
+        }
+      }
+    }
+    return warnings;
+  }
 
   validate(workflow: WorkflowDefinition): string[] {
     const errors: string[] = [];

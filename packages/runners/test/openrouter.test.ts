@@ -1,4 +1,4 @@
-import { RunnerError } from '@indaba/core';
+import { RunnerError, RunnerUnavailableError } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import { type FetchFunction, OpenRouterRunner } from '../src/index.js';
 
@@ -96,7 +96,7 @@ describe('OpenRouterRunner', () => {
   });
 
   it('reports HTTP errors without the key', async () => {
-    const { fetch } = recordingFetch(() => new Response(`{"error":"bad key ${KEY}"}`, { status: 401 }));
+    const { fetch } = recordingFetch(() => new Response(`{"error":"upstream said ${KEY}"}`, { status: 500 }));
     const result = await new OpenRouterRunner({ apiKey: KEY, fetch }).run({
       prompt: 'x',
       workdir: '.',
@@ -104,7 +104,7 @@ describe('OpenRouterRunner', () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.errorOutput).toContain('HTTP 401');
+    expect(result.errorOutput).toContain('HTTP 500');
     expect(result.errorOutput).not.toContain(KEY);
     expect(result.errorOutput).toContain('[redacted]');
   });
@@ -113,15 +113,25 @@ describe('OpenRouterRunner', () => {
     const fetch: FetchFunction = async () => {
       throw new Error(`connect failed for Bearer ${KEY}`);
     };
-    const result = await new OpenRouterRunner({ apiKey: KEY, fetch }).run({
-      prompt: 'x',
-      workdir: '.',
-      model: 'm',
-    });
+    const error = await new OpenRouterRunner({ apiKey: KEY, fetch })
+      .run({ prompt: 'x', workdir: '.', model: 'm' })
+      .catch((e: unknown) => e);
 
-    expect(result.exitCode).toBe(1);
-    expect(result.errorOutput).toContain('transport error');
-    expect(result.errorOutput).not.toContain(KEY);
+    expect(error).toBeInstanceOf(RunnerUnavailableError);
+    expect((error as Error).message).toContain('unreachable');
+    expect((error as Error).message).not.toContain(KEY);
+    expect((error as Error).cause).toBeUndefined();
+  });
+
+  it('treats a rejected key as a runner that could not run, without echoing the body', async () => {
+    const { fetch } = recordingFetch(() => new Response(`{"error":"bad key ${KEY}"}`, { status: 401 }));
+    const error = await new OpenRouterRunner({ apiKey: KEY, fetch })
+      .run({ prompt: 'x', workdir: '.', model: 'm' })
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(RunnerUnavailableError);
+    expect((error as Error).message).toContain('HTTP 401');
+    expect((error as Error).message).not.toContain(KEY);
   });
 
   it('sends the key only in the Authorization header and never exposes it on the object', async () => {

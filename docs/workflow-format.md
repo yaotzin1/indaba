@@ -94,8 +94,9 @@ isolated step that succeeds.
 
 | Field | Required | Meaning |
 | :--- | :--- | :--- |
-| `runner` | yes | The runner that executes the role: `claude-code`, `codex`, `antigravity`, `cursor`, `openrouter`, or the name of a runner a plugin registers |
-| `model` | no | Passed to the runner as its model. The `openrouter` runner requires one |
+| `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, or the name of a runner a plugin registers |
+| `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`) or `{ command: [program, arg, ...] }`. Other runners ignore it |
+| `model` | no | Passed to the runner as its model. API runners require one |
 | `mcp` | no | List of `mcp_servers` names that every step of the role may use |
 
 A role named in a step must exist (`step "x" uses unknown role "y"`). Role names may be any string; keep
@@ -110,7 +111,9 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | :--- | :--- | :--- |
 | `id` | yes | Unique, matching `[A-Za-z0-9_-]+` |
 | `role` | one of `role` or `runner` | A key of `roles`. The step is an agent step run by the role's runner and model |
-| `runner` | one of `role` or `runner` | A runner named directly. `shell` makes a shell step |
+| `runner` | one of `role` or `runner` | A runner, or a list of runners in priority order, named directly. `shell` makes a shell step. When a step has both a `role` and a `runner`, the step's `runner` is used and the role still supplies the model |
+| `agent` | no | For the `acp` runner: overrides the role's `agent` |
+| `permissions` | no | What the step's agent may touch (see [Permissions](#permissions)) |
 | `goal` | no | The instruction given to the agent (interpolated). Empty for a shell step |
 | `depends_on` | no | List of step ids that must complete first. A step may not depend on itself |
 | `input_artifacts` | no | Paths the agent is told to read first (interpolated). Copied into a worktree if they exist only in the project directory |
@@ -128,6 +131,64 @@ A step needs a `role` or a `runner`. Using `commands` on a step whose runner is 
 
 The agent receives a prompt built from the role name, the `goal`, the input artifacts and required
 outputs, and, on a retry, the failure of the previous attempt.
+
+### Transports and fallback
+
+An agent is reached in one of three ways. Choose the first that fits and list the others after it.
+
+| Transport | Runners | Choose it for | Trade-off |
+| :--- | :--- | :--- | :--- |
+| API | `openrouter`, and any OpenAI-compatible endpoint you configure | text work: specs, reviews, debate, consensus. Needs only a key | the model returns text; it cannot edit files or run tools itself |
+| ACP | `acp` with an `agent` | an agent that changes code. Structured events in the trace, and a permission gate you control | needs a local agent program; the presets start it with `npx`, which on Windows is a shim Indaba does not start (use a native executable) |
+| CLI | `claude-code`, `codex`, `antigravity`, `cursor` | a last resort, or an agent with no API or ACP route | scrapes terminal output, so it breaks when the CLI's output changes; no per-action permissions |
+
+```yaml
+roles:
+  implementer:
+    runner: ["acp", "claude-code"]   # ACP first, the CLI only as a fallback
+    agent: "claude"
+```
+
+The first runner in the list that **can run** is used. A runner cannot run when nothing has yet been
+sent to the agent: there is no API key, the program was not found, the endpoint did not answer, an API
+key was rejected, or the ACP handshake failed. A runner that started and then failed is a failed task:
+the next runner is **not** tried, because the agent may already have changed files; `on_failure`
+decides what happens. If no runner of the list could run, the step fails and names each one and why.
+
+Each attempt gets the original prompt, never the output of an earlier runner. `indaba plan` prints the
+list (`runners acp -> claude-code`), and the trace records which runner ran and an `indaba.runner.skipped`
+event for each one that could not.
+
+API endpoints beyond `openrouter` are configured in the environment, never in the workflow file (a
+base URL in a file you did not write could send your key elsewhere); see
+[getting-started.md](getting-started.md#environment-variables). Examples:
+[`examples/transport-fallback.workflow.ai.yml`](../examples/transport-fallback.workflow.ai.yml) and
+[`examples/api-only.workflow.ai.yml`](../examples/api-only.workflow.ai.yml).
+
+### Permissions
+
+```yaml
+permissions:
+  fs:
+    read: ["src/**", "tests/**"]   # empty or absent: reads are not restricted
+    write: ["src/**"]               # empty or absent: the step may change nothing
+  terminal: "deny"                  # allow | deny (default deny)
+```
+
+Globs use `*` and `?` inside one path segment and `**` for any number of segments, relative to the step's
+working directory. `permissions` does two things:
+
+- Over ACP, the runner answers the agent's permission requests and serves its file requests only inside
+  these globs and the working directory; anything else is refused as it is asked, and recorded in the
+  trace. Without a `permissions` block the `acp` runner refuses edits, deletes, moves and commands.
+  It never grants an "always allow" option, since that would outlive the step. Files under `.git` and
+  `.indaba` are never served.
+- For every runner, a `diff_within_scope` guard is added to the step: after the step, anything changed
+  outside `fs.write` fails it. An agent can write to disk without asking the client, so this guard,
+  together with `isolation: git_worktree`, is the boundary that holds; the ACP gate is an early layer on top.
+
+`indaba validate` warns when a step declares `permissions` without `isolation: git_worktree`, and when
+no `acp` runner is in its chain (then only the guard enforces it, after the step has run).
 
 #### Shell steps
 
@@ -166,6 +227,7 @@ A guard runs after a step succeeds and its outputs exist. Each entry needs a `ty
 | Type | Passes when |
 | :--- | :--- |
 | `git_diff_empty` | nothing under the listed `paths` (default: the whole directory) was modified, added or deleted, tracked or not. It fails if git state cannot be read |
+| `diff_within_scope` | every path changed in the working directory, tracked or not, matches one of the listed `paths` (globs; an empty list means nothing may change). `.indaba/` is ignored. It fails if git state cannot be read. It is added automatically to a step with `permissions` |
 
 An unknown type is `$.steps[0].guards[0].type "x" is not a known guard`. A plugin can register more
 types; see [extending.md](extending.md).
@@ -211,9 +273,9 @@ How a server reaches a step depends on the runner:
 
 | Runner | MCP |
 | :--- | :--- |
-| `claude-code`, `codex` | Indaba injects the servers into the agent's configuration |
+| `claude-code`, `codex`, `acp` | Indaba injects the servers into the agent's configuration (over ACP, an `http` server needs an agent that supports it; otherwise the runner cannot run and the next one is tried) |
 | `cursor`, `antigravity` | The agent manages its own servers; Indaba assumes the named ones are configured and says so in `plan` |
-| `openrouter`, `shell`, others | No MCP support |
+| `openrouter` and other API runners, `shell`, others | No MCP support |
 
 If a step wants a server its runner cannot provide, `mcp_policy: required` (the default) refuses the run
 before it starts, and `optional` runs the step without it. `indaba plan` prints these findings as

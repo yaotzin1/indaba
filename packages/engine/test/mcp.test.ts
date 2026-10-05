@@ -131,3 +131,77 @@ describe('WorkflowEngine and MCP', () => {
     expect(result.status).toBe(WorkflowStatus.Completed);
   });
 });
+
+describe('McpPlanner with runner chains', () => {
+  const registry = new FakeRegistry([
+    capable('plain-api', 'none'),
+    capable('acp', 'injected'),
+    capable('managed', 'agent_managed'),
+  ]);
+  const plan = (runner: string, extra = ''): McpIssue[] =>
+    new McpPlanner(registry).preflight(
+      parseWorkflow(`version: "1.0"
+name: t
+mcp_servers:
+  docs: {command: npx}
+roles:
+  worker: {runner: ${runner}}
+steps:
+  - {id: a, role: worker, mcp: [docs]${extra}}
+`),
+    );
+
+  it('does not block a run whose primary cannot provide a server but a fallback can', () => {
+    expect(plan('[plain-api, acp]')).toEqual([]);
+  });
+
+  it('judges a chain by the first runner that can provide the servers, and reports it', () => {
+    const issues = plan('[plain-api, managed]');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.runner).toBe('managed');
+    expect(issues[0]?.isError).toBe(false);
+  });
+
+  it('is an error only when no runner of the chain can provide a required server', () => {
+    const issues = plan('[plain-api, nowhere]');
+    expect(issues).toHaveLength(1);
+    expect(issues[0]?.isError).toBe(true);
+    expect(issues[0]?.runner).toBe('plain-api');
+  });
+
+  it('skips runners the registry does not know and has nothing to say when none is known', () => {
+    expect(plan('[nowhere, elsewhere]')).toEqual([]);
+  });
+
+  it('uses the step runner chain over the role when the step names its own', () => {
+    expect(plan('plain-api', ', runner: [acp]')).toEqual([]);
+  });
+
+  it('lists the chains of a consensus by role, ignoring the step runner', () => {
+    const wf = parseWorkflow(`version: "1.0"
+name: t
+roles:
+  a: {runner: [x, y]}
+  b: {runner: z}
+steps:
+  - {id: s, role: a, consensus_with: [b], decision_type: consensus, runner: ignored}
+`);
+    const step = wf.steps[0];
+    expect(step === undefined ? [] : new McpPlanner(registry).chains(wf, step)).toEqual([
+      ['a', ['x', 'y']],
+      ['b', ['z']],
+    ]);
+  });
+
+  it('gives a step with neither role nor chain no speakers beyond an empty chain', () => {
+    const wf = parseWorkflow(`version: "1.0"
+name: t
+steps:
+  - {id: s, runner: shell, commands: [echo]}
+`);
+    const step = wf.steps[0];
+    expect(step === undefined ? [] : new McpPlanner(registry).chains(wf, step)).toEqual([
+      [undefined, ['shell']],
+    ]);
+  });
+});

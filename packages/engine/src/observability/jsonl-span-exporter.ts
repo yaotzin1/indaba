@@ -36,6 +36,9 @@ export class JsonlSpanExporter {
       status: span.status,
       status_message: span.statusMessage ?? null,
       attributes: { ...span.attributes },
+      ...(span.events.length > 0
+        ? { events: span.events.map((e) => ({ name: e.name, attributes: { ...e.attributes } })) }
+        : {}),
     });
     await appendFile(join(this.directory, `${span.traceId}.jsonl`), `${line}\n`);
   }

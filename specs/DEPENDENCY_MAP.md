@@ -14,7 +14,7 @@ graph BT
     end
 
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter"]
-    Runners["@indaba/runners: ShellRunner, OpenRouterRunner, agent CLI runners (node-pty optional)"]
+    Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner, agent CLI runners (node-pty optional)"]
     Cli["indaba: run, plan, validate, plugin loading, composition root"]
     Plugin["a third-party plugin"]
 
@@ -50,6 +50,7 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 | `workflow-engine` | `@indaba/core` (model, DAG, state), `@indaba/engine` (parser, guards, engine) |
 | `agent-mesh` | `@indaba/core` |
 | `runner-adapters` | `@indaba/core` (contract), `@indaba/runners` |
+| `transport-priority` | `@indaba/core` (runner chain, permissions model, glob, span events), `@indaba/engine` (parser, fallback loop, scope guard), `@indaba/runners` (API and ACP runners), `indaba` |
 | `git-workspace` | `@indaba/engine` |
 | `observability` | `@indaba/core` (tracer, value types), `@indaba/engine` (exporter) |
 | `cli` | `indaba` |
