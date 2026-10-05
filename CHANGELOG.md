@@ -25,6 +25,13 @@ port". The PHP prototype that preceded them was never published.
   own messages (variables named like a key, token, secret, password or credential), cut to 4096 characters a
   record, and capped at 2 MiB a run, after which one `truncated` record is written. It can still hold whatever
   an agent printed, so it stays under `.indaba/` (gitignored, local).
+- **`@indaba/tui`**, an optional terminal dashboard for a run (minor; track `feature`; spec `specs/tui`). A new
+  package built on Ink 8 and React 19, both MIT and pinned exactly, and used by nothing else: steps on one side,
+  the selected step's output on the other, keys for selecting, scrolling, following and help, a stacked layout
+  below 80 columns, and a notice below 40x8. Every state is a glyph and a word as well as a colour, text from an
+  agent is stripped of terminal control sequences before it is drawn, and the terminal is always given back
+  (raw mode off, cursor shown) even when drawing fails. It follows a live run or replays a finished one at 1x or
+  10x. This change adds the package and its tests; `indaba watch` does not load it yet.
 - **`indaba watch [run]`**: follow a run from the files it writes, or read a finished one. With no run it lists
   them, newest first; a run is its id, a unique start of it, or `latest`. It prints each step change and runner
   start and end as it happens (`--output` adds the streamed lines), then a final view, and exits the way the run

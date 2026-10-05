@@ -94,7 +94,20 @@ function mark(look: Look, options: PlainOptions): { glyph: string; word: string 
   return { glyph: paint(glyph), word: paint(look.word) };
 }
 
-function runnerText(runner: RunnerView): string {
+/** The glyph and word for a step state, and the colour code it would be drawn in. */
+export function stepMark(status: string, ascii = false): { glyph: string; word: string; color: number } {
+  const look = LOOK[status] ?? UNKNOWN_STEP;
+  return { glyph: ascii ? look.ascii : look.glyph, word: look.word, color: look.color };
+}
+
+/** The same for the state of the whole run. */
+export function runMark(status: RunStatus, ascii = false): { glyph: string; word: string; color: number } {
+  const look = RUN_LOOK[status];
+  return { glyph: ascii ? look.ascii : look.glyph, word: look.word, color: look.color };
+}
+
+/** One runner of a step, as a short phrase: `acp ok 26s $0.0123`. */
+export function runnerText(runner: RunnerView): string {
   const took =
     runner.endedAt === undefined
       ? ''
@@ -104,7 +117,8 @@ function runnerText(runner: RunnerView): string {
   return `${oneLine(runner.name)} ${state}${took}${cost}`;
 }
 
-function toolsText(step: StepView): string | undefined {
+/** Tool calls and permission decisions of a step on one line, or nothing when there were none. */
+export function toolsText(step: StepView): string | undefined {
   const calls = Object.entries(step.toolCalls)
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([kind, n]) => `${oneLine(kind)} ${n}`);
@@ -159,17 +173,22 @@ function stepLines(step: StepView, options: PlainOptions, idWidth: number): stri
   return lines;
 }
 
-/** The whole run as plain lines, for a terminal that is not a screen, for a pipe and for a screen reader. */
-export function formatPlain(state: RunState, options: PlainOptions = {}): string {
+/** The one-line summary of a run: its name, state, size, elapsed time and cost. */
+export function formatHeader(state: RunState, options: PlainOptions = {}): string {
   const { glyph, word } = mark(RUN_LOOK[state.status], options);
   const name = state.workflow === undefined ? 'run' : oneLine(state.workflow);
-  const header = [
+  return [
     `indaba ${name}`,
     `${glyph} ${word}`,
     `${state.steps.length} step${state.steps.length === 1 ? '' : 's'}`,
     `elapsed ${formatDuration(elapsed(state))}`,
     `cost ${formatCost(state.cost)}`,
   ].join(' | ');
+}
+
+/** The whole run as plain lines, for a terminal that is not a screen, for a pipe and for a screen reader. */
+export function formatPlain(state: RunState, options: PlainOptions = {}): string {
+  const header = formatHeader(state, options);
 
   const idWidth = state.steps.reduce((width, step) => Math.max(width, oneLine(step.id).length), 0);
   const lines = [header, ...state.steps.flatMap((step) => stepLines(step, options, idWidth))];

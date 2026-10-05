@@ -7,7 +7,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json",
+    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json packages/tui/tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",

@@ -10,6 +10,7 @@ export default defineConfig({
       '@indaba/core': src('core'),
       '@indaba/engine': src('engine'),
       '@indaba/runners': src('runners'),
+      '@indaba/tui': src('tui'),
     },
   },
   test: {

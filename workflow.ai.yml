@@ -68,9 +68,11 @@ project:
   runtime:
     node: ">=22"
   package_manager: 9
-  packages: ["indaba", "@indaba/core", "@indaba/engine", "@indaba/runners"]
+  packages: ["indaba", "@indaba/core", "@indaba/engine", "@indaba/runners", "@indaba/tui"]
   runtime_dependencies:
     - "yaml"
+    - "ink"
+    - "react"
   optional_dependencies:
     - "node-pty"
   toolchain:
