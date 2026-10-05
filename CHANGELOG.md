@@ -35,6 +35,13 @@ port". The PHP prototype that preceded them was never published.
   byte-for-byte what it was; the new `<traceId>.events.jsonl` has its own record format. A script that reads
   every `*.jsonl` there and expects span lines should skip names ending in `.events.jsonl`.
 
+### Fixed
+
+- A cost an ACP agent reports in USD is now recorded on the step's span as `indaba.cost.usd`. The `acp` runner
+  returned it as `RunResult.reportedCostUsd` and the changelog said it was used, but the engine never copied it
+  onto a span, so such steps had no cost in the trace. A cost worked out from the pricing table still wins, and
+  nothing is recorded when neither exists.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 The second preview, and the release `0.1.0-alpha.1` was meant to be. It makes the API and ACP the primary

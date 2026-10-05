@@ -5,12 +5,14 @@ import {
   GuardResult,
   Isolation,
   McpPolicy,
+  PricingTable,
   type Runner,
   RunnerError,
   type RunRequest,
   RunResult,
   SimpleEventDispatcher,
   type Span,
+  SpanEnded,
   SpanStarted,
   type StepDefinition,
   StepOutput,
@@ -502,5 +504,59 @@ describe('StepExecutor: streamed output as events', () => {
     await executor.run(step({ id: 's', role: 'a' }), workflow([]), '.', span, { onOutput: sink });
 
     expect(requests[0]?.onOutput).toBe(sink);
+  });
+});
+
+describe('StepExecutor: cost on the span', () => {
+  async function costOf(result: RunResult, model?: string): Promise<unknown> {
+    const events = new SimpleEventDispatcher();
+    const ended: Span[] = [];
+    events.addListener(SpanEnded, (e) => {
+      ended.push(e.span);
+    });
+    const tracer = new Tracer(new FixedClock(), events, new SequenceIds(), PricingTable.defaults());
+    const runner = new FakeRunner('agent', () => result);
+    const executor = new StepExecutor({
+      runners: new FakeRegistry([runner]),
+      guards: new GuardRegistry(),
+      tracer,
+    });
+    const root = await tracer.startTrace('root');
+    const wf = workflow([], {
+      roles: { a: { name: 'a', runner: 'agent', ...(model === undefined ? {} : { model }), mcp: [] } },
+    });
+
+    await executor.run(step({ id: 's', role: 'a' }), wf, '.', root);
+
+    return ended.find((s) => s.name === 'invoke_agent agent')?.attributes[Tracer.ATTR_COST_USD];
+  }
+
+  it('records a cost the runner reported when there is nothing to work one out from', async () => {
+    expect(await costOf(new RunResult({ exitCode: 0, output: '', reportedCostUsd: 0.42 }))).toBe(0.42);
+  });
+
+  it('records a reported cost of zero, which is a real answer and not a missing one', async () => {
+    expect(await costOf(new RunResult({ exitCode: 0, output: '', reportedCostUsd: 0 }))).toBe(0);
+  });
+
+  it('records nothing when the runner reported no cost and there is no usage to price', async () => {
+    expect(await costOf(new RunResult({ exitCode: 0, output: '' }))).toBeUndefined();
+  });
+
+  it('keeps a cost worked out from the pricing table over one the runner reported', async () => {
+    const priced = await costOf(
+      new RunResult({ exitCode: 0, output: '', usage: new TokenUsage(1000, 1000), reportedCostUsd: 99 }),
+      'anthropic/claude-3.7-sonnet',
+    );
+    expect(typeof priced).toBe('number');
+    expect(priced).toBeCloseTo(0.018, 6); // 1000 input at 3.0 and 1000 output at 15.0 per million
+  });
+
+  it('uses a reported cost when the model is not in the pricing table', async () => {
+    const reported = await costOf(
+      new RunResult({ exitCode: 0, output: '', usage: new TokenUsage(10, 10), reportedCostUsd: 0.5 }),
+      'some-unpriced-model',
+    );
+    expect(reported).toBe(0.5);
   });
 });

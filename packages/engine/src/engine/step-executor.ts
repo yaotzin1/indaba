@@ -413,6 +413,11 @@ ${this.prompts.tail(result.failureText())}`,
     if (result.usage !== undefined && model !== undefined) {
       this.tracer.recordUsage(span, runner.name, model, result.usage);
     }
+    // A cost the runner itself reported (an ACP agent may) is used when none was worked out from the pricing
+    // table; a computed cost is never overwritten, and nothing is invented when neither exists.
+    if (result.reportedCostUsd !== undefined && span.attributes[Tracer.ATTR_COST_USD] === undefined) {
+      span.setAttribute(Tracer.ATTR_COST_USD, result.reportedCostUsd);
+    }
     span.setAttribute('indaba.exit_code', result.exitCode);
     await this.tracer.endSpan(span, result.succeeded() ? SpanStatus.Ok : SpanStatus.Error);
     return result;
