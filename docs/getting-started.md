@@ -154,7 +154,10 @@ for example Gemini with `403 ... unregistered callers`. So Indaba logs in up fro
   (for an agent that is already logged in). The question names the `auth:` line that skips it next time.
   With no terminal (CI, a pipe) Indaba never asks and does not log in.
 
-A browser-based method (`Log in with Google`) opens the agent's own login; Indaba waits for it. The
+A browser-based method opens the agent's own login; Indaba waits for it. The agent decides what it still
+supports: the Gemini CLI, for one, now refuses its personal "Log in with Google" method ("migrate to the
+Antigravity suite of products"), so with Gemini use an API key (`gemini-api-key`, from `GEMINI_API_KEY`) or
+Vertex AI. Indaba reports such a refusal as a runner that could not run, with the agent's own message. The
 agent keeps the credentials itself, so the next run's login is quick. A login that fails is a runner that
 could not run: a fallback list moves on to the next runner.
 

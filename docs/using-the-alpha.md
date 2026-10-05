@@ -160,6 +160,10 @@ agent changed it; the worktree keeps your project untouched until you apply the 
 
 Things to know:
 
+- **Gemini:** its personal Google login is discontinued; use `auth: "gemini-api-key"` with `GEMINI_API_KEY`
+  set, or Vertex AI. Antigravity (`agy`) is separate: it has no ACP mode of its own, so use its CLI runner
+  (`antigravity`) as the fallback, or a community ACP adapter for it at your own risk (third-party code that
+  drives your Antigravity session; check its license and source first).
 - `claude`, `codex` start with `npx`, which downloads code each time and, on Windows, is a `.cmd` shim
   Indaba does not start. Install the agent and use `agent: { command: [...] }` with the native
   executable there, or when you want a pinned version.
