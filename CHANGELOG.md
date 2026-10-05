@@ -15,6 +15,26 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **A run event stream** (minor; track `feature`; spec `specs/tui`). Every `indaba run` now also writes
+  `.indaba/traces/<traceId>.events.jsonl` while it runs: one record per line for each span start and end, each
+  step status change (`PENDING -> RUNNING -> ...`) and each chunk of output a step streams. It exists so
+  something can follow a run live: the trace file only gets a span when the span ends, and records neither
+  step states nor output. Output is passed through the same credential redaction the command line uses for its
+  own messages (variables named like a key, token, secret, password or credential), cut to 4096 characters a
+  record, and capped at 2 MiB a run, after which one `truncated` record is written. It can still hold whatever
+  an agent printed, so it stays under `.indaba/` (gitignored, local).
+- `@indaba/core`: a `StepOutput` event, dispatched for each streamed chunk. `@indaba/engine`: `RunEventWriter`,
+  `TraceReader` (read all, follow live, list runs; tolerates half-written and malformed lines, and reads runs
+  written before the stream existed from their trace file), `parseRecord` and the record types.
+
+### Changed
+
+- A run now leaves two files in `.indaba/traces/` instead of one. The trace file `<traceId>.jsonl` is
+  byte-for-byte what it was; the new `<traceId>.events.jsonl` has its own record format. A script that reads
+  every `*.jsonl` there and expects span lines should skip names ending in `.events.jsonl`.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 The second preview, and the release `0.1.0-alpha.1` was meant to be. It makes the API and ACP the primary

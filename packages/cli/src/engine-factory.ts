@@ -5,6 +5,9 @@ import {
   PricingTable,
   SimpleEventDispatcher,
   SpanEnded,
+  SpanStarted,
+  StepOutput,
+  StepStatusChanged,
   Tracer,
 } from '@indaba/core';
 import {
@@ -13,6 +16,7 @@ import {
   JsonlSpanExporter,
   McpPlanner,
   RandomIdGenerator,
+  RunEventWriter,
   StepExecutor,
   SystemClock,
   WorkflowEngine,
@@ -20,6 +24,7 @@ import {
 } from '@indaba/engine';
 import { type AuthChooser, openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
 import { RegistryPluginHost } from './plugin-host.js';
+import { redact } from './redact.js';
 
 /** The environment values the built-in runners read. Nothing else is forwarded. */
 const RUNNER_ENV_KEYS = [
@@ -81,11 +86,27 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   }
 
   const events = new SimpleEventDispatcher(options.onListenerError);
-  const exporter = new JsonlSpanExporter(join(options.projectDir, '.indaba', 'traces'));
+  const traceDirectory = join(options.projectDir, '.indaba', 'traces');
+  const exporter = new JsonlSpanExporter(traceDirectory);
   events.addListener(SpanEnded, (event) => exporter.onSpanEnded(event));
 
+  const clock = new SystemClock();
+  // What a run does, as it does it, for anything that wants to follow it. Output passes through the same
+  // credential redaction the command line applies to its own messages before it is stored.
+  const secrets = options.env ?? {};
+  const stream = new RunEventWriter({
+    directory: traceDirectory,
+    clock,
+    redact: (text) => redact(text, secrets),
+    ...(options.onListenerError === undefined ? {} : { onError: options.onListenerError }),
+  });
+  events.addListener(SpanStarted, (event) => stream.onSpanStarted(event));
+  events.addListener(SpanEnded, (event) => stream.onSpanEnded(event));
+  events.addListener(StepStatusChanged, (event) => stream.onStepStatus(event));
+  events.addListener(StepOutput, (event) => stream.onOutput(event));
+
   const ids = new RandomIdGenerator();
-  const tracer = new Tracer(new SystemClock(), events, ids, PricingTable.defaults());
+  const tracer = new Tracer(clock, events, ids, PricingTable.defaults());
   const runners = RunnerRegistry.withDefaults(env, {
     ...(options.env === undefined ? {} : { hostEnv: options.env }),
     ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
@@ -113,6 +134,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     runners,
     guards,
     tracer,
+    events,
     ...(options.stepTimeoutSeconds === undefined ? {} : { timeoutSeconds: options.stepTimeoutSeconds }),
   });
   const engine = new WorkflowEngine({

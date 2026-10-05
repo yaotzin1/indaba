@@ -44,8 +44,11 @@ describe('extension without touching core (AC-11)', () => {
     expect(lines).toContain('event:work:RUNNING');
     expect(lines).toContain('event:work:COMPLETED');
 
-    const traces = await readdir(join(dir, '.indaba', 'traces'));
-    expect(traces).toHaveLength(1);
+    const traces = (await readdir(join(dir, '.indaba', 'traces'))).sort();
+    expect(traces).toHaveLength(2);
+    expect(traces[0]).toMatch(/^[0-9a-f]{32}.events.jsonl$/);
+    expect(traces[1]).toMatch(/^[0-9a-f]{32}.jsonl$/);
+    expect(traces[1]?.replace('.jsonl', '')).toBe(traces[0]?.replace('.events.jsonl', ''));
   });
 
   it('accepts several plugins, a relative path and a failing runner', async () => {

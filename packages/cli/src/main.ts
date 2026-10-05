@@ -25,6 +25,7 @@ import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
+import { redact } from './redact.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -98,17 +99,6 @@ function readVersion(): string {
 }
 
 class UsageError extends Error {}
-
-/** Environment values that look like credentials never reach the terminal, even inside an error. */
-function redact(text: string, env: Io['env']): string {
-  let out = text;
-  for (const [key, value] of Object.entries(env)) {
-    if (value !== undefined && value.length >= 4 && /key|token|secret|password|credential/i.test(key)) {
-      out = out.split(value).join('[redacted]');
-    }
-  }
-  return out;
-}
 
 function usageError(io: Io, message: string, command?: string): number {
   io.stderr.write(`${message}\n\n${command === undefined ? USAGE : (COMMAND_USAGE[command] ?? USAGE)}`);
