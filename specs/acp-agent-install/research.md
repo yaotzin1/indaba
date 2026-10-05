@@ -34,7 +34,7 @@ Source: `https://cdn.agentclientprotocol.com/registry/v1/latest/registry.json` (
 ### Observed on this machine
 
 - JetBrains installed Antigravity ACP versions 1.0.0 and 1.1.1 under
-  `AppData/Local/JetBrains/IntelliJIdea2026.2/acp-agents/antigravity-acp/<version>/`; the 1.1.1 executable is
+  `<user local data>/JetBrains/<IDE and version>/acp-agents/antigravity-acp/<version>/`; the 1.1.1 executable is
   about 430 MB. JetBrains' own record for it has `sha256: null` and a field for an accepted terms-of-service
   version, so an editor already asks for consent and records it.
 - A read-only `initialize` of that executable returned protocol version 1 and four login methods
@@ -88,5 +88,6 @@ it by hand and use `agent: { command: [...] }`. Bare executables need no extract
 
 - `registry.json` fetched on 2026-10-05 and analysed locally (counts above).
 - `npm view` metadata for `yauzl`, `fflate`, `adm-zip`, `extract-zip`, `unzipper`, `tar`.
-- Local files: `AppData/Roaming/JetBrains/acp-agents/installed.json`, the `acp-agents` folders under
-  `AppData/Local/JetBrains`, `~/.jetbrains/acp.json` (agent list, no secrets read).
+- The JetBrains IDE's own files on the machine where this was measured: its `acp-agents/installed.json`
+  record, its `acp-agents` install folders and its ACP agent list (no secrets read). Their exact locations
+  depend on the operating system and the IDE version and are deliberately not given here.
