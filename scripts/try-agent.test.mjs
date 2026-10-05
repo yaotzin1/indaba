@@ -63,7 +63,7 @@ test('every named agent has a package and a way to start it', () => {
 
 test('workflow: every dynamic value survives as JSON, even a hostile one', () => {
     const goal = 'Change the title to "# demo2".\nThen: stop #1';
-    const command = ['C:\\Program Files\\nodejs\\node.exe', 'C:\\x y\\agent.js', '--flag="quoted"'];
+    const command = ['C:\\Example Dir\\bin\\agent.exe', 'D:\\sample folder\\agent.js', '--flag="quoted"'];
     const text = buildWorkflow({ name: 'try-edit', command, auth: 'oauth-personal', goal, write: ['src/**'] });
     const grab = (key) => JSON.parse(text.split('\n').find((line) => line.trim().startsWith(`${key}:`)).split(/:(.*)/s)[1]);
     assert.equal(grab('goal'), goal);
