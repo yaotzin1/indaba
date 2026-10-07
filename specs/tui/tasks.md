@@ -5,17 +5,17 @@ independently checkable; tests are written with each task.
 
 ## Event stream (`@indaba/core`, `@indaba/engine`)
 
-- [ ] **T-01** core: `StepOutput` event; exported; test
-- [ ] **T-02** engine: `StepExecutorOptions.events`; `invoke` dispatches `StepOutput` for each streamed chunk with the span's ids and a per-span sequence number; no change when no dispatcher is given; tests
-- [ ] **T-03** engine `trace/records.ts`: `RunRecord` union, `parseRecord(line)` (total: unknown or malformed becomes an `unknown` record), a hex run-id check; tests incl. hostile lines
-- [ ] **T-04** engine `trace/event-writer.ts`: `RunEventWriter` (clock, redactor, caps injected); task-to-trace mapping from the root span; whole-line appends; first write error reported once, never thrown; the 4096 and 2 MiB caps with one `truncated` record; tests with a temporary directory
-- [ ] **T-05** engine `trace/trace-reader.ts`: `readAll`, `follow` (100 ms poll, abortable), `listRuns`; partial last line, malformed lines, a file that appears late, a run id escaping the directory; tests incl. a real file being appended to
-- [ ] **T-06** the existing `<traceId>.jsonl` is byte-identical with the writer on and off (snapshot test); layers test: engine imports no `ink` or `react`
+- [x] **T-01** core: `StepOutput` event; exported; test
+- [x] **T-02** engine: `StepExecutorOptions.events`; `invoke` dispatches `StepOutput` for each streamed chunk with the span's ids and a per-span sequence number; no change when no dispatcher is given; tests
+- [x] **T-03** engine `trace/records.ts`: `RunRecord` union, `parseRecord(line)` (total: unknown or malformed becomes an `unknown` record), a hex run-id check; tests incl. hostile lines
+- [x] **T-04** engine `trace/event-writer.ts`: `RunEventWriter` (clock, redactor, caps injected); task-to-trace mapping from the root span; whole-line appends; first write error reported once, never thrown; the 4096 and 2 MiB caps with one `truncated` record; tests with a temporary directory
+- [x] **T-05** engine `trace/trace-reader.ts`: `readAll`, `follow` (100 ms poll, abortable), `listRuns`; partial last line, malformed lines, a file that appears late, a run id escaping the directory; tests incl. a real file being appended to
+- [x] **T-06** the existing `<traceId>.jsonl` is byte-identical with the writer on and off (snapshot test); layers test: engine imports no `ink` or `react`
 
 ## Console wiring (`indaba`)
 
-- [ ] **T-07** `createEngine` registers the writer on the events (and passes `events` to the executor), with a redactor built from the environment; a `run` writes the event file; end-to-end test through the built CLI
-- [ ] **T-08** a plain `indaba watch [run] --plain` that needs no TUI package: lists runs, follows one, prints state lines, exits with the run's status (0, 1, 2, 3); tests
+- [x] **T-07** `createEngine` registers the writer on the events (and passes `events` to the executor), with a redactor built from the environment; a `run` writes the event file; end-to-end test through the built CLI
+- [x] **T-08** a plain `indaba watch [run] --plain` that needs no TUI package: lists runs, follows one, prints state lines, exits with the run's status (0, 1, 2, 3); tests
 
 ## `@indaba/tui` (pure part)
 
@@ -34,24 +34,24 @@ independently checkable; tests are written with each task.
 
 ## Console, the rest
 
-- [ ] **T-18** (done for `watch`; `run --tui` is open) the CLI loads `@indaba/tui` with a dynamic import that may fail; `watch` uses it when present and prints how to install it when not; `run --tui` (child process, attach, detach or cancel); tests with a fake module and one end-to-end run
-- [ ] **T-19** `run --tui` closing: detach leaves the run going, cancel stops it and tears the worktree down; tests
+- [x] **T-18** the CLI loads `@indaba/tui` with a dynamic import that may fail; `watch` uses it when present and prints how to install it when not; `run --tui` (child process, attach, detach or cancel); tests with a fake module and one end-to-end run
+- [x] **T-19** `run --tui` closing: detach leaves the run going, cancel stops it and tears the worktree down; tests
 
 ## Tests
 
-- [ ] **T-20** every new module tested to the repo's floor (85% on all four metrics) and mutation-checked on `sanitize`, the reader, the writer's caps and `reduceRun`
-- [ ] **T-21** hostile-input tests: control sequences in agent output, a trace line with a huge field, a path-like run id, a record with unexpected types; hostile strings built from fragments
+- [x] **T-20** every new module tested to the repo's floor (85% on all four metrics) and mutation-checked on `sanitize`, the reader, the writer's caps and `reduceRun`
+- [x] **T-21** hostile-input tests: control sequences in agent output, a trace line with a huge field, a path-like run id, a record with unexpected types; hostile strings built from fragments
 
 ## Documentation
 
-- [ ] **T-22** `docs/getting-started.md` (the `watch` command, `--tui`, `--plain`, `NO_COLOR`, where the event file is and what it holds), `docs/README.md`, README, CHANGELOG, `specs/DEPENDENCY_MAP.md`, AGENTS.md repository map and the packages table
-- [ ] **T-23** `research.md` records the pinned versions and the re-run license check; `review.md` filled in with real output
+- [x] **T-22** `docs/getting-started.md` (the `watch` command, `--tui`, `--plain`, `NO_COLOR`, where the event file is and what it holds), `docs/README.md`, README, CHANGELOG, `specs/DEPENDENCY_MAP.md`, AGENTS.md repository map and the packages table
+- [x] **T-23** `research.md` records the pinned versions and the re-run license check; `review.md` filled in with real output
 
 ## Stage 7: Verification
 
-- [ ] `pnpm qa`, `pnpm e2e`, `pnpm smoke` and the node gates green; output recorded in review.md
+- [x] `pnpm qa`, `pnpm e2e`, `pnpm smoke` and the node gates green; output recorded in review.md
 - [ ] a manual run on this Windows machine (Windows Terminal) and the result noted; Linux and macOS by CI
 
 > T-10 to T-12 live in `@indaba/engine` (`sanitize`, `reduceRun`, the plain formatter) rather than in `@indaba/tui`,
-> so the plain `watch` needs none of Ink; T-13's replay lives in `@indaba/tui`. Open: T-18 (`run --tui`), T-19, the
-> mutation re-run of T-20, the rest of T-22, and T-23.
+> so the plain `watch` needs none of Ink; T-13's replay lives in `@indaba/tui`. Open: only the manual run in a real
+> terminal (Windows Terminal) and the CI result on Linux and macOS; see `review.md`, Known gaps.

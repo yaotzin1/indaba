@@ -36,6 +36,11 @@ port". The PHP prototype that preceded them was never published.
   `--plain` or `--output` print lines as before, `--ascii` draws without box or arrow characters, and with no
   terminal, or with the package absent (it says how to install it), the command prints lines. `indaba` lists
   `@indaba/tui` as an optional peer dependency, so `indaba` alone installs none of Ink or React.
+- **`indaba run --tui`** (minor; track `feature`; spec `specs/tui`): starts the run in a process of its own and
+  opens the dashboard on it, so closing the screen never decides whether the run lives. Quitting asks to detach (the
+  run goes on) or cancel (it stops and removes its worktree); an interrupt on the command line cancels. Cancel is a
+  message over the child's channel, not a signal, so it stops the run gracefully on Windows too. It needs a
+  terminal and `@indaba/tui`, and starts nothing without them.
 - **`indaba watch [run]`**: follow a run from the files it writes, or read a finished one. With no run it lists
   them, newest first; a run is its id, a unique start of it, or `latest`. It prints each step change and runner
   start and end as it happens (`--output` adds the streamed lines), then a final view, and exits the way the run

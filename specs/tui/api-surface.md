@@ -22,11 +22,13 @@ recorded in `research.md`, confined to `@indaba/tui`.
 | `@indaba/engine` `trace` | class | `RunEventWriter`, constructor `{ directory: string; clock: Clock; redact?: (text: string) => string; maxRecordChars?: number; maxRunChars?: number; onError?: (error: unknown) => void }`; methods `onSpanStarted`, `onSpanEnded`, `onStepStatus`, `onOutput` |
 | `@indaba/engine` `trace` | class | `TraceReader`, constructor `(directory: string)`; `readAll(runId): Promise<RunRecord[]>`; `follow(runId, signal): AsyncIterable<RunRecord>`; `listRuns(): Promise<RunSummary[]>` |
 | `@indaba/engine` `trace` | interface | `RunSummary { runId; startedAt?; status: 'running' \| 'completed' \| 'failed' \| 'escalated' \| 'cancelled' \| 'unknown' }` |
-| `@indaba/tui` | function | `watch(options: WatchOptions): Promise<number>`, the live view and replay; returns the exit status |
+| `@indaba/tui` | function | `watch(options: WatchOptions): Promise<WatchResult>`, the live view and replay; `WatchResult` is `{ quit: 'close' \| 'detach' \| 'cancel'; code: number; run: RunState }` |
 | `@indaba/tui` | functions | `reduceRun(state, record): RunState`, `emptyRun(): RunState`, `formatPlain(state, options): string` |
 | `@indaba/tui` | function | `sanitize(text: string): string` and `createSanitizer(): (chunk: string) => string` |
 | `indaba watch [run]` | command | plain view always available; the Ink view when `@indaba/tui` loads |
-| `indaba run --tui` | option | same condition |
+| `indaba run --tui` | option | same condition, and a terminal; starts nothing otherwise |
+| `indaba` `Io` | field | `startRun?: RunStarter`: starts `indaba run` as a process of its own for `run --tui`; the binary supplies it, an embedder may replace it. Optional, so additive |
+| `indaba` | types, function | `RunChild`, `RunStarter`, `StartOptions` and `createRunStarter(execPath, script): RunStarter`; the child is asked to stop with the message `indaba:cancel` over its IPC channel, because a signal is no gentle request on Windows |
 
 ### Record shapes
 
@@ -43,7 +45,7 @@ recorded in `research.md`, confined to `@indaba/tui`.
 | Command | Behaviour |
 | :--- | :--- |
 | `watch [run]` | attach to a run's files; no argument lists runs; `--plain` and a non-TTY give line output; `--replay[=1\|10]` replays a finished run |
-| `run --tui` | start the workflow in a child process and attach; closing the UI asks detach or cancel |
+| `run --tui` | start the workflow in a child process and attach; closing the UI asks detach (the run goes on) or cancel (it stops and tears down its worktree); an interrupt of the command cancels; the dashboard failing leaves the run going |
 
 Exit status of `watch --plain` mirrors the run: `0` completed, `1` failed, `2` escalated, `3` the files ended
 without a final state.

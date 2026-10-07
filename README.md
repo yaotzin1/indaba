@@ -59,10 +59,11 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`), plugin loading, the composition root | the three below |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`), plugin loading, the composition root | the three below; optional `@indaba/tui` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
+| `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
 
 All packages are ESM, ship their types, and need Node 22 or newer.
 
@@ -135,7 +136,7 @@ See [`docs/extending.md`](docs/extending.md) for a complete example.
 
 Indaba follows [Semantic Versioning 2.0.0](https://semver.org/). The first
 published version is `0.1.0-alpha.0`; prereleases go to the `next` dist-tag. While the major version is `0`, a breaking change bumps the minor version. The
-public surface is the workflow file schema, the command line, the exported API of the four packages,
+public surface is the workflow file schema, the command line, the exported API of the five packages,
 emitted events and span attribute names. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Development

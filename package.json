@@ -17,6 +17,7 @@
     "mutation": "stryker run",
     "qa": "pnpm lint && pnpm typecheck && pnpm coverage",
     "smoke": "node scripts/smoke-pack.mjs",
+    "indaba": "node packages/cli/dist/bin.js",
     "try:agent": "node scripts/try-agent.mjs"
   },
   "devDependencies": {
