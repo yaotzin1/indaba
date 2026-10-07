@@ -1,0 +1,47 @@
+name: Mutation tests
+
+# Mutation testing changes the source in thousands of small ways and checks that a test fails each time.
+# It takes tens of minutes, so it is not part of the pull request checks: it runs every week and on
+# demand. The run fails when the score drops below the `break` threshold in stryker.config.json.
+on:
+  schedule:
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  mutation:
+    name: Mutation score
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+
+      - name: Git identity for the workspace tests
+        run: |
+          git config --global user.email "ci@localhost"
+          git config --global user.name "CI"
+          git config --global init.defaultBranch main
+
+      - name: Mutation tests
+        run: pnpm mutation
+
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mutation-report
+          path: .stryker/report.html
+          if-no-files-found: ignore

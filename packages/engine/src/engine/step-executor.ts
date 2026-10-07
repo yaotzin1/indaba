@@ -1,6 +1,7 @@
 import { lstat, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type {
+  EventDispatcher,
   Runner,
   RunRequest,
   RunResult,
@@ -23,6 +24,7 @@ import {
   RunnerUnavailableError,
   SHELL_RUNNER,
   SpanStatus,
+  StepOutput,
   Tracer,
 } from '@indaba/core';
 import type { GuardRegistry } from '../guard/registry.js';
@@ -34,6 +36,8 @@ import { StepOutcome } from './outcome.js';
 import { PromptBuilder } from './prompt-builder.js';
 
 export interface StepExecutorOptions {
+  /** When given, each chunk a runner streams is also dispatched as a `StepOutput` event. */
+  readonly events?: EventDispatcher;
   readonly runners: RunnerLookup;
   readonly guards: GuardRegistry;
   readonly tracer: Tracer;
@@ -65,6 +69,7 @@ export class StepExecutor {
   private readonly arbiter: ConsensusArbiter;
   private readonly timeoutSeconds: number;
   private readonly mcp: McpPlanner;
+  private readonly events: EventDispatcher | undefined;
 
   constructor(options: StepExecutorOptions) {
     this.runners = options.runners;
@@ -74,6 +79,7 @@ export class StepExecutor {
     this.arbiter = options.arbiter ?? new ConsensusArbiter();
     this.timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
     this.mcp = new McpPlanner(options.runners);
+    this.events = options.events;
   }
 
   mcpIssues(workflow: WorkflowDefinition): McpIssue[] {
@@ -88,13 +94,13 @@ export class StepExecutor {
     options: StepRunOptions = {},
   ): Promise<StepOutcome> {
     try {
-      if (isShellStep(step)) {
-        return await this.runShell(step, workdir, span, options);
-      }
-      if (isConsensusStep(step)) {
-        return await this.runConsensus(step, workflow, workdir, span, options);
-      }
-      return await this.runAgent(step, workflow, workdir, span, options);
+      const outcome = isShellStep(step)
+        ? await this.runShell(step, workdir, span, options)
+        : isConsensusStep(step)
+          ? await this.runConsensus(step, workflow, workdir, span, options)
+          : await this.runAgent(step, workflow, workdir, span, options);
+      // The process runners report an abort as a failed result (exit 130), not as an exception.
+      return !outcome.ok && options.signal?.aborted === true ? StepOutcome.cancelled() : outcome;
     } catch (error) {
       if (options.signal?.aborted === true) {
         return StepOutcome.cancelled();
@@ -354,6 +360,25 @@ ${this.prompts.tail(result.failureText())}`,
     }
   }
 
+  /**
+   * What a runner is given to stream into: the caller's own sink, and, when there is a dispatcher, a
+   * `StepOutput` event for each chunk. Nothing is added when neither is wanted.
+   */
+  private outputSink(request: RunRequest, span: Span): Pick<RunRequest, 'onOutput'> {
+    const events = this.events;
+    const sink = request.onOutput;
+    if (events === undefined) {
+      return sink === undefined ? {} : { onOutput: sink };
+    }
+    let seq = 0;
+    return {
+      onOutput: (chunk) => {
+        sink?.(chunk);
+        void events.dispatch(new StepOutput(span.traceId, span.spanId, seq++, chunk));
+      },
+    };
+  }
+
   private async invoke(
     runner: Runner,
     request: RunRequest,
@@ -372,7 +397,11 @@ ${this.prompts.tail(result.failureText())}`,
     try {
       signal?.throwIfAborted();
       result = await runner.run(
-        { ...request, onEvent: (name, attributes) => span.addEvent(name, attributes) },
+        {
+          ...request,
+          onEvent: (name, attributes) => span.addEvent(name, attributes),
+          ...this.outputSink(request, span),
+        },
         signal,
       );
     } catch (error) {
@@ -383,6 +412,11 @@ ${this.prompts.tail(result.failureText())}`,
     const model = result.model ?? request.model;
     if (result.usage !== undefined && model !== undefined) {
       this.tracer.recordUsage(span, runner.name, model, result.usage);
+    }
+    // A cost the runner itself reported (an ACP agent may) is used when none was worked out from the pricing
+    // table; a computed cost is never overwritten, and nothing is invented when neither exists.
+    if (result.reportedCostUsd !== undefined && span.attributes[Tracer.ATTR_COST_USD] === undefined) {
+      span.setAttribute(Tracer.ATTR_COST_USD, result.reportedCostUsd);
     }
     span.setAttribute('indaba.exit_code', result.exitCode);
     await this.tracer.endSpan(span, result.succeeded() ? SpanStatus.Ok : SpanStatus.Error);

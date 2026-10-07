@@ -6,8 +6,15 @@
     "paths": {
       "@indaba/core": ["packages/core/src/index.ts"],
       "@indaba/engine": ["packages/engine/src/index.ts"],
-      "@indaba/runners": ["packages/runners/src/index.ts"]
+      "@indaba/runners": ["packages/runners/src/index.ts"],
+      "@indaba/tui": ["packages/tui/src/index.ts"]
     }
   },
-  "include": ["packages/*/src/**/*.ts", "packages/*/test/**/*.ts", "vitest.config.ts"]
+  "include": [
+    "packages/*/src/**/*.ts",
+    "packages/*/test/**/*.ts",
+    "packages/*/e2e/**/*.ts",
+    "vitest.config.ts",
+    "vitest.e2e.config.ts"
+  ]
 }

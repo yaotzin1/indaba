@@ -11,7 +11,7 @@ workflows, in TypeScript for Node 22+, MIT licensed. The founding requirement is
 DAG with quality gates, a mesh where agents cross-examine each other to consensus, unified runners
 (agent CLIs, OpenRouter SSE, shell), git-worktree isolation, and OpenTelemetry GenAI traces with
 token and cost accounting. It is distributed as the npm packages `indaba` (the CLI), `@indaba/core`,
-`@indaba/engine` and `@indaba/runners`.
+`@indaba/engine`, `@indaba/runners` and the optional `@indaba/tui`.
 
 **Two different `workflow.ai.yml`s.** The one at the root of this repository is the *development*
 workflow: how agents and people change Indaba. It is not the file format Indaba executes (that
@@ -25,7 +25,8 @@ repository's own stages with Indaba is a future goal and a non-goal today.
 | `packages/core/` | `@indaba/core`: the pure domain, no dependencies, no `node:` import. Workflow model, DAG, step state, mesh, `Runner` and `Guard` contracts, `Plugin` and `PluginHost`, tracer and value types |
 | `packages/engine/` | `@indaba/engine`: parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter |
 | `packages/runners/` | `@indaba/runners`: `ShellRunner`, `OpenRouterRunner`, the agent CLI runners, `RunnerRegistry`, `SseParser` |
-| `packages/cli/` | `indaba`: `run`, `plan`, `validate`, plugin loading, the composition root; `bin: indaba` |
+| `packages/tui/` | `@indaba/tui`: the optional Ink dashboard of a run (the only package that imports `ink` and `react`) |
+| `packages/cli/` | `indaba`: `run`, `plan`, `validate`, `watch`, plugin loading, the composition root; `bin: indaba` |
 | `packages/*/test/` | Vitest tests; `core/test/architecture.test.ts` and `*/test/layers.test.ts` guard the boundaries |
 | `scripts/` | Node gates: validation, doc sync, workflow and security checks, hooks, the packed-install smoke test |
 | `specs/` | one directory per feature: spec, API surface, review, plus optional artifacts |
@@ -39,7 +40,9 @@ Node 22 and pnpm 9 on any OS (Windows included); nothing else is needed on the h
 
 ```bash
 pnpm install
-pnpm qa                                  # biome, tsc strict, vitest
+pnpm qa                                  # biome, tsc strict, vitest with the 85% coverage floor
+pnpm e2e                                 # build, then run the built CLI end to end
+pnpm mutation                            # StrykerJS, tens of minutes; weekly in CI
 pnpm test                                # one gate; also lint, typecheck, lint:fix, build
 pnpm vitest run packages/core -t "name"  # a single test
 pnpm smoke                               # the packed install (after pnpm build)
@@ -166,6 +169,7 @@ One line each. The reason and what enforces it are in `.agents/rules/workflow_ru
 - One command, any OS.
 - Nothing is published or tagged unless the maintainer asks.
 - Repository documentation moves with the change: AGENTS.md, README.md, CHANGELOG.md and specs/DEPENDENCY_MAP.md whenever the public surface, the architecture or the release contents change, and the files under docs/ in...
+- Everything is tested, and coverage is at least 85% on statements, branches, functions and lines, measured by Vitest with the v8 provider over packages/*/src.
 - No invented numbers.
 
 <!-- END GENERATED: ai-workflow-cycle -->

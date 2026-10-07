@@ -110,6 +110,10 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # The built binary run as a user runs it, in temporary git repositories, on every OS.
+      - name: End-to-end tests
+        run: pnpm exec vitest run --config vitest.e2e.config.ts
+
       # The packed packages, not the source tree: what a consumer's `npm install` gets.
       - name: Smoke test the packed install
         run: pnpm smoke

@@ -27,7 +27,7 @@ const SELF = path.relative(ROOT, fileURLToPath(import.meta.url)).split(path.sep)
 /** Directories scanned for source rules. Tests are included: a test is code that runs too. */
 export const SOURCE_DIRECTORIES = ['scripts', '.githooks', 'packages', 'apps'];
 const SOURCE_EXTENSIONS = new Set(['.mjs', '.js', '.ts', '.mts']);
-const IGNORED_DIRECTORIES = new Set(['node_modules', '.git', '.indaba', 'dist']);
+const IGNORED_DIRECTORIES = new Set(['node_modules', '.git', '.indaba', 'dist', '.stryker', 'coverage']);
 
 /** Directories holding decision logic, where the clock, randomness and environment must be injected. */
 export const DETERMINISTIC_DIRECTORIES = ['packages/core/src/', 'packages/engine/src/'];

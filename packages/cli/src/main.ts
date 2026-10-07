@@ -25,6 +25,11 @@ import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
+import { redact } from './redact.js';
+import type { RunStarter } from './run-child.js';
+import { runWithDashboard } from './run-tui.js';
+import { loadTui, type TuiLoad } from './tui-loader.js';
+import { watch } from './watch.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -35,6 +40,12 @@ export interface Io {
   readonly signal?: AbortSignal;
   /** Present only when a person is at a terminal: lets them pick how an ACP agent logs in. */
   readonly chooseAuthMethod?: AuthChooser;
+  /** Present only when a person is at a terminal: where the dashboard of `indaba watch` is drawn and read from. */
+  readonly terminal?: { readonly stdin: NodeJS.ReadableStream; readonly stdout: NodeJS.WritableStream };
+  /** Loads the optional dashboard package. Defaults to importing `@indaba/tui`; tests replace it. */
+  readonly loadTui?: () => Promise<TuiLoad>;
+  /** Starts `indaba run` as a process of its own, for `run --tui`. Supplied by the binary; tests replace it. */
+  readonly startRun?: RunStarter;
 }
 
 export const EXIT_OK = 0;
@@ -51,6 +62,7 @@ Commands:
   validate [file]   Validate a workflow file
   plan [file]       Show the execution order of a workflow without running it
   run [file]        Execute a workflow
+  watch [run]       Follow or read a run from the files it writes (no run: list them)
 
 Options:
   -h, --help        Show help
@@ -80,10 +92,12 @@ Options:
       --timeout <secs>    Per-step timeout in seconds (default: 900)
       --plugin <spec>     Load a plugin; repeatable
   -v, --verbose           Print the cost of each span; -vv also streams agent output
+      --tui               Run in a process of its own and show it as a dashboard (needs a terminal and @indaba/tui);
+                          closing the dashboard asks whether to detach (the run goes on) or cancel it
 `,
 };
 
-const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose'] as const;
+const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose', 'tui'] as const;
 
 function processIo(): Io {
   return { stdout: process.stdout, stderr: process.stderr, env: process.env, cwd: process.cwd() };
@@ -99,17 +113,6 @@ function readVersion(): string {
 
 class UsageError extends Error {}
 
-/** Environment values that look like credentials never reach the terminal, even inside an error. */
-function redact(text: string, env: Io['env']): string {
-  let out = text;
-  for (const [key, value] of Object.entries(env)) {
-    if (value !== undefined && value.length >= 4 && /key|token|secret|password|credential/i.test(key)) {
-      out = out.split(value).join('[redacted]');
-    }
-  }
-  return out;
-}
-
 function usageError(io: Io, message: string, command?: string): number {
   io.stderr.write(`${message}\n\n${command === undefined ? USAGE : (COMMAND_USAGE[command] ?? USAGE)}`);
   return EXIT_USAGE;
@@ -122,6 +125,7 @@ interface Parsed {
   readonly taskId: string | undefined;
   readonly timeout: number | undefined;
   readonly verbosity: number;
+  readonly tui: boolean;
   readonly help: boolean;
 }
 
@@ -160,6 +164,7 @@ function parseCommand(command: string, args: readonly string[]): Parsed {
     taskId: values['task-id'],
     timeout,
     verbosity: values.verbose?.length ?? 0,
+    tui: values.tui === true,
     help: values.help === true,
   };
 }
@@ -176,6 +181,7 @@ function parseWith(args: readonly string[]) {
       'task-id': { type: 'string' },
       timeout: { type: 'string' },
       verbose: { type: 'boolean', short: 'v', multiple: true },
+      tui: { type: 'boolean' },
     },
   });
 }
@@ -201,6 +207,19 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     io.stdout.write(`${readVersion()}\n`);
     return EXIT_OK;
   }
+  if (command === 'watch') {
+    try {
+      return await watch(rest, io, {
+        noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
+        loadTui: io.loadTui ?? loadTui,
+      });
+    } catch (error) {
+      const message = redact(error instanceof Error ? error.message : String(error), io.env);
+      (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}
+`);
+      return EXIT_FAILURE;
+    }
+  }
   if (command !== 'validate' && command !== 'plan' && command !== 'run') {
     return usageError(io, `Unknown command "${command}".`);
   }
@@ -223,7 +242,10 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     if (command === 'validate') {
       return await validate(parsed, io);
     }
-    return command === 'plan' ? await plan(parsed, io) : await run(parsed, io);
+    if (command === 'plan') {
+      return await plan(parsed, io);
+    }
+    return parsed.tui ? await runInDashboard(parsed, rest, io) : await run(parsed, io);
   } catch (error) {
     const message = redact(error instanceof Error ? error.message : String(error), io.env);
     (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
@@ -344,12 +366,33 @@ function printed(screen: Screen): (chunk: string) => void {
   return (chunk) => screen.write(filter(chunk));
 }
 
-async function run(parsed: Parsed, io: Io): Promise<number> {
-  let projectDir: string;
+/** The project directory a run works in, or undefined (after saying so) when it does not exist. */
+async function projectDirOf(parsed: Parsed, io: Io): Promise<string | undefined> {
   try {
-    projectDir = await realpath(resolve(io.cwd, parsed.workdir));
+    return await realpath(resolve(io.cwd, parsed.workdir));
   } catch {
     io.stdout.write('Working directory does not exist.\n');
+    return undefined;
+  }
+}
+
+/** `run --tui`: the same command line, without the flag, in a process of its own, shown as a dashboard. */
+async function runInDashboard(parsed: Parsed, args: readonly string[], io: Io): Promise<number> {
+  const projectDir = await projectDirOf(parsed, io);
+  if (projectDir === undefined) {
+    return EXIT_FAILURE;
+  }
+  return runWithDashboard(
+    args.filter((arg) => arg !== '--tui'),
+    projectDir,
+    { ...io, loadTui: io.loadTui ?? loadTui },
+    { environment: io.env, noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '' },
+  );
+}
+
+async function run(parsed: Parsed, io: Io): Promise<number> {
+  const projectDir = await projectDirOf(parsed, io);
+  if (projectDir === undefined) {
     return EXIT_FAILURE;
   }
 

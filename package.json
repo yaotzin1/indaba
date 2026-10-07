@@ -7,19 +7,31 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json",
+    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json packages/tui/tsconfig.build.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
-    "qa": "pnpm lint && pnpm typecheck && pnpm test",
+    "coverage": "vitest run --coverage",
+    "e2e": "pnpm build && vitest run --config vitest.e2e.config.ts",
+    "mutation": "stryker run",
+    "qa": "pnpm lint && pnpm typecheck && pnpm coverage",
     "smoke": "node scripts/smoke-pack.mjs",
+    "indaba": "node packages/cli/dist/bin.js",
     "try:agent": "node scripts/try-agent.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
+    "@stryker-mutator/core": "^10.0.0",
+    "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "^22.20.5",
+    "@vitest/coverage-v8": "4.1.11",
     "typescript": "^5.9.3",
-    "vitest": "^5.0.3"
+    "vitest": "4.1.11"
+  },
+  "pnpm": {
+    "overrides": {
+      "qs": "^6.16.0"
+    }
   }
 }

@@ -3,7 +3,7 @@ name: Release
 # A pushed v* tag is a release decision, and it is the maintainer's. This workflow verifies the tagged
 # commit, publishes the packages to npm with provenance, and creates the GitHub release. Nothing here
 # runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC): each of the
-# four packages is configured on npmjs.com to trust this repository's release.yml, so there is no
+# five packages is configured on npmjs.com to trust this repository's release.yml, so there is no
 # token or one-time password anywhere, and the provenance statement comes with it. Versions are
 # staged, not published: the maintainer approves each one on npmjs.com (Staged Packages tab) or with
 # `npm stage approve`, which asks for 2FA, so a tag alone never makes a version public.
@@ -77,10 +77,10 @@ jobs:
           DIST_TAG=latest
           case "$VERSION" in *-*) DIST_TAG=next ;; esac
           mkdir "$RUNNER_TEMP/tarballs"
-          for dir in core engine runners cli; do
+          for dir in core engine runners tui cli; do
             (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
           done
-          for name in indaba-core indaba-engine indaba-runners indaba; do
+          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba; do
             npm stage publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
           done
 

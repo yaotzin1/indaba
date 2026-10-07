@@ -1,0 +1,39 @@
+{
+  "name": "@indaba/tui",
+  "version": "0.1.0-alpha.2",
+  "description": "A terminal dashboard for Indaba runs, built on Ink: follow a run live, or replay one. Optional.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaotzin1/indaba.git",
+    "directory": "packages/tui"
+  },
+  "bugs": {
+    "url": "https://github.com/yaotzin1/indaba/issues"
+  },
+  "homepage": "https://github.com/yaotzin1/indaba#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "!dist/**/*.tsbuildinfo",
+    "!dist/.tsbuildinfo"
+  ],
+  "sideEffects": false,
+  "dependencies": {
+    "@indaba/engine": "workspace:*",
+    "ink": "8.0.0",
+    "react": "19.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0"
+  }
+}

@@ -102,3 +102,14 @@ Consequences:
   the "Reported" items above.
 - `packages/cli/src/engine-factory.ts`, `packages/engine/src/observability/jsonl-span-exporter.ts`,
   `packages/cli/src/main.ts` (what is and is not written to a file).
+
+## Recorded at implementation (2026-10-07)
+
+- **Pinned, exactly, in `packages/tui/package.json` and the lockfile:** `ink@8.0.0`, `react@19.3.0`, and
+  `@types/react@19.3.0` (a development dependency, not shipped). `react-devtools-core` is not installed.
+- **License check re-run** with `pnpm --filter @indaba/tui licenses list --prod` against the lockfile: 40 packages
+  in the production tree of `@indaba/tui` (this includes `@indaba/engine` and what it brings), 38 MIT, 1 ISC and
+  1 `(MIT OR CC0-1.0)`, used under MIT. No package outside the permitted set, so the rule in the first section holds.
+- The tree grew from the 39 measured on 2026-10-05 only by the workspace link to `@indaba/engine` and its own
+  dependency; Ink and React themselves are the same versions.
+

@@ -10,10 +10,23 @@ export default defineConfig({
       '@indaba/core': src('core'),
       '@indaba/engine': src('engine'),
       '@indaba/runners': src('runners'),
+      '@indaba/tui': src('tui'),
     },
   },
   test: {
     include: ['packages/*/test/**/*.test.ts'],
     passWithNoTests: true,
+    // Several tests start git or load Ink for real; on a busy Windows machine one of them can pass 5 s, and which one
+    // changes from run to run. The end-to-end config allows 60 s for the same reason.
+    testTimeout: 30_000,
+    coverage: {
+      provider: 'v8',
+      include: ['packages/*/src/**/*.ts'],
+      // The process entry point: a few lines of wiring, exercised by `pnpm smoke` on the packed install.
+      exclude: ['packages/cli/src/bin.ts'],
+      reporter: ['text-summary', 'text'],
+      // The maintainer's floor. Raise it, never lower it; see architectural_rules in workflow.ai.yml.
+      thresholds: { statements: 85, branches: 85, functions: 85, lines: 85 },
+    },
   },
 });

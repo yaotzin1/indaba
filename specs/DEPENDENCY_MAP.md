@@ -15,7 +15,8 @@ graph BT
 
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter"]
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner, agent CLI runners (node-pty optional)"]
-    Cli["indaba: run, plan, validate, plugin loading, composition root"]
+    Cli["indaba: run, plan, validate, watch, plugin loading, composition root"]
+    Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
     Plugin["a third-party plugin"]
 
     Mesh --> Core
@@ -27,6 +28,8 @@ graph BT
     Cli --> Engine
     Cli --> Runners
     Cli --> Domain
+    Cli -.-> Tui
+    Tui --> Engine
     Plugin --> Contracts
     Cli -. "loads at run time (--plugin)" .-> Plugin
 ```
@@ -54,8 +57,9 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 | `git-workspace` | `@indaba/engine` |
 | `observability` | `@indaba/core` (tracer, value types), `@indaba/engine` (exporter) |
 | `cli` | `indaba` |
+| `tui` | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
 | `mcp-support` | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
-| `tui`, `desktop-app`, `web-app` | not started; to be re-specified against these packages |
+| `desktop-app`, `web-app` | not started; to be re-specified against these packages |
 
 ## What breaks what
 
@@ -69,7 +73,7 @@ engine or the CLI upward). A new edge is a design question first and a test chan
   switch over it exhaustively.
 - A new runtime dependency changes every consumer's dependency tree; it is a recorded decision
   (`project.runtime_dependencies` and `project.optional_dependencies` in `workflow.ai.yml`). Today:
-  `yaml` in the engine, and optionally `node-pty` in the runners.
+  `yaml` in the engine, `ink` and `react` in `@indaba/tui` (which only the optional dashboard loads), and optionally `node-pty` in the runners.
 
 ## Runtime state, not code
 

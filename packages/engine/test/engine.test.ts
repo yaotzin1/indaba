@@ -237,6 +237,27 @@ describe('WorkflowEngine', () => {
     expect(await exists(join(repo, '.indaba', 'worktrees', 'T8'))).toBe(false);
   });
 
+  it('treats a runner that reports the abort as a failed result, as the real runners do, as a cancellation', async () => {
+    const repo = await makeGitRepo();
+    const controller = new AbortController();
+    const reporting: Handler = (_request, _call, signal) =>
+      new Promise<RunResult>((resolve) => {
+        signal?.addEventListener('abort', () =>
+          resolve(new RunResult({ exitCode: 130, output: '', errorOutput: 'Aborted.' })),
+        );
+        controller.abort();
+      });
+    const implementer = new FakeRunner('impl', reporting);
+    const { engine } = harness(repo, [architect(), implementer, reviewer(), shell()]);
+
+    const result = await engine.run(parseWorkflow(PIPELINE), { taskId: 'T8b', signal: controller.signal });
+
+    expect(result.status).toBe(WorkflowStatus.Cancelled);
+    expect(result.steps.verify).toBe(StepStatus.Pending);
+    expect(implementer.requests).toHaveLength(1);
+    expect(await exists(join(repo, '.indaba', 'worktrees', 'T8b'))).toBe(false);
+  });
+
   it('tears the worktree down when a runner throws', async () => {
     const repo = await makeGitRepo();
     const implementer = new FakeRunner('impl', () => {

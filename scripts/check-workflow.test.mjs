@@ -96,6 +96,24 @@ test('checkProject treats workspace links as internal, not as dependencies', () 
     assert.match(checkProject(project, linked, tsconfig, biome).join(), /has left, which project\.runtime_dependencies does not list/);
 });
 
+test('checkProject holds the coverage thresholds at or above the declared floor', () => {
+    const floor = { ...project, coverage_threshold: 85 };
+    const withQa = structuredClone(manifests);
+    withQa.root.scripts = { ...withQa.root.scripts, qa: 'pnpm lint && pnpm coverage' };
+    const config = (t) => `export default { test: { coverage: { thresholds: { ${t} } } } };`;
+    const good = config('statements: 85, branches: 90, functions: 85, lines: 85.5');
+    assert.deepEqual(checkProject(floor, withQa, tsconfig, biome, good), []);
+
+    const weak = config('statements: 85, branches: 80, functions: 85');
+    const errors = checkProject(floor, withQa, tsconfig, biome, weak).join('\n');
+    assert.ok(errors.includes('the branches coverage threshold to at least 85'));
+    assert.ok(errors.includes('the lines coverage threshold to at least 85'));
+    assert.ok(!errors.includes('the statements coverage threshold'));
+
+    assert.ok(checkProject(floor, withQa, tsconfig, biome, null).join().includes('vitest.config.ts does not exist'));
+    assert.ok(checkProject(floor, manifests, tsconfig, biome, good).join().includes('qa script does not run coverage'));
+});
+
 test('checkProject reports a missing tsconfig or biome.json when it claims flags', () => {
     const errors = checkProject(project, manifests, null, null).join('\n');
     assert.match(errors, /tsconfig\.base\.json does not exist/);

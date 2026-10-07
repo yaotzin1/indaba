@@ -44,6 +44,7 @@ export const TOOLCHAIN_PACKAGES = {
     typescript: 'typescript',
     vitest: 'vitest',
     biome: '@biomejs/biome',
+    vitest_coverage_v8: '@vitest/coverage-v8',
 };
 
 /** A dependency on another package of this workspace, which is not a third-party decision. */
@@ -73,7 +74,7 @@ function compareLists(errors, key, claimed, section, found, hint) {
  * Compares `project` with the manifests. `manifests` is `{ root, packages: [{ file, json }] }`;
  * `tsconfig` and `biome` are the parsed tsconfig.base.json and biome.json, or null when missing.
  */
-export function checkProject(project, manifests, tsconfig = null, biome = null) {
+export function checkProject(project, manifests, tsconfig = null, biome = null, vitestConfig = null) {
     const errors = [];
     if (!project) return ['workflow.ai.yml has no project section'];
 
@@ -135,6 +136,21 @@ export function checkProject(project, manifests, tsconfig = null, biome = null) 
             break;
         }
         if (biome.linter?.rules?.[group]?.[rule] !== 'error') errors.push(`project.biome_rules lists ${entry}, but biome.json does not set it to "error"`);
+    }
+
+    if (project.coverage_threshold !== undefined) {
+        if (vitestConfig === null) {
+            errors.push('project.coverage_threshold is set but vitest.config.ts does not exist');
+        } else {
+            const block = /thresholds\s*:\s*\{([^}]*)\}/.exec(vitestConfig)?.[1] ?? '';
+            for (const metric of ['statements', 'branches', 'functions', 'lines']) {
+                const value = Number(new RegExp(`\\b${metric}\\s*:\\s*(\\d+(?:\\.\\d+)?)`).exec(block)?.[1]);
+                if (!(value >= project.coverage_threshold)) {
+                    errors.push(`vitest.config.ts must set the ${metric} coverage threshold to at least ${project.coverage_threshold}`);
+                }
+            }
+        }
+        if (!/\bcoverage\b/.test(root.scripts?.qa ?? '')) errors.push('project.coverage_threshold is set but the qa script does not run coverage');
     }
     return errors;
 }
@@ -438,7 +454,7 @@ function instructionFiles(agents) {
 }
 
 const WORKFLOW_REFERENCE = /\.agents\/workflows\b/;
-const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git', '.indaba', 'specs', 'dist']);
+const SKIPPED_DIRECTORIES = new Set(['node_modules', '.git', '.indaba', 'specs', 'dist', '.stryker', 'coverage']);
 
 /** Every text file outside specs, the changelog and node_modules, found by walking the tree: no git history is needed. */
 function* walkFiles(directory = '') {
@@ -482,7 +498,7 @@ export function runChecks({ remote = false } = {}) {
     const skillDirectories = fs.readdirSync(skillsDir, { withFileTypes: true }).filter((entry) => entry.isDirectory()).map((entry) => entry.name);
 
     const errors = [
-        ...checkProject(workflow.project, manifests, readJson('tsconfig.base.json'), readJson('biome.json')),
+        ...checkProject(workflow.project, manifests, readJson('tsconfig.base.json'), readJson('biome.json'), exists('vitest.config.ts') ? read('vitest.config.ts') : null),
         ...checkStructure(workflow, { skillDirectories }),
         ...checkGates(workflow.quality_gates?.pre_commit, hookText, ciText),
         ...checkCommitMsgGates(workflow.quality_gates?.commit_msg, exists(commitMsgPath) ? read(commitMsgPath) : null, ciText),

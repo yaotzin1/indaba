@@ -8,6 +8,7 @@ import {
   SpanEnded,
   SpanStarted,
   SpanStatus,
+  StepOutput,
   TokenUsage,
   Tracer,
 } from '../src/index.js';
@@ -115,5 +116,17 @@ describe('RunResult', () => {
     expect(ok.usage).toBeUndefined();
     expect(new RunResult({ exitCode: 2, output: ' out ', errorOutput: ' err ' }).failureText()).toBe('err');
     expect(new RunResult({ exitCode: 2, output: ' out ', errorOutput: '  ' }).failureText()).toBe('out');
+  });
+});
+
+describe('StepOutput', () => {
+  it('carries the ids of its span, its place in the stream and the text as given', () => {
+    const event = new StepOutput('a'.repeat(32), 'b'.repeat(16), 3, 'hello \u001b[0m');
+    expect(event).toMatchObject({
+      traceId: 'a'.repeat(32),
+      spanId: 'b'.repeat(16),
+      seq: 3,
+      text: 'hello \u001b[0m',
+    });
   });
 });

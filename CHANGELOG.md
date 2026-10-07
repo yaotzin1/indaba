@@ -15,6 +15,60 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **A run event stream** (minor; track `feature`; spec `specs/tui`). Every `indaba run` now also writes
+  `.indaba/traces/<traceId>.events.jsonl` while it runs: one record per line for each span start and end, each
+  step status change (`PENDING -> RUNNING -> ...`) and each chunk of output a step streams. It exists so
+  something can follow a run live: the trace file only gets a span when the span ends, and records neither
+  step states nor output. Output is passed through the same credential redaction the command line uses for its
+  own messages (variables named like a key, token, secret, password or credential), cut to 4096 characters a
+  record, and capped at 2 MiB a run, after which one `truncated` record is written. It can still hold whatever
+  an agent printed, so it stays under `.indaba/` (gitignored, local).
+- **`@indaba/tui`**, an optional terminal dashboard for a run (minor; track `feature`; spec `specs/tui`). A new
+  package built on Ink 8 and React 19, both MIT and pinned exactly, and used by nothing else: steps on one side,
+  the selected step's output on the other, keys for selecting, scrolling, following and help, a stacked layout
+  below 80 columns, and a notice below 40x8. Every state is a glyph and a word as well as a colour, text from an
+  agent is stripped of terminal control sequences before it is drawn, and the terminal is always given back
+  (raw mode off, cursor shown) even when drawing fails. It follows a live run or replays a finished one at 1x or
+  10x. `indaba watch` opens it on a terminal when it is installed.
+  It always draws interactively on a terminal, even when `CI` is set, instead of leaving Ink to treat that as "no
+  screen" and write only the last frame.
+- **`indaba watch` opens the dashboard** on a terminal when `@indaba/tui` is installed (minor; track `feature`).
+  `--plain` or `--output` print lines as before, `--ascii` draws without box or arrow characters, and with no
+  terminal, or with the package absent (it says how to install it), the command prints lines. `indaba` lists
+  `@indaba/tui` as an optional peer dependency, so `indaba` alone installs none of Ink or React.
+- **`indaba run --tui`** (minor; track `feature`; spec `specs/tui`): starts the run in a process of its own and
+  opens the dashboard on it, so closing the screen never decides whether the run lives. Quitting asks to detach (the
+  run goes on) or cancel (it stops and removes its worktree); an interrupt on the command line cancels. Cancel is a
+  message over the child's channel, not a signal, so it stops the run gracefully on Windows too. It needs a
+  terminal and `@indaba/tui`, and starts nothing without them.
+- **`indaba watch [run]`**: follow a run from the files it writes, or read a finished one. With no run it lists
+  them, newest first; a run is its id, a unique start of it, or `latest`. It prints each step change and runner
+  start and end as it happens (`--output` adds the streamed lines), then a final view, and exits the way the run
+  did (0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state or the run
+  goes quiet for `--stale` seconds). `--replay [--speed 1|10]` plays a finished run with its original timing. Agent
+  text is stripped of terminal control sequences before it is printed. Plain output only for now.
+- `@indaba/engine`: a pure run view model (`reduceRun`, `RunState`) and plain formatters (`formatPlain`,
+  `formatEvent`) over the event stream, and the terminal-text sanitizer (`sanitize`, `createSanitizer`) the CLI
+  used internally, now exported.
+- `@indaba/core`: a `StepOutput` event, dispatched for each streamed chunk. `@indaba/engine`: `RunEventWriter`,
+  `TraceReader` (read all, follow live, list runs; tolerates half-written and malformed lines, and reads runs
+  written before the stream existed from their trace file), `parseRecord` and the record types.
+
+### Changed
+
+- A run now leaves two files in `.indaba/traces/` instead of one. The trace file `<traceId>.jsonl` is
+  byte-for-byte what it was; the new `<traceId>.events.jsonl` has its own record format. A script that reads
+  every `*.jsonl` there and expects span lines should skip names ending in `.events.jsonl`.
+
+### Fixed
+
+- A cost an ACP agent reports in USD is now recorded on the step's span as `indaba.cost.usd`. The `acp` runner
+  returned it as `RunResult.reportedCostUsd` and the changelog said it was used, but the engine never copied it
+  onto a span, so such steps had no cost in the trace. A cost worked out from the pricing table still wins, and
+  nothing is recorded when neither exists.
+
 ## [0.1.0-alpha.2] - 2026-10-05
 
 The second preview, and the release `0.1.0-alpha.1` was meant to be. It makes the API and ACP the primary
@@ -89,6 +143,12 @@ version reached npm, and the tag stays as it is. Its contents are released as `0
 - ACP tool-call events now carry the kind of the call they belong to (an update repeats only the id).
 - `indaba run`, `plan` and `validate` without a file now say that `.indaba/workflow.ai.yml` was the default
   they tried and how to name a file, instead of only reporting that the default could not be read.
+- Cancelling a run (Ctrl+C) while a step is running now ends it as `CANCELLED` with exit code 130. The
+  process runners report an abort as a failed result rather than an exception, so the engine recorded
+  the run as `FAILED`. Found by the new end-to-end test on Linux.
+- Giving `indaba` a development workflow (`version: "2.0"` with `stages`, `governance`, `tracks` or
+  `quality_gates`, like this repository's own `workflow.ai.yml`) now says it looks like a development
+  workflow instead of only reporting an unsupported version.
 
 ## [0.1.0-alpha.0] - 2026-10-04
 

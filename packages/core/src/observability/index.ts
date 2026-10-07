@@ -137,6 +137,20 @@ export class SpanEnded {
 }
 
 /**
+ * A chunk of what a step's runner streamed. The engine dispatches one for each chunk, in order, with the ids of
+ * the span the chunk belongs to. The text is exactly what the runner produced: redact it before it is stored.
+ */
+export class StepOutput {
+  constructor(
+    readonly traceId: string,
+    readonly spanId: string,
+    /** Counts from 0 within the span. */
+    readonly seq: number,
+    readonly text: string,
+  ) {}
+}
+
+/**
  * Creates spans, stamps them with GenAI semantic-convention attributes and
  * announces their lifecycle through the event dispatcher.
  */

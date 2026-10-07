@@ -17,6 +17,7 @@ export { ErrorBag } from './parser/error-bag.js';
 export { Interpolator } from './parser/interpolator.js';
 export { parseWorkflow, WorkflowParser } from './parser/parser.js';
 export { WorkflowValidator } from './parser/validator.js';
+export * from './trace/index.js';
 export type { GitOptions, GitRunOptions } from './workspace/git.js';
 export { Git } from './workspace/git.js';
 export { GitWorktree } from './workspace/git-worktree.js';
