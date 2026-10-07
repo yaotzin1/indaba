@@ -454,3 +454,76 @@ describe('TraceReader.listRuns', () => {
     expect(record).toEqual(parseRecord(serializeRecord(started(a))));
   });
 });
+
+describe('TraceReader: what it will not accept', () => {
+  it('names the problem when a run id is not lowercase hexadecimal', async () => {
+    const reader = new TraceReader(await makeTempDir());
+    await expect(reader.readAll('../x')).rejects.toThrow('A run id is lowercase hexadecimal.');
+    await expect(reader.follow('A').next()).rejects.toThrow('A run id is lowercase hexadecimal.');
+  });
+
+  it('reads an old trace file line by line, skipping what is not a span with an id, a span id and a name', async () => {
+    const dir = await makeTempDir();
+    const trace = 'e'.repeat(32);
+    const good = {
+      trace_id: trace,
+      span_id: ROOT,
+      parent_span_id: null,
+      name: 'indaba.task t',
+      start: AT,
+      end: AT,
+      status: 'ok',
+    };
+    const lines = [
+      '   ',
+      'null',
+      '"text"',
+      '42',
+      JSON.stringify({ ...good, trace_id: undefined }),
+      JSON.stringify({ ...good, span_id: undefined }),
+      JSON.stringify({ ...good, name: undefined }),
+      JSON.stringify({ ...good, trace_id: 7 }),
+      JSON.stringify({ ...good, span_id: 7 }),
+      JSON.stringify({ ...good, name: 7 }),
+      JSON.stringify(good),
+    ];
+    await writeFile(join(dir, `${trace}.jsonl`), `${lines.join('\n')}\n`);
+
+    const records = await new TraceReader(dir).readAll(trace);
+    expect(records.map((r) => r.type)).toEqual(['span_started', 'span_ended']);
+  });
+
+  it('ends a span that carries no end, or a malformed one, at the time it started', async () => {
+    const dir = await makeTempDir();
+    const trace = 'e'.repeat(32);
+    const base = { trace_id: trace, parent_span_id: null, name: 'indaba.task t', start: AT, status: 'ok' };
+    await writeFile(
+      join(dir, `${trace}.jsonl`),
+      `${JSON.stringify({ ...base, span_id: ROOT })}\n${JSON.stringify({ ...base, span_id: STEP, end: 5 })}\n`,
+    );
+
+    const records = await new TraceReader(dir).readAll(trace);
+    expect(records.filter((r) => r.type === 'span_ended').map((r) => ('at' in r ? r.at : ''))).toEqual([
+      AT,
+      AT,
+    ]);
+  });
+
+  it('lists only files named exactly like a run: nothing before the id, nothing after the extension', async () => {
+    const dir = await makeTempDir();
+    await writeFile(join(dir, `z${'a'.repeat(32)}.jsonl`), 'x');
+    await writeFile(join(dir, `${'d'.repeat(32)}.jsonl.bak`), 'x');
+    await writeFile(join(dir, `${'e'.repeat(32)}.events.jsonl.old`), 'x');
+    await writeFile(join(dir, `${'1'.repeat(32)}.jsonl`), 'x');
+
+    expect((await new TraceReader(dir).listRuns()).map((r) => r.runId)).toEqual(['1'.repeat(32)]);
+  });
+
+  it('reports a directory it cannot read, instead of pretending there are no runs', async () => {
+    const dir = await makeTempDir();
+    const notADirectory = join(dir, 'file');
+    await writeFile(notADirectory, 'x');
+
+    await expect(new TraceReader(notADirectory).listRuns()).rejects.toThrow();
+  });
+});
