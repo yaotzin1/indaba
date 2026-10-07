@@ -26,6 +26,9 @@ export async function runDashboard(options: DashboardOptions): Promise<AppResult
     // Ctrl+C is a key of the screen's own (it asks what to do with a run it started), and the console is left alone
     exitOnCtrlC: false,
     patchConsole: false,
+    // The caller only gets here with a terminal to draw on. Ink's own guess treats a variable named CI as "no screen" and
+    // would then write only the last frame, even to a person sitting at a TTY in a container or a CI shell.
+    interactive: true,
   };
   const instance = render(
     h(App, {

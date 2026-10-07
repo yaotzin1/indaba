@@ -32,6 +32,8 @@ port". The PHP prototype that preceded them was never published.
   agent is stripped of terminal control sequences before it is drawn, and the terminal is always given back
   (raw mode off, cursor shown) even when drawing fails. It follows a live run or replays a finished one at 1x or
   10x. `indaba watch` opens it on a terminal when it is installed.
+  It always draws interactively on a terminal, even when `CI` is set, instead of leaving Ink to treat that as "no
+  screen" and write only the last frame.
 - **`indaba watch` opens the dashboard** on a terminal when `@indaba/tui` is installed (minor; track `feature`).
   `--plain` or `--output` print lines as before, `--ascii` draws without box or arrow characters, and with no
   terminal, or with the package absent (it says how to install it), the command prints lines. `indaba` lists

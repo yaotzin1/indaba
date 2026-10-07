@@ -2,8 +2,10 @@ import type { RunRecord } from '@indaba/engine';
 import { describe, expect, it, vi } from 'vitest';
 
 // the colour library decides at load time whether the terminal can show colour; a fake one cannot, so say it can
+// and Ink reads CI the same way: with it set Ink would draw only the last frame, which the dashboard must not depend on
 vi.hoisted(() => {
   process.env.FORCE_COLOR = '1';
+  process.env.CI = 'true';
 });
 
 import { runDashboard } from '../src/dashboard.js';
