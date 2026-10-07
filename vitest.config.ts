@@ -16,6 +16,9 @@ export default defineConfig({
   test: {
     include: ['packages/*/test/**/*.test.ts'],
     passWithNoTests: true,
+    // Several tests start git or load Ink for real; on a busy Windows machine one of them can pass 5 s, and which one
+    // changes from run to run. The end-to-end config allows 60 s for the same reason.
+    testTimeout: 30_000,
     coverage: {
       provider: 'v8',
       include: ['packages/*/src/**/*.ts'],
