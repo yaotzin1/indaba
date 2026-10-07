@@ -42,7 +42,7 @@ describe('git worktrees', () => {
     await ws.destroy();
     expect(await exists(join(repo, '.indaba', 'worktrees', 'task-1'))).toBe(false);
     await expect(ws.diff()).rejects.toThrow('The workspace has been destroyed.');
-  });
+  }, 30_000); // about ten git calls in a row: more than the default 5 s on a loaded Windows machine
 
   it('an empty patch always applies', async () => {
     const patches = new PatchService();
