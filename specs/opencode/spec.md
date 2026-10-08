@@ -50,6 +50,7 @@ ones, not yet exercised: OpenCode is not installed on the development machine.
 
 - Starting or managing an `opencode serve` server, or `--attach` to a remote one.
 - Writing OpenCode's own configuration, credentials or `auth.json`; Indaba never touches them.
+- Bridging Windows and WSL (running `wsl.exe`, translating paths): to use OpenCode in WSL, Indaba is installed in WSL too.
 - Installing OpenCode (`npx` or a package manager); the binary must already be there.
 - Mapping OpenCode's `/undo` and `/redo` (unsupported over ACP by OpenCode itself).
 - Parsing `opencode stats` for cost; usage comes from what the protocol reports, else it is unknown.

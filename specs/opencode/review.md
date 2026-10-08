@@ -32,5 +32,5 @@ has.
   preset by name, the `opencode` CLI runner, a role `model` over ACP.
 - On Windows `opencode` on PATH is an npm `.cmd` shim that Indaba cannot start, so the preset and the CLI
   runner need the native `opencode.exe`. The preset can be bypassed with `agent.command`; the CLI runner has
-  no workflow-level way to set its binary (`codex` and `antigravity` have `INDABA_*_CMD`). Adding
-  `INDABA_OPENCODE_CMD` would justify a return to stage 3.
+  no workflow-level way to set its binary (`codex` and `antigravity` have `INDABA_*_CMD`). No `INDABA_OPENCODE_CMD` is added (maintainer, 2026-10-08): Windows users take ACP with the native exe, or
+  install Indaba in WSL.
