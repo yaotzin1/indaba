@@ -92,6 +92,7 @@ A runner is what a role's `runner:` (or a step's) names.
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
+| `opencode` | `opencode run [--model <m>] <prompt>`. A last resort; Indaba never adds `--auto`, pass it in `extraArgs` if you want it | the `opencode` CLI, logged in (`opencode auth login`) or a provider key in the environment |
 
 Each agent CLI authenticates itself; Indaba does not log you in.
 
@@ -125,6 +126,7 @@ so there is no terminal to scrape. The role or step names the agent:
 | `claude` | `npx --yes @agentclientprotocol/claude-agent-acp` |
 | `codex` | `npx --yes @agentclientprotocol/codex-acp` |
 | `gemini` | `gemini --acp` |
+| `opencode` | `opencode acp`. Passes `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_` and `OPENROUTER_` variables on. On Windows point `command` at the native executable if `opencode` is an npm `.cmd` shim |
 | `{ command: [program, arg, ...] }` | exactly that, for any other agent or a pinned, locally installed copy |
 
 Things to know:

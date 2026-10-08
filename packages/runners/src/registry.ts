@@ -6,6 +6,7 @@ import { ClaudeRunner } from './claude-runner.js';
 import { CodexRunner } from './codex-runner.js';
 import { CommandRunner } from './command-runner.js';
 import { CursorRunner } from './cursor-runner.js';
+import { OpenCodeRunner } from './opencode-runner.js';
 import { type FetchFunction, OpenRouterRunner } from './openrouter-runner.js';
 import type { ProcessSpawner } from './process.js';
 import { ShellRunner } from './shell-runner.js';
@@ -57,7 +58,7 @@ export class RunnerRegistry {
   }
 
   /**
-   * Built-in runners: shell, claude-code, codex, antigravity, cursor, openrouter and acp.
+   * Built-in runners: shell, claude-code, codex, antigravity, cursor, opencode, openrouter and acp.
    *
    * @param env INDABA_CODEX_CMD and INDABA_ANTIGRAVITY_CMD replace the built-in command line
    *   (space separated, `{prompt}` and `{model}` mark where those go); OPENROUTER_API_KEY is the
@@ -77,6 +78,7 @@ export class RunnerRegistry {
       .register(templateRunner('codex', env.INDABA_CODEX_CMD, cli) ?? new CodexRunner(cli))
       .register(templateRunner('antigravity', env.INDABA_ANTIGRAVITY_CMD, cli) ?? new AntigravityRunner(cli))
       .register(new CursorRunner(cli))
+      .register(new OpenCodeRunner(cli))
       .register(
         new OpenRouterRunner({
           apiKey: env.OPENROUTER_API_KEY ?? '',

@@ -94,8 +94,8 @@ isolated step that succeeds.
 
 | Field | Required | Meaning |
 | :--- | :--- | :--- |
-| `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, or the name of a runner a plugin registers |
-| `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`) or a mapping with a `preset` or a `command: [program, arg, ...]` and optionally `auth`, the agent's own id for how to log in (see [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). Other runners ignore it |
+| `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, `opencode`, or the name of a runner a plugin registers |
+| `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`, `opencode`) or a mapping with a `preset` or a `command: [program, arg, ...]` and optionally `auth`, the agent's own id for how to log in (see [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). Other runners ignore it |
 | `model` | no | Passed to the runner as its model. API runners require one |
 | `mcp` | no | List of `mcp_servers` names that every step of the role may use |
 
@@ -140,7 +140,7 @@ An agent is reached in one of three ways. Choose the first that fits and list th
 | :--- | :--- | :--- | :--- |
 | API | `openrouter`, and any OpenAI-compatible endpoint you configure | text work: specs, reviews, debate, consensus. Needs only a key | the model returns text; it cannot edit files or run tools itself |
 | ACP | `acp` with an `agent` | an agent that changes code. Structured events in the trace, and a permission gate you control | needs a local agent program; the presets start it with `npx`, which on Windows is a shim Indaba does not start (use a native executable) |
-| CLI | `claude-code`, `codex`, `antigravity`, `cursor` | a last resort, or an agent with no API or ACP route | scrapes terminal output, so it breaks when the CLI's output changes; no per-action permissions |
+| CLI | `claude-code`, `codex`, `antigravity`, `cursor`, `opencode` | a last resort, or an agent with no API or ACP route | scrapes terminal output, so it breaks when the CLI's output changes; no per-action permissions |
 
 ```yaml
 roles:
@@ -274,7 +274,7 @@ How a server reaches a step depends on the runner:
 | Runner | MCP |
 | :--- | :--- |
 | `claude-code`, `codex`, `acp` | Indaba injects the servers into the agent's configuration (over ACP, an `http` server needs an agent that supports it; otherwise the runner cannot run and the next one is tried) |
-| `cursor`, `antigravity` | The agent manages its own servers; Indaba assumes the named ones are configured and says so in `plan` |
+| `cursor`, `antigravity`, `opencode` | The agent manages its own servers; Indaba assumes the named ones are configured and says so in `plan` |
 | `openrouter` and other API runners, `shell`, others | No MCP support |
 
 If a step wants a server its runner cannot provide, `mcp_policy: required` (the default) refuses the run

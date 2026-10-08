@@ -17,6 +17,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **OpenCode** (minor; track `feature`; spec `specs/opencode`). `agent: "opencode"` on an `acp` role starts `opencode acp`
+  and passes on only `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_` and `OPENROUTER_` variables. A new `opencode`
+  runner (`OpenCodeRunner`, `opencode run [--model <m>] <prompt>`) is the last-resort CLI transport, so
+  `runner: ["acp", "opencode"]` is the chain; it never adds `--auto`. `ACP_AGENT_PRESETS` gains the key `opencode`.
+  No dependency is added, and the flags follow OpenCode's documentation but have not yet been run against an
+  installed OpenCode.
+
 - **A run event stream** (minor; track `feature`; spec `specs/tui`). Every `indaba run` now also writes
   `.indaba/traces/<traceId>.events.jsonl` while it runs: one record per line for each span start and end, each
   step status change (`PENDING -> RUNNING -> ...`) and each chunk of output a step streams. It exists so

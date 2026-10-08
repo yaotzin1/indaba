@@ -80,7 +80,7 @@ Infrastructure, in `@indaba/runners`: a preset in `acp-runner.ts` (data, no new 
 
 ## 8. Clarifications
 
-Questions 2 and 3 are open, for the maintainer:
+Question 3 is open; it is settled by a real run, and until then the role model is not forwarded over ACP:
 
 1. **Scope. Resolved 2026-10-08 (maintainer):** transport priority is always ACP, then API, then CLI, as in
    `specs/transport-priority`. OpenCode therefore gets the ACP preset (`agent: "opencode"`) and a small CLI runner
@@ -89,9 +89,8 @@ Questions 2 and 3 are open, for the maintainer:
    documented chain. OpenCode has no hosted model API of its own; the API tier for its models is the
    existing `openrouter` runner, listed between the two when a role wants it. Driving `opencode serve`
    over HTTP stays a non-goal.
-2. **Environment prefixes.** OpenCode takes keys for many providers. Proposal: `OPENCODE_` plus the
-   provider keys already allowed for the other presets (`ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_`)
-   and `OPENROUTER_`. Each added prefix is a default every consumer inherits.
+2. **Environment prefixes. Resolved 2026-10-08 (maintainer):** `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`,
+   `GEMINI_` and `OPENROUTER_`. Each is a default every consumer inherits.
 3. **Model selection.** Over ACP the model is OpenCode's own configuration; does a role's `model` apply?
    To be settled by a real run before the api-surface is written.
 
