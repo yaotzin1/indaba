@@ -1,0 +1,23 @@
+version: "1.0"
+name: "review-debate"
+
+# Two agents review the same project and debate until both approve.
+# Run it against another repository:
+#   indaba run examples/review-debate.workflow.ai.yml --workdir ../apsw-gridwright
+
+roles:
+  claude:
+    runner: "claude-code"
+  antigravity:
+    runner: "antigravity"
+
+steps:
+  - id: "review_debate"
+    role: "claude"
+    consensus_with: ["antigravity"]
+    decision_type: "consensus"
+    goal: >-
+      Review src/core in the working directory for correctness bugs and unclear design. Read only
+      that directory, do not modify any file, and do not run commands. Keep your reply under 200
+      words and begin it with exactly AGREEMENT: (nothing must change) or CRITIQUE: (at most five
+      concrete findings, each with a file path), and answer the other reviewer's points.
