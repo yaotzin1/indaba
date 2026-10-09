@@ -205,6 +205,11 @@ export class WorkflowParser {
       errors.add(`${node.path}.decision_type "${decisionName}" is not supported`);
     }
 
+    const arbiter = node.string('arbiter', false);
+    if (arbiter !== undefined && !/^[A-Za-z0-9_-]+$/.test(arbiter)) {
+      errors.add(`${node.path}.arbiter "${arbiter}" must be letters, digits, _ or -`);
+    }
+
     const role = node.string('role', false);
     const chain = this.runnerChain(node, false, errors);
     const agent = this.parseAgent(node, errors);
@@ -231,6 +236,7 @@ export class WorkflowParser {
       ...(onFailure !== undefined ? { onFailure } : {}),
       consensusWith: node.stringList('consensus_with'),
       ...(decision !== undefined ? { decisionType: decision } : {}),
+      ...(arbiter !== undefined ? { arbiter } : {}),
       mcp: node.stringList('mcp'),
       ...(mcpPolicy !== undefined ? { mcpPolicy } : {}),
     };

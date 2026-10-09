@@ -112,6 +112,8 @@ export interface StepDefinition {
   readonly onFailure?: OnFailure;
   readonly consensusWith: readonly string[];
   readonly decisionType?: DecisionType;
+  /** Who settles a debate that fails: the name of a registered adjudicator, such as "human". */
+  readonly arbiter?: string;
   /** Names of MCP servers this step may use, besides its role's. */
   readonly mcp: readonly string[];
   /** Absent means the workflow default. */

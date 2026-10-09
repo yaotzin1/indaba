@@ -19,6 +19,7 @@ interface Plugin {
 interface PluginHost {
   registerRunner(runner: Runner): void;
   registerGuard(guard: Guard): void;
+  registerAdjudicator(name: string, adjudicator: Adjudicator): void; // what a step's `arbiter:` names
   addListener<E extends object>(
     type: abstract new (...args: never[]) => E,
     listener: (event: E) => unknown,

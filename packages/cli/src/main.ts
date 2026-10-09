@@ -3,6 +3,7 @@ import { realpath } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
+  type Adjudicator,
   DagBuilder,
   IndabaError,
   isConsensusStep,
@@ -40,6 +41,8 @@ export interface Io {
   readonly signal?: AbortSignal;
   /** Present only when a person is at a terminal: lets them pick how an ACP agent logs in. */
   readonly chooseAuthMethod?: AuthChooser;
+  /** Present only when a person is at a terminal: lets them rule on a debate that failed (the arbiter "human"). */
+  readonly humanAdjudicator?: Adjudicator;
   /** Present only when a person is at a terminal: where the dashboard of `indaba watch` is drawn and read from. */
   readonly terminal?: { readonly stdin: NodeJS.ReadableStream; readonly stdout: NodeJS.WritableStream };
   /** Loads the optional dashboard package. Defaults to importing `@indaba/tui`; tests replace it. */
@@ -402,6 +405,7 @@ async function run(parsed: Parsed, io: Io): Promise<number> {
     env: io.env,
     plugins,
     ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),
+    ...(io.humanAdjudicator === undefined ? {} : { humanAdjudicator: io.humanAdjudicator }),
     ...(parsed.timeout === undefined ? {} : { stepTimeoutSeconds: parsed.timeout }),
     onListenerError: (error) => {
       const reason = error instanceof Error ? error.message : String(error);

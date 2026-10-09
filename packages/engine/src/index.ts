@@ -1,3 +1,5 @@
+export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
+export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { RunnerPlan } from './engine/chain.js';
 export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';
 export type { RunnerLookup, Speaker } from './engine/mcp.js';

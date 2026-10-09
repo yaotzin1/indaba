@@ -82,7 +82,9 @@ More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in o
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
 
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no
-consensus: a human is needed) and `130` when cancelled.
+consensus: a human is needed) and `130` when cancelled. A debate step can name an `arbiter` (`human`, or one a
+plugin registers) that rules on a debate that failed; its rulings are kept in a committed
+`.indaba-decisions/` and reused when the same question comes up on the same files.
 
 [`docs/getting-started.md`](docs/getting-started.md) covers prerequisites, environment variables, each
 runner and what a run leaves on disk. [`docs/workflow-format.md`](docs/workflow-format.md) describes
