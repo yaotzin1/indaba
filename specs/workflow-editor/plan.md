@@ -16,8 +16,9 @@
 
 ## Editing with comments preserved
 
-`WorkflowDocument` holds a `yaml` `Document` from `parseDocument(text, options)`, with the parser's limits
-(`maxAliasCount`, a single document, the size check done before parsing). `set`/`remove`/`get` map to
+`WorkflowDocument` holds a `yaml` `Document` from `parseDocument(text, options)`, with the parser's options
+(`schema: 'core'`, `uniqueKeys`, `strict`, one document) plus `maxAliasCount: 100` and a 1 MiB check made before
+parsing. `set`/`remove`/`get` map to
 `doc.setIn`/`deleteIn`/`getIn`; values are validated as plain JSON and converted with `doc.createNode`. The `yaml`
 library keeps comments, blank lines between entries, key order and scalar styles for nodes that are not touched; AC-04
 tests that on a commented example, not just asserts it. `addStep`/`moveStep` operate on the `steps` sequence by
@@ -67,11 +68,14 @@ loading plugins and a server calls it in-process.
 | Published signature broken? | No. Optional members and new exports. `diagnose` is new; `parse` is unchanged. Minor. |
 | `node:` import in core? | No. Core gets optional fields and `Described`. |
 | New runtime dependency? | None. One devDependency (ajv), with the licence check above. |
-| Untrusted data to shell, path, URL or log? | The workflow text is untrusted: parsed with the parser's limits, edited by path with forbidden keys refused, values checked as plain JSON. No file, network or process access in the library. |
+| Untrusted data to shell, path, URL or log? | The workflow text is untrusted: parsed with the parser's options plus a size and alias limit, edited by path with forbidden keys refused, values checked as plain JSON. No file, network or process access in the library. |
 | Wall clock, randomness, environment? | None. |
 | Unbounded loop or buffer? | Document size is limited before parsing; alias count limited; description cut at 200. |
 | Secrets? | The catalog and schema list names and types only. |
 | Behaviour change for `validate`? | Its output must not change. A snapshot test over the examples and the parser-error table compares `validate` before and after the move to `diagnose`. |
+
+**Gap found while writing this plan.** `WorkflowParser.decode` has no size or alias limit, so the editor is stricter
+than the code that actually runs workflows. That is recorded in the spec (section 6) and not fixed here.
 
 **Flag for review.** The `ErrorBag` change touches every parser error site. It is behaviour-preserving, but it is the
 widest edit in this feature, so it is its own task (T5) with the snapshot test written first.

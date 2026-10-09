@@ -38,8 +38,9 @@ and, later, GUIs that may edit parts of it. Three things stand in the way, and n
 
 **Editing**
 
-- [ ] AC-01. `WorkflowDocument.parse(text)` reads a workflow with the `yaml` package's document model and the same
-  safety limits as the parser (document size, alias count, one document only). `WorkflowDocument.create({ name })`
+- [ ] AC-01. `WorkflowDocument.parse(text)` reads a workflow with the `yaml` package's document model, with the
+  options the parser uses (core schema, unique keys, strict, exactly one document) and two limits of its own: text
+  over 1 MiB is refused before it is parsed, and aliases are capped at 100. `WorkflowDocument.create({ name })`
   returns a minimal document (`version`, `name`, empty `steps`).
 - [ ] AC-02. `get(path)`, `set(path, value)`, `remove(path)`, `has(path)` take a path as an array of keys and indexes
   (`['steps', 0, 'role']`). Values are plain JSON (strings, numbers, booleans, null, arrays, objects). A key named
@@ -113,8 +114,10 @@ and, later, GUIs that may edit parts of it. Three things stand in the way, and n
 
 ## 6. Security and data handling
 
-A workflow file is input from outside. `WorkflowDocument.parse` applies the parser's own limits, so an alias bomb or a
-huge file is refused before it is expanded. The path-based edit API refuses the keys that would reach an object's
+A workflow file is input from outside. `WorkflowDocument.parse` uses the parser's `yaml` options and adds a size limit (1 MiB)
+and an alias cap (100), so a huge file or an alias bomb is refused before it is expanded. The parser itself has
+neither limit today, which is a gap found while writing this spec: `indaba validate` and `indaba run` read whatever
+size they are given. Closing it there changes behaviour for very large files, so it is left to its own change. The path-based edit API refuses the keys that would reach an object's
 prototype, though it edits a YAML document and not a live JavaScript object. Values are checked to be plain JSON before
 they are put into a document, so a function or an object with a hostile `toString` never serialises. The library does
 no file or network access and starts no process. Descriptions and names in the catalog come from plugins, which run
@@ -134,6 +137,8 @@ The catalog and the schema contain no secrets: they list names, types and descri
 
 Defaults chosen here, inherited by every consumer:
 
+- The editor's limits (1 MiB, 100 aliases) are stricter than the parser's, which has none. A real workflow is a few
+  kilobytes.
 - One document model, the `yaml` package's, because it is already a recorded runtime dependency and is the only
   maintained one in the tree that keeps comments. No new runtime dependency.
 - The JSON Schema validator used by the conformance test is a **development** dependency only, chosen in the plan

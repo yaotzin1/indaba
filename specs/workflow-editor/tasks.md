@@ -18,7 +18,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## Part 3: the editor
 
-- [ ] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's limits; refusals (AC-01, AC-07).
+- [ ] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's options, the 1 MiB and alias limits; refusals (AC-01, AC-07). Tests: 1 MiB plus one byte, an alias bomb, two documents, a sequence root.
 - [ ] T10. `get`, `set`, `remove`, `has` with path rules and plain-JSON check; forbidden keys (AC-02).
 - [ ] T11. `addStep`, `removeStep`, `moveStep` (AC-03).
 - [ ] T12. `toString` and the round-trip test on a heavily commented example (AC-04); editing an invalid document (AC-06).
