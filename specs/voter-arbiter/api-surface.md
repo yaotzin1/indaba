@@ -22,12 +22,14 @@ export type Vote =
 export interface Voter {
   readonly name: string;                       // what `voters.use` writes
   vote(request: RulingRequest): Vote;
+  readonly description?: string;              // one line a wizard shows next to the name
 }
 
 export class VoterRegistry {
   register(voter: Voter, options?: { readonly replace?: boolean }): void; // duplicate without replace: IndabaError
   get(name: string): Voter | undefined;
   names(): readonly string[];                  // in registration order
+  describe(): readonly { readonly name: string; readonly description: string }[]; // "" when a voter has none
 }
 
 export const AGREEMENT_VOTER: Voter;           // name "agreement"

@@ -25,4 +25,5 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 - [ ] T11. `docs/workflow-format.md` (the list form, `voters`, the two voters, what the scores do not mean, the defaults are not measured), `docs/extending.md`, `README.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`; add `arbiter: [voters, human]` to `examples/review-debate.workflow.ai.yml`.
 - [ ] T12. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
+- [ ] T12b. `Voter.description?`, `VoterRegistry.describe()`; the built-in voters described (AC-13).
 - [ ] T13. Fill `review.md`.

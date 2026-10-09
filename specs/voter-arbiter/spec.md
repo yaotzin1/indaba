@@ -67,6 +67,8 @@ Indaba rule on the clear cases and hand only the unclear ones to a person.
 - [ ] AC-11. The ledger records the arbiter that actually ruled as `kind`. A reused ruling skips the whole
   chain, as before.
 - [ ] AC-12. Every new line is covered by tests; the 85% floor holds.
+- [ ] AC-13. A voter may carry a `description`, and the registry lists names with descriptions so a wizard can
+  offer them (`specs/workflow-editor`). The built-in voters are described in one line each: what they measure.
 
 ## 4. Non-goals
 
