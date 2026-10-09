@@ -73,6 +73,9 @@ lost, and the person running it had no way to rule on the outcome.
 - [ ] AC-15. A ledger line that is not valid, or has an unknown shape, fails the step naming the file and
   line. It is never skipped silently.
 - [ ] AC-16. Every new line is covered by tests; the 85% floor holds.
+- [ ] AC-17. An adjudicator may carry a `description`, and the registry lists names with descriptions, so a wizard
+  can offer the choices (`specs/workflow-editor`). The terminal arbiter is described as "ask the person at the
+  terminal".
 
 ## 4. Non-goals
 

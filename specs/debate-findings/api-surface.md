@@ -28,9 +28,10 @@ export interface FindingsRead {
 //   findings(): FindingsRead
 
 export class PromptRegistry {
-  register(name: string, text: string, options?: { readonly replace?: boolean }): void; // duplicate without replace: IndabaError
+  register(name: string, text: string, options?: { readonly description?: string; readonly replace?: boolean }): void; // duplicate without replace: IndabaError
   get(name: string): string | undefined;
   names(): readonly string[];
+  describe(): readonly { readonly name: string; readonly description: string }[]; // "" when none
 }
 
 export const DEBATE_REVIEW_PROMPT_NAME: 'debate-review';
@@ -43,8 +44,8 @@ export const IMPORTANCE_VOTER: Voter;          // name "importance"; appended to
 ```
 
 `StepDefinition` gains `readonly prompt?: string` and `readonly promptAdditions?: boolean`.
-`WorkflowDefinition` gains `readonly defaultPromptAdditions?: boolean`.
-`PluginHost` gains `registerPrompt(name: string, text: string, options?: { readonly replace?: boolean }): void`.
+`WorkflowDefinition` gains `readonly defaultPromptAdditions?: boolean` and `readonly prompts: Readonly<Record<string, string>>` (empty when the file has none).
+`PluginHost` gains `registerPrompt(name: string, text: string, options?: { readonly description?: string; readonly replace?: boolean }): void`.
 
 ### `@indaba/engine`
 
@@ -63,6 +64,7 @@ The ledger's `memoKey` gains a `prompt` argument that is part of the digest.
 | workflow file | step field `prompt` | added: the name of a registered prompt |
 | workflow file | step field `prompt_additions` | added: `on` or `off` |
 | workflow file | `defaults.prompt_additions` | added: `on` or `off` |
+| workflow file | top-level `prompts` | added: a map from a name to a prompt text (at most 8,000 characters each), used by `prompt` before the registry |
 | workflow file | validation | added: a warning for an arbiter with additions off; an error for a non-boolean value |
 | CLI | `validate`, `plan` | print the new warning |
 | span attribute | `indaba.prompt.additions` | added: `on` or `off`, on every debate step |

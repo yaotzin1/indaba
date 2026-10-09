@@ -28,3 +28,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [x] T13. `docs/workflow-format.md` (the field, the ledger, why it is committed), `README.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`; add `arbiter: "human"` to `examples/review-debate.workflow.ai.yml`.
 - [x] T14. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics (AC-16).
 - [x] T15. Fill `review.md`.
+
+## Follow-up (added with `specs/workflow-editor`)
+
+- [ ] T16. `Adjudicator.description?`, `AdjudicatorRegistry.describe()` returning `{ name, description }[]`, the terminal arbiter described (AC-17). Done on the branch that implements `workflow-editor`.

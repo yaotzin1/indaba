@@ -32,6 +32,8 @@ export interface RulingRequest {
 /** Something that can settle a debate that failed. Extension point. */
 export interface Adjudicator {
   /** Resolves to a Ruling, or null when it cannot answer (the step then escalates). */
+  /** One line a wizard shows next to the name. Optional. */
+  readonly description?: string;
   rule(request: RulingRequest, signal?: AbortSignal): Promise<Ruling | null>;
 }
 ```

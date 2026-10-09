@@ -48,8 +48,7 @@ Latest message per sender; keep those not `AGREEMENT`; read their findings; if n
 ## `runConsensus` change
 
 1. `additions = step.promptAdditions ?? workflow.defaultPromptAdditions ?? (step.arbiter !== undefined)`.
-2. If on: resolve `step.prompt ?? 'debate-review'` from the registry (unknown name throws `IndabaError`, listing
-   `names()`); pass the text as `instructions` to every `RunnerParticipant`.
+2. If on: resolve `step.prompt ?? 'debate-review'` first from `workflow.prompts`, then from the registry (neither: `IndabaError`, listing both sets of names); pass the text as `instructions` to every `RunnerParticipant`.
 3. Add the prompt name and text to the memo key.
 4. After the debate: set `indaba.prompt.additions`, and when on `indaba.prompt.name`, `indaba.findings.count` and
    `indaba.findings.max_importance` over the latest messages' findings; write `<step>.findings.md`.
@@ -65,7 +64,9 @@ the same file-token pattern as `overlap` (shared helper in core). A header says 
 - **No new dependency.**
 - **No placeholders in prompts.** There is nothing to interpolate, so nothing to inject.
 - **`registerPrompt` replaces explicitly**, matching `registerVoter` and `registerAdjudicator`.
-- **Prompts from project files are excluded** (spec section 6).
+- **Prompts come from the workflow file or a plugin, not from other project files.** The file's own `prompts` map is
+  as trusted as its `goal`; another file in the reviewed repository is not (spec section 6). The map is read by the
+  parser as plain strings and is not passed through the interpolator.
 - **The warning is a validation warning, not an error**, because turning the additions off is allowed.
 
 ## Analysis (stage 5)

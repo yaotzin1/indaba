@@ -41,11 +41,12 @@ or to replace it for one step.
   numbers are its own honest opinion). The reply-protocol keywords are unchanged. When off, the prompt is
   byte-for-byte what it was before this feature.
 - [ ] AC-04. A step can name its prompt with `prompt: <name>`. `debate-review` is built in and is the default when
-  additions are on. A name nobody registered fails the step at run time listing the registered names. A plugin
-  registers a prompt with `host.registerPrompt(name, text)`; a duplicate name is an error unless
+  additions are on. A name that is neither in the workflow's `prompts` map (AC-13) nor registered fails the step
+  at run time, listing the names it could have used. A plugin registers a prompt with
+  `host.registerPrompt(name, text, { description?, replace? })`; a duplicate name is an error unless
   `{ replace: true }`, which is how a built-in is overridden. Built-ins register through the same call.
-- [ ] AC-05. A prompt is plain text. It has no placeholders and no interpolation, so nothing from a workflow, a
-  model or a file can change what it says.
+- [ ] AC-05. A prompt is plain text. It has no placeholders and no interpolation (the `${{ }}` of `goal` is
+  not applied to it), so nothing from a workflow, a model or a file can change what it says.
 - [ ] AC-06. `indaba validate` and `indaba plan` print a warning for a step that has an arbiter and
   `prompt_additions: off`: that voters needing findings will abstain and no findings file is written. The span
   records `indaba.prompt.additions` (`on` or `off`) and `indaba.prompt.name` for every debate step.
@@ -64,6 +65,12 @@ or to replace it for one step.
   No finding text is in a span.
 - [ ] AC-11. Retries are unchanged: the prompt is the same static text every round, never an accumulated history.
 - [ ] AC-12. Every new line is covered by tests; the 85% floor holds.
+- [ ] AC-13. A workflow file may carry a top-level `prompts` map from a name to a text (name matching
+  `[A-Za-z0-9_-]+`, text at most 8,000 characters). A step's `prompt` finds it there first. A name in the map
+  that is also registered overrides the registered one **for that workflow only** and does not need
+  `replace`; `validate` says so. This is the place a GUI edits a prompt.
+- [ ] AC-14. A registered prompt may carry a `description`, and the registry lists names with descriptions
+  (`specs/workflow-editor`). `debate-review` is described in one line.
 
 ## 4. Non-goals
 
@@ -73,7 +80,7 @@ or to replace it for one step.
 - Matching findings across participants by meaning. Agreement is by file mentioned, as in `specs/voter-arbiter`.
 - Verifying an agent's importance rating. It is an opinion, labelled so everywhere, never a measurement.
 - Interpolation, includes or conditionals inside a prompt.
-- Reading a prompt from a file in the project. A plugin can do it; Indaba does not (see section 6).
+- Reading a prompt from a file in the project. The workflow file itself can carry prompts (AC-13); a plugin can read files; Indaba does not (see section 6).
 
 ## 5. Behaviour on failure
 
@@ -92,9 +99,10 @@ or to replace it for one step.
 Findings are model output and untrusted. They are parsed by a fixed pattern on bounded input and used only as
 text and as a number from 1 to 5. Their text reaches the findings file and the terminal after cleaning and
 redaction, and never a span. A prompt is plain text chosen by the workflow author or a plugin; there is no
-interpolation, so nothing can be injected into it. Reading prompts from project files is excluded deliberately: a
-prompt is instructions to an agent that may hold tools, so one loaded from a file in a repository that is being
-reviewed could be changed by the very change under review.
+interpolation, so nothing can be injected into it. A prompt in the workflow file is as trusted as the `goal`
+beside it: both are the author's instructions in the file the author owns. Reading prompts from *other* project
+files is excluded deliberately: a prompt is instructions to an agent that may hold tools, so one loaded from a
+file in a repository that is being reviewed could be changed by the very change under review.
 
 **What the numbers mean.** Importance is what an agent says. Agents can inflate it, under-rate their own findings,
 or follow the format badly. The `importance` voter therefore measures how serious the debaters themselves think

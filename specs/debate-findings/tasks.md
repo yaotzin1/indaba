@@ -25,6 +25,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## Documentation and gates
 
+- [ ] T12b. The top-level `prompts` map: parse (names, 8,000 characters, not interpolated), `WorkflowDefinition.prompts`, resolution before the registry, `validate` notes an override of a registered prompt; `PromptRegistry` descriptions and `describe()`; `debate-review` described (AC-13, AC-14).
 - [ ] T13. `docs/workflow-format.md` (the three fields, the format, the scale, the voter, the findings file, **what turning additions off costs**, that the numbers are agent-reported), `docs/extending.md`, `README.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`.
 - [ ] T14. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
 - [ ] T15. Fill `review.md`.
