@@ -269,7 +269,7 @@ describe('StepExecutor consensus', () => {
         decisionType: DecisionType.Consensus,
       }),
       workflow([]),
-      '.',
+      await makeTempDir(),
       span,
     );
 
@@ -285,7 +285,12 @@ describe('StepExecutor consensus', () => {
     const b = new FakeRunner('other', () => ok('AGREEMENT: fine'));
     const { executor, span } = await fixture([b]);
 
-    const outcome = await executor.run(step({ id: 's', consensusWith: ['b'] }), workflow([]), '.', span);
+    const outcome = await executor.run(
+      step({ id: 's', consensusWith: ['b'] }),
+      workflow([]),
+      await makeTempDir(),
+      span,
+    );
 
     expect(outcome.ok).toBe(true);
     expect(b.requests[0]?.prompt).toContain('Review the work produced so far');
@@ -299,7 +304,7 @@ describe('StepExecutor consensus', () => {
     const outcome = await executor.run(
       step({ id: 's', role: 'a', decisionType: DecisionType.Consensus }),
       workflow([]),
-      '.',
+      await makeTempDir(),
       span,
     );
 
@@ -315,7 +320,7 @@ describe('StepExecutor consensus', () => {
     const outcome = await executor.run(
       step({ id: 's', role: 'a', mcp: ['docs'], decisionType: DecisionType.Consensus }),
       wf,
-      '.',
+      await makeTempDir(),
       span,
     );
 

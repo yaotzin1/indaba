@@ -185,9 +185,11 @@ confirmed on real installs yet.
 | `.indaba/traces/<traceId>.events.jsonl` | The run as it happens: span starts and ends, step status changes and the output steps stream (credentials redacted, 2 MiB at most). `indaba watch` reads it |
 | `.indaba/traces/<traceId>.jsonl` | One JSON object per ended span: the task, each step, each agent call or command, with `gen_ai.*` attributes, token counts and cost where known. Safe to read and diff; it never contains secrets |
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
+| `.indaba/artifacts/<step>.transcript.md`, `<step>.ruling.md` | The messages of a debate step and, when an arbiter ruled, its ruling |
+| `.indaba-decisions/<workflow>.jsonl` | **Committed, not ignored.** Every arbiter ruling, one JSON line each, and the memory that lets an identical re-run skip the debate. See [Consensus steps](workflow-format.md#consensus-steps) |
 | the paths your workflow names under `artifacts` | Whatever the steps wrote there, and the diff of an isolated worktree if you named a `patch` artifact |
 
-`.indaba/` is runtime state; add it to your `.gitignore`.
+`.indaba/` is runtime state; add it to your `.gitignore`. `.indaba-decisions/` is not: commit it.
 
 A cost is shown only when the model's price is known and the usage was reported; an unknown cost is
 absent, not zero.

@@ -16,6 +16,7 @@ steps:
     role: "claude"
     consensus_with: ["antigravity"]
     decision_type: "consensus"
+    arbiter: "human"   # if they cannot agree, you rule on the transcript (needs a terminal)
     goal: >-
       Review src/core in the working directory for correctness bugs and unclear design. Read only
       that directory, do not modify any file, and do not run commands. Keep your reply under 200

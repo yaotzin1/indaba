@@ -57,13 +57,15 @@ lost, and the person running it had no way to rule on the outcome.
   what the built-in has.
 - [ ] AC-11. Every ruling (from any adjudicator) is appended as one JSON line to
   `.indaba-decisions/<workflow-name>.jsonl` in the project directory: key, step id, kind, verdict, note,
-  outcome and rounds of the debate, the repository commit, and the time (from the injected clock). The
+  outcome and rounds of the debate, the commit it was made at (for the reader; the key does not use it), and the time (from the injected clock). The
   transcript is not in it.
 - [ ] AC-12. Before a debate step runs, the engine looks up its key: workflow name, step id, topic text,
-  the commit hash of the project directory, and a clean working tree. On a hit it uses the recorded
+  a fingerprint of every committed file outside `.indaba/` and `.indaba-decisions/`, and a clean working
+  tree (also ignoring those two directories). Committing the ledger itself therefore does not change the
+  key. On a hit it uses the recorded
   ruling, skips the debate and the adjudicator, writes no transcript, and records
   `indaba.arbiter.source = memo`. On a miss it debates as usual (`source = asked`).
-- [ ] AC-13. With a dirty tree, outside a git repository, or when `HEAD` cannot be read, nothing is looked
+- [ ] AC-13. With a dirty tree, outside a git repository, or when git cannot be read, nothing is looked
   up and nothing is memoised, and the span says so (`indaba.arbiter.memo = skipped`). Rulings are still
   appended to the ledger, with no commit.
 - [ ] AC-14. Only rulings are memoised. A debate that reached consensus, and an unavailable arbiter, leave
@@ -80,7 +82,7 @@ lost, and the person running it had no way to rule on the outcome.
   failed.
 - Changing what counts as agreement, the round limit, or the ping-pong detector.
 - A prompt inside the TUI dashboard or over `indaba watch`. Those do not ask in v1 (AC-06).
-- Standing precedents: a ruling is reused only for the same question on the same commit, never offered
+- Standing precedents: a ruling is reused only for the same question on the same files, never offered
   to a different step or code. Matching on meaning is a separate spec.
 - A command to edit, expire or clear the ledger. It is a text file; delete the line.
 - Re-running a debate after a `reject`. That is `on_failure`, and unchanged.
@@ -107,7 +109,7 @@ The ledger is committed to the repository, so it is public to everyone with the 
 the person's note and verdict and never the transcript, and secrets are redacted from the note before it
 is written. The file name comes from the workflow name, reduced to `[A-Za-z0-9_-]` and confined to
 `.indaba-decisions/`. A ledger from someone else is data: a recorded `accept` is honoured only for the
-exact key, so it can only skip a debate on the commit it names. The note is shown to the person and
+exact key, so it can only skip a debate on the files it was made for. The note is shown to the person and
 written back; it is never interpolated into a command, path or span.
 
 The transcript is model output and therefore untrusted. It is printed to the terminal, so control
@@ -140,8 +142,9 @@ Defaults chosen here, inherited by every consumer:
 - With no adjudicator available the behaviour is today's escalation. Existing workflows and CI runs
   are unchanged.
 - Memoise on the question and the code, not on the transcript. A model's transcript almost never
-  repeats byte for byte, so keying on it would hit rarely and skip nothing. Keying on the commit lets an
-  identical re-run reuse the ruling and skip the whole debate. The price: any change to the code, the
+  repeats byte for byte, so keying on it would hit rarely and skip nothing. Keying on the files lets an
+  identical re-run reuse the ruling and skip the whole debate. It is the files, not the `HEAD` hash,
+  because committing the ledger changes `HEAD` and would make every ruling miss the next run. The price: any change to the code, the
   goal or the workflow name misses, and an uncommitted change disables the memo (AC-13).
 - No flag to force a new debate in v1. Delete the ledger line or commit a change.
 - The ledger is per workflow, in the project, and committed. It is not under `.indaba/`, which is Indaba's

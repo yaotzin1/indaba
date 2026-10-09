@@ -105,6 +105,20 @@ const CASES: [string, string, string][] = [
     'consensus_with unknown role "ghost"',
   ],
   [
+    'an arbiter on a step that is not a debate',
+    `${HEAD}steps:
+  - {id: x, role: a, arbiter: human}
+`,
+    'has an arbiter but is not a debate',
+  ],
+  [
+    'an arbiter with a path in its name',
+    `${HEAD}steps:
+  - {id: x, role: a, consensus_with: [a], arbiter: '../human'}
+`,
+    'arbiter "../human" must be letters, digits, _ or -',
+  ],
+  [
     'a retry without a target',
     `${HEAD}steps:\n  - {id: x, role: a, on_failure: {action: retry_step, max_retries: 1}}\n`,
     'on_failure.target "" is not a step',

@@ -1,3 +1,4 @@
+import type { Adjudicator } from '../mesh/adjudicator.js';
 import type { Runner } from '../runner/index.js';
 import type { GuardDefinition } from '../workflow/model.js';
 
@@ -31,6 +32,8 @@ export interface Guard {
 export interface PluginHost {
   registerRunner(runner: Runner): void;
   registerGuard(guard: Guard): void;
+  /** Make `name` usable as a step's `arbiter`. */
+  registerAdjudicator(name: string, adjudicator: Adjudicator): void;
   /** Listen to an engine event class (`StepStatusChanged`, `SpanStarted`, `SpanEnded`, ...). */
   addListener<E extends object>(
     type: abstract new (...args: never[]) => E,

@@ -46,10 +46,13 @@ do not implement it, and `RegistryPluginHost` in the CLI is the only implementer
 
 ### `@indaba/engine`
 
-`DecisionLedger` (exported): `lookup(key: string): LedgerEntry | undefined`, `append(entry: LedgerEntry): void`.
-`LedgerEntry` is `{ key?: string; stepId; kind; verdict; note; outcome; rounds; commit?; decidedAt }`.
-The key (SHA-256 of workflow name, step id, topic and commit) is computed in the engine; `@indaba/core`
-has no crypto.
+`DecisionLedger` (exported, `new DecisionLedger(projectDir, { git? })`):
+`memoKey(workflow, stepId, topic): Promise<MemoKey>`, `lookup(workflow, key): Promise<LedgerEntry | undefined>`,
+`append(entry): Promise<void>`, `pathOf(workflow): string`. `MemoKey` is `{ key, commit } | { skipped: reason }`.
+`LedgerEntry` is `{ key?; workflow; stepId; kind; verdict; note; outcome; rounds; commit?; decidedAt }`.
+`LEDGER_DIRECTORY` is `".indaba-decisions"`. The key is a SHA-256 over the workflow name, step id, topic and
+the listing of committed files outside `.indaba/` and `.indaba-decisions/` (`git ls-tree -r`), computed in
+the engine; `@indaba/core` has no crypto.
 
 `StepExecutorOptions` (the debate runs in `StepExecutor.runConsensus`) gains, all optional:
 `adjudicators?: AdjudicatorRegistry` (name to `Adjudicator`), `ledger?: DecisionLedger`,
@@ -81,7 +84,7 @@ Without `ledger` nothing is memoised and nothing is written to `.indaba-decision
 
 - Attempts at an unrecognised answer from the terminal: 3. Changing it is a major.
 - No adjudicator available: escalate as today.
-- Memo key: workflow name, step id, topic, commit, clean tree. Changing what goes into the key is a major
+- Memo key: workflow name, step id, topic, the committed files (not the commit hash), clean tree. Changing what goes into the key is a major
   (it changes which rulings are reused).
 
 ## Checks
@@ -91,5 +94,5 @@ Without `ledger` nothing is memoised and nothing is written to `.indaba-decision
 - [ ] `docs/workflow-format.md` documents `arbiter`; `CHANGELOG.md` and `README.md` updated
 - [ ] No `any`, no `!`, no suppression comment
 - [ ] `.indaba-decisions/` is not in `.gitignore`, and `docs/` says why it is committed
-- [ ] The ledger test covers: hit, miss on changed commit, dirty tree, malformed line, torn append
+- [ ] The ledger test covers: hit, miss on a changed file, dirty tree, malformed line, torn append
 - [ ] Transcript and note never reach a span, event or log; redaction test present

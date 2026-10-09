@@ -16,9 +16,10 @@
 
 ## Flow in `runConsensus`
 
-1. Compute the memo key (workflow name, step id, topic, `HEAD`, clean tree). Read `HEAD` and the tree
-   status through the existing `Git` wrapper (argument arrays, no shell): `rev-parse HEAD` and
-   `status --porcelain`. Any failure means no memo (`memo = skipped`), never a failed step.
+1. Compute the memo key (workflow name, step id, topic, the committed files, clean tree) through the
+   existing `Git` wrapper (argument arrays, no shell): `status --porcelain`, `rev-parse HEAD` (recorded for the
+   reader only) and `ls-tree -r -z HEAD`, whose output is filtered in code because `ls-tree` takes no exclusion
+   pathspec. Any failure means no memo (`memo = skipped`), never a failed step.
 2. If the step has an arbiter and the ledger has the key: return the recorded ruling as the outcome and
    skip the debate. Span: `source = memo`, `verdict`.
 3. Otherwise run the debate as today. Write the transcript artifact (redacted) whatever the outcome.
@@ -42,7 +43,7 @@ terminal.
 - **No new runtime dependency.** `node:crypto`, `node:fs` and `node:readline` only.
 - **Ledger format**: JSON Lines, UTF-8, LF. Each entry is written with one `appendFile` of one complete
   line, so a crash cannot leave a half entry that parses.
-- **Key**: hex SHA-256 over the four fields, each length-prefixed so field boundaries cannot be forged.
+- **Key**: hex SHA-256 over workflow name, step id, topic and the file listing, each length-prefixed so field boundaries cannot be forged.
 - **Lookup reads the whole file.** Rulings are rare and small; no index, no cache.
 - **`.indaba-decisions/` is committed**: absent from `.gitignore`, and `docs/` explains it.
 
