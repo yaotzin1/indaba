@@ -45,3 +45,15 @@ process.exitCode = controller.signal.aborted ? 130 : code;
 if (process.connected) {
   process.disconnect();
 }
+
+// Leave when the work is done, once what was printed has been handed to the terminal or pipe. A runner
+// can leave a handle open that nothing here owns (on Windows a pseudo-terminal's conhost outlives its
+// child), and waiting for the event loop to drain would never end.
+await Promise.all([process.stdout, process.stderr].map(flushed));
+process.exit();
+
+function flushed(stream: NodeJS.WriteStream): Promise<void> {
+  return new Promise((resolve) => {
+    stream.write('', () => resolve());
+  });
+}

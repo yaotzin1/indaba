@@ -83,6 +83,11 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- `indaba` now exits when its work is done (patch; track `fix`). On Windows, a run that used a pseudo-terminal
+  (every agent CLI runner by default) printed its result and then never returned the prompt, because the
+  terminal's `conhost` outlived its child and kept Node's event loop alive. The command line now flushes
+  stdout and stderr and exits with the run's status. A program that embeds `@indaba/runners` and uses the
+  pseudo-terminal on Windows is not helped by this and must exit itself; `@indaba/runners` is unchanged.
 - A cost an ACP agent reports in USD is now recorded on the step's span as `indaba.cost.usd`. The `acp` runner
   returned it as `RunResult.reportedCostUsd` and the changelog said it was used, but the engine never copied it
   onto a span, so such steps had no cost in the trace. A cost worked out from the pricing table still wins, and
