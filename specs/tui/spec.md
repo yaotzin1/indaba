@@ -1,6 +1,6 @@
 # Specification: Terminal UI (`@indaba/tui`, built on Ink)
 
-> **Status**: Accepted for implementation: the maintainer chose Ink and said to go. Decisions are in
+> **Status**: Implemented (#15), except one manual run on Windows Terminal (see tasks.md). Chosen by the maintainer: Ink; decisions are in
 > section 8 and `plan.md`. Retargeted from the PHP and `symfony/tui` version of this spec to TypeScript and
 > [Ink](https://github.com/vadimdemedes/ink). It reads the span events added by `specs/transport-priority`.
 > **Stage entry**: 3 (clarified; plan and tasks written)
