@@ -92,6 +92,7 @@ A runner is what a role's `runner:` (or a step's) names.
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
+| `opencode` | `opencode run [--model <m>] <prompt>`. A last resort; Indaba never adds `--auto`, pass it in `extraArgs` if you want it | the `opencode` CLI, logged in (`opencode auth login`) or a provider key in the environment |
 
 Each agent CLI authenticates itself; Indaba does not log you in.
 
@@ -125,7 +126,10 @@ so there is no terminal to scrape. The role or step names the agent:
 | `claude` | `npx --yes @agentclientprotocol/claude-agent-acp` |
 | `codex` | `npx --yes @agentclientprotocol/codex-acp` |
 | `gemini` | `gemini --acp` |
+| `opencode` | `opencode acp`. Passes `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_` and `OPENROUTER_` variables on. On Windows, `opencode` is an npm `.cmd` shim that Indaba does not start: point `command` at the native `opencode.exe`, or use WSL (see below) |
 | `{ command: [program, arg, ...] }` | exactly that, for any other agent or a pinned, locally installed copy |
+
+**OpenCode on Windows.** OpenCode runs natively on Windows but recommends WSL ([opencode.ai/docs/windows-wsl](https://opencode.ai/docs/windows-wsl)). Indaba does not bridge the two: it never starts `wsl.exe` or translates `C:` paths to `/mnt/c/`. If you want OpenCode in WSL, install and run Indaba inside WSL too, so `opencode` is a Linux executable on that PATH and every path is a Linux path. Otherwise use the native `opencode.exe` through `agent.command`.
 
 Things to know:
 
