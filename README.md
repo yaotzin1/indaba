@@ -82,7 +82,9 @@ More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in o
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
 
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no
-consensus: a human is needed) and `130` when cancelled.
+consensus: a human is needed) and `130` when cancelled. A debate step can name an `arbiter` (`human`, or one a
+plugin registers) that rules on a debate that failed; its rulings are kept in a committed
+`.indaba-decisions/` and reused when the same question comes up on the same files.
 
 [`docs/getting-started.md`](docs/getting-started.md) covers prerequisites, environment variables, each
 runner and what a run leaves on disk. [`docs/workflow-format.md`](docs/workflow-format.md) describes
@@ -104,12 +106,13 @@ roles:
 | Runner | Runs | Needs | Choose it for |
 | :--- | :--- | :--- | :--- |
 | `openrouter`, and any OpenAI-compatible endpoint you configure | a streamed chat completion | `OPENROUTER_API_KEY`, or your endpoint's variables | text work: specs, reviews, debate |
-| `acp` | any ACP agent (`claude`, `codex`, `gemini`, or your own command) over stdio, with a permission gate | the agent program | agents that edit code |
+| `acp` | any ACP agent (`claude`, `codex`, `gemini`, `opencode`, or your own command) over stdio, with a permission gate | the agent program | agents that edit code |
 | `shell` | commands from the workflow file | nothing | verification |
 | `claude-code` | `claude -p` | the `claude` CLI | last resort |
 | `codex` | `codex exec --sandbox workspace-write` | the `codex` CLI | last resort |
 | `antigravity` | `agy -p` | the `agy` CLI | last resort |
 | `cursor` | `cursor-agent -p` | the `cursor-agent` CLI | last resort |
+| `opencode` | `opencode run` | the `opencode` CLI | last resort; prefer `acp` with `agent: "opencode"` |
 
 A runner is skipped for the next one only when it could not run at all (no key, program not found,
 endpoint unreachable). A runner that started and failed is a failed task, never retried elsewhere. See

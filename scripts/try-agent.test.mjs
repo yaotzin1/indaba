@@ -15,6 +15,7 @@ import {
     SCENARIOS,
     summariseTrace,
     UsageError,
+    withoutGitEnvironment,
 } from './try-agent.mjs';
 
 const usage = (argv) => assert.throws(() => parseArguments(argv), UsageError);
@@ -174,5 +175,27 @@ test('makeProject: a committed git project with the two files, in the temp folde
         assert.ok(fs.existsSync(path.join(dir, '.git')));
     } finally {
         fs.rmSync(dir, { recursive: true, force: true });
+    }
+});
+
+test('withoutGitEnvironment: drops every GIT_ variable and keeps the rest', () => {
+    const cleaned = withoutGitEnvironment({ GIT_DIR: 'a', git_index_file: 'b', PATH: 'c', GITHUB_TOKEN: 'd' });
+    assert.deepEqual(cleaned, { PATH: 'c', GITHUB_TOKEN: 'd' });
+});
+
+test('makeProject: ignores a GIT_DIR inherited from a git hook, so no other repository is touched', () => {
+    const decoy = path.join(os.tmpdir(), `indaba-decoy-${process.pid}-${Date.now()}`, '.git');
+    const saved = process.env.GIT_DIR;
+    process.env.GIT_DIR = decoy;
+    let dir;
+    try {
+        dir = makeProject();
+        assert.equal(fs.existsSync(decoy), false, 'git must not have created or used the inherited GIT_DIR');
+        assert.ok(fs.existsSync(path.join(dir, '.git')));
+    } finally {
+        if (saved === undefined) delete process.env.GIT_DIR;
+        else process.env.GIT_DIR = saved;
+        if (dir) fs.rmSync(dir, { recursive: true, force: true });
+        fs.rmSync(path.dirname(decoy), { recursive: true, force: true });
     }
 });

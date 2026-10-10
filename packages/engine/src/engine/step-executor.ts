@@ -1,7 +1,10 @@
 import { lstat, realpath, stat } from 'node:fs/promises';
 import { isAbsolute, relative, resolve } from 'node:path';
 import type {
+  AdjudicatorRegistry,
+  Clock,
   EventDispatcher,
+  RulingRequest,
   Runner,
   RunRequest,
   RunResult,
@@ -18,6 +21,8 @@ import {
   isConsensusStep,
   isShellStep,
   McpUnavailableError,
+  Ruling,
+  RulingSource,
   RunnerChainExhaustedError,
   RunnerError,
   RunnerParticipant,
@@ -27,7 +32,11 @@ import {
   StepOutput,
   Tracer,
 } from '@indaba/core';
+import type { DecisionLedger, MemoKey } from '../arbiter/ledger.js';
+import { rulingMarkdown, transcriptMarkdown, writeDebateArtifact } from '../arbiter/records.js';
 import type { GuardRegistry } from '../guard/registry.js';
+import { SystemClock } from '../observability/system.js';
+import { sanitize } from '../trace/sanitize.js';
 import type { RunnerPlan } from './chain.js';
 import { effectiveGuards, planForRole, planForStep } from './chain.js';
 import type { McpIssue, McpResolution, RunnerLookup } from './mcp.js';
@@ -44,6 +53,14 @@ export interface StepExecutorOptions {
   readonly prompts?: PromptBuilder;
   readonly arbiter?: ConsensusArbiter;
   readonly timeoutSeconds?: number;
+  /** Who can settle a debate that fails, by the name a step's `arbiter` uses. */
+  readonly adjudicators?: AdjudicatorRegistry;
+  /** Where rulings are kept and looked up. Without it nothing is remembered. */
+  readonly ledger?: DecisionLedger;
+  /** Times a ruling. */
+  readonly clock?: Clock;
+  /** Applied to a debate's text before it is written to a file. */
+  readonly redact?: (text: string) => string;
 }
 
 export interface StepRunOptions {
@@ -70,6 +87,10 @@ export class StepExecutor {
   private readonly timeoutSeconds: number;
   private readonly mcp: McpPlanner;
   private readonly events: EventDispatcher | undefined;
+  private readonly adjudicators: AdjudicatorRegistry | undefined;
+  private readonly ledger: DecisionLedger | undefined;
+  private readonly clock: Clock;
+  private readonly redact: (text: string) => string;
 
   constructor(options: StepExecutorOptions) {
     this.runners = options.runners;
@@ -77,6 +98,10 @@ export class StepExecutor {
     this.tracer = options.tracer;
     this.prompts = options.prompts ?? new PromptBuilder();
     this.arbiter = options.arbiter ?? new ConsensusArbiter();
+    this.adjudicators = options.adjudicators;
+    this.ledger = options.ledger;
+    this.clock = options.clock ?? new SystemClock();
+    this.redact = options.redact ?? ((text) => text);
     this.timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
     this.mcp = new McpPlanner(options.runners);
     this.events = options.events;
@@ -324,6 +349,30 @@ ${this.prompts.tail(result.failureText())}`,
       topic += `\n\nRelevant artifacts:\n- ${step.inputArtifacts.join('\n- ')}`;
     }
 
+    const arbiterName = step.arbiter;
+    let memo: MemoKey | undefined;
+    if (arbiterName !== undefined && this.ledger !== undefined) {
+      memo = await this.ledger.memoKey(workflow.name, step.id, topic);
+      if ('skipped' in memo) {
+        span.setAttribute('indaba.arbiter.memo', 'skipped');
+      } else {
+        const earlier = await this.ledger.lookup(workflow.name, memo.key);
+        if (earlier !== undefined) {
+          // The ledger is a committed file anyone can edit: what it says is cleaned like any other untrusted text.
+          const kind = this.redact(sanitize(earlier.kind));
+          const when = this.redact(sanitize(earlier.decidedAt));
+          span.setAttribute('indaba.arbiter.kind', kind);
+          span.setAttribute('indaba.arbiter.source', RulingSource.Memo);
+          span.setAttribute('indaba.arbiter.verdict', earlier.verdict);
+          return this.afterRuling(
+            new Ruling(earlier.verdict, this.redact(sanitize(earlier.note)), RulingSource.Memo),
+            kind,
+            `Ruled earlier (${when}); the same question on the same files, so no new debate.`,
+          );
+        }
+      }
+    }
+
     const result = await this.arbiter.deliberate(
       topic,
       participants,
@@ -331,15 +380,93 @@ ${this.prompts.tail(result.failureText())}`,
     );
     span.setAttribute('indaba.consensus.outcome', result.outcome);
     span.setAttribute('indaba.consensus.rounds', result.rounds);
+    await writeDebateArtifact(
+      workdir,
+      step.id,
+      'transcript',
+      transcriptMarkdown(step.id, result, this.redact),
+    );
 
     if (result.reached()) {
       return StepOutcome.ok();
     }
 
-    // No quorum is a judgement call for a human, not something a retry can fix.
-    return StepOutcome.escalated(
-      `No consensus (${result.outcome} after ${result.rounds} round(s)). Open objections:\n${result.openObjections()}`,
+    // No quorum is a judgement call for a person, not something a retry can fix.
+    const unresolved = `No consensus (${result.outcome} after ${result.rounds} round(s)). Open objections:\n${result.openObjections()}`;
+    if (arbiterName === undefined) {
+      return StepOutcome.escalated(unresolved);
+    }
+
+    span.setAttribute('indaba.arbiter.kind', arbiterName);
+    const adjudicator = this.adjudicators?.get(arbiterName);
+    if (adjudicator === undefined) {
+      span.setAttribute('indaba.arbiter.verdict', 'unavailable');
+      return StepOutcome.escalated(
+        `The arbiter "${arbiterName}" is not available: nothing is registered under that name.\n${unresolved}`,
+      );
+    }
+
+    const request: RulingRequest = {
+      stepId: step.id,
+      topic,
+      outcome: result.outcome,
+      rounds: result.rounds,
+      transcript: result.transcript,
+    };
+    let ruling: Ruling | null;
+    try {
+      ruling = await adjudicator.rule(request, options.signal);
+    } catch (error) {
+      if (options.signal?.aborted === true) {
+        return StepOutcome.cancelled();
+      }
+      // A defect in an arbiter is a failure to report, not a judgement on the work.
+      const reason = error instanceof Error ? error.message : String(error);
+      return StepOutcome.failed(`The arbiter "${arbiterName}" failed: ${this.redact(sanitize(reason))}`);
+    }
+    if (options.signal?.aborted === true) {
+      return StepOutcome.cancelled();
+    }
+    if (ruling === null) {
+      span.setAttribute('indaba.arbiter.verdict', 'unavailable');
+      return StepOutcome.escalated(
+        `The arbiter "${arbiterName}" could not answer (for example, there is no terminal to ask on).\n${unresolved}`,
+      );
+    }
+
+    const note = this.redact(sanitize(ruling.note));
+    const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
+    span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
+    span.setAttribute('indaba.arbiter.verdict', ruled.verdict);
+    await writeDebateArtifact(
+      workdir,
+      step.id,
+      'ruling',
+      rulingMarkdown(request, arbiterName, ruled, this.redact),
     );
+    if (this.ledger !== undefined) {
+      await this.ledger.append({
+        ...(memo !== undefined && 'key' in memo ? { key: memo.key, commit: memo.commit } : {}),
+        workflow: workflow.name,
+        stepId: step.id,
+        kind: arbiterName,
+        verdict: ruled.verdict,
+        note,
+        outcome: result.outcome,
+        rounds: result.rounds,
+        decidedAt: this.clock.now().toISOString(),
+      });
+    }
+    return this.afterRuling(ruled, arbiterName, unresolved);
+  }
+
+  /** `accept` completes the step; `reject` is the same escalation an unresolved debate always was. */
+  private afterRuling(ruling: Ruling, kind: string, context: string): StepOutcome {
+    if (ruling.accepted()) {
+      return StepOutcome.ok();
+    }
+    const note = ruling.note === '' ? '(no note)' : ruling.note;
+    return StepOutcome.escalated(`Rejected by the arbiter "${kind}": ${note}\n${context}`);
   }
 
   /** Names only: server definitions can carry secrets and never reach a span. */

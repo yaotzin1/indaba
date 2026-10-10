@@ -92,6 +92,7 @@ A runner is what a role's `runner:` (or a step's) names.
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
+| `opencode` | `opencode run [--model <m>] <prompt>`. A last resort; Indaba never adds `--auto`, pass it in `extraArgs` if you want it | the `opencode` CLI, logged in (`opencode auth login`) or a provider key in the environment |
 
 Each agent CLI authenticates itself; Indaba does not log you in.
 
@@ -125,7 +126,10 @@ so there is no terminal to scrape. The role or step names the agent:
 | `claude` | `npx --yes @agentclientprotocol/claude-agent-acp` |
 | `codex` | `npx --yes @agentclientprotocol/codex-acp` |
 | `gemini` | `gemini --acp` |
+| `opencode` | `opencode acp`. Passes `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_` and `OPENROUTER_` variables on. On Windows, `opencode` is an npm `.cmd` shim that Indaba does not start: point `command` at the native `opencode.exe`, or use WSL (see below) |
 | `{ command: [program, arg, ...] }` | exactly that, for any other agent or a pinned, locally installed copy |
+
+**OpenCode on Windows.** OpenCode runs natively on Windows but recommends WSL ([opencode.ai/docs/windows-wsl](https://opencode.ai/docs/windows-wsl)). Indaba does not bridge the two: it never starts `wsl.exe` or translates `C:` paths to `/mnt/c/`. If you want OpenCode in WSL, install and run Indaba inside WSL too, so `opencode` is a Linux executable on that PATH and every path is a Linux path. Otherwise use the native `opencode.exe` through `agent.command`.
 
 Things to know:
 
@@ -185,9 +189,11 @@ confirmed on real installs yet.
 | `.indaba/traces/<traceId>.events.jsonl` | The run as it happens: span starts and ends, step status changes and the output steps stream (credentials redacted, 2 MiB at most). `indaba watch` reads it |
 | `.indaba/traces/<traceId>.jsonl` | One JSON object per ended span: the task, each step, each agent call or command, with `gen_ai.*` attributes, token counts and cost where known. Safe to read and diff; it never contains secrets |
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
+| `.indaba/artifacts/<step>.transcript.md`, `<step>.ruling.md` | The messages of a debate step and, when an arbiter ruled, its ruling |
+| `.indaba-decisions/<workflow>.jsonl` | **Committed, not ignored.** Every arbiter ruling, one JSON line each, and the memory that lets an identical re-run skip the debate. See [Consensus steps](workflow-format.md#consensus-steps) |
 | the paths your workflow names under `artifacts` | Whatever the steps wrote there, and the diff of an isolated worktree if you named a `patch` artifact |
 
-`.indaba/` is runtime state; add it to your `.gitignore`.
+`.indaba/` is runtime state; add it to your `.gitignore`. `.indaba-decisions/` is not: commit it.
 
 A cost is shown only when the model's price is known and the usage was reported; an unknown cost is
 absent, not zero.

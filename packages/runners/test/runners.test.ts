@@ -7,6 +7,7 @@ import {
   CodexRunner,
   CommandRunner,
   CursorRunner,
+  OpenCodeRunner,
   OpenRouterRunner,
   RunnerRegistry,
   ShellRunner,
@@ -145,6 +146,28 @@ describe('CLI runner command lines', () => {
     expect(spawner.last.command.join(' ')).not.toContain('dangerously');
   });
 
+  it('OpenCodeRunner builds a run command, the prompt as one argument', async () => {
+    const spawner = new FakeSpawner();
+    const hostile = 'x; rm -rf / $(whoami)';
+    await new OpenCodeRunner({ spawner }).run({ prompt: hostile, workdir: TMP, model: 'anthropic/claude-x' });
+    expect(spawner.last.command).toEqual(['opencode', 'run', '--model', 'anthropic/claude-x', hostile]);
+
+    await new OpenCodeRunner({ spawner }).run({ prompt: 'p', workdir: TMP });
+    expect(spawner.last.command).toEqual(['opencode', 'run', 'p']);
+  });
+
+  it('OpenCodeRunner never auto-approves unless asked', async () => {
+    const spawner = new FakeSpawner();
+    await new OpenCodeRunner({ spawner }).run({ prompt: 'x', workdir: TMP });
+    expect(spawner.last.command).not.toContain('--auto');
+
+    await new OpenCodeRunner({ spawner, binary: 'oc', extraArgs: ['--auto'] }).run({
+      prompt: 'x',
+      workdir: TMP,
+    });
+    expect(spawner.last.command).toEqual(['oc', 'run', '--auto', 'x']);
+  });
+
   it('CursorRunner builds a print command', async () => {
     const spawner = new FakeSpawner();
     await new CursorRunner({ spawner }).run({ prompt: 'p', workdir: TMP, model: 'm' });
@@ -228,11 +251,20 @@ describe('RunnerRegistry', () => {
   it('looks up runners and explains misses', () => {
     const registry = RunnerRegistry.withDefaults({ INDABA_CODEX_CMD: 'mycodex run {prompt}' });
 
-    for (const name of ['shell', 'claude-code', 'cursor', 'codex', 'antigravity', 'openrouter', 'acp']) {
+    for (const name of [
+      'shell',
+      'claude-code',
+      'cursor',
+      'codex',
+      'antigravity',
+      'opencode',
+      'openrouter',
+      'acp',
+    ]) {
       expect(registry.get(name).name).toBe(name);
       expect(registry.has(name)).toBe(true);
     }
-    expect(registry.names()).toHaveLength(7);
+    expect(registry.names()).toHaveLength(8);
     expect(() => registry.get('nope')).toThrow(RunnerError);
     expect(() => registry.get('nope')).toThrow('Unknown runner "nope"');
     expect(new RunnerRegistry().has('x')).toBe(false);
