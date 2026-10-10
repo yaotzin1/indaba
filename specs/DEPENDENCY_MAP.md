@@ -14,7 +14,7 @@ graph BT
     end
 
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter"]
-    Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner, agent CLI runners (node-pty optional)"]
+    Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
     Cli["indaba: run, plan, validate, watch, plugin loading, composition root"]
     Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
     Plugin["a third-party plugin"]

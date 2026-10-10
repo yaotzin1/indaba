@@ -711,10 +711,22 @@ describe('AcpRunner: the agent and its environment', () => {
   });
 
   it('has a preset for each documented agent', () => {
-    expect(Object.keys(ACP_AGENT_PRESETS).sort()).toEqual(['claude', 'codex', 'gemini']);
+    expect(Object.keys(ACP_AGENT_PRESETS).sort()).toEqual(['claude', 'codex', 'gemini', 'opencode']);
     for (const preset of Object.values(ACP_AGENT_PRESETS)) {
       expect(preset.command.length).toBeGreaterThan(0);
     }
+  });
+
+  it('starts OpenCode as `opencode acp` with its provider prefixes', () => {
+    expect(ACP_AGENT_PRESETS.opencode.command).toEqual(['opencode', 'acp']);
+    expect(ACP_AGENT_PRESETS.opencode.envPrefixes).toEqual([
+      'OPENCODE_',
+      'ANTHROPIC_',
+      'OPENAI_',
+      'GOOGLE_',
+      'GEMINI_',
+      'OPENROUTER_',
+    ]);
   });
 
   it('passes only the baseline, the preset prefixes and what was asked for', async () => {

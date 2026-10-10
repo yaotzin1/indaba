@@ -11,6 +11,7 @@ import {
   CommandRunner,
   CursorRunner,
   McpConfigWriter,
+  OpenCodeRunner,
   ShellRunner,
 } from '../src/index.js';
 import { FakeSpawner, TMP } from './support.js';
@@ -145,6 +146,7 @@ describe('MCP in the runners', () => {
     expect(mcpCapabilityOf(new ClaudeRunner())).toBe(McpCapability.Injected);
     expect(mcpCapabilityOf(new CodexRunner())).toBe(McpCapability.Injected);
     expect(mcpCapabilityOf(new CursorRunner())).toBe(McpCapability.AgentManaged);
+    expect(mcpCapabilityOf(new OpenCodeRunner())).toBe(McpCapability.AgentManaged);
     expect(mcpCapabilityOf(new CommandRunner('c', ['x']))).toBe(McpCapability.None);
     expect(mcpCapabilityOf(new CommandRunner('c', ['x'], { mcp: McpCapability.Injected }))).toBe(
       McpCapability.Injected,
