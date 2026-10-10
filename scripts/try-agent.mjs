@@ -273,8 +273,17 @@ export function locateCli(explicit, exists = fs.existsSync) {
     }
 }
 
+/**
+ * The environment without any `GIT_*` variable. A git hook hands `GIT_DIR` and `GIT_INDEX_FILE` to everything it
+ * starts, and from a linked worktree `GIT_DIR` is an absolute path to the real repository: a `git init` or
+ * `git commit` meant for a temporary folder would then change that repository instead.
+ */
+export function withoutGitEnvironment(environment = process.env) {
+    return Object.fromEntries(Object.entries(environment).filter(([name]) => !name.toUpperCase().startsWith('GIT_')));
+}
+
 function run(command, args, options = {}) {
-    return spawnSync(command, args, { encoding: 'utf8', ...options });
+    return spawnSync(command, args, { encoding: 'utf8', ...options, env: withoutGitEnvironment(options.env) });
 }
 
 /** Installs the agent's npm package into a cache (once) and returns the command that starts it. */
