@@ -1,6 +1,8 @@
 # Events and telemetry contract: Budgets
 
-Names and values here are public contract once released. Only numbers, scope and limit names, step ids, task
+Names and values here are public contract once released. Money is always recorded as an amount and a currency
+code (never a symbol), the original first; a conversion is recorded beside it with its rate and date, and a
+missing rate is recorded as an absence, never as a guess. Only numbers, scope and limit names, step ids, task
 ids, short enumerated words and relative paths are carried. No prompt, output, runner message, transcript,
 environment value or secret appears in any of them. A source `reason` is the one piece of free text; it is cut
 to 300 characters and cleaned before it is used.
@@ -9,13 +11,13 @@ to 300 characters and cleaned before it is used.
 
 | Event class | Payload | Dispatched when |
 | :--- | :--- | :--- |
-| `BudgetExceeded` | task id, step id, scope, limit, spent, cap, `final` | a cap is reached and the in-flight call has been asked to stop; before the question is asked |
+| `BudgetExceeded` | task id, step id, scope, limit, spent, cap, currency (cost limit), `final` | a cap is reached and the in-flight call has been asked to stop; before the question is asked |
 | `BudgetResolved` | task id, step id, decision (`stop`, `resume`, `unanswered`), mode (`raise_to`, `add`, `one_call`) for a resume | the question is settled, before the step is repeated or ended |
 
 ## Event-stream records (`.indaba/traces/<traceId>.events.jsonl`)
 
 ```json
-{ "type": "budget_requested", "at": "2026-10-10T09:00:00.000Z", "traceId": "…", "id": "bud-1a2b3c4d", "stepId": "review", "scope": "step", "limit": "max_cost_usd", "spent": 0.5012, "cap": 0.5 }
+{ "type": "budget_requested", "at": "2026-10-10T09:00:00.000Z", "traceId": "…", "id": "bud-1a2b3c4d", "stepId": "review", "scope": "step", "limit": "max_cost", "currency": "USD", "spent": 0.5012, "cap": 0.5 }
 { "type": "budget_answered",  "at": "2026-10-10T09:01:30.000Z", "traceId": "…", "id": "bud-1a2b3c4d", "decision": "resume", "mode": "add" }
 ```
 
@@ -26,8 +28,8 @@ is the one a file channel would use for `.indaba/rulings/<id>.request.json` (spe
 
 | Span | Attribute | Type | Written when |
 | :--- | :--- | :--- | :--- |
-| step span (`step <id>`) | `indaba.budget.max_cost_usd`, `indaba.budget.max_tokens` | number | the cap applies to the step (the effective value, after any grant) |
-| step span | `indaba.budget.spent_usd` | number | a cost cap applies and at least one call reported a cost; **absent** otherwise, never `0` for unknown |
+| step span (`step <id>`) | `indaba.budget.max_cost`, `indaba.budget.currency`, `indaba.budget.max_tokens` | number, string, number | the cap applies to the step (the effective value, after any grant); `currency` is the cap's |
+| step span | `indaba.budget.spent_cost` | number | a cost cap applies and at least one call's cost was usable; **in the cap's currency** (converted with the supplied rates); **absent** otherwise, never `0` for unknown |
 | step span | `indaba.budget.spent_tokens` | number | a token cap applies and at least one call reported tokens; absent otherwise |
 | step span | `indaba.budget.unmetered_calls`, `indaba.budget.estimated_calls` | number | at least one such call; absent otherwise |
 | step span | `indaba.budget.resumes` | number | the step was resumed at least once |
@@ -36,6 +38,11 @@ is the one a file channel would use for `.indaba/rulings/<id>.request.json` (spe
 | task span | `indaba.budget.resumed_from` | string | this run was started with `--resume`: the earlier run's trace id |
 | task span | `indaba.budget.kept` | boolean | work was kept and a resume file written |
 | call span | `indaba.metering.kind`, `indaba.metering.basis` | string | always: `metered`, `unmetered`, `none`; `reported` or `estimated` |
+| call span | `indaba.cost.amount`, `indaba.cost.currency` | number, string | the call reported a cost: **the original**, in the currency the source gave. Written for every currency, USD included |
+| call span | `indaba.cost.usd` | number | unchanged: written only when the original currency is USD (reported, or priced in USD); never filled by a conversion |
+| call span | `indaba.cost.converted_amount`, `indaba.cost.converted_currency`, `indaba.cost.rate`, `indaba.cost.rate_as_of`, `indaba.cost.rate_inverse` | number, string, number, string, boolean | a display currency is selected, differs from the original and a usable rate exists. `rate` is the multiplier applied, `rate_as_of` the date, `rate_inverse` true for a reciprocal. Absent otherwise; a missing rate is never written as a guess |
+| task span | `indaba.cost.display_currency` | string | a display currency was selected |
+| task span | `indaba.cost.total_complete` | boolean | a display currency was selected: whether every cost line was converted (a total is reported only when true) |
 | call span | `indaba.metering.reason` | string | the call was `unmetered`: the cleaned, bounded reason |
 
 The existing `indaba.cost.usd` and `gen_ai.usage.*` attributes on a call span are unchanged; the budget
@@ -46,7 +53,8 @@ step attributes; the call-span `indaba.metering.*` attributes are new on every a
 
 | Event | On | Attributes |
 | :--- | :--- | :--- |
-| `indaba.budget.exceeded` | the step span | `indaba.budget.scope`, `.limit`, `.spent`, `.cap`, `.final` |
+| `indaba.budget.exceeded` | the step span | `indaba.budget.scope`, `.limit`, `.spent`, `.cap`, `.currency` (cost limit), `.final` |
+| `indaba.cost.unconvertible` | the call span | `indaba.cost.currency`, `indaba.cost.target_currency`: a cost had no usable rate to a cap's currency and was counted unmetered; once per call and target |
 | `indaba.budget.resolved` | the step span | `indaba.budget.decision`, `indaba.budget.mode` (resume only), `indaba.budget.channel` (`terminal`, `files`, `none`, or a plugin resolver's name) |
 | `indaba.budget.kept` | the step span | `indaba.budget.workspace` (relative path), `indaba.budget.reason` (`unanswered`, `final_cap`, `resume_limit`, `cancelled`) |
 | `indaba.budget.observation_ignored` | the call span | `indaba.budget.field` (`tokens` or `cost_usd`), `indaba.budget.reason` (`negative`, `not_finite`, `decreased`); once per call and field, never the offending value |

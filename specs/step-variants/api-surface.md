@@ -17,26 +17,22 @@ given, behave exactly as before.
 - `Workspace` gains one method and one optional parameter. The only implementer in this repository is `GitWorktree`;
   `Workspace` is documented as an engine seam, not an extension point, and the changelog says a third-party
   implementer must add `snapshot`.
-- Raising the variant maximum below is a minor; lowering it, or lowering the default concurrency, is a major.
+- The maximum number of variants is an engine option, not part of the file format. Raising its default is a minor;
+  lowering it, or lowering the default concurrency, is a major: a workflow that validated before would fail.
 
 ## Public symbols added
 
 ### `@indaba/core`
 
 ```ts
-/** One planned attempt at a variants step: the entries of the `variants` list, normalised. */
-export interface VariantDefinition {
-  readonly index: number;                       // 1-based, declaration order
-  readonly label: string;                       // default "variant-<index>", at most 40 characters; display only
-  readonly runner?: string;                     // first of the chain, when the entry overrides the step's chain
-  readonly fallbackRunners?: readonly string[]; // the rest of that chain
-  readonly model?: string;
-  readonly agent?: AgentSpec;                   // same type as StepDefinition.agent
-}
+/** The default for the engine's `maxVariants`, and for a step's concurrency. Design choices; not measured. */
+export const DEFAULT_MAX_VARIANTS = 3;
+export const DEFAULT_VARIANT_CONCURRENCY = 2;
 
+/** `variants: N` with its companion setting, normalised. Every variant uses the step's own configuration. */
 export interface VariantsDefinition {
-  readonly variants: readonly VariantDefinition[]; // 2 to 4
-  readonly concurrency: number;                    // 1 to variants.length; default min(2, count)
+  readonly count: number;        // an integer of at least 2; the parser checks it against the engine's maxVariants
+  readonly concurrency: number;  // 1 to count; default min(DEFAULT_VARIANT_CONCURRENCY, count)
 }
 
 /** The candidate ids a ballot can name, besides NONE. "variant-<index>". */
@@ -139,13 +135,15 @@ export interface WorkspaceManager {
 }
 ```
 
-`StepExecutorOptions` gains `readonly workspaces: WorkspaceManager` and `readonly patches: PatchService` (the engine
-already owns both). `StepExecutor.run` is unchanged in signature; a step with `variants` takes a new internal path, as
+The maximum is an engine option: `maxVariants?: number` on the parser's options (where it is enforced, with the message
+of the validation table) and on `WorkflowEngineOptions`, defaulting to `DEFAULT_MAX_VARIANTS`. `StepExecutorOptions` gains
+`readonly workspaces: WorkspaceManager` and `readonly patches: PatchService` (the engine already owns both). `StepExecutor.run` is unchanged in signature; a step with `variants` takes a new internal path, as
 debate steps do. Variant worktrees are created with `create(taskId, "<stepId>-v<n>")`.
 
 ### `indaba` (CLI)
 
-The terminal arbiter, given a `RulingRequest` with a `ballot`, prints the candidates with their counts and the leader,
+The composition root passes `maxVariants` (the default; no command-line flag in this spec, so changing it for the CLI is a
+later, deliberate addition) to the parser and the engine. The terminal arbiter, given a `RulingRequest` with a `ballot`, prints the candidates with their counts and the leader,
 and accepts `accept` (the leader), a candidate id (accept that candidate), or `reject`. Without a ballot it behaves
 exactly as before. `indaba plan` prints the variants (below).
 
@@ -156,7 +154,7 @@ steps:
   - id: implement
     role: coder
     isolation: git_worktree       # required with variants, on the step itself
-    variants: 3                   # or a list, below
+    variants: 3                   # an integer of at least 2; the engine's maxVariants is the ceiling
     variants_concurrency: 2       # optional
     examine_with: [reviewer_a, reviewer_b]
     decision_type: consensus      # existing; consensus (default) or majority
@@ -164,27 +162,21 @@ steps:
     goal: "Implement the feature."
 ```
 
-```yaml
-    variants:
-      - { label: "small", runner: openrouter, model: "vendor/small-model" }
-      - { label: "agent", runner: [acp, claude-code], agent: claude }
-      - { }                       # the step's own runner and model
-```
-
 | Field | Meaning |
 | :--- | :--- |
-| `variants` | An integer from 2 to 4, or a list of 2 to 4 entries. Entry keys: `label`, `runner` (a name or a list), `model`, `agent`. Any other key is a validation error naming the path |
-| `variants_concurrency` | Integer from 1 to the count. Default 2 (or the count, if smaller) |
+| `variants` | An integer of at least 2. There is no upper bound in the file format; the engine's `maxVariants` (default 3) is the ceiling, and a workflow above it fails validation. A mapping, a list or any other value is a validation error |
+| `variants_concurrency` | Integer from 1 to the count. Default 2 (or the count, if smaller). Its own setting, apart from the maximum |
 | `examine_with` | Non-empty list of role names that cross-examine the candidates. Required with `variants`; invalid without it. The step's own role is not an examiner unless listed |
 | `decision_type`, `arbiter` | Existing fields. `arbiter` was valid only on a debate step (`consensus_with`); it is now also valid on a step with `examine_with` |
 
 | Validation | Message names |
 | :--- | :--- |
-| count outside 2 to 4, not an integer, empty list | the step and `variants` |
+| not an integer, below 2 | the step and `variants` |
+| above the engine's `maxVariants` | the step and the limit: `step "implement": variants 5 exceeds the maximum of 3` |
 | `variants` on a shell step, on a debate step, or without `isolation: git_worktree` on the step itself | the step and the reason |
 | `variants` without `examine_with`, or `examine_with` without `variants`, or an empty list | the step |
 | `examine_with` names an undefined role | the step and the role |
-| unknown entry key, unknown runner in an entry | the step and the entry's path |
+| `variants` given as a list or mapping | the step: `variants` is one integer |
 | `variants_concurrency` out of range or without `variants` | the step |
 
 ### The examiners' reply
@@ -214,10 +206,8 @@ other part of the reply is read as a choice.
 
 ```
 implement   role coder   isolation git_worktree
-  variants 3 (concurrency 2, at most 3 worktrees at once)
-    1 small    openrouter   model vendor/small-model
-    2 agent    acp, claude-code   agent claude
-    3 variant-3   (step chain)
+  variants 3 (maximum 3, concurrency 2, at most 3 worktrees at once)
+    runner chain and model: the step's own (all variants)
   examine_with reviewer_a, reviewer_b   decision consensus   arbiter human
 ```
 
@@ -225,9 +215,9 @@ Candidates, costs and diffs do not exist at plan time and are not printed.
 
 ## Defaults introduced
 
-- Maximum 4 variants; default concurrency `min(2, count)`. Design choices, not measured.
+- `maxVariants` 3 (engine option) and concurrency `min(2, count)`. Design choices, not measured.
 - `decision_type` for an examination defaults to `consensus`, as for any debate.
-- A variant's label defaults to `variant-<n>`; cut at 40 characters.
+- Attempts are numbered `variant-<n>` from 1; there are no labels.
 - The default quorum of `ConsensusArbiter` stays `AGREEMENT_QUORUM`.
 - A variants step is not recorded in the ledger and not reused.
 

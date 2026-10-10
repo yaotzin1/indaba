@@ -2,12 +2,13 @@
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
 > **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
-> **Semver impact**: the budget fields, the resume question and the CLI options are minor (new optional fields,
-> new optional contracts, new events and attributes; below 1.0). **The metering obligation (AC-21 to AC-30) is
+> **Semver impact**: the budget fields, money and rates, the resume question and the CLI options are minor (new
+> optional fields, new optional members, new optional contracts, new events and attributes; below 1.0). **The metering obligation (AC-21 to AC-30) is
 > breaking** for third-party runners and for workflows that run a runner which reports no usage; it is
 > classified in [`api-surface.md`](api-surface.md), and the choice of version is the maintainer's.
 > **Builds on**: [`specs/transport-priority`](../transport-priority/spec.md) (runner chains, span events),
-> [`specs/observability`](../observability/spec.md) (`TokenUsage`, `PricingTable`, `indaba.cost.usd`),
+> [`specs/observability`](../observability/spec.md) (`TokenUsage`, `PricingTable`, `indaba.cost.usd`; the USD
+> fields stay, money in any currency is added beside them),
 > [`specs/debate-arbiter`](../debate-arbiter/spec.md) (the human-in-the-terminal path) and
 > [`specs/ruling-channel`](../ruling-channel/spec.md) (the same question for front ends other than a terminal).
 > **Siblings**: [`specs/step-variants`](../step-variants/spec.md) and
@@ -26,8 +27,11 @@ number only afterwards. The wall-clock timeout (`timeoutSeconds`) bounds time, n
 Three things make a ceiling harder than a comparison:
 
 1. **The numbers are uneven.** An OpenAI-compatible runner reports tokens, and a cost only for a model in the
-   pricing table. An ACP agent reports a cost only if it sends one, and no token split. The CLI runners report
-   nothing. A ceiling that treated "not reported" as zero would look safe and enforce nothing.
+   pricing table. An ACP agent reports a cost only if it sends one, and no token split, and today Indaba keeps
+   that cost only when it is in USD and drops it otherwise. The CLI runners report nothing. A ceiling that
+   treated "not reported" as zero would look safe and enforce nothing. A person who pays in another currency
+   also cannot read a USD-only report or cap, and a figure converted with a rate nobody can see is worse than
+   the original.
 2. **Stopping throws work away.** A step that is stopped at its ceiling has usually done most of its job.
    Tearing the worktree down and failing the run destroys that work, when the person who set the ceiling would
    often rather raise it a little and finish.
@@ -42,7 +46,9 @@ Three things make a ceiling harder than a comparison:
 - **US-02.** As a workflow author, I cap the spend of a whole run, so that the sum of many steps has a limit
   too.
 - **US-03.** As a person running or scripting a workflow I did not write, I set a hard run cap from the command
-  line, without editing the file, that nothing in the run can raise.
+  line, in the currency I pay in, without editing the file, that nothing in the run can raise.
+- **US-10.** As a person who pays in another currency, I read every cost in the currency its source reported and,
+  next to it, in the currency I chose, with the rate and its date, and I set caps in my currency.
 - **US-04.** As a person at a terminal, a TUI, a web or a desktop front end, when a cap stops a step I am asked
   whether to continue from where it stopped, with more budget I name or one more call, or to stop for good.
 - **US-05.** As a person who could not answer (CI, a closed terminal), I find the stopped work kept, told where
@@ -60,30 +66,34 @@ Three things make a ceiling harder than a comparison:
 
 ### Budgets and caps
 
-- [ ] AC-01. A step may carry `budget: { max_cost_usd, max_tokens }`. Both keys are optional but at least one
-  is required. `max_cost_usd` is a finite number greater than 0; `max_tokens` is an integer of at least 1.
-  Any other key, a non-number, zero, a negative, `NaN` or `Infinity` fails validation naming the step and the
-  field. A `budget` on a shell step fails validation (a shell step spends nothing the engine meters).
+- [ ] AC-01. A step may carry `budget: { max_cost, currency, max_tokens }`, where `max_cost_usd: n` is the
+  spelling of `max_cost: n` with `currency: USD` (AC-37). At least one of `max_cost`, `max_cost_usd`, `max_tokens`
+  is required. `max_cost` is a finite number greater than 0 in `currency` (default `USD`); `max_tokens` is an
+  integer of at least 1. Any other key, a non-number, zero, a negative, `NaN` or `Infinity`, `max_cost` together
+  with `max_cost_usd`, or `currency` without `max_cost`, fails validation naming the step and the field. A `budget` on a shell step fails validation (a shell step spends nothing the engine meters).
 - [ ] AC-02. The workflow may carry a top-level `budget` with the same two keys. It caps the whole run: the
   sum of every metered call of every step, every attempt included.
 - [ ] AC-03. `defaults.budget` may carry the same two keys. It is the step budget of every agent step that has
-  no `budget` of its own, field by field: a step that sets only `max_tokens` still inherits `max_cost_usd`
-  from the defaults.
-- [ ] AC-04. `indaba run` accepts `--max-cost <usd>` and `--max-tokens <n>`. They set the **operator run cap**:
-  the run-wide ceiling for scripted and CI use, passed to the engine as `WorkflowEngineOptions.runBudget`, the
-  single way every front end sets it. When the file also has a run `budget`, the smaller value of each key
-  applies. A malformed value is a usage error (exit code 2) before anything runs.
+  no `budget` of its own, field by field: a step that sets only `max_tokens` still inherits the cost cap (amount and
+  currency together) from the defaults.
+- [ ] AC-04. `indaba run` accepts `--max-cost <amount>[<code>]` (for example `5`, `20PLN`, `"20 PLN"`; a bare
+  number is USD) and `--max-tokens <n>`. They set the **operator run cap**: the run-wide ceiling for scripted and
+  CI use, passed to the engine as `WorkflowEngineOptions.runBudget`, the single way every front end sets it. When
+  the file also has a run `budget`, **both caps apply** and whichever is reached first stops the run, so no
+  comparison across currencies is ever needed. A malformed value or an unknown currency code is a usage error
+  (exit code 2) before anything runs.
 - [ ] AC-05. An operator cap is **final**: no answer to a budget question can raise it or grant a call past it
   (AC-12). A cap that comes from the file is the author's default, which a person may raise at the question.
 - [ ] AC-06. The engine meters every call it starts that can spend (AC-21): an agent step's call, each runner
   of a fallback list that actually ran, every participant's turn in a debate, every call an arbiter or another
   extension reports. A call's spend is added to its step's total and to the run's total. The spend of every
   attempt of a step counts: a retry does not reset the step's total.
-- [ ] AC-07. A call's tokens are `inputTokens + outputTokens` of its metering report. Its cost is the cost the
-  engine already records on that call's span: the pricing-table cost when the model is in the table, otherwise
-  the runner's reported cost, otherwise **unknown**. A call whose tokens or cost are unknown adds nothing to
-  that total and increments the `unmetered` count of its source. Unknown is never treated as zero in a message,
-  a span or a summary.
+- [ ] AC-07. A call's tokens are `inputTokens + outputTokens` of its metering report. Its cost is a `Money` in
+  the currency it was reported in (AC-36): the pricing-table cost when the model is in the table, otherwise the
+  runner's reported cost, otherwise **unknown**. Spend is totalled per original currency and converted to a
+  cap's currency only to compare with that cap (AC-41). A call whose tokens or cost are unknown, or whose cost
+  cannot be converted for a cap, adds nothing to that total and increments the `unmetered` count of its source.
+  Unknown is never treated as zero in a message, a span or a summary.
 - [ ] AC-08. Before starting a call that can spend, and again each time spend is observed, the engine compares
   the totals with every cap that applies. When `spent >= cap` for any of them, the call is not started (or, when
   it is running, is aborted) and the **budget question** (AC-11) is raised. `retry_step` never treats a budget
@@ -99,13 +109,14 @@ Three things make a ceiling harder than a comparison:
   their tree, as for a cancel), and the step stays `RUNNING`: it has not failed, it is waiting for an answer.
   A budget stop is never reported as `cancelled`.
 - [ ] AC-11. The engine asks one **budget question** per stop, through the registered `BudgetResolver`. The
-  question names the step, the scope (`step` or `run`), the limit, the amount spent, the cap, how many calls
-  were unmetered, how many resumes the step has used and may still use, and where the kept work is (a path
+  question names the step, the scope (`step` or `run`), the limit, the amount spent, the cap (a cost in the cap's
+  currency and, when a display currency is selected and a rate exists, also in that currency with the rate and
+  its date), how many calls were unmetered, how many resumes the step has used and may still use, and where the kept work is (a path
   relative to the project). It carries no prompt, output, transcript or secret. The question is asked inside
   the call that was stopped, so a debate keeps its transcript and a retry keeps its counters.
 - [ ] AC-12. The answer is one of: **raise to** (a new absolute cap for the limit that tripped, and
-  optionally the other), **add** (extra headroom on top of what was spent, for the limit that tripped, and
-  optionally the other), **one more call** (the cap stays; the stopped step may make exactly one more call,
+  optionally the other; a cost in the cap's currency), **add** (extra headroom on top of what was spent, for the
+  limit that tripped, and optionally the other; a cost in the cap's currency), **one more call** (the cap stays; the stopped step may make exactly one more call,
   which is not aborted by the cap, and the cap applies again afterwards), or **stop**. A raise or an add must
   leave room (a new cap above what is already spent) and an add must be above zero; an answer that does not is
   refused and the question is asked again. Numbers are validated like AC-01.
@@ -144,15 +155,16 @@ Three things make a ceiling harder than a comparison:
 
 - [ ] AC-21. **Every runner declares how it meters**, and so does every other extension that can spend: an
   adjudicator, a guard, a listener and a budget resolver. The declaration is `free` (it never spends), `metered`
-  (it reports its spend, per figure `yes` or `maybe`) or `unmetered` with a reason. There is no fourth state and
-  no default.
+  (it reports its spend, per figure `yes`, `maybe` or `no`, and, for a cost, the currencies it reports in) or
+  `unmetered` with a reason. There is no fourth state and no default.
 - [ ] AC-22. `PluginHost` refuses to register a runner, an adjudicator, a guard, a listener or a resolver that
   does not carry a well-formed declaration, with an error naming the plugin and what is missing. Built-ins
   register through the same calls and are held to the same rule.
 - [ ] AC-23. Every `RunResult` carries a metering report: `metered` (with at least one of input tokens, output
   tokens or cost, and a `basis` of `reported` or `estimated`), `unmetered` (with a reason) or `none` (only
   from a `free` capability). When a runner or plugin does not build one, the `RunResult` constructor derives
-  it from the existing `usage` and `reportedCostUsd`, and from nothing it reports `unmetered`.
+  it from the existing `usage`, `reportedCost` and `reportedCostUsd`, and from nothing it reports `unmetered`. A
+  reported cost is a `Money` in the currency it was reported in.
 - [ ] AC-24. A capability declared `metered` that returns no figure is counted as a **gap**: it is totalled as
   unmetered, listed with its source, and recorded as an event; it does not fail the call.
 - [ ] AC-25. A capability that spends and is not a runner reports through the same report: `Ruling` and
@@ -163,8 +175,8 @@ Three things make a ceiling harder than a comparison:
   `unmetered` while the policy is `required`, naming the step, the source and its reason. With `optional` it
   passes, and the use is counted and shown (AC-27). `metering_policy` follows the vocabulary of `mcp_policy`.
 - [ ] AC-27. The report of a run lists, per source, the calls that were not metered and why, the calls that were
-  estimated, and the gaps; the CLI prints them after the spend line. A total that includes any of them is never
-  printed as complete.
+  estimated, and the gaps, and the costs that could not be converted; the CLI prints them after the spend line. A
+  total that includes any of them is never printed as complete.
 - [ ] AC-28. A **conformance check** is exported for plugin authors (`checkMeteringContract`): it verifies a
   declaration is well formed, that a `metered` subject reports a figure on a successful sample, that a `free`
   subject reports `none`, that figures are finite, non-negative and non-decreasing within a call, and that an
@@ -177,16 +189,74 @@ Three things make a ceiling harder than a comparison:
   only for what Indaba derives from such a source. No figure is ever invented.
 - [ ] AC-30. `validate` and `plan` print a warning, without failing, for each budget key that cannot trip on a
   source the step may use (a cost cap on a runner whose cost is `maybe` or absent, a token cap on one whose
-  tokens are), and for a step cap larger than the run cap. `plan` prints each step's effective budget, its
+  tokens are), for a cost cap whose currency has no supplied rate from a currency a source declares (AC-42), and
+  for a step cap larger than the run cap. `plan` prints each step's effective budget, its
   policy and the run caps, and no estimated spend.
+
+### Money, rates and currencies
+
+- [ ] AC-36. A cost is a `Money`: `{ amount, currency }`, with `amount` a finite number of at least 0 and
+  `currency` an ISO 4217 code from the table bundled with `@indaba/core`. A runner reports it, and a pricing
+  table prices a model in it, exactly as the source gave it. The existing USD members stay and keep their
+  meaning: `RunResult.reportedCostUsd` and the span attribute `indaba.cost.usd` are set only for a cost whose
+  original currency is USD, and are never filled by a conversion. A new `RunResult.reportedCost` carries the
+  cost in its original currency, whatever it is; the ACP runner keeps any currency the agent reports instead of
+  dropping all but USD (this supersedes the last clause of `specs/transport-priority` T-20).
+- [ ] AC-37. `max_cost_usd: n` is exactly `max_cost: n` with `currency: USD`, and is kept because the USD
+  vocabulary already exists. A cap is a `Money`; its currency is its own and is never inferred.
+- [ ] AC-38. Rates are **supplied**, never fetched. A rate is `{ from, to, rate, as_of }`: one unit of `from` is
+  `rate` units of `to`, `rate` a finite number greater than zero, `from` and `to` different ISO codes, `as_of` a
+  calendar date `YYYY-MM-DD`. They come from the workflow's top-level `rates` list, from a file given with
+  `indaba run --rates <file>` (the same list), or from `WorkflowEngineOptions.rates`. When the same ordered pair
+  appears in more than one place, the operator's (`--rates`, the engine option) wins over the workflow's; the same
+  pair twice in one place is a validation error. The engine makes no network call, so a rate is data injected
+  like the clock.
+- [ ] AC-39. A conversion uses the supplied rate for the exact pair (`from` to `to`); when only the opposite pair
+  is supplied it uses its reciprocal and says so; it never goes through a third currency. A currency converts to
+  itself at rate 1 without an entry. With no usable rate the cost is not convertible (AC-41).
+- [ ] AC-40. A **display currency** may be selected with the top-level `display_currency` or `indaba run
+  --currency <code>` (the option wins). With none selected, every line is shown in its own original currency; a
+  total is printed only when every part is in one currency. With one selected, every cost is shown first in its
+  original currency and then converted: `0.42 USD (≈ 4.24 PLN at 10.1, as of 2026-10-01)`; a reciprocal rate is
+  shown as `at 1/0.099 (inverse of PLN to USD), as of …`. A line with no rate to the display currency is shown in
+  its original currency, marked `no rate to PLN`, and then **no total is printed**: a total appears only when
+  every part was converted. Amounts are shown with the currency's number of minor units; ISO codes are printed,
+  not symbols.
+- [ ] AC-41. **Enforcement** converts spend to the cap's currency with the supplied rate and compares there. A
+  call's cost in the cap's currency is added as it is. A cost with no usable rate to the cap's currency is
+  counted as **unmetered** for that cap with the reason `no rate from X to Y`, never as zero; it is still totalled
+  and shown in its own currency. A cap is therefore only as exact as its rates: a rate that is out of date makes
+  the cap approximate, and the report and the question print the rate's date so a person can judge.
+- [ ] AC-42. Each metered source declares the currencies its cost is reported in: a list of ISO codes, or `any`
+  for a source that reports whatever its agent sends. `validate` checks, for each cost cap and each source the
+  step may use that reports in a listed currency other than the cap's, that a usable rate exists: a missing one
+  is an error when the step's `metering_policy` is `required` (the cap could never trip on that source) and a
+  warning when `optional`. For `any` it is a warning only, because the currency is not known until the run.
+- [ ] AC-43. The budget question shows the cost in the cap's currency and, when a display currency is selected and
+  a rate exists, also in that currency with the rate and its date. An answer to a cost question is an amount in
+  the cap's currency; an answer naming another currency is refused.
+- [ ] AC-44. `--max-cost` takes an amount and an optional ISO code (`--max-cost 20PLN`, `--max-cost "20 PLN"`; a
+  bare number is USD). The currency is part of the value, so `--currency`, which only chooses what is displayed,
+  can never change what a cap means.
+- [ ] AC-45. A step with `variants: N` gives each variant an equal share computed in the cap's currency
+  (`max_cost / N`); the share is kept unrounded for enforcement and rounded only when shown.
+- [ ] AC-46. The trace records both: each call span keeps the original cost (`indaba.cost.amount`,
+  `indaba.cost.currency`) and, only when a display currency is selected and a rate exists, the converted figure
+  with the rate, its date and whether it was inverted; a budget's spend is in the cap's currency. Neither a rate
+  table nor a source's reason is a secret, but both are bounded and cleaned. Names are in `events.md`.
+- [ ] AC-47. Rate and money logic (`Money`, `RateTable`, conversion, formatting) is pure: it reads no clock,
+  environment, locale or network, and the same inputs give the same output. Every new line is covered by tests;
+  the 85% floor holds.
 
 ### Telemetry and documentation
 
 - [ ] AC-31. The span of a step records its budget and its metered spend, the task span the run's, and the stop
   and the answer are span events and typed events (names in `events.md`). None carries a prompt, output, path,
   transcript or secret.
-- [ ] AC-32. When a run ends, the CLI prints one line with the metered totals and the counts of estimated and
-  unmetered calls, for example `spent $0.4210 and 18,300 tokens (2 calls estimated, 3 not metered)`.
+- [ ] AC-32. When a run ends, the CLI prints one line with the metered totals, original currency first, and the
+  counts of estimated and unmetered calls, for example
+  `spent 0.42 USD (≈ 4.24 PLN at 10.1, as of 2026-10-01) and 18,300 tokens (2 calls estimated, 3 not metered)`.
+  Section "Money" fixes the format.
 - [ ] AC-33. A workflow without any of the new fields and with only metered or `free` runners behaves exactly as
   before, and its traces are byte-identical apart from the attributes written only when a budget applies.
 - [ ] AC-34. The metering logic (`BudgetMeter`) is pure: no clock, randomness, environment or I/O. The same
@@ -198,7 +268,13 @@ Three things make a ceiling harder than a comparison:
 
 - **Provider billing.** No query of a provider's usage or billing API, and no reconciliation with an invoice.
   The numbers are the ones the runs reported or, where marked, estimated.
-- **Currency conversion.** Only USD, and only a cost the pricing table or the runner itself gave in USD.
+- **Fetching rates.** The engine makes no network call for a rate, ever. Rates are supplied (AC-38).
+- **Chained conversion.** No conversion through a third currency (USD to PLN to EUR): each hop would compound a
+  stale rate. A pair with no supplied rate, direct or inverse, is not convertible.
+- **Deciding a rate is stale.** The engine does not compare a rate's date with today's date; it prints the date.
+- **Inferring a currency or a rate** from a locale, a region, a time zone or an environment variable.
+- **Tax, fees, spreads and rounding rules of a payment.** Amounts are kept unrounded; rounding happens only when
+  a figure is shown.
 - **Per-user, per-team or per-day quotas,** or any state that outlives a run other than the resume file. A
   budget is one run's ceiling.
 - **Forecasting.** Token counts of an agent run cannot be known in advance, so `plan` shows caps, not a
@@ -220,7 +296,7 @@ Three things make a ceiling harder than a comparison:
 
 | Situation | Expected behaviour |
 | :--- | :--- |
-| a step's spend reaches its `max_cost_usd` or `max_tokens` | the in-flight call is aborted, the step stays `RUNNING`, the budget question is asked |
+| a step's spend reaches its `max_cost` or `max_tokens` | the in-flight call is aborted, the step stays `RUNNING`, the budget question is asked |
 | the run's spend reaches its cap | the same, with scope `run`; the step running when it tripped is the one named |
 | a cap is already reached when a call is about to start | the call is not started; the question is asked |
 | the person answers raise, add or one more call | the call is repeated with the note; spend continues from the old total; the attempt counter is unchanged |
@@ -230,6 +306,10 @@ Three things make a ceiling harder than a comparison:
 | the run is cancelled while the question is open | `cancelled`, exit 130; the directory is kept and the resume file written; the cancel wins over the stop |
 | the answer is invalid (a cap below what is spent, a number that is not valid) | refused, with the reason, and the question is asked again |
 | a runner reports no usage and no cost | the call is `unmetered`; it cannot trip a cap; its source and reason are listed |
+| a cost is in a currency with no supplied rate to the cap's currency (direct or inverse) | the cost is counted as `unmetered` for that cap with the reason `no rate from X to Y`; never zero; shown in its own currency; the cap cannot trip on it |
+| a rate entry is malformed, duplicated or names an unknown currency | the workflow (or the `--rates` file) fails validation naming the entry; nothing runs |
+| a rate is out of date | nothing happens: the cap is approximate (section 8, item 22); every figure shows the rate's date |
+| a display currency is selected and some line has no rate to it | that line is shown in its original currency, marked `no rate to <code>`, and no total is printed |
 | a runner declared `metered` reports nothing for a call | counted as a gap, listed, recorded; the call does not fail |
 | a runner reports spend that goes down, or a negative, `NaN` or infinite figure | ignored for metering and recorded as an event; never fails the step |
 | `--resume` finds the file missing, the version unknown, the workflow changed, or the directory gone | refused with the reason, exit 1; nothing is changed or deleted |
@@ -268,8 +348,17 @@ needs a secret. An answer is parsed, not evaluated: numbers are range-checked, a
 the person types reaches a shell, a path or a log unescaped. The terminal and file channels (`--rulings`) are
 the same trusted local channels as for rulings.
 
-`--max-cost` and `--max-tokens` are read in the CLI's composition root only; the engine never reads the
-environment.
+`--max-cost`, `--max-tokens`, `--currency` and `--rates` are read in the CLI's composition root only; the engine
+never reads the environment.
+
+**Money and rates.** A currency code is accepted only if it is in the ISO 4217 table bundled with `@indaba/core`
+(three capital letters, with its number of minor units); anything else is rejected, from a runner's report as
+much as from a workflow file. An amount is a finite, non-negative number. A rate is a finite number greater than
+zero between two different currencies, with an `as_of` that is a real calendar date. Rates come only from the
+workflow file, the `--rates` file or the engine option: never from the network, the locale, the time zone or the
+environment, so a budget decision never depends on anything outside what the operator supplied. A rate table is
+bounded (at most 200 entries) and read as data, never evaluated. The symbols of currencies are never used or
+guessed; figures are printed with their ISO codes.
 
 ## 7. Where it lives
 
@@ -284,7 +373,7 @@ environment.
   `ResumeStore`), and the resume start of `WorkflowEngine`.
 - `@indaba/runners`: every built-in runner declares its metering; the ACP and OpenAI-compatible runners call
   `onUsage` where they already receive spend while streaming. No runner enforces a budget itself.
-- `indaba` (CLI): `--max-cost`, `--max-tokens`, `--resume`, the terminal and file resolvers chosen by the
+- `indaba` (CLI): `--max-cost`, `--max-tokens`, `--currency`, `--rates`, `--resume`, the terminal and file resolvers chosen by the
   existing `--rulings` option, the warnings and errors in `validate` and `plan`, the spend and resume report.
 
 ## 8. Clarifications
@@ -305,8 +394,9 @@ All recommended; the maintainer confirms.
    becomes `ESCALATED` only on an answer or an unanswered end. `StepState` is unchanged for the live path.
 5. **Scopes.** The step (`budget`), the step default (`defaults.budget`), the run (top-level `budget`) and the
    operator run cap (`--max-cost`, `--max-tokens`, or `WorkflowEngineOptions.runBudget` for any other front
-   end). The first limit reached trips. The tighter value of each key wins between the file and the operator
-   cap, and the operator cap is final (item 8).
+   end). The first limit reached trips. The file's run cap and the operator cap are two caps that both apply (each in
+   its own currency), so no choice between them and no cross-currency comparison is needed; the operator cap
+   is final (item 8).
 6. **What counts toward a step in a debate or a retry?** Everything that step caused: every attempt, every
    participant, every call an arbiter or another extension reports for it. A retry that re-runs descendants
    leaves each step its own total; the run total counts them all.
@@ -333,8 +423,9 @@ All recommended; the maintainer confirms.
     answer, `none` registers no resolver. `specs/ruling-channel` is not built yet; this spec needs of it, and
     states here so it can be reconciled when either lands: a request `kind` (`ruling`, the default, or `budget`)
     in the same directory and the same atomic-file rules; a budget request without a transcript; an answer of
-    `{ decision: 'stop' }` or `{ decision: 'resume', mode, max_cost_usd?, max_tokens? }`; `indaba rule <id>
-    resume --raise-to-cost <usd>`, `--add-cost <usd>`, `--raise-to-tokens <n>`, `--add-tokens <n>`, `--one-call`
+    `{ decision: 'stop' }` or `{ decision: 'resume', mode, max_cost?, max_tokens? }` (a cost in the cap's
+    currency); `indaba rule <id>
+    resume --raise-to-cost <amount>`, `--add-cost <amount>`, `--raise-to-tokens <n>`, `--add-tokens <n>`, `--one-call`
     and `indaba rule <id> stop`; and the records `budget_requested` and `budget_answered`. The terminal path has
     no dependency on that spec.
 12. **Why a limit of five resumes per step.** A front end that always answers "one more call" would otherwise
@@ -359,9 +450,10 @@ All recommended; the maintainer confirms.
     listener has no return value, so it reports spend through the `UsageReporter` the host gives it, and
     declares `free` (the usual case), `metered` or `unmetered` when it is added.
 17. **Why these names and this shape.** Taken from Indaba's own vocabulary, not from any other tool.
-    - Field names follow the existing `max_*` limits (`max_retries`, `max_rounds_exceeded`): `max_cost_usd` and
-      `max_tokens`, grouped under one `budget` key so a third limit can join without a new top-level field. The
-      unit is in the name because the pricing table, `indaba.cost.usd` and `reportedCostUsd` are already USD.
+    - Field names follow the existing `max_*` limits (`max_retries`, `max_rounds_exceeded`): `max_cost` (with a `currency`)
+      and `max_tokens`, grouped under one `budget` key so a third limit can join without a new top-level field.
+      `max_cost_usd` stays as the USD spelling because `indaba.cost.usd` and `reportedCostUsd` already use it
+      (item 20).
     - The defaults block is the existing `defaults` (today it carries `mcp_policy`), merged field by field; the
       policy is `metering_policy` with the values `required` and `optional` that `mcp_policy` already uses.
     - The stop reuses the `escalated` outcome, exit code 2 and the teardown path.
@@ -371,6 +463,34 @@ All recommended; the maintainer confirms.
     - The meter is pure arithmetic in `@indaba/core` over numbers handed to it. It holds no clock, random source,
       environment or id; the one timestamp in the resume file comes from the injected clock and the ids from the
       injected generator.
+
+18. **Why a `Money` and not a number with a unit in its name.** A cost that is only ever USD can be a number; a
+    cost in any currency cannot be read without its code. `Money` is the smallest honest shape, it is what a source
+    reports "as it is", and it keeps conversion out of the sources: a runner never converts, only reports.
+19. **Rates are data, injected.** A live rate would make a budget decision depend on the network and the moment,
+    and the same run could stop at different points on two days. Supplied rates keep the decision a pure function
+    of its inputs, like the clock and the ids. The price is that the person supplying rates keeps them current
+    (item 22). `as_of` is a date, not a time: it is a label for a reader, not an input to any decision.
+20. **Keep `max_cost_usd`, add `max_cost` and `currency`.** Nothing of this feature has shipped, so replacing the
+    field would break no one; it is kept anyway because the USD names are already public (`indaba.cost.usd`,
+    `reportedCostUsd`) and a USD-only author should not have to learn a currency field. The cost is a second
+    spelling that must be documented as an exact equivalent, and giving both is an error. The alternative, one
+    spelling (`max_cost` plus `currency`, default USD) and no `max_cost_usd`, is simpler and also a minor today;
+    removing `max_cost_usd` later would be a major. The choice is recommended, not forced.
+21. **Why two caps instead of a comparison.** The file's run cap may be in EUR and the operator's in PLN. Taking
+    "the tighter" would need a rate between them just to choose; keeping both and letting the first reached trip
+    needs none and is the same limit in effect.
+22. **A stale rate makes a cap approximate.** The engine cannot know a rate is old without comparing a date with
+    the clock and choosing an age, which would be an invented number. It prints the rate's date wherever the rate
+    is used and leaves the judgement to the person who supplied it. A cap in a currency other than the one a
+    source bills in is, honestly, a cap on the author's estimate of the exchange, not on the bill.
+23. **No chaining, a reciprocal allowed.** One hop only, because each hop multiplies the uncertainty. A reciprocal
+    of a supplied rate is allowed and always labelled, because a table rarely lists both directions and the
+    reciprocal ignores any spread, which the label makes visible.
+24. **Totals only when complete.** A converted total with one line missing would read as the whole. A total is
+    printed only when every part converted; otherwise each currency is listed on its own line.
+25. **Not decided here.** Whether a rate table should also be readable from a per-user configuration file: no
+    such file exists today, so rates come from the workflow, `--rates` and the engine option only.
 
 ## Artifacts not written
 

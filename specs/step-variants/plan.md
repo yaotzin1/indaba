@@ -4,7 +4,7 @@ The files that change, by package, in dependency order. The contracts are in `ap
 
 ## `@indaba/core`
 
-- `src/workflow/model.ts`: `VariantDefinition`, `VariantsDefinition`, and `variants` / `examineWith` on
+- `src/workflow/model.ts`: `VariantsDefinition`, `DEFAULT_MAX_VARIANTS`, `DEFAULT_VARIANT_CONCURRENCY`, and `variants` / `examineWith` on
   `StepDefinition`; `defineStep` defaults (`examineWith: []`).
 - `src/mesh/message.ts`: the optional `choice` and `fromBallotReply`. The anchored first-line parse lives here, pure.
 - `src/mesh/consensus.ts`: `QuorumRule`, `AGREEMENT_QUORUM` (the existing logic moved, not changed), `BALLOT_QUORUM`,
@@ -15,8 +15,8 @@ The files that change, by package, in dependency order. The contracts are in `ap
 
 ## `@indaba/engine`
 
-- `src/parser/parser.ts`, `validator.ts`: read and validate the fields (both forms of `variants`, entry keys, the
-  isolation requirement, `examine_with` roles, runner names against the registry); error paths use the field path.
+- `src/parser/parser.ts`, `validator.ts`: read and validate the fields (`variants` as one integer checked against `maxVariants`, the
+  isolation requirement, `examine_with` roles); error paths use the field path.
   `arbiter` validation widens from "debate step" to "debate step or step with `examine_with`".
 - `src/workspace/workspace.ts`, `git-worktree.ts`: `snapshot()` (`git add -A -- . :(exclude).indaba`, then
   `git write-tree`) and `diff(since?)` (`git diff --cached --binary <tree>`, or `HEAD` when omitted).
@@ -29,7 +29,7 @@ The files that change, by package, in dependency order. The contracts are in `ap
   file paths, verdicts) and the examiner participants; run `runConsensus` with `BALLOT_QUORUM`; the workspace snapshot
   check (AC-13); on a failed examination, the arbiter with the `ballot`; application (`PatchService.canApply`, then
   `apply`); `selection.md`; span attributes and events. The ledger is bypassed for this path.
-- `src/engine/chain.ts`: a variant's runner plan from its entry, otherwise the step's.
+- `src/engine/chain.ts`: unchanged; every variant uses the step's own runner plan.
 - `src/engine/workflow-engine.ts`: pass the step workspace into the executor for a variants step; the existing patch
   export runs after the step as for any isolated step.
 

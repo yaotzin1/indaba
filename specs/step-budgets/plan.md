@@ -9,13 +9,15 @@ Where each piece goes, and the design points that are easy to get wrong. The con
 | Package | Files | Change |
 | :--- | :--- | :--- |
 | `@indaba/core` | `src/workflow/model.ts` | `budget`, `meteringPolicy` on `StepDefinition`; `budget`, `defaultBudget`, `defaultMeteringPolicy` on `WorkflowDefinition`; `BudgetLimit`, `MeteringPolicy` |
-| `@indaba/core` | `src/workflow/budget.ts` (new) | `Budget`, `UsageObservation`, `BudgetVerdict`, `BudgetGrant`, `BudgetMeter`, `CallMeter`, `BudgetTotals`; no `node:` import |
+| `@indaba/core` | `src/money/index.ts`, `src/money/currencies.ts` (new) | `Money`, `money`, `Rate`, `RateTable`, `ConvertedMoney`, `formatMoney`, `formatConverted`, `currencyInfo`, `isCurrencyCode`; the ISO 4217 table (code, minor units) as plain data; no `node:` import |
+| `@indaba/core` | `src/workflow/budget.ts` (new) | `Budget`, `UsageObservation`, `BudgetVerdict`, `BudgetGrant`, `BudgetMeter` (takes a `RateTable`), `CallMeter`, `BudgetTotals`; no `node:` import |
 | `@indaba/core` | `src/workflow/state.ts` | `StepState.restore` |
 | `@indaba/core` | `src/metering/index.ts` (new) | `Metering`, `MeteringReport`, `UsageReporter`, `isMetering`, `MeteringNotDeclaredError` |
-| `@indaba/core` | `src/runner/index.ts` | `RunRequest.onUsage`; `Runner.metering` required; `RunResult.metering` always set (derived) |
+| `@indaba/core` | `src/runner/index.ts` | `RunRequest.onUsage`; `Runner.metering` required; `RunResult.metering` always set (derived); `RunResult.reportedCost` beside `reportedCostUsd` |
+| `@indaba/core` | `src/observability/index.ts` | `ModelRate.currency`, `PricingTable.cost` beside the unchanged `costUsd`; `Tracer.recordUsage` writes the original cost and, when asked, the conversion |
 | `@indaba/core` | `src/extension/index.ts` | `Adjudicator`, `Guard`, listener options carry `metering`; `PluginHost.registerBudgetResolver`, `usage`; `BudgetResolver`, `BudgetQuestion`, `BudgetDecision`, `MAX_RESUMES_PER_STEP` |
 | `@indaba/core` | `src/observability/index.ts`, `src/index.ts`, `src/testing.ts` (new) | `BudgetExceeded`, `BudgetResolved`; exports; `checkMeteringContract` behind an `exports` subpath |
-| `@indaba/engine` | `src/parser/parser.ts`, `src/parser/validator.ts` | read and validate `budget` (top, `defaults`, step) and `metering_policy`; shell-step error; `warnings(workflow, meteringOf?)` and `meteringErrors` |
+| `@indaba/engine` | `src/parser/parser.ts`, `src/parser/validator.ts`, `src/parser/rates.ts` (new) | read and validate `budget` (top, `defaults`, step, with `currency`), `metering_policy`, `rates` and `display_currency`; `parseRates` shared with the CLI's `--rates` file; shell-step error; `warnings(workflow, meteringOf?)` and `meteringErrors` |
 | `@indaba/engine` | `src/engine/budget-gate.ts` (new) | `BudgetGate`: owns the `BudgetMeter`, the resolver, resume counts and the one-call grants; `before`, `observe`, `settle` |
 | `@indaba/engine` | `src/engine/step-executor.ts` | `invoke` consults the gate; own `AbortController`; repeats the call on a resume; reports unmetered, estimated and gap sources |
 | `@indaba/engine` | `src/engine/workflow-engine.ts`, `src/engine/outcome.ts` | build the gate from the workflow and `runBudget`; spend attributes; `WorkflowResult.spend` and `.resume`; a stop that keeps work skips teardown and writes the resume file; the resume start |
@@ -68,14 +70,34 @@ are named (the runner's name, the adjudicator's, the guard's, the listener's) an
 resolver (the same prompt code as the human arbiter) or, after `specs/ruling-channel`, the file resolver, chosen
 by `--rulings`; `none` registers nothing. The engine knows only the `BudgetResolver` contract.
 
+## Money and rates
+
+- **Where the original is kept.** A source reports a `Money`; the ACP runner stops dropping non-USD costs and fills
+  `reportedCost`, filling `reportedCostUsd` only when the currency is USD. `RunResult`'s constructor keeps the two
+  consistent (a USD `reportedCost` sets `reportedCostUsd`; a non-USD one never does). `Tracer.recordUsage` and the
+  executor write `indaba.cost.amount` and `.currency` always, `indaba.cost.usd` only for USD, as before.
+- **The meter stores originals.** `BudgetTotals.cost` is a map from currency code to a sum. Conversion happens only
+  at comparison time, inside `BudgetMeter`, with the injected `RateTable`: a cost whose currency has no usable
+  rate to the cap's currency adds nothing to that cap, increments the source's unmetered count with the reason
+  `no rate from X to Y` and records `indaba.cost.unconvertible`. The same cost still appears in `BudgetTotals.cost`
+  and in the report in its own currency.
+- **Rates are layered once.** The CLI builds the operator table from `--rates`, the engine layers it over the
+  workflow's with `RateTable.layered` and passes the result to the meter, the report and the validator. Nothing
+  reads a rate anywhere else, and nothing fetches one.
+- **Display is separate from meaning.** `display_currency` and `--currency` feed the report, the question and the
+  conversion attributes only. They never reach `BudgetMeter`'s caps.
+- **Totals.** `SpendReport.total` is set only when every cost line converted to one currency (or all share it);
+  otherwise the report lists each line.
+
 ## Metering rules in one place
 
 - One `BudgetMeter` per `WorkflowEngine.run`, so a retry keeps the step total and the run total spans everything.
 - A call's cost is read after `tracer.recordUsage` and the reported-cost fallback, from the call span's
-  `indaba.cost.usd`, so the budget can never disagree with the trace.
+  `indaba.cost.amount` and `.currency`, so the budget can never disagree with the trace.
 - `onUsage` figures are cumulative for the call. `CallMeter` keeps the highest value seen per figure and adds the
   difference, so a final report that repeats the last streamed figure adds nothing twice.
-- Variants: the executor passes `share = 1 / N` and the meter scales the step cap for that call only.
+- Variants: the executor passes `share = 1 / N` and the meter scales the step cap for that call only, in the
+  cap's currency, unrounded.
 - A free source (`shell`, a human arbiter) is never checked against a cap.
 
 ## What the plan checks (stage 5)

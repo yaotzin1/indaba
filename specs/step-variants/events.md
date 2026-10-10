@@ -7,7 +7,7 @@
 | `VariantFinished` | `taskId`, `stepId`, `index`, `outcome` (`passed`, `failed` or `cancelled`) | a variant's attempt, outputs check and guards are done, in the order they finish |
 | `SelectionMade` | `taskId`, `stepId`, `choice` (the chosen variant's index, or `null` for none), `source` (`examiners` or `arbiter`) | the choice is known, before the diff is applied |
 
-Neither carries a diff, a summary, a reason, a note or a label: an event reaches listeners, plugins and the event
+Neither carries a diff, a summary, a reason or a note: an event reaches listeners, plugins and the event
 stream, and those must not receive what only the person ruling should see. `VariantFinished` is dispatched in
 completion order, which varies; numbering and the order candidates are shown in do not (AC-18). A step with no
 candidate dispatches `VariantFinished` events and no `SelectionMade`. A cancelled step dispatches no `SelectionMade`.
@@ -52,7 +52,7 @@ The step's span records, when it has variants:
 | `indaba.selection.votes` | integer | how many examiners named the choice, in the last round |
 
 When the arbiter ruled, the existing `indaba.arbiter.*` attributes are recorded as for a debate. The diff, the
-summaries, the labels, the reasons and the note are in no attribute.
+summaries, the reasons and the note are in no attribute.
 
 ## Ordering
 

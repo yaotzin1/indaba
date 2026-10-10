@@ -33,9 +33,11 @@ export interface ResumeFile {
 }
 
 export interface BudgetSnapshot {
+  /** Spend is stored per ORIGINAL currency (`BudgetTotals.cost`); it is converted again, with the rates the resumed
+   *  invocation supplies, when compared with a cap. The rates themselves are not stored: they are supplied afresh. */
   readonly run: BudgetTotals;
   readonly steps: Readonly<Record<string, BudgetTotals>>;
-  /** Caps as they stand after any grants. `operator` caps are re-supplied by the new invocation, never trusted from the file. */
+  /** Caps as they stand after any grants (a cost cap is a `Money`, in its own currency). `operator` caps are re-supplied by the new invocation, never trusted from the file. */
   readonly caps: { readonly run?: Budget; readonly steps: Readonly<Record<string, Budget>> };
   readonly oneCall: readonly string[];                       // step ids with a granted "one more call" not yet used
   readonly sources: readonly { readonly source: string; readonly kind: 'unmetered' | 'estimated' | 'gap';
@@ -50,6 +52,10 @@ export interface BudgetSnapshot {
   characters).
 - **The operator cap is not stored.** A resumed invocation supplies `--max-cost` and `--max-tokens` again, or
   none; a stored operator cap could otherwise outlive the intention of the person who set it.
+- **Currencies and rates.** Amounts are stored unrounded with their ISO code. The file holds no rate: a resumed
+  run uses the rates it is given, so a resume with different rates can trip a cap at a different point; the
+  figures it prints carry the rates and dates in use. `digest` covers the workflow's own `rates`, so a changed
+  rate in the workflow file refuses the resume like any other change (the operator's `--rates` is outside it).
 - **Spend never resets.** `budget.run`, `budget.steps` and `sources` are restored into the meter before the
   first check, so the stopped step continues from its old total.
 - **A resume refuses** a file whose `version` is unknown, whose `digest` differs from the current workflow, whose

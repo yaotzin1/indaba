@@ -34,8 +34,9 @@ person.
 
 - **US-01.** As a workflow author, I want to write `variants: 3` on an editing step, so the step is attempted three
   times, each in its own worktree, without seeing the others.
-- **US-02.** As a workflow author, I want each attempt to be able to use a different runner or model, so "the same
-  task on two models" is one step.
+- **US-02.** As a person who runs or embeds Indaba, I want the maximum number of attempts to be a setting of the
+  engine and not part of the file format, so an installation decides how much disk, process count and spend a
+  workflow may ask for.
 - **US-03.** As a workflow author, I want other agents (roles I name) to read every attempt's diff, argue, and agree
   on one, so the choice is a recorded cross-examination and not my eyeballs.
 - **US-04.** As a workflow author, I want a failed or split examination to go to the arbiter I already use for
@@ -50,16 +51,15 @@ person.
 
 ## 3. Acceptance criteria
 
-- [ ] AC-01. A step may declare `variants`, an integer or a list of per-variant overrides (C-01), and the count is
-  from 2 to 4. A count outside that range, a non-integer, or an empty list fails validation with a message naming the
-  step and the field path.
+- [ ] AC-01. A step may declare `variants: N`, an integer of at least 2. The file format has no upper bound; the
+  engine has one, `maxVariants` (default 3, C-01). A non-integer, a number below 2, or one above `maxVariants` fails
+  validation with a message naming the step and, for the last, the limit.
 - [ ] AC-02. `variants` is valid only on an agent step that declares `isolation: git_worktree` itself and also
   declares `examine_with`, a non-empty list of role names. On a shell step, a debate step (`consensus_with`), a step
   whose isolation is `none` or only inherited from a dependency, or a step without `examine_with`, validation fails
   naming the step and the reason. `examine_with` without `variants` fails too. No existing workflow is affected.
-- [ ] AC-03. A list entry may carry `runner` (a name, or a list in priority order that replaces the step's chain for
-  that variant), `model`, `agent` and `label`. Runners are checked against the registry at parse time, as `runner`
-  is. A `label` is for display and reaches no path, command or prompt (C-02).
+- [ ] AC-03. Every variant runs with the step's own runner chain, model and agent. `variants` carries no per-variant
+  settings (C-01).
 - [ ] AC-04. Each variant runs in its own worktree, started from the state the step's workspace is in when the step
   begins (earlier steps' changes included), not from `HEAD` alone (C-03). A variant is given no path but its own.
 - [ ] AC-05. Variants run concurrently, at most `variants_concurrency` at once (default 2, never above the count).
@@ -79,7 +79,7 @@ person.
   other examiners.
 - [ ] AC-09. Examiners are shown each candidate by its id (`variant-<n>`), its files changed and lines added and
   removed, its verdict where the step declares verdicts, and the path of its diff file, staged into the examiner's
-  working directory. They are **not** told which runner, model or label produced it (C-05). A reply whose first line
+  working directory. They are **not** told anything else about how it was produced (C-05). A reply whose first line
   is not exactly a candidate id or `none` is a message with no choice; it can never satisfy the quorum.
 - [ ] AC-10. The quorum is met when the latest message of every examiner (`consensus`), or of more than half
   (`majority`), names the same choice. The outcome is then `reached` with that choice. A choice of a candidate
@@ -97,7 +97,7 @@ person.
 - [ ] AC-13. Examiners must not change the workspace. The engine snapshots the step's workspace before the
   examination and, after it, checks that its diff since the snapshot is empty; if not, the step fails naming that the
   workspace changed during examination, and nothing is applied.
-- [ ] AC-14. If no variant is a candidate, the step is `FAILED` with one line per variant (its label and the first
+- [ ] AC-14. If no variant is a candidate, the step is `FAILED` with one line per variant (its index and the first
   failure, redacted and cut), so `on_failure: retry_step` can use it as feedback. A retry re-runs every variant in
   fresh worktrees and re-runs the examination; nothing from the earlier attempt is reused.
 - [ ] AC-15. The examination writes the existing debate artifacts (`.indaba/artifacts/<step-id>.transcript.md`, and
@@ -143,6 +143,7 @@ person.
 
 | Situation | Expected behaviour |
 | :--- | :--- |
+| the workflow asks for more than `maxVariants` | validation fails before the run, naming the step and the limit |
 | one variant's runner fails, the others succeed | that variant is `failed`; the step goes on with the candidates |
 | every variant fails or is filtered out | step `FAILED`, one line per variant; `on_failure` applies; no examination |
 | exactly one candidate | still examined (the examiners name it or `none`) |
@@ -181,9 +182,9 @@ workspace without failing the step (AC-13), are not told which model wrote what,
 last arbiter; it does not make the examination immune, and the documentation says so.
 
 **Secrets.** Diff artifacts, `selection.md`, the transcript and any note are redacted as other artifacts are. The
-examiners' environment is what their roles give them. Labels are cut at 40 characters and used nowhere but display.
+examiners' environment is what their roles give them. Nothing the workflow author writes about an attempt reaches a path, a command or a prompt except the step's own goal.
 
-**Bounds.** At most 4 variants, 2 at once by default, and the debate's existing round limit (C-10). Diff files are
+**Bounds.** At most `maxVariants` variants (default 3), 2 running at once by default, and the debate's existing round limit (C-10). Diff files are
 kept whole; examiners are given paths, not pasted diffs, so a large diff does not enlarge every prompt.
 
 ## 7. Where it lives
@@ -192,7 +193,7 @@ kept whole; examiners are given paths, not pasted diffs, so a large diff does no
   `QuorumRule` seam on `ConsensusArbiter`, the ballot quorum and the tally; an optional `choice` on `AgentMessage`; an
   optional `choice` on `ConsensusResult` and on `Ruling`; an optional `ballot` on `RulingRequest`; the new events. No
   `node:` module, no I/O.
-- `@indaba/engine`: parsing and validating the fields; `Workspace.snapshot` and `diff(since)`; seeding a variant
+- `@indaba/engine`: the `maxVariants` option (default 3) and its use by the parser; parsing and validating the fields; `Workspace.snapshot` and `diff(since)`; seeding a variant
   worktree; the variants path in `StepExecutor` (concurrency, per-variant outputs and guards, the examination through
   `runConsensus`, application, teardown); the artifacts; the span attributes and events.
 - `indaba` (CLI): the human arbiter shows the ballot and accepts a candidate id; `plan` output.
@@ -223,15 +224,27 @@ arbiter chain, including a person; `PatchService`; the worktree manager; the art
 - *`on_failure` retries with a debate between.* Exists; kept. It is sequential and anchored on the last failure by
   design, so it explores near one attempt, which is the opposite of what variants are for.
 - *A smaller shape: exactly two attempts, a champion and a challenger.* Considered. The ballot already degenerates
-  correctly for two, and the count limit costs one comparison in the validator. Kept at 2 to 4.
+  correctly for two, and a maximum that is a setting costs one comparison in the validator. Kept: any N of at least 2,
+  bounded by `maxVariants`.
 
 **Decisions.**
 
-- **C-01. The field has two forms.** `variants: 3` runs the step three times with its own runner chain and model.
-  `variants: [ { runner: claude-code }, { runner: openrouter, model: "vendor/model" } ]` runs one per entry, and the
-  count is the length. A mapping with a `count` key was rejected: it duplicates the length and invites disagreement.
-  `variants_concurrency` and `examine_with` are step fields.
-- **C-02. Labels** default to `variant-<n>`; for people only; never shown to examiners.
+- **C-01. `variants` is one integer, and the maximum is a setting.** `variants: 3` runs the step three times with its
+  own runner chain, model and agent. Any integer of at least 2 is valid in the file; the file format bakes in no
+  upper bound. The upper bound is the engine option `maxVariants` (default 3, an unmeasured design choice; the CLI
+  passes the default, and an embedder may pass another). The parser receives it as it receives the runner lookup. A
+  workflow that asks for more fails validation with a message naming the step and the limit (for example `step
+  "implement": variants 5 exceeds the maximum of 3`). Concurrency is its own setting, the step field
+  `variants_concurrency` (default 2, never above the count). `examine_with` is a step field. Rejected: a fixed range
+  such as 2 to 4 in the field itself (it makes an installation's resource limit part of the file format, so changing
+  the limit changes the format); a list of named attempts, each with its own runner, model or label (it makes the
+  field a second way to say what `role` and `runner` already say, multiplies the validation surface, and invites
+  attempts that differ in more than chance, which makes the examination a comparison of configurations rather than
+  of attempts); and roles as attempts (the attempts would be the roles of the workflow, so a step's attempts could
+  not be declared apart from the roles that debate them, and the same role could not attempt twice). A consequence
+  that is accepted: attempts differ by the model's sampling only; "the same task on two models" is not expressed by
+  `variants`.
+- **C-02. There are no labels.** An attempt is `variant-<n>`, numbered in declaration order from 1.
 - **C-03. Where a variant starts.** The step's workspace may hold changes earlier steps made and not committed;
   `GitWorktreeManager` creates from `HEAD`. A variant must start from those, and its diff must be measured from them,
   or the chosen diff would repeat work already there and fail to apply. So the engine takes a *snapshot* of the
@@ -245,10 +258,11 @@ arbiter chain, including a person; `PatchService`; the worktree manager; the art
   fingerprints, so examiners repeating themselves stall the examination unchanged. A reply with a `choice` is typed
   `PROPOSAL` (it is not an approval of anything) so code that counts `AGREEMENT` is not fooled.
 - **C-05. Examiners are not told who wrote what.** Producers and examiners may be the same roles, and a model tends to
-  prefer its own output. Candidates are presented as `variant-<n>` by declaration order, with no runner, model or label.
-  Declaration order can still correlate with a runner the author listed first; that is bias the author controls, and
-  the documentation says to list variants in an order that is not meaningful. Shuffling was rejected: it needs
-  randomness, which decision logic may not read.
+  prefer its own output. Candidates are presented as `variant-<n>` by declaration order and nothing else: every attempt
+  runs with the step's own configuration, so there is nothing about how it was produced to hide, and the index
+  carries no information. The step's own role is not an examiner unless listed, so the default is that no attempt is
+  judged by its author's role. Shuffling the presentation was rejected: it needs randomness, which decision logic may
+  not read.
 - **C-06. The tie rule uses no randomness and does not guess.** The leader is the choice named by strictly the most
   examiners; a tie has no leader. A tie goes to the arbiter with no leader, and the arbiter must name a candidate, or
   the step escalates. A tie is never broken by order or by chance.
@@ -271,9 +285,12 @@ arbiter chain, including a person; `PatchService`; the worktree manager; the art
   author who does not want an examination for one survivor does not use variants.
 - **C-12. Retries re-run everything.** A retry that re-ran only the failed variants would make the number of
   candidates depend on history.
-- **C-13. Limits are design choices, not measurements.** The maximum of 4 and default concurrency of 2 bound disk (each
-  worktree is a full checkout), processes and provider rate limits; neither has been measured on any workload, and the
-  documentation says so. Raising the maximum is a minor change; lowering it is a major.
+- **C-13. Limits are design choices, not measurements.** The engine's maximum number of variants and the default
+  concurrency of 2 bound disk (each worktree is a full checkout), processes and provider rate limits. The default
+  maximum is 3, chosen low so a workflow cannot start many agents by accident. None of these numbers has been measured
+  on any workload, and the documentation says so. An embedder or the CLI may set a different maximum
+  (`maxVariants`, C-01). Raising the default is a minor change; lowering it is a major, because a workflow that
+  validated before would fail.
 - **C-14. Guards run before examination.** An examiner is never shown a candidate the workflow would have rejected.
   The chosen diff is not re-checked: it was checked on an identical base (C-03).
 
