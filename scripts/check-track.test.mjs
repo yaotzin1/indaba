@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { checkCommit, checkRange, globToRegExp, isMergeMessage, matchesAny, parseTrailers } from './check-track.mjs';
+import { checkCommit, checkRange, globToRegExp, isMergeMessage, matchesAny, parseTrailers, readConfig } from './check-track.mjs';
 
 const config = {
     tracks: ['feature', 'fix', 'chore', 'release'],
@@ -89,4 +89,11 @@ test('package globs: a star segment matches one package directory, not a path th
 test('a chore may touch test and manifest paths but not packages/*/src', () => {
     assert.equal(checkCommit('x\n\nTrack: chore', ['packages/core/test/a.test.ts', 'packages/core/package.json'], config).length, 0);
     assert.match(checkCommit('x\n\nTrack: chore', ['packages/runners/src/a.ts'], config)[0], /changes source/);
+});
+
+test('the repository counts both the unit and the end-to-end test directories as tests', () => {
+    const { test_paths: testPaths } = readConfig();
+    assert.ok(matchesAny('packages/engine/test/parser.test.ts', testPaths));
+    assert.ok(matchesAny('packages/cli/e2e/exit.e2e.test.ts', testPaths));
+    assert.ok(!matchesAny('packages/cli/src/bin.ts', testPaths));
 });
