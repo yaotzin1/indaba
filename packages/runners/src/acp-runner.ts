@@ -36,17 +36,22 @@ export interface AcpAgentPreset {
  * runs and, on Windows, is a `.cmd` shim that Indaba does not start: use `agent: { command: [...] }`
  * with a native executable there, or when a pinned or locally installed copy is wanted.
  */
-export const ACP_AGENT_PRESETS: Readonly<Record<'claude' | 'codex' | 'gemini', AcpAgentPreset>> = {
-  claude: {
-    command: ['npx', '--yes', '@agentclientprotocol/claude-agent-acp'],
-    envPrefixes: ['ANTHROPIC_', 'CLAUDE_'],
-  },
-  codex: {
-    command: ['npx', '--yes', '@agentclientprotocol/codex-acp'],
-    envPrefixes: ['OPENAI_', 'CODEX_'],
-  },
-  gemini: { command: ['gemini', '--acp'], envPrefixes: ['GEMINI_', 'GOOGLE_'] },
-};
+export const ACP_AGENT_PRESETS: Readonly<Record<'claude' | 'codex' | 'gemini' | 'opencode', AcpAgentPreset>> =
+  {
+    claude: {
+      command: ['npx', '--yes', '@agentclientprotocol/claude-agent-acp'],
+      envPrefixes: ['ANTHROPIC_', 'CLAUDE_'],
+    },
+    codex: {
+      command: ['npx', '--yes', '@agentclientprotocol/codex-acp'],
+      envPrefixes: ['OPENAI_', 'CODEX_'],
+    },
+    gemini: { command: ['gemini', '--acp'], envPrefixes: ['GEMINI_', 'GOOGLE_'] },
+    opencode: {
+      command: ['opencode', 'acp'],
+      envPrefixes: ['OPENCODE_', 'ANTHROPIC_', 'OPENAI_', 'GOOGLE_', 'GEMINI_', 'OPENROUTER_'],
+    },
+  };
 
 /** One way an agent offers to log in, as it lists them in its `initialize` answer. */
 export interface AuthMethodInfo {
