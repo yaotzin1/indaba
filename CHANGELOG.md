@@ -17,13 +17,25 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **A debate can have an arbiter** (minor; track `feature`; spec `specs/debate-arbiter`). A debate step may set
+  `arbiter: "human"` (or the name of one a plugin registers). When its debate ends `stalled` or
+  `max_rounds_exceeded`, the arbiter rules `accept` (the step completes) or `reject` (it escalates, with the note)
+  instead of escalating at once. `human` asks in the terminal; with no terminal, `--tui` or a cancel it cannot
+  answer, so the step escalates exactly as before. New in `@indaba/core`: `Adjudicator`, `Ruling`, `Verdict`,
+  `RulingRequest`, `AdjudicatorRegistry`, the step field `arbiter` and `PluginHost.registerAdjudicator`. New span
+  attributes: `indaba.arbiter.kind`, `.verdict`, `.source` and `.memo`. Every debate step now also writes
+  `.indaba/artifacts/<step>.transcript.md`; a ruled one writes `<step>.ruling.md`.
+- **A decision ledger** in `.indaba-decisions/<workflow>.jsonl`, meant to be committed. Every ruling is appended as
+  one JSON line (verdict, redacted note, outcome, rounds, commit, time; never the transcript). Before a debate
+  runs, a ruling for the same workflow, step, goal and committed files is reused and the debate is skipped; with
+  uncommitted changes, or outside git, nothing is reused. A malformed line fails the step, naming file and line.
+- `examples/review-debate.workflow.ai.yml`: `claude-code` and `antigravity` review a project and debate it.
 - **OpenCode** (minor; track `feature`; spec `specs/opencode`). `agent: "opencode"` on an `acp` role starts `opencode acp`
   and passes on only `OPENCODE_`, `ANTHROPIC_`, `OPENAI_`, `GOOGLE_`, `GEMINI_` and `OPENROUTER_` variables. A new `opencode`
   runner (`OpenCodeRunner`, `opencode run [--model <m>] <prompt>`) is the last-resort CLI transport, so
   `runner: ["acp", "opencode"]` is the chain; it never adds `--auto`. `ACP_AGENT_PRESETS` gains the key `opencode`.
   No dependency is added, and the flags follow OpenCode's documentation but have not yet been run against an
   installed OpenCode.
-
 - **A run event stream** (minor; track `feature`; spec `specs/tui`). Every `indaba run` now also writes
   `.indaba/traces/<traceId>.events.jsonl` while it runs: one record per line for each span start and end, each
   step status change (`PENDING -> RUNNING -> ...`) and each chunk of output a step streams. It exists so

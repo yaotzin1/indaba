@@ -1,4 +1,11 @@
-import type { Guard, PluginHost, Runner, SimpleEventDispatcher } from '@indaba/core';
+import type {
+  Adjudicator,
+  AdjudicatorRegistry,
+  Guard,
+  PluginHost,
+  Runner,
+  SimpleEventDispatcher,
+} from '@indaba/core';
 import type { GuardRegistry } from '@indaba/engine';
 import type { RunnerRegistry } from '@indaba/runners';
 
@@ -11,6 +18,7 @@ export class RegistryPluginHost implements PluginHost {
     private readonly runners: RunnerRegistry,
     private readonly guards: GuardRegistry,
     private readonly events: SimpleEventDispatcher,
+    private readonly adjudicators: AdjudicatorRegistry,
   ) {}
 
   registerRunner(runner: Runner): void {
@@ -19,6 +27,10 @@ export class RegistryPluginHost implements PluginHost {
 
   registerGuard(guard: Guard): void {
     this.guards.register(guard);
+  }
+
+  registerAdjudicator(name: string, adjudicator: Adjudicator): void {
+    this.adjudicators.register(name, adjudicator);
   }
 
   addListener<E extends object>(

@@ -52,6 +52,7 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 | `typescript-port` | all |
 | `workflow-engine` | `@indaba/core` (model, DAG, state), `@indaba/engine` (parser, guards, engine) |
 | `agent-mesh` | `@indaba/core` |
+| `debate-arbiter` | `@indaba/core` (`Adjudicator` contract, `PluginHost.registerAdjudicator`, the `arbiter` step field), `@indaba/engine` (parser, decision ledger, debate records, `StepExecutor`), `indaba` (the terminal arbiter) |
 | `runner-adapters` | `@indaba/core` (contract), `@indaba/runners` |
 | `transport-priority` | `@indaba/core` (runner chain, permissions model, glob, span events), `@indaba/engine` (parser, fallback loop, scope guard), `@indaba/runners` (API and ACP runners), `indaba` |
 | `git-workspace` | `@indaba/engine` |
@@ -65,7 +66,8 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 
 - Changing `Runner`, `RunRequest` or `RunResult` in core breaks every runner, the mesh participant
   and every plugin's runner: a major.
-- Changing `Guard`, `Plugin` or `PluginHost` breaks every plugin: a major.
+- Changing `Guard`, `Plugin`, `PluginHost` or `Adjudicator` breaks every plugin: a major.
+- Changing what goes into the decision ledger's key changes which rulings are reused: a major.
 - Changing a workflow model type or the schema breaks the parser, the engine and every workflow file
   in the wild: a major.
 - Renaming a span attribute or an event breaks consumers' dashboards and listeners: a major.
@@ -78,4 +80,4 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 ## Runtime state, not code
 
 `.indaba/worktrees/`, `.indaba/traces/` and `.indaba/artifacts/` are produced by Indaba when it runs,
-and are gitignored. They are unrelated to the development workflow file at the repository root.
+and are gitignored. `.indaba-decisions/` (the arbiter ledger) is also written by Indaba but is committed on purpose. They are unrelated to the development workflow file at the repository root.

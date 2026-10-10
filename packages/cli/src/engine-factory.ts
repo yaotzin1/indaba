@@ -1,5 +1,7 @@
 import { join } from 'node:path';
 import {
+  type Adjudicator,
+  AdjudicatorRegistry,
   IndabaError,
   type Plugin,
   PricingTable,
@@ -11,6 +13,7 @@ import {
   Tracer,
 } from '@indaba/core';
 import {
+  DecisionLedger,
   GitWorktreeManager,
   GuardRegistry,
   JsonlSpanExporter,
@@ -59,6 +62,8 @@ export interface CreateEngineOptions {
   readonly plugins?: readonly Plugin[];
   /** Lets a person pick how an ACP agent logs in. Only an interactive front end passes one. */
   readonly chooseAuthMethod?: AuthChooser;
+  /** Lets a person rule on a debate that failed, as the arbiter "human". Only an interactive front end passes one. */
+  readonly humanAdjudicator?: Adjudicator;
   /** Per-step timeout in seconds. */
   readonly stepTimeoutSeconds?: number;
   /** Receives what a failing event listener threw; by default it is dropped. */
@@ -113,7 +118,11 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   });
   const guards = GuardRegistry.withDefaults();
 
-  const host = new RegistryPluginHost(runners, guards, events);
+  const adjudicators = new AdjudicatorRegistry();
+  const host = new RegistryPluginHost(runners, guards, events, adjudicators);
+  if (options.humanAdjudicator !== undefined) {
+    host.registerAdjudicator('human', options.humanAdjudicator);
+  }
   // Endpoints from the environment join through the same door a plugin's runners use.
   const endpoints = openAiCompatibleFromEnv(compatibleEndpointEnv(options.env ?? {}), {
     reserved: runners.names(),
@@ -135,6 +144,10 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     guards,
     tracer,
     events,
+    adjudicators,
+    ledger: new DecisionLedger(options.projectDir),
+    clock,
+    redact: (text) => redact(text, secrets),
     ...(options.stepTimeoutSeconds === undefined ? {} : { timeoutSeconds: options.stepTimeoutSeconds }),
   });
   const engine = new WorkflowEngine({

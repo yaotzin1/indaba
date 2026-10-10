@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { fileURLToPath } from 'node:url';
+import { terminalAdjudicator } from './arbiter-prompt.js';
 import { main } from './main.js';
 import { terminalAuthChooser } from './prompt.js';
 import { CANCEL_MESSAGE, createRunStarter } from './run-child.js';
@@ -30,10 +31,11 @@ const code = await main(process.argv.slice(2), {
   cwd: process.cwd(),
   signal: controller.signal,
   startRun: createRunStarter(process.execPath, fileURLToPath(import.meta.url)),
-  // Only a person at a terminal can be asked how an agent should log in.
+  // Only a person at a terminal can be asked how an agent should log in, or to rule on a debate.
   ...(process.stdin.isTTY && process.stdout.isTTY
     ? {
         chooseAuthMethod: terminalAuthChooser(process.stdin, process.stdout),
+        humanAdjudicator: terminalAdjudicator(process.stdin, process.stdout),
         terminal: { stdin: process.stdin, stdout: process.stdout },
       }
     : {}),

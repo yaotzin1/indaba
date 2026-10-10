@@ -126,6 +126,9 @@ export class WorkflowValidator {
       if (isConsensusStep(step) && step.role === undefined) {
         errors.push(`${at} needs a role to take part in a consensus`);
       }
+      if (step.arbiter !== undefined && !isConsensusStep(step)) {
+        errors.push(`${at} has an arbiter but is not a debate (it needs consensus_with or decision_type)`);
+      }
       for (const role of step.consensusWith) {
         if (!hasRole(role)) {
           errors.push(`${at} consensus_with unknown role "${role}"`);

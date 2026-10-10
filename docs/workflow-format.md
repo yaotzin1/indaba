@@ -124,6 +124,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | `on_failure` | no | What to do when the step fails (see Retries) |
 | `consensus_with` | no | Roles that debate with this step's `role` |
 | `decision_type` | no | `consensus` (every participant agrees) or `majority` (more than half) |
+| `arbiter` | no | Who settles a debate that failed: `human`, or the name of an adjudicator a plugin registers. Only on a debate step (see [Consensus steps](#consensus-steps)) |
 | `mcp` | no | `mcp_servers` names this step may use, in addition to its role's |
 | `mcp_policy` | no | `required` or `optional`; overrides `defaults.mcp_policy` for this step |
 
@@ -205,6 +206,51 @@ A step with `decision_type` or `consensus_with` is a debate. The participants ar
 role in `consensus_with`, each run by its own runner; they exchange messages on a shared blackboard for
 up to four rounds. A step that takes part in a debate needs a `role`. If the participants do not reach the
 decision type's quorum, the step is escalated, not retried, and the run ends with status `escalated`.
+
+Only an `AGREEMENT` reply counts as approval. Two reviewers who both answer `CRITIQUE` and agree on the
+same list of changes have not reached consensus, however close they are. That is what an arbiter is for.
+
+Every debate step writes `.indaba/artifacts/<step-id>.transcript.md`: each message with its round, sender and
+type (escape sequences removed, credentials redacted). Nothing from it reaches a trace.
+
+##### Arbiter
+
+```yaml
+- id: "review"
+  role: "claude"
+  consensus_with: ["antigravity"]
+  decision_type: "consensus"
+  arbiter: "human"
+```
+
+When the debate ends `stalled` or `max_rounds_exceeded`, the arbiter rules on it instead of the step
+escalating at once. A debate that reaches quorum never asks. `human` shows the transcript in the terminal and
+reads `accept` or `reject` and an optional one-line note (three wrong answers give up):
+
+- `accept` completes the step. `reject` ends it `escalated`, with the note in the reason.
+- Either way the ruling is written to `.indaba/artifacts/<step-id>.ruling.md`, and the span records
+  `indaba.arbiter.kind`, `indaba.arbiter.verdict` (`accept`, `reject` or `unavailable`) and
+  `indaba.arbiter.source` (`asked` or `memo`). The note and the transcript are in no span.
+- With no terminal (a pipe, CI, `indaba run --tui`), or when you cancel, the arbiter cannot answer and the
+  step escalates exactly as it does without one. The wait for a person is not bounded by the step timeout;
+  Ctrl-C ends it.
+- If the arbiter itself throws, the step *fails* rather than escalates, so a bug is not read as a judgement.
+- A name nothing is registered under escalates with `The arbiter "x" is not available`.
+
+###### The decision ledger
+
+Every ruling is also appended, as one JSON line, to `.indaba-decisions/<workflow-name>.jsonl` in the project.
+Unlike `.indaba/`, **this directory is meant to be committed**: it is the record of who decided what, and a
+team can review it in a pull request. It holds the verdict, the note (credentials redacted), the debate's
+outcome and rounds, the commit and the time. It never holds the transcript.
+
+It is also a memory. Before the debate runs, Indaba looks for a ruling with the same key: the workflow name,
+the step id, the goal text and every file committed in the project (outside `.indaba/` and
+`.indaba-decisions/`). On a hit it uses that ruling and skips the debate, so an identical re-run neither asks
+you again nor pays for the agents again. Any change to a committed file, the goal or the workflow name is a
+new question. With uncommitted changes, or outside a git repository, nothing is reused (the span says
+`indaba.arbiter.memo = skipped`). To ask again, delete the line or change a file. A line that is not a valid
+ruling fails the step and names the file and line.
 
 #### Isolation
 
