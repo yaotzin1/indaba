@@ -29,7 +29,8 @@ npx indaba run workflow.ai.yml
   tool reachable by `shell` or an MCP server: for example a media pipeline. Indaba ships no integration
   with any particular application.
 
-MIT licensed. [`docs/vision.md`](docs/vision.md) is the founding requirement.
+MIT licensed. [`docs/vision.md`](docs/vision.md) is the founding requirement, and
+[`docs/positioning.md`](docs/positioning.md) says what Indaba is for, what it is not, and which parts exist today.
 
 ## What does "Indaba" mean?
 
