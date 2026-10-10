@@ -1,6 +1,6 @@
 # Specification: Debate arbiter (human in the loop)
 
-> **Status**: Draft
+> **Status**: Implemented (#19), except T16 (`Adjudicator.description`), which is done with `workflow-editor`.
 > **Stage entry**: 1
 > **Semver impact**: minor (optional workflow field, optional engine option, new artifacts and span
 > attributes; no default changes)

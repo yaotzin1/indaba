@@ -1,6 +1,6 @@
 # Specification: Transport priority (API and ACP first, CLI as fallback)
 
-> **Status**: Draft
+> **Status**: Implemented (#9, #10), except T-22 (the runner contract test helper). Claude, Codex and Gemini against real agents are partly unverified; see review.md.
 > **Stage entry**: 1
 > **Semver impact**: minor (provisional; confirmed in api-surface.md; below 1.0)
 
