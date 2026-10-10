@@ -43,10 +43,10 @@ is `escalated`, `retry_step` never retries it. The step stays `RUNNING` througho
 transition; only a later `--resume` needs `StepState.restore`.
 
 **3. Keep or tear down.** `WorkflowEngine.run` tears the workspace down in its `finally`. A `keep` outcome sets
-a flag that makes it call `workspaces.keep(workspace)` instead of `destroy()`, record the relative path in the
+a flag that makes it call `workspace.keep()` instead of `destroy()`, record the relative path in the
 result and write the `ResumeFile`; every other ending is unchanged. `adopt` is the inverse: it checks, with the
-same confinement as `resolvePath` (realpath, no symlink out), that the directory is a worktree of this
-repository under `.indaba/worktrees/<taskId>`, and hands the engine a `Workspace` it will tear down normally at
+same confinement as `resolvePath` (realpath, no symlink out), that a kept workspace record exists and the directory is
+under `.indaba/worktrees/<name>` (a worktree of this repository, or a copy), and hands the engine a `Workspace` it will tear down normally at
 the end of the resumed run.
 
 **4. Resume start.** With `options.resume`, the engine builds its `StepState`s from the file (`restore`),

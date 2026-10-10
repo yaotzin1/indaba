@@ -372,11 +372,14 @@ export class ResumeStore {
 }
 export function definitionDigest(workflow: WorkflowDefinition): string;   // SHA-256 of the canonical JSON
 
-export interface WorkspaceManager {
-  /** Takes over a kept directory. Refuses a path that is not a worktree under .indaba/worktrees/<taskId>. */
-  adopt(taskId: string, path: string): Promise<Workspace>;
-  /** Releases a workspace without removing it. */
-  keep(workspace: Workspace): string;               // returns its path relative to the project
+// WorkspaceManager is unchanged. `TrackedWorkspace.keep()` and the kept record come from specs/workspace-without-git,
+// whose TrackedWorkspaceManager also carries the matching adoption:
+export interface TrackedWorkspaceManager {
+  /**
+   * Takes over a kept workspace of this manager's kind by its name. Refuses a name with no record, a record that is not
+   * valid, or a directory that is not under .indaba/worktrees. The run tears it down normally when it ends.
+   */
+  adopt(name: string): Promise<TrackedWorkspace>;
 }
 
 export class WorkflowValidator {
@@ -486,6 +489,6 @@ See [`events.md`](events.md). Names are public contract: a rename later is a maj
 
 - [ ] `@indaba/core` imports no `node:` module (`architecture.test.ts`); `BudgetMeter` and `checkMeteringContract` use only numbers and strings
 - [ ] every built-in runner, adjudicator, guard and listener registers through `PluginHost` with a declaration and none is exempt (a test registers each through a host that refuses)
-- [ ] `ResumeStore` and `WorkspaceManager.adopt` are the only code that builds a path under `.indaba/resume/` or adopts a directory; the id and the path are validated before use (a `../` test)
+- [ ] `ResumeStore` and `TrackedWorkspaceManager.adopt` are the only code that builds a path under `.indaba/resume/` or adopts a directory; the id and the path are validated before use (a `../` test)
 - [ ] no `any`, no `!`, no suppression comment
 - [ ] `docs/workflow-format.md`, `docs/extending.md`, `docs/using-the-alpha.md`, `docs/getting-started.md`, `README.md`, `CHANGELOG.md` (with the breaking heading) and `specs/DEPENDENCY_MAP.md` updated

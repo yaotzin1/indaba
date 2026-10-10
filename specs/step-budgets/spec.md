@@ -33,7 +33,7 @@ Three things make a ceiling harder than a comparison:
    also cannot read a USD-only report or cap, and a figure converted with a rate nobody can see is worse than
    the original.
 2. **Stopping throws work away.** A step that is stopped at its ceiling has usually done most of its job.
-   Tearing the worktree down and failing the run destroys that work, when the person who set the ceiling would
+   Tearing the working copy down and failing the run destroys that work, when the person who set the ceiling would
    often rather raise it a little and finish.
 3. **Only what Indaba can see is capped.** A plugin that calls a model on its own (an adjudicator, a guard, a
    listener, a runner) spends money no ceiling sees, unless the contract makes reporting an obligation instead
@@ -135,10 +135,12 @@ Three things make a ceiling harder than a comparison:
   written, and the report prints the kept path and the command to resume: `indaba run <file> --resume <taskId>`.
   A step without isolation has no working directory of its own to keep; its changes are in the project already,
   and the resume file is written all the same.
-- [ ] AC-17. The kept working directory is under `.indaba/worktrees/`, found by the same confinement as every
-  other path, and is never deleted automatically. It is removed only when a person answers **stop** to a
-  question (AC-15) or the run that adopted it ends and tears it down as any workspace; a person may also remove
-  it by hand.
+- [ ] AC-17. The kept working directory is the step's workspace, whichever kind the run has (a git worktree or a copy,
+  `specs/workspace-without-git`). It is under `.indaba/worktrees/`, found by the same confinement as every other path,
+  kept through `TrackedWorkspace.keep()` and described by that spec's record `<name>.workspace.json`, which the resume
+  file points to. It is never deleted automatically. It is removed only when a person answers **stop** to a question
+  (AC-15) or the run that adopted it ends and tears it down as any workspace; a person may also remove it with
+  `indaba apply <name> --discard` or by hand.
 - [ ] AC-18. `indaba run <file> --resume <taskId>` loads `.indaba/resume/<taskId>.json`, refuses (exit code 1,
   naming why) when the file is missing or of an unknown version, when the workflow's digest differs from the
   saved one, or when the kept directory is gone or outside `.indaba/worktrees/`; otherwise it adopts the kept
@@ -331,7 +333,7 @@ characters and cleaned like any untrusted text before it reaches a terminal or a
 span attribute value other than as that cleaned, bounded string.
 
 **The kept working directory.** It holds an agent's partial work, which may contain anything the agent wrote.
-It is only ever under `.indaba/worktrees/<taskId>` (gitignored runtime state), is resolved and confined like
+It is only ever under `.indaba/worktrees/<taskId>` (gitignored runtime state; a worktree or a copy alike), is resolved and confined like
 every other path, is never followed through a symlink out of that tree, and is not deleted without a decision:
 a person's answer, or a resumed run's normal teardown. A resume refuses a directory that moved or left that
 tree. Keeping it longer than a run is a deliberate change from "torn down however the run ends"; the report says
@@ -369,7 +371,7 @@ guessed; figures are printed with their ISO codes.
   `BudgetDecision` contracts; `PluginHost.registerBudgetResolver` and the refusal of undeclared extensions;
   `StepState.restore`; the conformance check (`checkMeteringContract`, in a `testing` entry); and the events.
 - `@indaba/engine`: parsing and validating the fields and the policy, the warnings, the `BudgetGate` that owns
-  the meter and the question, the kept-directory and resume-file code (`WorkspaceManager.adopt`,
+  the meter and the question, the kept-directory and resume-file code (`TrackedWorkspaceManager.adopt`,
   `ResumeStore`), and the resume start of `WorkflowEngine`.
 - `@indaba/runners`: every built-in runner declares its metering; the ACP and OpenAI-compatible runners call
   `onUsage` where they already receive spend while streaming. No runner enforces a budget itself.
@@ -431,8 +433,9 @@ All recommended; the maintainer confirms.
 12. **Why a limit of five resumes per step.** A front end that always answers "one more call" would otherwise
     loop forever; a person is the bound, and a constant is the backstop. After five the step stops unanswered.
     The number is a design choice, not measured.
-13. **Discarding kept work.** No command is added: answering stop on a `--resume` removes it, and git can remove
-    it by hand. A `discard` command is a natural follow-up; I could not decide whether it belongs in this change.
+13. **Discarding kept work.** This spec adds no command. Answering stop on a `--resume` removes it, and
+    `indaba apply <name> --discard` of `specs/workspace-without-git` removes a kept workspace of either kind, so the
+    follow-up this item wondered about exists there.
 14. **The CLI runners' honest declaration.** `claude-code`, `codex`, `cursor` and `antigravity` declare
     `unmetered` with the reason "the CLI prints no usage that Indaba reads". A follow-up task (T-27) checks, per
     CLI, whether a machine-readable source exists in the tool's own output; where one does, the runner reports

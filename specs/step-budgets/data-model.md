@@ -60,7 +60,7 @@ export interface BudgetSnapshot {
   first check, so the stopped step continues from its old total.
 - **A resume refuses** a file whose `version` is unknown, whose `digest` differs from the current workflow, whose
   `workspaces` contain a path that does not resolve (realpath, symlinks followed) to a directory under
-  `.indaba/worktrees/<taskId>`, or whose steps do not match the workflow's step ids. It changes nothing when it
+  `.indaba/worktrees/<taskId>` that has a kept-workspace record (`specs/workspace-without-git`), or whose steps do not match the workflow's step ids. It changes nothing when it
   refuses.
 - **A debate step** resumed by `--resume` restarts from its first round; the file keeps no transcript. A debate
   resumed in the live run needs no file: its transcript is in memory.
