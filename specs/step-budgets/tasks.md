@@ -1,0 +1,61 @@
+# Tasks: Budgets
+
+Each task is checkable on its own; tests come with the code. Run `pnpm qa` after each group. The order is
+dependency order: metering contracts first (everything else uses them), then the meter, then the question and
+the resume, then the CLI and the documentation.
+
+## `@indaba/core`: metering contracts
+
+- [ ] T1. `Metering`, `MeteringReport`, `UsageReporter`, `isMetering`, `MeteringNotDeclaredError`. Tests: every shape accepted and rejected (no fourth state; `metered` with both figures `no`; an `unmetered` reason empty, over 300 characters; a `metered` report with no figure).
+- [ ] T2. `Runner.metering` required, `RunRequest.onUsage`, `RunResult.metering` always set and derived (from `usage`, from `reportedCostUsd`, from nothing). Tests for each derivation; existing `RunResult` construction still compiles.
+- [ ] T3. `Adjudicator.metering`, `Ruling.metering`, `Guard.metering`, `GuardResult.metering`; `PluginHost.registerBudgetResolver`, `usage`, `addListener` options. `architecture.test.ts` still passes.
+- [ ] T4. `checkMeteringContract` behind the `testing` entry (an `exports` subpath; record the packaging decision in `review.md`). Tests: a conforming runner, adjudicator and guard pass; one case per rule fails with its message (undeclared, `metered` with no figure, `free` that reports, `unmetered` that carries a figure, a figure that decreases or is not finite).
+- [ ] T5. Join with `specs/transport-priority` T-22: the same helper carries the unavailable-versus-failed checks; whichever lands second extends the first. Documented in `docs/extending.md` (T31).
+
+## `@indaba/core`: budgets
+
+- [ ] T6. `Budget`, `UsageObservation`, `BudgetTotals`, `BudgetVerdict`, `BudgetGrant`; the `budget` and `meteringPolicy` fields on `StepDefinition` and `WorkflowDefinition`; `BudgetLimit`, `MeteringPolicy`; exports.
+- [ ] T7. `BudgetMeter` and `CallMeter`. Tests: cap reached exactly trips (`>=`); under the cap is `ok`; step, run and operator caps independent, the first reached reported, `final` set only for the operator cap; unknown tokens or cost add nothing and count as unmetered; a cost-only source never trips a token cap; cumulative observations add only the difference; a lower later figure, negative, `NaN` and `Infinity` are ignored; `share` scales the step cap; `check` before a call; the same sequence gives the same verdicts twice.
+- [ ] T8. `BudgetMeter.grant`: `raise_to` and `add` per key; refused on a final cap, with no room, and with an amount at or below zero; `one_call` exempts exactly one call of that step, once. `snapshot` and `restore` round-trip.
+- [ ] T9. `StepState.restore`. `BudgetResolver`, `BudgetQuestion`, `BudgetDecision`, `MAX_RESUMES_PER_STEP`, `BudgetExceeded`, `BudgetResolved`.
+
+## `@indaba/engine`
+
+- [ ] T10. Parser: `budget` at the top level, under `defaults` and on a step (merged field by field into agent steps); `metering_policy` under `defaults` and on a step. Validator errors from AC-01, naming the field path; `budget` on a shell step.
+- [ ] T11. `WorkflowValidator.warnings(workflow, meteringOf?)` (a cost cap on a source whose cost is `maybe` or absent, a token cap on one whose tokens are, a step cap above the run cap; none without the parameter) and `meteringErrors` (an `unmetered` source on a `required` step names the step, the source and the reason; `optional` passes).
+- [ ] T12. `BudgetGate` and `StepExecutor.invoke`: a `CallMeter` per call, `onUsage` passed, the report observed, the call cost read from the span attribute; the internal controller linked to the caller's signal (listener removed afterwards); pre-call check; free sources never checked. Tests with a fake runner: stops mid-call when `onUsage` crosses the cap, stops after a call that only reports at the end, never starts a call when already over, a user cancel during a budget stop ends `cancelled`.
+- [ ] T13. The question: `resume` repeats the interrupted call with the fixed note and the old totals; the attempt counter, retry map, a debate's transcript and a verdict iteration are untouched; `stop` ends `escalated` and tears down; an invalid grant is refused and asked again; `MAX_RESUMES_PER_STEP` stops asking; a final cap is never asked; `retry_step` is skipped.
+- [ ] T14. Unanswered: no resolver, a resolver returning null, final cap, resume limit and cancel all keep the isolated directory, write the resume file, report the path; `escalated` (a cancel `cancelled`). A step without isolation writes the file and keeps no directory.
+- [ ] T15. `ResumeStore` (atomic write, id validated before a path is built, a `../` test, redacted bounded feedback), `definitionDigest`, `WorkspaceManager.adopt` and `keep` (confinement: a path outside `.indaba/worktrees/<taskId>`, a symlink out, and a missing directory are refused; a temporary git repository as fixture).
+- [ ] T16. `WorkflowEngine` resume start: finished steps are not run again, counters, spend and one-call grants restored, the first check asks again; refusals (missing file, unknown version, changed digest, step ids that do not match, foreign directory) change nothing; the resume file is removed when the resumed run ends without keeping again.
+- [ ] T17. Counting: every attempt of a retry adds to the step total; every participant's turn counts; a debate that trips a cap between participants asks, continues on a resume, and asks no arbiter when unanswered; the run total counts descendants re-run by a retry; sources outside a result (`UsageReporter`, a `metered` adjudicator's and guard's reports) reach the same meter.
+- [ ] T18. Telemetry from `events.md`: step, task and call attributes written only when they apply, `spent_usd` absent (not `0`) when no cost was reported, the span events, the two typed events and their order, the two stream records and a reader that predates them. A snapshot test: a workflow with only free or metered sources and no budget produces a trace identical apart from the call-span `indaba.metering.*` attributes.
+- [ ] T19. `WorkflowEngineOptions.runBudget` (the tighter value of each key against the file, final) and `WorkflowResult.spend` and `.resume`.
+- [ ] T20. Negative tests: no span attribute, event, question or resume file contains a prompt, output, transcript, path outside the project or environment value (hostile strings built from fragments); a reason from a plugin is cut and cleaned.
+
+## `@indaba/runners`
+
+- [ ] T21. Declare `metering` on every built-in runner per the table in `api-surface.md`; a test per runner pins its row. The CLI runners declare `unmetered` with an honest reason; `shell` declares `free`.
+- [ ] T22. The ACP runner calls `onUsage({ costUsd })` on each `usage_update` that carries a USD cost (other currencies still dropped); the OpenAI-compatible runner calls it when the final usage chunk arrives. Tests against the scripted fake agent and the stream fixtures. Each built-in runner passes `checkMeteringContract`.
+
+## `indaba` (CLI)
+
+- [ ] T23. `RegistryPluginHost` refuses an undeclared runner, adjudicator, guard, listener or resolver (`MeteringNotDeclaredError`, reported against the plugin, the others load); `createEngine` registers every built-in through it, `human` and `voters` as `free`. A test registers each built-in through a host that refuses and shows none is exempt. `layers.test.ts` still passes.
+- [ ] T24. `--max-cost` and `--max-tokens` in the composition root (malformed values exit 2; passed as `runBudget`, final). `--resume <taskId>` (bad id exits 2; refusals exit 1 with the reason).
+- [ ] T25. The terminal resolver for the budget question beside the arbiter's (same prompt code and input rules); `--rulings none` registers none. `validate` fails on `meteringErrors` and warns; `plan` prints each step's effective budget and policy and the run caps; the end-of-run spend line, the unmetered, estimated and gap lists, and the kept path with the resume command.
+- [ ] T26. End to end through the built CLI: a scripted runner that reports growing spend is stopped at the cap and, with a scripted resolver, resumed with an added budget and completes; the same with no resolver exits 2, keeps the directory, and `--resume` finishes it; a CLI-style runner that reports nothing is not stopped, the line says how many calls were not metered, and the workflow needs `metering_policy: optional` to validate.
+
+## Follow-ups (separate changes)
+
+- [ ] T27. For each CLI runner, find whether the tool itself emits usage in a machine-readable form; where it does, report it as `metered` (`basis: 'reported'`), and offer `estimated` only from such a source, labelled. Where no source exists the declaration stays `unmetered`. Never an invented number.
+- [ ] T28. File resolver and `indaba rule ... resume|stop` with `specs/ruling-channel` (spec section 8, item 11): a `kind` on the request, the `budget_requested` and `budget_answered` records, the answer file. Written in the change that lands the ruling channel, or after it.
+- [ ] T29. `indaba` command to list and discard kept work, if the maintainer wants one (spec section 8, item 13).
+
+## Documentation and gates
+
+- [ ] T30. `docs/workflow-format.md`: the three `budget` places, `metering_policy`, the unknown-is-not-zero rule, "a cap limits further spend", the question and the three answers, `--resume`. `docs/getting-started.md`: the kept directory and the resume file under `.indaba/`.
+- [ ] T31. `docs/extending.md`: a section "Metering: required for anything that can spend". What to declare (`free`, `metered`, `unmetered` with a reason), how a runner reports (`RunResult.metering`, `onUsage`), how an adjudicator, a guard and a listener report (`Ruling`, `GuardResult`, `UsageReporter`), that registration is refused without a declaration, and how to run `checkMeteringContract` in a plugin's own tests with a worked example. Cross-link T-22 of `specs/transport-priority`.
+- [ ] T32. `docs/using-the-alpha.md`: the migration (declare metering; add `metering_policy: optional` to workflows that use a CLI runner). `README.md`, `CHANGELOG.md` (under Unreleased, with a breaking heading for the obligation and the default), `specs/DEPENDENCY_MAP.md`, `docs/README.md` index if a page is added. `AGENTS.md` repository map if a path changed.
+- [ ] T33. Every file in `examples/` that names a CLI runner gets `metering_policy: optional`, and a test keeps all examples validating (the test of `specs/transport-priority` T-35).
+- [ ] T34. `specs/step-budgets/review.md` answered, with the gates' actual output; the review states the version choice (spec section 8, item 15).
+- [ ] T35. `pnpm qa`, `pnpm e2e`, `pnpm smoke` and every node gate green; output recorded in `review.md`.
