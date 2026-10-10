@@ -1,6 +1,6 @@
 # Specification: TypeScript port (npm distribution)
 
-> **Status**: Accepted (stages 1-5 done together; the maintainer waived the review pause)
+> **Status**: Implemented and shipped as the `0.1.0-alpha` preview (#7). Stages 1-5 were done together; the maintainer waived the review pause.
 > **Stage entry**: 1
 > **Semver impact**: major (a different language and package manager). Nothing was ever published, so no consumer is broken; the first npm release is `0.1.0`.
 
