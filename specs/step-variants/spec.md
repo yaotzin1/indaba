@@ -6,7 +6,9 @@
 > and `RulingRequest`, new artifacts, events and span attributes; no default changes)
 > **Builds on**: [`specs/agent-mesh`](../agent-mesh/spec.md) (the debate rounds, the stall detector, the quorum),
 > [`specs/debate-arbiter`](../debate-arbiter/spec.md) (what happens when a debate fails),
-> [`specs/git-workspace`](../git-workspace/spec.md) (worktrees and patches). Siblings written at the same time:
+> [`specs/git-workspace`](../git-workspace/spec.md) (worktrees and patches) and
+> [`specs/workspace-without-git`](../workspace-without-git/spec.md) (the working-copy contract that lets variants run
+> in a folder that is not a git repository). Siblings written at the same time:
 > [`specs/step-budgets`](../step-budgets/spec.md) and [`specs/step-verdicts`](../step-verdicts/spec.md); this spec
 > names where it meets each.
 
@@ -54,14 +56,16 @@ person.
 - [ ] AC-01. A step may declare `variants: N`, an integer of at least 2. The file format has no upper bound; the
   engine has one, `maxVariants` (default 3, C-01). A non-integer, a number below 2, or one above `maxVariants` fails
   validation with a message naming the step and, for the last, the limit.
-- [ ] AC-02. `variants` is valid only on an agent step that declares `isolation: git_worktree` itself and also
-  declares `examine_with`, a non-empty list of role names. On a shell step, a debate step (`consensus_with`), a step
-  whose isolation is `none` or only inherited from a dependency, or a step without `examine_with`, validation fails
-  naming the step and the reason. `examine_with` without `variants` fails too. No existing workflow is affected.
+- [ ] AC-02. `variants` is valid only on an agent step that declares `isolation: git_worktree` or `isolation: copy`
+  itself (the kinds of `specs/workspace-without-git`) and also declares `examine_with`, a non-empty list of role names.
+  On a shell step, a debate step (`consensus_with`), a step whose isolation is `none` or only inherited from a
+  dependency, or a step without `examine_with`, validation fails naming the step and the reason. `examine_with` without
+  `variants` fails too. No existing workflow is affected.
 - [ ] AC-03. Every variant runs with the step's own runner chain, model and agent. `variants` carries no per-variant
   settings (C-01).
-- [ ] AC-04. Each variant runs in its own worktree, started from the state the step's workspace is in when the step
-  begins (earlier steps' changes included), not from `HEAD` alone (C-03). A variant is given no path but its own.
+- [ ] AC-04. Each variant runs in its own workspace of the run's kind (a worktree or a copy), a `fork` of the step's
+  workspace, so it starts from the state that workspace is in when the step begins (earlier steps' changes included), not
+  from `HEAD` or the original folder alone (C-03). A variant is given no path but its own.
 - [ ] AC-05. Variants run concurrently, at most `variants_concurrency` at once (default 2, never above the count).
   No more worktrees exist at a time than that, plus the step's own workspace.
 - [ ] AC-06. A variant is one attempt: the step's prompt, `outputs`, `input_artifacts`, `permissions`, MCP servers,
@@ -91,9 +95,10 @@ person.
   `ESCALATED`. An `accept` with no leader and no named candidate is not a decision: the step ends `ESCALATED` saying
   the examiners tied. With no arbiter, or an unavailable one, the step ends `ESCALATED` as a failed debate does, and
   nothing is applied.
-- [ ] AC-12. A chosen candidate's diff is applied to the step's workspace by `PatchService.apply`, after
-  `canApply`, exactly as a normal step's result is carried forward, and the step completes. Nothing else is applied.
-  The existing patch artifact export then runs as after any isolated step.
+- [ ] AC-12. A chosen candidate's changes are put into the step's workspace by `land(from, since)` of
+  `specs/workspace-without-git` (for a git worktree that is `PatchService.canApply` then `apply`, as before; for a
+  copy the staged landing of that spec), exactly as a normal step's result is carried forward, and the step completes.
+  Nothing else is applied. The existing patch artifact export then runs as after any isolated step.
 - [ ] AC-13. Examiners must not change the workspace. The engine snapshots the step's workspace before the
   examination and, after it, checks that its diff since the snapshot is empty; if not, the step fails naming that the
   workspace changed during examination, and nothing is applied.
@@ -158,12 +163,12 @@ person.
 | an examiner's runner fails | as for a debate step: the step fails with the runner's error |
 | an examiner replies with no valid `CHOICE` line | that message has no choice; the debate continues; repeated, it stalls |
 | an examiner changed the workspace | step `FAILED` (AC-13); nothing applied |
-| the chosen diff does not apply to the workspace | step `FAILED` naming the variant; nothing is half-applied |
+| the chosen result does not land in the workspace (a conflict, a link or an unsafe name) | step `FAILED` naming the variant; nothing is half-applied |
 | creating the Nth worktree fails | variants started are aborted and removed; step `FAILED` with the path and error |
 | a variant's worktree cannot be seeded | that attempt `FAILED` before any agent runs; no variant starts from another base |
 | writing a diff artifact fails | step `FAILED` with the path and error; nothing is applied |
 | the run is cancelled | every variant and the examination aborted, worktrees removed, step cancelled |
-| the process dies midway | worktrees remain under `.indaba/worktrees/`; `git worktree prune` clears them; no name is reused |
+| the process dies midway | workspaces remain under `.indaba/worktrees/` (for worktrees `git worktree prune` clears them; a copy is a plain directory that may be removed); no name is reused |
 
 ## 6. Security and data handling
 
@@ -172,8 +177,10 @@ from the task id, the step id and the index, all passing the existing `GitWorktr
 processes on the same machine under the same user: a variant told to be hostile could read a sibling's directory by
 guessing its path. The documentation says so and does not call it a sandbox.
 
-**The diffs and the examiners' replies are untrusted model output.** A diff is never interpolated into a command, path
-or span. It reaches `git apply` only on standard input after `--check`, which refuses paths outside the tree. The
+**The changes and the examiners' replies are untrusted model output.** A change is never interpolated into a command,
+path or span. For a git worktree it reaches `git apply` only on standard input after `--check`, which refuses paths
+outside the tree; for a copy it passes the checks of `specs/workspace-without-git` (portable names, no links, paths
+confined to the root, no overwriting of a file that changed) before anything is written. The
 choice is parsed from the first line of a reply by an anchored comparison with the known candidate ids and `none`; it
 is never evaluated, used as a path, or looked up as anything but one of those strings. The examiners' reasons are
 cleaned (control characters and ANSI escapes stripped) before a person sees them. A candidate's *content* can contain
@@ -193,8 +200,8 @@ kept whole; examiners are given paths, not pasted diffs, so a large diff does no
   `QuorumRule` seam on `ConsensusArbiter`, the ballot quorum and the tally; an optional `choice` on `AgentMessage`; an
   optional `choice` on `ConsensusResult` and on `Ruling`; an optional `ballot` on `RulingRequest`; the new events. No
   `node:` module, no I/O.
-- `@indaba/engine`: the `maxVariants` option (default 3) and its use by the parser; parsing and validating the fields; `Workspace.snapshot` and `diff(since)`; seeding a variant
-  worktree; the variants path in `StepExecutor` (concurrency, per-variant outputs and guards, the examination through
+- `@indaba/engine`: the `maxVariants` option (default 3) and its use by the parser; parsing and validating the fields; `Workspace.snapshot` and `diff(since)` and, from `specs/workspace-without-git`, `TrackedWorkspace.changes`, `fork`
+  and `land`; forking a variant workspace; the variants path in `StepExecutor` (concurrency, per-variant outputs and guards, the examination through
   `runConsensus`, application, teardown); the artifacts; the span attributes and events.
 - `indaba` (CLI): the human arbiter shows the ballot and accepts a candidate id; `plan` output.
 
@@ -245,12 +252,14 @@ arbiter chain, including a person; `PatchService`; the worktree manager; the art
   that is accepted: attempts differ by the model's sampling only; "the same task on two models" is not expressed by
   `variants`.
 - **C-02. There are no labels.** An attempt is `variant-<n>`, numbered in declaration order from 1.
-- **C-03. Where a variant starts.** The step's workspace may hold changes earlier steps made and not committed;
-  `GitWorktreeManager` creates from `HEAD`. A variant must start from those, and its diff must be measured from them,
-  or the chosen diff would repeat work already there and fail to apply. So the engine takes a *snapshot* of the
-  step's workspace (`git add -A`, then `git write-tree`: a tree id, no commit, no author identity), applies the
-  workspace's diff to the new worktree, snapshots that, and measures the variant's diff since that snapshot.
-  Committing a seed inside the variant worktree was rejected (needs an identity, leaves commits).
+- **C-03. Where a variant starts.** The step's workspace may hold changes earlier steps made and not committed; a
+  worktree is created from `HEAD` and a copy from the original folder. A variant must start from those changes, and its
+  changes must be measured from them, or the chosen result would repeat work already there and fail to land. So the engine
+  takes a *snapshot* of the step's workspace and forks it: `TrackedWorkspace.fork` makes a workspace of the same kind that
+  starts from the current contents, and `changes(since)` measures from the snapshot taken then. For a git worktree the
+  snapshot is `git add -A` then `git write-tree` (a tree id, no commit, no author identity) and the fork applies the
+  workspace's diff to the new worktree; for a copy the snapshot is a manifest digest and the fork is a copy of the
+  workspace. Committing a seed inside the variant worktree was rejected (needs an identity, leaves commits).
 - **C-04. The ballot is a quorum rule, not a second debate engine.** `ConsensusArbiter` today decides by counting
   `AGREEMENT` messages. It gains an optional `QuorumRule`; the default is the existing rule, so no debate changes. The
   ballot rule reads the optional `choice` an examiner's message carries (parsed from the first line by the engine) and
