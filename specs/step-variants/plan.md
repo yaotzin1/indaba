@@ -18,17 +18,18 @@ The files that change, by package, in dependency order. The contracts are in `ap
 - `src/parser/parser.ts`, `validator.ts`: read and validate the fields (`variants` as one integer checked against `maxVariants`, the
   isolation requirement, `examine_with` roles); error paths use the field path.
   `arbiter` validation widens from "debate step" to "debate step or step with `examine_with`".
-- `src/workspace/workspace.ts`, `git-worktree.ts`: `snapshot()` (`git add -A -- . :(exclude).indaba`, then
-  `git write-tree`) and `diff(since?)` (`git diff --cached --binary <tree>`, or `HEAD` when omitted).
-- `src/engine/variants.ts` (new): the attempts. Create each worktree with `create(taskId, "<stepId>-v<n>")`, seed it by
-  applying the step workspace's diff with `PatchService`, snapshot it, stage input artifacts, run the attempt through
+- `src/workspace/git-worktree.ts` (and `copy-workspace.ts` of `specs/workspace-without-git`): `snapshot()` (for git:
+  `git add -A -- . :(exclude).indaba`, then `git write-tree`) and `diff(since?)` (for git: `git diff --cached --binary <tree>`,
+  or `HEAD` when omitted), as members of `TrackedWorkspace`.
+- `src/engine/variants.ts` (new): the attempts. Fork the step's workspace with `fork("<stepId>-v<n>")` (for git a worktree
+  seeded by applying the workspace's diff with `PatchService`; for a copy a copy of the workspace), snapshot it, stage input artifacts, run the attempt through
   the existing agent path with the variant's runner plan, run outputs and guards in that worktree, diff since the
   snapshot, redact and write the artifact, destroy the worktree. Concurrency is a small bounded pool. A `finally`
   destroys whatever was created, with the abort signal not passed down.
 - `src/engine/step-executor.ts`: dispatch to `variants.ts`; build the examination topic (candidate ids, counts, diff
   file paths, verdicts) and the examiner participants; run `runConsensus` with `BALLOT_QUORUM`; the workspace snapshot
-  check (AC-13); on a failed examination, the arbiter with the `ballot`; application (`PatchService.canApply`, then
-  `apply`); `selection.md`; span attributes and events. The ledger is bypassed for this path.
+  check (AC-13); on a failed examination, the arbiter with the `ballot`; application (`land(from, since)`: for git
+  `PatchService.canApply` then `apply`); `selection.md`; span attributes and events. The ledger is bypassed for this path.
 - `src/engine/chain.ts`: unchanged; every variant uses the step's own runner plan.
 - `src/engine/workflow-engine.ts`: pass the step workspace into the executor for a variants step; the existing patch
   export runs after the step as for any isolated step.

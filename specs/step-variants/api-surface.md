@@ -14,9 +14,9 @@ given, behave exactly as before.
   or reads them without the field is unaffected. An arbiter written before this change ignores `choice` and
   `ballot`.
 - `ConsensusArbiterOptions` gains an optional `quorum`; the default is the current rule.
-- `Workspace` gains one method and one optional parameter. The only implementer in this repository is `GitWorktree`;
-  `Workspace` is documented as an engine seam, not an extension point, and the changelog says a third-party
-  implementer must add `snapshot`.
+- `Workspace` and `WorkspaceManager` are not changed. `snapshot` and `diff(since)` are members of
+  `TrackedWorkspace` (`specs/workspace-without-git/api-surface.md`), the optional interface both built-in workspaces
+  implement, so no existing implementer of `Workspace` is affected.
 - The maximum number of variants is an engine option, not part of the file format. Raising its default is a minor;
   lowering it, or lowering the default concurrency, is a major: a workflow that validated before would fail.
 
@@ -121,24 +121,26 @@ No new `PluginHost` method, no new registry and no new error class: the examinat
 ### `@indaba/engine`
 
 ```ts
-export interface Workspace {
-  path(): string;
-  /** Unified diff of everything changed since `since` (a value from `snapshot`), or since the base commit when omitted. */
-  diff(since?: string): Promise<string>;        // optional parameter added
-  /** A handle for the workspace's current contents (a git tree id), usable with `diff(since)`. Needs no commit. */
-  snapshot(): Promise<string>;                  // added
-  destroy(): Promise<void>;
-}
-
-export interface WorkspaceManager {
-  create(taskId: string, variant?: string): Promise<Workspace>;   // unchanged; `variant` already exists
+// Workspace and WorkspaceManager are unchanged. This spec adds two members to TrackedWorkspace, the interface of
+// specs/workspace-without-git that both a git worktree and a copy implement (its other members are `kind`,
+// `changes`, `fork`, `land`, `landInProject` and `keep`):
+export interface TrackedWorkspace extends Workspace {
+  /**
+   * Everything changed since `since` (a value from `snapshot`), or since the workspace was created when omitted.
+   * A unified diff for a git worktree; the plain change report of that spec for a copy.
+   */
+  diff(since?: WorkspaceSnapshot): Promise<string>;   // optional parameter added to Workspace.diff()
+  /** A handle for the workspace's current contents (a git tree id, or a manifest digest for a copy), usable with `diff(since)` and `changes(since)`. Needs no commit. */
+  snapshot(): Promise<WorkspaceSnapshot>;
 }
 ```
 
 The maximum is an engine option: `maxVariants?: number` on the parser's options (where it is enforced, with the message
 of the validation table) and on `WorkflowEngineOptions`, defaulting to `DEFAULT_MAX_VARIANTS`. `StepExecutorOptions` gains
-`readonly workspaces: WorkspaceManager` and `readonly patches: PatchService` (the engine already owns both). `StepExecutor.run` is unchanged in signature; a step with `variants` takes a new internal path, as
-debate steps do. Variant worktrees are created with `create(taskId, "<stepId>-v<n>")`.
+`readonly workspaces: WorkspaceManager`, `readonly copyWorkspaces?: TrackedWorkspaceManager` and `readonly patches: PatchService`
+(the engine already owns them). `StepExecutor.run` is unchanged in signature; a step with `variants` takes a new internal path, as
+debate steps do. A variant's workspace is made with `fork("<stepId>-v<n>")` on the step's `TrackedWorkspace`, and the chosen
+one is carried in with `land(from, since)`.
 
 ### `indaba` (CLI)
 
@@ -153,7 +155,7 @@ exactly as before. `indaba plan` prints the variants (below).
 steps:
   - id: implement
     role: coder
-    isolation: git_worktree       # required with variants, on the step itself
+    isolation: git_worktree       # git_worktree or copy; required with variants, on the step itself
     variants: 3                   # an integer of at least 2; the engine's maxVariants is the ceiling
     variants_concurrency: 2       # optional
     examine_with: [reviewer_a, reviewer_b]
@@ -173,7 +175,7 @@ steps:
 | :--- | :--- |
 | not an integer, below 2 | the step and `variants` |
 | above the engine's `maxVariants` | the step and the limit: `step "implement": variants 5 exceeds the maximum of 3` |
-| `variants` on a shell step, on a debate step, or without `isolation: git_worktree` on the step itself | the step and the reason |
+| `variants` on a shell step, on a debate step, or without `isolation: git_worktree` or `isolation: copy` on the step itself | the step and the reason |
 | `variants` without `examine_with`, or `examine_with` without `variants`, or an empty list | the step |
 | `examine_with` names an undefined role | the step and the role |
 | `variants` given as a list or mapping | the step: `variants` is one integer |
@@ -230,7 +232,7 @@ Candidates, costs and diffs do not exist at plan time and are not printed.
       variants share a machine and a user and are not a security boundary, that examiners are not told who wrote
       what, and that the limits are not measured
 - [ ] `docs/extending.md` documents `Ruling.choice` and `RulingRequest.ballot` for arbiter authors, and how a
-      third-party `Workspace` implementer gains `snapshot`
+      embedder's own workspace implements `TrackedWorkspace` (`snapshot`, `diff(since)`, `fork`, `land`)
 - [ ] No `any`, no `!`, no suppression comment
 - [ ] Determinism test: the same workflow, ids and runner results give the same worktree names, numbering, offer
       order and ballot whatever order the variants finish in; the tally has no randomness
