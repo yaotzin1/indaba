@@ -7,6 +7,7 @@ The repository's main README is the tour; these are the parts that need more roo
 | Page | Read it when |
 | :--- | :--- |
 | [positioning.md](positioning.md) | You want to know what Indaba is for, who it is for, what it is not, and which parts exist today |
+| [roadmap.md](roadmap.md) | You want the order in which the parts are built, and what "done" means for each phase |
 | [using-the-alpha.md](using-the-alpha.md) | You want to try this alpha: which transport (API, ACP or CLI) to choose when, a first run, and what to expect to break |
 | [getting-started.md](getting-started.md) | You want to run a workflow: prerequisites, the commands, environment variables, runners, what a run leaves on disk |
 | [workflow-format.md](workflow-format.md) | You are writing a workflow file: every field, guards, retries, MCP servers, with examples |
