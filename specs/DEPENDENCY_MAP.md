@@ -60,7 +60,11 @@ engine or the CLI upward). A new edge is a design question first and a test chan
 | `cli` | `indaba` |
 | `tui` | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
 | `mcp-support` | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
-| `desktop-app`, `web-app` | not started; to be re-specified against these packages |
+| `web-app` | specified, not started: `@indaba/server` (new), `@indaba/web` (new), `indaba` (`ui`) |
+| `workflow-registry` | specified, not started: `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
+| `single-step-run` | specified, not started: `@indaba/core`, `@indaba/engine`, `indaba` |
+| `agent-sandbox` | specified, not started: `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
+| `desktop-app` | dropped; kept for history |
 
 ## What breaks what
 
