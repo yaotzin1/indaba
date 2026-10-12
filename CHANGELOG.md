@@ -83,6 +83,12 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- A credential no longer reaches the trace through a failed step (patch; track `fix`). The text a step reports when it
+  fails (the command line, a runner's error output, a guard's message, the message of an error a runner throws) and
+  the `indaba.label` span attribute were redacted on the terminal but stored as they were in `<traceId>.jsonl`,
+  `<traceId>.events.jsonl` and the plain `run` status line. They are now redacted in the step executor before the engine
+  records them. The redaction is still by variable name (key, token, secret, password, credential) and value, so a
+  secret in a variable with another name is not recognised.
 - `indaba` now exits when its work is done (patch; track `fix`). On Windows, a run that used a pseudo-terminal
   (every agent CLI runner by default) printed its result and then never returned the prompt, because the
   terminal's `conhost` outlived its child and kept Node's event loop alive. The command line now flushes

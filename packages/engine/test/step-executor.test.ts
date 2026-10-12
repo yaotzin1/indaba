@@ -565,3 +565,93 @@ describe('StepExecutor: cost on the span', () => {
     expect(reported).toBe(0.5);
   });
 });
+
+describe('StepExecutor: a credential never reaches a failure message or a span', () => {
+  // Built from pieces so the repository's security audit does not mistake this file for a leak.
+  const SECRET = ['canary', 'key', '0123456789'].join('-');
+  const redact = (text: string): string => text.split(SECRET).join('[redacted]');
+
+  async function withSpans(runner: Runner, guards = new GuardRegistry()) {
+    const events = new SimpleEventDispatcher();
+    const started: Span[] = [];
+    const ended: Span[] = [];
+    events.addListener(SpanStarted, (e) => {
+      started.push(e.span);
+    });
+    events.addListener(SpanEnded, (e) => {
+      ended.push(e.span);
+    });
+    const tracer = new Tracer(new FixedClock(), events, new SequenceIds());
+    const executor = new StepExecutor({
+      runners: new FakeRegistry([runner]),
+      guards,
+      tracer,
+      events,
+      redact,
+    });
+    const root = await tracer.startTrace('root');
+    return { executor, root, started, ended };
+  }
+
+  const everything = (spans: readonly Span[]): string => JSON.stringify(spans);
+
+  it('redacts a failing command and its error output, in the outcome and on the span', async () => {
+    const shell = new FakeRunner(
+      'shell',
+      async () => new RunResult({ exitCode: 3, output: '', errorOutput: `token rejected: ${SECRET}` }),
+    );
+    const { executor, root, started, ended } = await withSpans(shell);
+
+    const outcome = await executor.run(
+      step({ id: 's', runner: 'shell', commands: [`deploy --token ${SECRET}`] }),
+      workflow([]),
+      '.',
+      root,
+    );
+
+    expect(outcome.ok).toBe(false);
+    expect(outcome.feedback).toContain('[redacted]');
+    expect(outcome.feedback).not.toContain(SECRET);
+    expect(everything(started)).not.toContain(SECRET);
+    expect(everything(ended)).not.toContain(SECRET);
+  });
+
+  it('redacts a failing agent', async () => {
+    const agent = new FakeRunner(
+      'agent',
+      async () => new RunResult({ exitCode: 1, output: '', errorOutput: `auth failed for ${SECRET}` }),
+    );
+    const { executor, root, ended } = await withSpans(agent);
+
+    const outcome = await executor.run(step({ id: 's', runner: 'agent' }), workflow([]), '.', root);
+
+    expect(outcome.feedback).toContain('[redacted]');
+    expect(outcome.feedback).not.toContain(SECRET);
+    expect(everything(ended)).not.toContain(SECRET);
+  });
+
+  it('redacts the message of an error a runner throws', async () => {
+    const agent = new FakeRunner('agent', async () => {
+      throw new RunnerError(`rejected ${SECRET}`);
+    });
+    const { executor, root, ended } = await withSpans(agent);
+
+    const outcome = await executor.run(step({ id: 's', runner: 'agent' }), workflow([]), '.', root);
+
+    expect(outcome.feedback).not.toContain(SECRET);
+    expect(everything(ended)).not.toContain(SECRET);
+  });
+
+  it('redacts the message of a failed guard', async () => {
+    const guards = new GuardRegistry();
+    guards.register({ type: 'leaky', check: async () => GuardResult.fail(`saw ${SECRET}`) });
+    const { executor } = await withSpans(new FakeRunner('agent', async () => ok()), guards);
+
+    const outcome = await executor.validate(
+      step({ id: 's', runner: 'agent', guards: [{ type: 'leaky', paths: [] }] }),
+      '.',
+    );
+
+    expect(outcome.feedback).not.toContain(SECRET);
+  });
+});

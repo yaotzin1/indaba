@@ -125,30 +125,45 @@ export class StepExecutor {
           ? await this.runConsensus(step, workflow, workdir, span, options)
           : await this.runAgent(step, workflow, workdir, span, options);
       // The process runners report an abort as a failed result (exit 130), not as an exception.
-      return !outcome.ok && options.signal?.aborted === true ? StepOutcome.cancelled() : outcome;
+      return !outcome.ok && options.signal?.aborted === true
+        ? StepOutcome.cancelled()
+        : this.redacted(outcome);
     } catch (error) {
       if (options.signal?.aborted === true) {
         return StepOutcome.cancelled();
       }
       if (error instanceof IndabaError) {
-        return StepOutcome.failed(error.message);
+        return StepOutcome.failed(this.redact(error.message));
       }
       throw error;
     }
+  }
+
+  /**
+   * What a step reports about its failure carries a command line, a runner's error text or a guard's message, and
+   * any of them can hold a credential. It is redacted here, once, before the engine puts it in a state change, a
+   * span or the stream.
+   */
+  private redacted(outcome: StepOutcome): StepOutcome {
+    if (outcome.ok || outcome.cancelled || outcome.feedback === '') {
+      return outcome;
+    }
+    const feedback = this.redact(outcome.feedback);
+    return outcome.escalate ? StepOutcome.escalated(feedback) : StepOutcome.failed(feedback);
   }
 
   async validate(step: StepDefinition, workdir: string): Promise<StepOutcome> {
     for (const output of step.outputs) {
       const path = await this.resolvePath(workdir, output);
       if (path === undefined || !(await isFile(path))) {
-        return StepOutcome.failed(`Expected output "${output}" was not produced.`);
+        return StepOutcome.failed(this.redact(`Expected output "${output}" was not produced.`));
       }
     }
 
     for (const guard of effectiveGuards(step)) {
       const result = await this.guards.check(guard, workdir);
       if (!result.passed) {
-        return StepOutcome.failed(`Guard ${guard.type} failed: ${result.message ?? ''}`);
+        return StepOutcome.failed(this.redact(`Guard ${guard.type} failed: ${result.message ?? ''}`));
       }
     }
     return StepOutcome.ok();
@@ -517,7 +532,7 @@ ${this.prompts.tail(result.failureText())}`,
     const span = await this.tracer.startSpan(`${operation} ${runner.name}`, parent, {
       [Tracer.ATTR_OPERATION]: operation,
       'indaba.runner': runner.name,
-      'indaba.label': label,
+      'indaba.label': this.redact(label),
     });
 
     let result: RunResult;
@@ -532,7 +547,11 @@ ${this.prompts.tail(result.failureText())}`,
         signal,
       );
     } catch (error) {
-      await this.tracer.endSpan(span, SpanStatus.Error, error instanceof Error ? error.message : 'failed');
+      await this.tracer.endSpan(
+        span,
+        SpanStatus.Error,
+        error instanceof Error ? this.redact(error.message) : 'failed',
+      );
       throw error;
     }
 

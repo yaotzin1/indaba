@@ -62,4 +62,26 @@ describe('secrets', () => {
       expect(r.stdout + r.stderr).not.toContain(FAKE_KEY);
     }
   });
+
+  it('keeps the key out of the trace when a failing command carries it and prints it', async () => {
+    const dir = await makeGitRepo();
+    await writeFileIn(
+      dir,
+      'flow.workflow.ai.yml',
+      `version: "1.0"
+name: "secret-in-command"
+steps:
+  - id: "boom"
+    runner: "shell"
+    commands:
+      - 'node -e "console.error(\\"${FAKE_KEY}\\"); process.exit(5)"'
+`,
+    );
+
+    const r = await runCli(['run', 'flow.workflow.ai.yml'], dir, { OPENROUTER_API_KEY: FAKE_KEY });
+
+    expect(r.code).toBe(1);
+    expect(r.stdout + r.stderr).not.toContain(FAKE_KEY);
+    expect(await readAllTraceText(dir)).not.toContain(FAKE_KEY);
+  });
 });
