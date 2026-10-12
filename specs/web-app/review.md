@@ -1,4 +1,4 @@
-# Self-review: Web application (React)
+# Self-review: The local web view
 
 > **Status**: pending self-review
 

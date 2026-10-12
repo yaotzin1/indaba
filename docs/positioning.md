@@ -60,7 +60,9 @@ cost and decision is in a trace you can read afterwards.
 | Folders that are not git repositories | Specified: `workspace-without-git` |
 | Talk to the models, choose who decides, shared skills and prompts, workflow inputs | Specified: `agent-conversation`, `workflow-inputs` |
 | Workflow editor, schema and catalog for a wizard; ruling channel for other front ends; voter arbiter | Specified: `workflow-editor`, `ruling-channel`, `voter-arbiter` |
-| Web view (a mirror of the terminal dashboard, richer later) and a desktop app | Planned, not yet respecified |
+| Local web view (`indaba ui`): workflow list, graph, inspector, run, health; workflow registry; running one step | Specified: `web-app`, `workflow-registry`, `single-step-run` |
+| Running agents in a container or a virtual machine, set up by Indaba itself | Specified: `agent-sandbox` |
+| A hosted service that works on a connected repository | Not planned; what it would need is in [hosted-service.md](hosted-service.md). There is no desktop application |
 
 "Specified" means a written specification exists and nothing is built. The alpha has no stability promise.
 

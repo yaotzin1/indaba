@@ -1,5 +1,9 @@
 # Specification: Desktop application (PHP-native shell: Tauri or Electron)
 
+> **Dropped (2026-10-12).** The maintainer decided there is no desktop application: the terminal dashboard and the web
+> view ([`specs/web-app`](../web-app/spec.md)) are the two surfaces, and a hosted product is a separate idea
+> ([`docs/hosted-service.md`](../../docs/hosted-service.md)). This text is kept for its history and is not a plan.
+
 > **Retargeting needed.** This spec assumes the PHP/Symfony implementation. The core is now importable
 > TypeScript (`@indaba/core`, `@indaba/engine`, `@indaba/runners`; see
 > [`specs/typescript-port/`](../typescript-port/spec.md)), which changes the options this spec weighed. It
