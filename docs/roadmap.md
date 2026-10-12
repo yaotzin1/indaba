@@ -67,13 +67,33 @@ backend (a plugin).
 
 ## Monday: Phase 0
 
-1. Merge the open pull requests (positioning, the review-specs helper, the workflow-inputs spec) once their checks
-   pass, and apply the review findings to the merged specs in one follow-up documentation change.
+1. Apply the review findings to the merged specs in one follow-up documentation change.
 2. Run a real workflow with `indaba run <file> --tui` on Windows Terminal. Keep a plain list of what felt wrong:
    anything unclear, slow, missing or ugly.
 3. Check what the dashboard shows for cost, failure and escalation, and for choosing among runs. These are the first
    fixes; they need no new specification.
 4. Turn the list into the checklist for Phase 1.
+
+## Friction list from the first runs (2026-10-12)
+
+Three real runs with `indaba run <file> --tui` on Windows Terminal: the demo workflow, a four-step build check of a
+sibling project, and a two-step run with one real model call (the `claude-code` runner) and one step that fails on
+purpose. The exit points of Phase 0 passed except "choose among several runs", which was not tried. This list is the
+checklist for the next phase; a fix is its own small pull request.
+
+| # | What was seen | Kind |
+| :--- | :--- | :--- |
+| 1 | **A secret in a command or its error output reaches the trace.** With `OPENROUTER_API_KEY` set, a failing shell step whose command line or stderr contains that value is redacted on screen but stored in plain text in `<traceId>.jsonl` and `<traceId>.events.jsonl` (the span's `status_message`, the `indaba.label` attribute, the state-change reason) and printed unredacted in the plain `run` output's status line. The rule is that secrets are in no trace, event or exception. Reproduced with a built CLI; the existing secrets test does not put the value in the command or its output | **Fix first** (security) |
+| 2 | A run with no model call shows `cost none`; it should say "no model calls", and "unknown" only when a call was made and could not be priced | Fix |
+| 3 | `runners: shell ok 0s -> shell ok 2s` on a step with two commands reads like a fallback chain; it lists the commands | Fix |
+| 4 | Long agent output lines are cut with `…` in the output pane instead of wrapped or openable | Fix |
+| 5 | The runner line (`claude-code ok 27s`) says nothing about tokens or cost; when unknown it should say so | Fix |
+| 6 | An agent's own retries are not visible in the dashboard | Idea |
+| 7 | A failure reason repeats the stderr text as `reason:` and again under `output` | Fix (small) |
+| 8 | A step with no output shows an empty pane with no "no output" or exit code | Fix (small) |
+| 9 | `indaba` is not a command in a clone; the documentation should say `pnpm build` then `pnpm indaba ...` | Docs |
+| 10 | `install-hooks` leaves the two hook files staged with an executable-bit change on Windows | Fix (small) |
+| 11 | Not tried: choosing one run among several (`indaba watch`) | Check |
 
 ## How we work
 
