@@ -240,7 +240,7 @@ pnpm build
 node packages/cli/dist/bin.js validate examples/task-pipeline.workflow.ai.yml
 ```
 
-Inside the checkout, `pnpm indaba <command>` is the same as `node packages/cli/dist/bin.js <command>` (build first), for
+`indaba` is not a command in a clone until it is installed from a package. Inside the checkout, `pnpm indaba <command>` is the same as `node packages/cli/dist/bin.js <command>` (build first), for
 example `pnpm indaba run examples/task-pipeline.workflow.ai.yml --tui`.
 
 `pnpm install` needs pnpm 9 (`corepack enable` provides it). Run the command from your own project
