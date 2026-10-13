@@ -77,10 +77,13 @@ A reader that wants the same view as the engine does this, in order of `seq`:
 
 1. Keep every `post`.
 2. The state of a post is `pending`, unless a later `settle` with the same `step_id`, `attempt` and `scope`
-   applies to it, in which case it is that settle's `outcome`; the latest applicable settle wins.
+   applies to it, in which case it is that settle's `outcome`; the latest applicable settle wins. A settle applies
+   only to a post with a lower `seq` that it has not already settled (or, for `superseded`, that is accepted), so
+   a step that is run again from attempt 1 does not change the state of the entries of its earlier run.
 3. The current facts are the `accepted` posts with `kind` `fact`, the highest `seq` per `key`.
-4. The default view shows `accepted` posts only. A view for people may also show `discarded` and `superseded`,
-   marked as such, and `pending`, marked as pending.
+4. The default view shows `accepted` posts and `pending` posts, marked as pending, so a step's notes can be read
+   while it runs. A view for people may also show `discarded` and `superseded`, marked as such. A prompt's
+   digest uses `accepted` posts only.
 
 ## What is never in the file
 

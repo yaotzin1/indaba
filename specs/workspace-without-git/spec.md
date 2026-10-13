@@ -67,7 +67,7 @@ a contract, keeps git as one implementation, and adds a second one that needs no
   mixing `copy` and `git_worktree` fails validation naming the two steps and saying that one run keeps one working copy
   (message 4, section 8).
 - [ ] AC-03. A workflow may have a top-level `copy` mapping with `include` and `exclude` (lists of globs relative to the
-  project directory, in the glob language of `permissions`), and `max_files`, `max_bytes` and `max_file_bytes` (positive
+  project directory, in the glob language of `permissions`, matched with `matchesGlob` and `matchesAny` of `@indaba/core`), and `max_files`, `max_bytes` and `max_file_bytes` (positive
   integers). It is valid only when some step has `isolation: copy`; otherwise validation fails naming the field.
   Absent fields take the defaults of AC-05.
 - [ ] AC-04. `.indaba/`, `.indaba-decisions/` and `.git/` are never copied and cannot be included. Everything else is
@@ -117,21 +117,22 @@ a contract, keeps git as one implementation, and adds a second one that needs no
   and the number of the rest (message 5), and the copy is kept.
 - [ ] AC-18. A change list that contains a `link` entry, a path that is not portable (AC-27), or an entry outside the
   project directory is refused whole, before any write, with message 6.
-- [ ] AC-19. Landing is staged. Each new or changed file is written to a temporary file next to its target; when all are
+- [ ] AC-19. Landing is staged. Each new or changed file is written to a temporary file under `.indaba/landing/<name>/stage/`, never beside its target
+  (so a failure leaves nothing in the person's folders); when all are
   written, each replaced or deleted file is first moved to `.indaba/landing/<name>/before/`, then the new files are renamed
-  into place, then deletions are completed. Any failure restores the moved files and removes the added ones. A failed
+  into place, then deletions are completed. Any failure restores the moved files and removes the added ones. Rollback also deletes the `stage/` folder. A failed
   restoration is reported with the files it could not restore and where their earlier copies are. On success the staging
   directory and `before/` are removed: there is no undo (C-08).
 - [ ] AC-20. A journal `.indaba/landing/<name>.json` is written before the first file is moved and removed after the last
   step. A leftover journal found by `indaba apply` or the start of a run is rolled back first, with message 7.
 - [ ] AC-21. The workflow field `defaults.apply` is `ask`, `auto` or `never`. When it is absent the default is `ask` for a
   `copy` run and `never` for a `git_worktree` run, which keeps today's behaviour. `indaba run --apply ask|auto|never`
-  overrides it. It takes effect only when the run completes. `never` removes the copy as today. `auto` lands without
+  overrides it. It takes effect only when the run completes. `never` removes the copy as today, with its `<name>.manifest.json` and `<name>.workspace.json`, so nothing is left behind. `auto` lands without
   asking and still refuses a conflict. `ask` shows message 8 and accepts `apply`, `keep` or `discard`.
 - [ ] AC-22. When nobody can answer (no terminal, no front end that answers questions, a cancel) `ask` keeps the copy,
   prints where it is and how to land it (message 9), and the run still ends `completed` with exit code 0.
 - [ ] AC-23. A kept copy is described by `.indaba/worktrees/<name>.workspace.json` (`data-model.md`). `indaba apply <name>`
-  lands it, `indaba apply <name> --dry-run` shows the changes without landing, `indaba apply <name> --discard` removes it,
+  lands it, `indaba apply <name> --dry-run` shows the changes without landing, `indaba apply <name> --discard` removes it with its `<name>.manifest.json` and `<name>.workspace.json`,
   and `indaba apply` with no name lists the kept copies. Landing a kept copy repeats the check of AC-17 against the folder
   as it is now.
 - [ ] AC-24. Landing a git worktree uses the existing `PatchService` against the project directory (`git apply --check`,
@@ -151,7 +152,7 @@ a contract, keeps git as one implementation, and adds a second one that needs no
 - [ ] AC-28. In a `copy` workspace, `diff_within_scope` and `git_diff_empty` compute their verdict from `changes()`. With a
   git worktree they run the git commands they run today. A change outside the allowed `paths`, or under the guarded
   `paths`, fails the step with the list of files, in words that do not mention git (message 10).
-- [ ] AC-29. For a copy, a `paths` entry is a glob in the language of `permissions`; an entry without glob characters
+- [ ] AC-29. For a copy, a `paths` entry is a glob in the language of `permissions` (`matchesGlob` and `matchesAny` of `@indaba/core`, the same engine as `copy.include`, `copy.exclude` and `changesOutsideScope`); an entry without glob characters
   matches that path and everything under it. Git pathspec magic is not supported, and the documentation says this is the
   one difference from the git implementation of `git_diff_empty`.
 - [ ] AC-30. In a step that is not isolated and runs in a folder that is not a git repository, these two guards fail closed
@@ -162,9 +163,10 @@ a contract, keeps git as one implementation, and adds a second one that needs no
 
 **The decision ledger**
 
-- [ ] AC-32. In a folder without a git repository with a commit, the key of a ruling is the digest of the workflow name, the
+- [ ] AC-32. In a folder that is not a git repository, or has no commits yet, the key of a ruling is the digest of the workflow name, the
   step, the question and a fingerprint: the SHA-256 of the sorted list of (path, size, SHA-256 of content) of every file
-  outside `.indaba/`, `.indaba-decisions/` and `.git/`. A folder over the default limits of AC-05 has no key, and the span
+  outside `.indaba/`, `.indaba-decisions/` and `.git/` in the project folder itself, never in a step's working copy,
+  so a copy that is still being changed does not alter the key. A folder over the default limits of AC-05 has no key, and the span
   says so (message 13). In a git repository the key is computed as today.
 - [ ] AC-33. A ledger line may carry `basis: "folder"`; a line without `basis` is a git line. Readers of old lines are
   unaffected and a git repository never reads or writes a folder key.
@@ -177,6 +179,9 @@ a contract, keeps git as one implementation, and adds a second one that needs no
   attributes of `events.md`.
 - [ ] AC-36. `step-variants` works on either kind of workspace, and `step-budgets` keeps and resumes the workspace of
   either kind (section 9).
+- [ ] AC-37. Landing re-checks each target immediately before it moves or renames it. If a target, or a directory above
+  it, has changed since the check of AC-17 or has become a link, landing stops, restores everything it moved (AC-19) and
+  reports the file with message 5. A test changes a target between the check and the move and expects the folder as it was.
 
 ## 4. Non-goals
 
@@ -337,7 +342,7 @@ All recommendations; the maintainer confirms.
   file named. Case-insensitivity is handled by exact comparison (AC-13).
 - **C-18. Telemetry is small.** Counts and kinds, never contents; at most 20 paths (`events.md`).
 
-**The messages** (message 1 to 13). Each is one or two sentences, names the thing, and says what to do. `<...>` is filled in.
+**The messages** (message 1 to 14). Each is one or two sentences, names the thing, and says what to do. `<...>` is filled in.
 
 1. `Step "<step>" cannot use isolation: git_worktree because <folder> is not a git repository. Change it to isolation: copy, which works in any folder.`
 2. `The folder has more than <limit> <files|bytes> (found <n>). Indaba copies the folder so your files stay safe while the task runs. Narrow it with copy.include or copy.exclude in the workflow, or raise copy.<field>. Folders with the most files: <a> (<n>), <b> (<n>).`
@@ -352,6 +357,7 @@ All recommendations; the maintainer confirms.
 11. `Indaba cannot see what step "<step>" changes, because the step works directly in your folder and the folder is not a git repository. Use isolation: copy so the step works on a copy.`
 12. `Step "<step>" has permissions but no isolation, so they are checked only after the step has run. Add isolation: git_worktree or isolation: copy.`
 13. `Indaba cannot tell whether the folder changed since the last ruling: it has more than <limit> files. The ruling is saved and will not be reused.`
+14. `Step "<step>" needs a working copy, but this run was set up without the means to make one. Use isolation: none, or run it with the indaba command line.`
 
 Messages 1 and 11 name git on purpose: they are about a git repository that is missing, and the person is told what to do
 instead. AC-34 covers the messages about a working copy.
