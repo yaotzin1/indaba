@@ -67,7 +67,7 @@ backend (a plugin).
 
 ## Monday: Phase 0
 
-1. Apply the review findings to the merged specs (`run-blackboard` done in #42; `workspace-without-git` still has to be reviewed).
+1. Apply the review findings to the merged specs (`run-blackboard` in #42, `workspace-without-git` in #44).
 2. Run a real workflow with `indaba run <file> --tui` on Windows Terminal. Keep a plain list of what felt wrong:
    anything unclear, slow, missing or ugly.
 3. Check what the dashboard shows for cost, failure and escalation, and for choosing among runs. These are the first
