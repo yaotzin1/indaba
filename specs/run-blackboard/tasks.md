@@ -36,7 +36,9 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [ ] T11. Posting from replies: only with `board.post`, only a successful result, only the runner's output;
   counts on the span; a failing step's posts are `discarded`; a completed step's are `accepted`.
 - [ ] T12. Retry isolation (AC-24): a step fails once, is retried; the second prompt holds the last failure and no
-  entry of the first attempt; entries of reset steps are `superseded` and absent from digests.
+  entry of the first attempt (settled or still pending); entries of reset steps are `superseded` and absent from
+  digests; a step run again from attempt 1 leaves the state of its earlier entries as it was (a re-run test);
+  a debate step that is retried supersedes the failed attempt's entries.
 - [ ] T13. Debates: the observer mirrors every message, the outcome `result` and the ruling `decision`; the
   entries are `accepted` whatever the outcome; the ledger-skipped debate; a test compares the debate's own board
   with its copy. The transcript, ruling artifacts and ledger are unchanged (existing tests stay green).
@@ -44,7 +46,9 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   `BoardWriter`: whole lines in order, one queue, run-id validation, the first failure reported once and the
   run unaffected. Tests with a temporary directory and an unwritable one.
 - [ ] T15. `BoardReader`: `exists`, `readAll`, `follow` with a partial last line, an unknown record, a line that
-  is not JSON, a later `v`.
+  is not JSON, a later `v`. A resumed run (`RunBoard.replay`) appends without a second start record.
+- [ ] T15b. Plain words (AC-40) and the id syntax of a step id and a scope (AC-02): the messages are listed and
+  checked, and an entry with a bad step id or scope is not recorded.
 - [ ] T16. Regression: for a workflow without `board` fields the prompts, outcomes and exit codes are as before,
   and the trace file and event stream are byte-identical (AC-27, AC-31).
 
