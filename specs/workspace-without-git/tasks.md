@@ -8,7 +8,7 @@ checkable, and its tests are written with it, not after.
 - [ ] T1. `Isolation.Copy`, `WorkspaceKind`, `ApplyPolicy`, `CopySettings`, `DEFAULT_COPY_SETTINGS`, the two `WorkflowDefinition` members; `defineStep` and the workflow defaults unchanged for existing input.
 - [ ] T2. `FileFingerprint`, `ChangeKind`, `EntryType`, `FileChange`, `ChangeSet` and `LandingError`, exported.
 - [ ] T3. `isPortableRelativePath`: every rule of AC-27 (empty, `.`, `..`, NUL, colon, backslash, trailing space or dot, each reserved device name with and without extension and in either case, a leading `/`, a Unicode name, a deep path), identical answers on every OS.
-- [ ] T4. `changesOutsideScope` and `changesUnderPaths`: empty lists, globs, a bare path as prefix, a path that only shares a prefix as text (`src` against `src2`), links, an ordering check.
+- [ ] T4. `changesOutsideScope` and `changesUnderPaths`, matching with `matchesGlob` and `matchesAny` from `@indaba/core` (no second glob engine): empty lists, globs, a bare path as prefix, a path that only shares a prefix as text (`src` against `src2`), links, an ordering check.
 - [ ] T5. `GuardContext` and the optional third parameter of `Guard.check`; a two-parameter guard compiles and runs.
 - [ ] T6. `architecture.test.ts` still green: no `node:` module in core.
 
