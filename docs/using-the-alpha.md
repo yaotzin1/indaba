@@ -62,7 +62,7 @@ pnpm build
 node packages/cli/dist/bin.js --version
 ```
 
-Below, `indaba` stands for `node packages/cli/dist/bin.js`.
+Below, `indaba` stands for `node packages/cli/dist/bin.js`, which `pnpm indaba` runs too (after `pnpm build`).
 
 ### 1. Look at a workflow without running anything
 
