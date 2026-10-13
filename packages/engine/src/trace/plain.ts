@@ -60,13 +60,13 @@ export function formatDuration(ms: number | undefined): string {
 }
 
 /**
- * A cost is never shown as zero when it is not known: no agent cost at all is `none`, only unknown costs are
- * `unknown`, and a total that includes an unknown is marked partial.
+ * A cost is never shown as zero when it is not known: a run that made no model call says so, only unknown costs
+ * are `unknown`, and a total that includes an unknown is marked partial.
  */
 export function formatCost(cost: RunState['cost']): string {
   const money = `$${cost.usd.toFixed(4)}`;
   if (cost.unknown === 0) {
-    return cost.usd === 0 ? 'none' : money;
+    return cost.calls === 0 ? 'no model calls' : money;
   }
   return cost.usd === 0 ? 'unknown' : `${money} + ${cost.unknown} unknown`;
 }

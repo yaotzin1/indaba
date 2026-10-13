@@ -111,12 +111,13 @@ describe('formatDuration', () => {
 
 describe('formatCost', () => {
   it.each([
-    [{ usd: 0, unknown: 0 }, 'none'],
-    [{ usd: 0.5, unknown: 0 }, '$0.5000'],
-    [{ usd: 0.01234, unknown: 0 }, '$0.0123'],
-    [{ usd: 0, unknown: 2 }, 'unknown'],
-    [{ usd: 0.5, unknown: 1 }, '$0.5000 + 1 unknown'],
-    [{ usd: 12, unknown: 3 }, '$12.0000 + 3 unknown'],
+    [{ usd: 0, unknown: 0, calls: 0 }, 'no model calls'],
+    [{ usd: 0, unknown: 0, calls: 1 }, '$0.0000'],
+    [{ usd: 0.5, unknown: 0, calls: 1 }, '$0.5000'],
+    [{ usd: 0.01234, unknown: 0, calls: 1 }, '$0.0123'],
+    [{ usd: 0, unknown: 2, calls: 1 }, 'unknown'],
+    [{ usd: 0.5, unknown: 1, calls: 1 }, '$0.5000 + 1 unknown'],
+    [{ usd: 12, unknown: 3, calls: 1 }, '$12.0000 + 3 unknown'],
   ])('%j is %s', (cost, expected) => {
     expect(formatCost(cost)).toBe(expected);
   });
@@ -287,7 +288,9 @@ describe('formatPlain', () => {
   });
 
   it('copes with a run that has not started, and with every end state', () => {
-    expect(formatPlain(emptyRun())).toBe('indaba run | ▶ running | 0 steps | elapsed - | cost none\n');
+    expect(formatPlain(emptyRun())).toBe(
+      'indaba run | ▶ running | 0 steps | elapsed - | cost no model calls\n',
+    );
     for (const [status, word] of [
       ['COMPLETED', 'completed'],
       ['FAILED', 'failed'],
@@ -400,7 +403,9 @@ describe('formatPlain', () => {
 
   it('keeps each agent-supplied name on one line', () => {
     const text = formatPlain(reduceAll([root('two\nlines'), stepStart('a\nb'), change('a\nb', 'RUNNING')]));
-    expect(text.split('\n')[0]).toBe('indaba two lines | ▶ running | 1 step | elapsed 2s | cost none');
+    expect(text.split('\n')[0]).toBe(
+      'indaba two lines | ▶ running | 1 step | elapsed 2s | cost no model calls',
+    );
     expect(text).toContain('  ▶ a b  running');
   });
 
