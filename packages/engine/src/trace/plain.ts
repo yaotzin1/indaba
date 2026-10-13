@@ -106,15 +106,50 @@ export function runMark(status: RunStatus, ascii = false): { glyph: string; word
   return { glyph: ascii ? look.ascii : look.glyph, word: look.word, color: look.color };
 }
 
-/** One runner of a step, as a short phrase: `acp ok 26s $0.0123`. */
-export function runnerText(runner: RunnerView): string {
+/** Tokens as `1200 in / 340 out`, or `tokens unknown` when the runner reported none. */
+function tokensText(runner: RunnerView): string {
+  if (runner.inputTokens === undefined && runner.outputTokens === undefined) {
+    return 'tokens unknown';
+  }
+  return `${runner.inputTokens ?? '?'} in / ${runner.outputTokens ?? '?'} out`;
+}
+
+function stateText(runner: RunnerView): string {
   const took =
     runner.endedAt === undefined
       ? ''
       : ` ${formatDuration(Date.parse(runner.endedAt) - Date.parse(runner.startedAt))}`;
   const state = runner.status === 'running' ? 'running' : runner.status === 'ok' ? 'ok' : 'error';
-  const cost = runner.costUsd === undefined ? '' : ` $${runner.costUsd.toFixed(4)}`;
-  return `${oneLine(runner.name)} ${state}${took}${cost}`;
+  return `${state}${took}`;
+}
+
+/**
+ * One runner of a step, as a short phrase: `acp ok 26s, 1200 in / 340 out, $0.0123`. An agent that has finished
+ * says so when its tokens or cost are not known; a shell command has neither and does not mention them.
+ */
+export function runnerText(runner: RunnerView): string {
+  const usage =
+    runner.endedAt === undefined || runner.operation === 'execute_tool'
+      ? []
+      : [tokensText(runner), runner.costUsd === undefined ? 'cost unknown' : `$${runner.costUsd.toFixed(4)}`];
+  return [`${oneLine(runner.name)} ${stateText(runner)}`, ...usage].join(', ');
+}
+
+/**
+ * The runners of a step as lines. The agents it tried are a fallback chain, joined by arrows; the shell commands it
+ * ran are not, so they are listed on their own line and never look like a chain.
+ */
+export function runnerLines(step: StepView): string[] {
+  const agents = step.runners.filter((r) => r.operation !== 'execute_tool');
+  const commands = step.runners.filter((r) => r.operation === 'execute_tool');
+  const lines: string[] = [];
+  if (agents.length > 0) {
+    lines.push(`runners: ${agents.map(runnerText).join(' -> ')}`);
+  }
+  if (commands.length > 0) {
+    lines.push(`commands (${commands.length}): ${commands.map(stateText).join(', ')}`);
+  }
+  return lines;
 }
 
 /** Tool calls and permission decisions of a step on one line, or nothing when there were none. */
@@ -139,8 +174,8 @@ function stepLines(step: StepView, options: PlainOptions, idWidth: number): stri
   const lines = [`  ${glyph} ${oneLine(step.id).padEnd(idWidth)}  ${word}${attempts}`];
   const pad = '      ';
 
-  if (step.runners.length > 0) {
-    lines.push(`${pad}runners: ${step.runners.map(runnerText).join(' -> ')}`);
+  for (const line of runnerLines(step)) {
+    lines.push(`${pad}${line}`);
   }
   for (const skipped of step.skipped) {
     const why = oneLine(skipped.reason);
