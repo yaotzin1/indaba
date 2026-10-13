@@ -27,11 +27,13 @@ const git = (...args) => execFileSync('git', args, { cwd: ROOT_DIR, encoding: 'u
 
 git('config', 'core.hooksPath', HOOKS_DIR);
 
-// Windows checkouts do not carry the executable bit, and git only runs a hook it can execute.
-try {
-    for (const name of ['pre-commit', 'commit-msg']) git('update-index', '--chmod=+x', `${HOOKS_DIR}/${name}`);
-} catch {
-    // The file may not be tracked yet on a first install; the mode is set when it is committed.
+// Git only runs a hook it can execute. The hooks are committed with the executable bit, so a clone has it; the
+// index is touched only for a hook whose recorded mode is not executable, which would otherwise stay staged.
+for (const name of ['pre-commit', 'commit-msg']) {
+    const recorded = git('ls-files', '-s', `${HOOKS_DIR}/${name}`);
+    if (recorded !== '' && !recorded.startsWith('100755')) {
+        git('update-index', '--chmod=+x', `${HOOKS_DIR}/${name}`);
+    }
 }
 
 console.log(`core.hooksPath set to ${HOOKS_DIR}`);
