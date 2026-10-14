@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520" role="img" aria-labelledby="t d">
+  <title id="t">The Indaba council</title>
+  <desc id="d">A prehistoric cave scene. An elder with an antlered headdress and a glowing staff stands behind a fire and conducts six council members seated around it. The cave wall behind them shows hand prints and a painted workflow of connected steps with a gate.</desc>
+  <defs>
+    <radialGradient id="wall" cx="50%" cy="62%" r="75%">
+      <stop offset="0" stop-color="#5a3320"/>
+      <stop offset=".55" stop-color="#2e1a12"/>
+      <stop offset="1" stop-color="#0d0705"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffb347" stop-opacity=".7"/>
+      <stop offset=".5" stop-color="#ff7a1a" stop-opacity=".22"/>
+      <stop offset="1" stop-color="#ff7a1a" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="floor" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#6b3d1f"/>
+      <stop offset="1" stop-color="#1c0f09"/>
+    </radialGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#d9480f"/>
+      <stop offset=".6" stop-color="#ffa94d"/>
+      <stop offset="1" stop-color="#ffe066"/>
+    </linearGradient>
+    <filter id="rock" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency=".035 .06" numOctaves="4" seed="7"/>
+      <feColorMatrix values="0 0 0 0 .1  0 0 0 0 .06  0 0 0 0 .03  0 0 0 .55 0"/>
+    </filter>
+    <filter id="blur4"><feGaussianBlur stdDeviation="4"/></filter>
+    <filter id="blur2"><feGaussianBlur stdDeviation="2"/></filter>
+
+    <!-- a stencilled hand: palm and five fingers -->
+    <g id="hand">
+      <ellipse cx="0" cy="0" rx="13" ry="16"/>
+      <ellipse cx="-15" cy="-4" rx="3.6" ry="11" transform="rotate(-38 -15 -4)"/>
+      <ellipse cx="-8" cy="-22" rx="3.4" ry="12" transform="rotate(-12 -8 -22)"/>
+      <ellipse cx="0" cy="-26" rx="3.4" ry="13"/>
+      <ellipse cx="8" cy="-22" rx="3.4" ry="12" transform="rotate(12 8 -22)"/>
+      <ellipse cx="15" cy="-8" rx="3.2" ry="10" transform="rotate(34 15 -8)"/>
+    </g>
+
+    <!-- seated figure, feet at the origin -->
+    <path id="torso" d="M-29 0 C-29 -27 -17 -42 0 -42 C17 -42 29 -27 29 0 Z"/>
+  </defs>
+
+  <!-- cave -->
+  <rect width="800" height="520" rx="20" fill="url(#wall)"/>
+  <rect width="800" height="520" rx="20" filter="url(#rock)"/>
+  <g fill="#0a0504">
+    <path d="M0 0 H800 V34 L782 30 L768 62 L752 32 L720 36 L706 78 L690 38 L640 34 L622 56 L606 34 L520 30 L508 70 L494 32 L330 34 L318 60 L304 33 L210 36 L194 84 L178 37 L120 32 L106 58 L92 33 L40 36 L28 66 L16 34 L0 38 Z"/>
+  </g>
+
+  <text x="400" y="74" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="44" letter-spacing="16" fill="#e9c58a" stroke="#6b3d1f" stroke-width="1">INDABA</text>
+  <text x="400" y="98" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-style="italic" fill="#c9a574">the council, and the one who conducts it</text>
+
+  <!-- cave paintings: hands -->
+  <g>
+    <g transform="translate(92 168) rotate(-12)" fill="#e0643a" opacity=".55" filter="url(#blur4)"><use href="#hand" transform="scale(1.35)"/></g>
+    <g transform="translate(92 168) rotate(-12)" fill="#a8311a" opacity=".9"><use href="#hand"/></g>
+    <g transform="translate(150 190) rotate(10) scale(.9)" fill="#e0643a" opacity=".5" filter="url(#blur4)"><use href="#hand" transform="scale(1.35)"/></g>
+    <g transform="translate(150 190) rotate(10) scale(.9)" fill="#c9a574" opacity=".85"><use href="#hand"/></g>
+    <g transform="translate(205 160) rotate(-4) scale(.8)" fill="#a8311a" opacity=".8"><use href="#hand"/></g>
+    <!-- spiral and zigzag -->
+    <path d="M60 232 q10 -14 22 -4 q10 12 -4 18 q-14 4 -16 -10 q0 -14 16 -14" fill="none" stroke="#c9a574" stroke-width="3" stroke-linecap="round" opacity=".8"/>
+    <path d="M110 238 l10 -12 l10 12 l10 -12 l10 12 l10 -12" fill="none" stroke="#c9a574" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity=".8"/>
+  </g>
+
+  <!-- cave paintings: a workflow, painted as steps, a gate, a handoff -->
+  <g fill="none" stroke="#d9a25f" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity=".9">
+    <circle cx="590" cy="170" r="10"/>
+    <circle cx="660" cy="128" r="10"/>
+    <circle cx="660" cy="212" r="10"/>
+    <path d="M598 164 L652 133"/><path d="M598 176 L652 207"/>
+    <path d="M670 128 L706 150"/><path d="M670 212 L706 190"/>
+    <path d="M722 170 L738 154 L754 170 L738 186 Z"/>
+    <path d="M550 170 L578 170"/>
+    <path d="M536 160 L550 170 L536 180" />
+  </g>
+  <circle cx="590" cy="170" r="4" fill="#d9a25f" opacity=".9"/>
+  <circle cx="660" cy="128" r="4" fill="#d9a25f" opacity=".9"/>
+  <circle cx="660" cy="212" r="4" fill="#d9a25f" opacity=".9"/>
+  <path d="M732 170 L738 163 L744 170 L738 177 Z" fill="#e0643a" opacity=".9"/>
+
+  <!-- firelight on the wall -->
+  <ellipse cx="400" cy="345" rx="360" ry="190" fill="url(#glow)"/>
+
+  <!-- floor -->
+  <ellipse cx="400" cy="345" rx="345" ry="150" fill="#120a06" opacity=".5"/>
+  <ellipse cx="400" cy="345" rx="300" ry="112" fill="url(#floor)"/>
+  <ellipse cx="400" cy="345" rx="300" ry="112" fill="none" stroke="#8a5a34" stroke-width="2" stroke-dasharray="1 9" stroke-linecap="round"/>
+  <g fill="#3a2316" opacity=".9">
+    <ellipse cx="215" cy="395" rx="14" ry="5"/><ellipse cx="590" cy="300" rx="12" ry="4"/>
+    <ellipse cx="300" cy="305" rx="9" ry="3"/><ellipse cx="520" cy="398" rx="16" ry="5"/>
+  </g>
+
+  <!-- threads of the conductor: staff to every seat -->
+  <g fill="none" stroke="#ffc46b" stroke-width="2" stroke-linecap="round" stroke-dasharray="2 7" opacity=".85">
+    <path d="M434 130 Q620 90 650 300"/>
+    <path d="M434 130 Q700 150 641 358"/>
+    <path d="M434 130 Q620 300 498 408"/>
+    <path d="M434 130 Q170 300 302 408"/>
+    <path d="M434 130 Q100 150 159 358"/>
+    <path d="M434 130 Q180 90 150 300"/>
+  </g>
+
+  <!-- seated council: rim-lit silhouettes -->
+  <g fill="#150b07" stroke="#ff9a3c" stroke-width="1.6" stroke-opacity=".75" stroke-linejoin="round">
+    <!-- back left: feather headdress -->
+    <g transform="translate(150 306) scale(.9)">
+      <use href="#torso"/><circle cx="0" cy="-54" r="13"/>
+      <path d="M-12 -62 L-22 -92 L-6 -68 M0 -67 L0 -100 L5 -67 M12 -62 L22 -92 L6 -68"/>
+    </g>
+    <!-- back right: horned -->
+    <g transform="translate(650 306) scale(.9)">
+      <use href="#torso"/><circle cx="0" cy="-54" r="13"/>
+      <path d="M-10 -63 C-26 -66 -28 -86 -18 -92 M10 -63 C26 -66 28 -86 18 -92" fill="none" stroke-width="3"/>
+    </g>
+    <!-- left: topknot, bone necklace -->
+    <g transform="translate(137 374)">
+      <use href="#torso"/><circle cx="0" cy="-54" r="13"/><circle cx="0" cy="-72" r="6"/>
+      <path d="M-14 -36 Q0 -22 14 -36" fill="none" stroke="#f1dcb0" stroke-width="3" stroke-dasharray="1 5" stroke-linecap="round" stroke-opacity=".85"/>
+    </g>
+    <!-- right: fur cloak, jagged shoulders -->
+    <g transform="translate(663 374)">
+      <path d="M-33 0 L-30 -22 L-22 -18 L-18 -38 L-8 -32 L0 -46 L8 -32 L18 -38 L22 -18 L30 -22 L33 0 Z"/>
+      <circle cx="0" cy="-58" r="13"/>
+    </g>
+    <!-- front left: hooded -->
+    <g transform="translate(304 434) scale(1.15)">
+      <use href="#torso"/><path d="M-16 -44 C-16 -76 16 -76 16 -44 C16 -52 -16 -52 -16 -44 Z"/><circle cx="0" cy="-54" r="12"/>
+    </g>
+    <!-- front right: long hair -->
+    <g transform="translate(496 434) scale(1.15)">
+      <use href="#torso"/><circle cx="0" cy="-54" r="13"/>
+      <path d="M-14 -56 C-24 -40 -20 -26 -16 -20 M14 -56 C24 -40 20 -26 16 -20" fill="none" stroke-width="3.5"/>
+    </g>
+  </g>
+
+  <!-- fire -->
+  <g>
+    <rect x="360" y="366" width="86" height="12" rx="6" fill="#2b170d" stroke="#7a4a26" transform="rotate(-8 400 372)"/>
+    <rect x="356" y="364" width="86" height="12" rx="6" fill="#33190e" stroke="#7a4a26" transform="rotate(10 400 370)"/>
+    <g transform="translate(0 52)">
+      <path d="M400 316 C366 316 356 288 372 268 C374 282 384 284 386 276 C380 252 396 238 404 220 C410 242 432 256 430 282 C440 276 440 266 438 258 C456 280 440 316 400 316 Z" fill="url(#flame)"/>
+      <path d="M400 314 C384 314 380 298 390 288 C392 296 398 296 399 290 C397 280 404 274 408 266 C412 278 420 284 418 296 C422 300 418 314 400 314 Z" fill="#fff3bf" opacity=".9"/>
+    </g>
+    <g fill="#ffc46b" filter="url(#blur2)" opacity=".9">
+      <circle cx="388" cy="252" r="2.2"/><circle cx="414" cy="240" r="1.8"/><circle cx="404" cy="224" r="1.5"/>
+      <circle cx="376" cy="236" r="1.4"/><circle cx="426" cy="256" r="1.6"/>
+    </g>
+  </g>
+
+  <!-- the conductor: antlers, cloak, staff -->
+  <g>
+    <ellipse cx="400" cy="262" rx="40" ry="7" fill="#0a0504" opacity=".6"/>
+    <g fill="#150b07" stroke="#ff9a3c" stroke-width="1.8" stroke-opacity=".8" stroke-linejoin="round" transform="translate(400 262)">
+      <path d="M-30 0 C-30 -42 -20 -78 0 -80 C20 -78 30 -42 30 0 Z"/>
+      <path d="M-30 -52 L-42 -40 L-30 -34 M30 -52 L42 -40 L30 -34" />
+      <circle cx="0" cy="-96" r="15"/>
+      <path d="M-10 -106 C-26 -112 -32 -130 -24 -142 M-24 -128 L-38 -130 M-27 -138 L-36 -150
+               M10 -106 C26 -112 32 -130 24 -142 M24 -128 L38 -130 M27 -138 L36 -150" fill="none" stroke-width="3.4" stroke-linecap="round"/>
+      <path d="M-18 -78 Q0 -66 18 -78" fill="none" stroke="#f1dcb0" stroke-width="3.5" stroke-dasharray="1 5" stroke-linecap="round" stroke-opacity=".9"/>
+    </g>
+    <!-- staff -->
+    <path d="M434 262 L434 138" stroke="#7a4a26" stroke-width="5" stroke-linecap="round"/>
+    <path d="M434 262 L434 138" stroke="#ff9a3c" stroke-width="1" stroke-opacity=".7"/>
+    <circle cx="434" cy="130" r="20" fill="#ffc46b" opacity=".45" filter="url(#blur4)"/>
+    <circle cx="434" cy="130" r="9" fill="none" stroke="#ffe3a3" stroke-width="3.5"/>
+    <circle cx="434" cy="130" r="3.2" fill="#fff3bf"/>
+  </g>
+
+  <text x="400" y="500" text-anchor="middle" font-family="Georgia, serif" font-size="14" font-style="italic" fill="#c9a574" letter-spacing="2">Many voices. One conductor. One decision.</text>
+
+  <!-- vignette -->
+  <rect width="800" height="520" rx="20" fill="none" stroke="#0a0504" stroke-width="14" opacity=".7"/>
+</svg>
