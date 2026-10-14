@@ -201,7 +201,7 @@ absent, not zero.
 ## Watching a run
 
 ```bash
-npx indaba watch                  # list the runs, newest first
+npx indaba watch                  # list the runs, newest first, with the workflow of each
 npx indaba watch latest           # follow the newest, or read it if it has finished
 npx indaba watch latest --replay  # replay a finished run with its original timing (--speed 10 for ten times faster)
 npx indaba watch latest --plain   # lines instead of the dashboard (also the default without a terminal)
