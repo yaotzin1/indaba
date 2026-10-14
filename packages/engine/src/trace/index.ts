@@ -8,6 +8,7 @@ export {
   formatHeader,
   formatPlain,
   runMark,
+  runnerLines,
   runnerText,
   stepMark,
   toolsText,

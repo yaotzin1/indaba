@@ -83,6 +83,14 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- The runner line of a step is clearer (patch; track `fix`). The shell commands of a step are listed on a
+  `commands (n): ok 0s, ok 2s` line instead of `shell ok 0s -> shell ok 2s`, which read like a fallback chain; an
+  agent that has finished shows its tokens and cost, or says `tokens unknown` and `cost unknown`. Both the
+  terminal dashboard and the plain `run` and `watch` output change; `runnerLines` is exported from
+  `@indaba/engine`.
+- The terminal dashboard shows a failed step more plainly (patch; track `fix`). The reason no longer repeats the
+  error text the output pane already shows (its first line, which says what happened, stays), and a finished step
+  that printed nothing says `(no output)`, with the exit code when a runner reported one, instead of an empty pane.
 - The output pane of the terminal dashboard wraps a long line (patch; track `fix`). A line longer than the pane was
   cut with `…`, so the end of a long message could not be read. It now continues on the next rows, and scrolling
   counts rows as drawn.
