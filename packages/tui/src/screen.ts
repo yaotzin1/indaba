@@ -1,7 +1,7 @@
 import {
   formatHeader,
   type RunState,
-  runnerText,
+  runnerLines,
   type StepView,
   sanitize,
   stepMark,
@@ -119,8 +119,8 @@ function infoRows(step: StepView, width: number, ascii: boolean): Row[] {
   const add = (text: string, tone: Tone = 'normal'): void => {
     rows.push(row(clip(text, width, ascii), tone));
   };
-  if (step.runners.length > 0) {
-    add(`runners: ${step.runners.map(runnerText).join(' -> ')}`);
+  for (const line of runnerLines(step)) {
+    add(line);
   }
   for (const skipped of step.skipped) {
     const why = safe(skipped.reason);
