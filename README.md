@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/assets/indaba-logo.svg" alt="Indaba" width="480">
+</p>
+
 # Indaba
 
 <p align="center">
