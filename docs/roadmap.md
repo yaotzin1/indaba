@@ -94,7 +94,7 @@ checklist for the next phase; a fix is its own small pull request.
 | 9 | `indaba` is not a command in a clone; the documentation should say `pnpm build` then `pnpm indaba ...` | Docs | PR #41 |
 | 10 | `install-hooks` leaves the two hook files staged with an executable-bit change on Windows | Fix (small) | PR #40 |
 | 11 | Not tried: choosing one run among several (`indaba watch`) | Check | Checked: `latest`, a whole id and a prefix that fits one run work, a prefix that fits several lists them, and a name that is not hexadecimal is refused |
-| 12 | `indaba watch` lists runs by id, status and time only, so with several runs there is no telling which is which without opening each. The workflow name belongs in the list. It is an additive field on `RunSummary`, so a minor change and a specification first | Feature | Open |
+| 12 | `indaba watch` lists runs by id, status and time only, so with several runs there is no telling which is which without opening each. The workflow name belongs in the list. It is an additive field on `RunSummary`, so a minor change and a specification first | Feature | PR open (`specs/watch-workflow-name`) |
 
 ## How we work
 

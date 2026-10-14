@@ -347,6 +347,49 @@ describe('TraceReader.follow', () => {
   });
 });
 
+describe('summariseRun: the workflow name', () => {
+  const named = (name: string, attributes: Record<string, string | number>): Writable => ({
+    type: 'span_started',
+    at: AT,
+    traceId: 'a',
+    spanId: ROOT,
+    parentSpanId: undefined,
+    name,
+    attributes,
+  });
+
+  it('reads the name from the root span attribute first', () => {
+    const records = [named('indaba.task other', { 'indaba.workflow.name': 'demo' })];
+    expect(summariseRun(records).workflow).toBe('demo');
+  });
+
+  it('falls back to the span name without its prefix, and ignores an attribute that is not text', () => {
+    expect(summariseRun([named('indaba.task build-it', {})]).workflow).toBe('build-it');
+    expect(summariseRun([named('indaba.task build-it', { 'indaba.workflow.name': 7 })]).workflow).toBe(
+      'build-it',
+    );
+  });
+
+  it('is undefined when nothing gives a name', () => {
+    expect(summariseRun([]).workflow).toBeUndefined();
+    expect(summariseRun([named('indaba.task ', {})]).workflow).toBeUndefined();
+    expect(summariseRun([named('indaba.task t', { 'indaba.workflow.name': '' })]).workflow).toBe('t');
+  });
+
+  it('takes it from the root span, not from a step', () => {
+    const step: Writable = {
+      type: 'span_started',
+      at: AT,
+      traceId: 'a',
+      spanId: STEP,
+      parentSpanId: ROOT,
+      name: 'step s',
+      attributes: { 'indaba.workflow.name': 'wrong' },
+    };
+    expect(summariseRun([step, named('indaba.task t', {})]).workflow).toBe('t');
+  });
+});
+
 describe('summariseRun', () => {
   it('is running until the root span has ended', () => {
     expect(summariseRun([]).status).toBe('running');
@@ -400,6 +443,7 @@ describe('TraceReader.listRuns', () => {
       [old, 'failed'],
     ]);
     expect(runs[0]?.startedAt).toBe(AT);
+    expect(runs.map((r) => r.workflow)).toEqual(['t', 't', 't']);
   });
 
   it('lists a run that has only a trace file, and ignores everything that is not a run', async () => {
@@ -416,7 +460,7 @@ describe('TraceReader.listRuns', () => {
     await mkdir(join(dir, `${'c'.repeat(32)}.jsonl`));
 
     const runs = await new TraceReader(dir).listRuns();
-    expect(runs.map((r) => [r.runId, r.status])).toEqual([[legacy, 'escalated']]);
+    expect(runs.map((r) => [r.runId, r.status, r.workflow])).toEqual([[legacy, 'escalated', 't']]);
   });
 
   it('is empty for a directory that does not exist, or has nothing in it', async () => {

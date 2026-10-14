@@ -17,6 +17,11 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
+  with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
+  first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it
+  is printed as plain text on one line and cut at 60 characters. New in `@indaba/engine`: `RunSummary.workflow` and
+  the same field on what `summariseRun` returns.
 - **A debate can have an arbiter** (minor; track `feature`; spec `specs/debate-arbiter`). A debate step may set
   `arbiter: "human"` (or the name of one a plugin registers). When its debate ends `stalled` or
   `max_rounds_exceeded`, the arbiter rules `accept` (the step completes) or `reject` (it escalates, with the note)

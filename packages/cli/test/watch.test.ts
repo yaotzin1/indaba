@@ -161,10 +161,30 @@ describe('indaba watch: choosing a run', () => {
     const r = await run([], dir);
     expect(r.code).toBe(0);
     expect(r.out.trim().split('\n')).toEqual([
-      `${'3'.repeat(32)}  running    ${T(0)}`,
-      `${'2'.repeat(32)}  completed  ${T(0)}`,
-      `${'1'.repeat(32)}  failed     ${T(0)}`,
+      `${'3'.repeat(32)}  running    ${T(0)}  demo`,
+      `${'2'.repeat(32)}  completed  ${T(0)}  demo`,
+      `${'1'.repeat(32)}  failed     ${T(0)}  demo`,
     ]);
+  });
+
+  it('shows the workflow as plain text on one line, cut when long, and a dash when unknown', async () => {
+    const { dir, traces } = await project();
+    const a = 'a'.repeat(32);
+    const b = 'b'.repeat(32);
+    const c = 'c'.repeat(32);
+    const hostile = { ...root(a), attributes: { 'indaba.workflow.name': `one${ESC}[31m\ntwo` } };
+    const long = { ...root(b), attributes: { 'indaba.workflow.name': 'x'.repeat(80) } };
+    const unnamed = { ...root(c), name: 'something else', attributes: {} };
+    await writeRun(traces, a, [hostile], 300);
+    await writeRun(traces, b, [long], 200);
+    await writeRun(traces, c, [unnamed], 100);
+
+    const lines = (await run([], dir)).out.trim().split('\n');
+    expect(lines).toHaveLength(3);
+    expect(lines[0]?.endsWith(`${T(0)}  -`)).toBe(true);
+    expect(lines[1]?.endsWith(`  ${'x'.repeat(57)}...`)).toBe(true);
+    expect(lines[2]).toMatch(/one.*two$/);
+    expect(lines[2]).not.toContain(ESC);
   });
 
   it('takes "latest", a whole id, or a start of one that fits a single run', async () => {
