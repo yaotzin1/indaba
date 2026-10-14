@@ -133,12 +133,36 @@ function infoRows(step: StepView, width: number, ascii: boolean): Row[] {
   if (step.consensus !== undefined) {
     add(`consensus: ${safe(step.consensus.outcome)} after ${step.consensus.rounds} round(s)`, 'accent');
   }
-  if (step.reason !== undefined && step.reason !== '') {
-    for (const line of sanitize(step.reason).split('\n').slice(0, 3)) {
-      add(`reason: ${line}`, 'bad');
-    }
+  for (const line of reasonLines(step)) {
+    add(`reason: ${line}`, 'bad');
   }
   return rows;
+}
+
+/**
+ * The reason a step failed, at most three lines. A failed command's error text is also in the output pane, so the
+ * lines the pane already shows are left out here, except the first, which says what happened.
+ */
+function reasonLines(step: StepView): string[] {
+  if (step.reason === undefined || step.reason === '') {
+    return [];
+  }
+  const shown = new Set(step.output.map((line) => sanitize(line).trim()));
+  return sanitize(step.reason)
+    .split('\n')
+    .filter((line, i) => i === 0 || !shown.has(line.trim()))
+    .slice(0, 3);
+}
+
+const FINISHED = new Set(['COMPLETED', 'FAILED', 'ESCALATED', 'CANCELLED']);
+
+/** What stands in the output pane of a step that has not printed anything. */
+function emptyOutputText(step: StepView): string {
+  if (!FINISHED.has(step.status)) {
+    return '(no output yet)';
+  }
+  const exit = [...step.runners].reverse().find((r) => r.exitCode !== undefined)?.exitCode;
+  return exit === undefined ? '(no output)' : `(no output, exit code ${exit})`;
 }
 
 function detailRows(
@@ -192,7 +216,7 @@ function detailRows(
     );
   }
   if (output.length === 0) {
-    output.push(row('(no output yet)', 'dim'));
+    output.push(row(emptyOutputText(step), 'dim'));
   }
   return {
     rows: [title, ...info, divider, ...output].slice(0, Math.max(1, layout.detailRows)),
