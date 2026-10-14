@@ -136,7 +136,7 @@ describe('reduceRun: the run', () => {
     expect(emptyRun()).toMatchObject({
       status: 'running',
       steps: [],
-      cost: { usd: 0, unknown: 0 },
+      cost: { usd: 0, unknown: 0, calls: 0 },
       notes: [],
     });
     expect(emptyRun().traceId).toBeUndefined();
@@ -373,7 +373,7 @@ describe('reduceRun: runners, cost and ACP events', () => {
       runnerStart('a', 'free'),
       runnerEnd('a', 'free', { 'indaba.cost.usd': 0 }),
     ]);
-    expect(state.cost).toEqual({ usd: 0, unknown: 0 });
+    expect(state.cost).toEqual({ usd: 0, unknown: 0, calls: 1 });
   });
 
   it('does not count a shell command as unknown cost', () => {
@@ -383,7 +383,7 @@ describe('reduceRun: runners, cost and ACP events', () => {
       runnerStart('v', 'shell', 'execute_tool'),
       runnerEnd('v', 'shell', { 'indaba.exit_code': 0 }),
     ]);
-    expect(state.cost).toEqual({ usd: 0, unknown: 0 });
+    expect(state.cost).toEqual({ usd: 0, unknown: 0, calls: 0 });
   });
 
   it('counts finished tool calls by kind, once each, and permission decisions', () => {
@@ -431,7 +431,7 @@ describe('reduceRun: runners, cost and ACP events', () => {
 
   it('ignores the end of a span it never saw start', () => {
     const state = reduceAll([root(), runnerEnd('ghost', 'x', { 'indaba.cost.usd': 5 })]);
-    expect(state.cost).toEqual({ usd: 0, unknown: 0 });
+    expect(state.cost).toEqual({ usd: 0, unknown: 0, calls: 0 });
     expect(state.steps).toEqual([]);
   });
 });
@@ -578,7 +578,7 @@ describe('reduceRun: properties', () => {
       output: ['hello'],
       partialLine: 'wor',
     });
-    expect(state.cost).toEqual({ usd: 0.2, unknown: 0 });
+    expect(state.cost).toEqual({ usd: 0.2, unknown: 0, calls: 1 });
     expect(state.notes).toEqual(['???']);
   });
 });
