@@ -35,12 +35,30 @@ export interface SkippedRunnerView {
   readonly reason: string;
 }
 
+/** One go at a step: it begins when the step enters `RUNNING` and ends at `FAILED`, `ESCALATED` or `COMPLETED`. */
+export interface AttemptView {
+  /** 1 for the first time the step ran. */
+  readonly attempt: number;
+  readonly startedAt: string;
+  /** Undefined while the attempt has not ended. */
+  readonly endedAt: string | undefined;
+  /** The latest state the step reached in this attempt, as the engine names it. */
+  readonly outcome: string;
+  /** Why it failed or escalated, when the engine said. */
+  readonly reason: string | undefined;
+}
+
+/** The attempts kept per step; `StepView.attempts` still counts them all. */
+export const MAX_ATTEMPTS_KEPT = 20;
+
 export interface StepView {
   readonly id: string;
   /** The state the step last moved to, as the engine names it (`PENDING`, `RUNNING`, ...). */
   readonly status: string;
   /** How many times it entered `RUNNING`. */
   readonly attempts: number;
+  /** The attempts, oldest first, the current one last: at most {@link MAX_ATTEMPTS_KEPT}. */
+  readonly history: readonly AttemptView[];
   /** Why it last moved, when the engine said (a failure, an escalation). Cleared when it runs again. */
   readonly reason: string | undefined;
   readonly startedAt: string | undefined;
@@ -111,6 +129,7 @@ function newStep(id: string): StepView {
     id,
     status: 'PENDING',
     attempts: 0,
+    history: [],
     reason: undefined,
     startedAt: undefined,
     endedAt: undefined,
@@ -330,6 +349,39 @@ function appendOutput(step: StepView, chunk: string): StepView {
   };
 }
 
+const ATTEMPT_ENDS = new Set(['FAILED', 'ESCALATED', 'COMPLETED']);
+
+/** The history after a step moved to `to`: a new attempt at `RUNNING`, otherwise the open one is brought up to date. */
+function nextHistory(
+  step: StepView,
+  to: string,
+  at: string,
+  reason: string | undefined,
+): readonly AttemptView[] {
+  if (to === 'RUNNING') {
+    const begun: AttemptView = {
+      attempt: step.attempts + 1,
+      startedAt: at,
+      endedAt: undefined,
+      outcome: 'RUNNING',
+      reason: undefined,
+    };
+    return [...step.history, begun].slice(-MAX_ATTEMPTS_KEPT);
+  }
+  const open = step.history.at(-1);
+  if (open === undefined || open.endedAt !== undefined) {
+    return step.history;
+  }
+  const ends = ATTEMPT_ENDS.has(to);
+  const updated: AttemptView = {
+    ...open,
+    outcome: to,
+    endedAt: ends ? at : undefined,
+    reason: ends ? reason : undefined,
+  };
+  return [...step.history.slice(0, -1), updated];
+}
+
 /** The next state after one more record. Never throws. */
 export function reduceRun(state: RunState, record: RunRecord): RunState {
   switch (record.type) {
@@ -342,6 +394,7 @@ export function reduceRun(state: RunState, record: RunRecord): RunState {
         ...step,
         status: record.to,
         attempts: record.to === 'RUNNING' ? step.attempts + 1 : step.attempts,
+        history: nextHistory(step, record.to, record.at, record.reason),
         reason: record.to === 'RUNNING' ? undefined : (record.reason ?? step.reason),
       }));
     case 'output': {
