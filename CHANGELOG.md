@@ -83,6 +83,9 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- The terminal dashboard shows a failed step more plainly (patch; track `fix`). The reason no longer repeats the
+  error text the output pane already shows (its first line, which says what happened, stays), and a finished step
+  that printed nothing says `(no output)`, with the exit code when a runner reported one, instead of an empty pane.
 - The output pane of the terminal dashboard wraps a long line (patch; track `fix`). A line longer than the pane was
   cut with `…`, so the end of a long message could not be read. It now continues on the next rows, and scrolling
   counts rows as drawn.

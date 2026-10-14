@@ -1,6 +1,7 @@
+import type { RunRecord } from '@indaba/engine';
 import { describe, expect, it } from 'vitest';
 import { buildScreen, computeLayout, initialUi, type Row, stepTone, type UiState } from '../src/index.js';
-import { output, root, run, sampleRecords, status, stepStart, T } from './fixtures.js';
+import { output, root, run, sampleRecords, status, stepStart, T, TRACE } from './fixtures.js';
 
 const opts = { ascii: false, attached: false };
 const text = (rows: readonly Row[]): string => rows.map((r) => r.text).join('\n');
@@ -43,6 +44,55 @@ describe('buildScreen', () => {
     expect(text(s.list)).toContain('waiting for steps');
     expect(text(s.detail)).toContain('Waiting for the run to start');
     expect(s.outputLines).toBe(0);
+  });
+
+  it('says a finished step printed nothing, with the exit code when a runner reported one', () => {
+    const shell = (code: number): RunRecord[] => [
+      {
+        type: 'span_started',
+        at: T(2),
+        traceId: TRACE,
+        spanId: 'p-a',
+        parentSpanId: 's-a',
+        name: 'execute_tool shell',
+        attributes: { 'indaba.runner': 'shell' },
+      },
+      {
+        type: 'span_ended',
+        at: T(3),
+        traceId: TRACE,
+        spanId: 'p-a',
+        status: 'error',
+        statusMessage: undefined,
+        attributes: { 'indaba.exit_code': code },
+        events: [],
+      },
+    ];
+    const layout = computeLayout(100, 24);
+    const silent = run(root(), stepStart('a'), status('a', 'RUNNING'), status('a', 'COMPLETED'));
+    expect(text(buildScreen(silent, ui(), layout, opts).detail)).toContain('(no output)');
+    const failed = run(
+      root(),
+      stepStart('a'),
+      status('a', 'RUNNING'),
+      ...shell(7),
+      status('a', 'FAILED', 'x'),
+    );
+    expect(text(buildScreen(failed, ui(), layout, opts).detail)).toContain('(no output, exit code 7)');
+  });
+
+  it('does not repeat in the reason what the output pane already shows, but keeps the first line', () => {
+    const failed = run(
+      root(),
+      stepStart('a'),
+      status('a', 'RUNNING'),
+      output('a', 1, 'boom: file missing\n'),
+      status('a', 'FAILED', 'Command `x` exited with code 5.\nboom: file missing\nsomething else'),
+    );
+    const detail = buildScreen(failed, ui(), computeLayout(100, 24), opts).detail.map((r) => r.text);
+    expect(detail.filter((line) => line.includes('boom: file missing'))).toHaveLength(1);
+    expect(detail).toContain('reason: Command `x` exited with code 5.');
+    expect(detail).toContain('reason: something else');
   });
 
   it('wraps a long output line over several rows instead of cutting it', () => {
