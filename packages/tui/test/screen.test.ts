@@ -95,6 +95,16 @@ describe('buildScreen', () => {
     expect(detail).toContain('reason: something else');
   });
 
+  it('wraps a long output line over several rows instead of cutting it', () => {
+    const long = `${'a'.repeat(60)}${'b'.repeat(60)}END`;
+    const wrapped = run(root(), stepStart('a'), status('a', 'RUNNING'), output('a', 1, `${long}\n`));
+    const s = buildScreen(wrapped, ui(), computeLayout(100, 24), opts);
+    const rows = s.detail.map((r) => r.text);
+    expect(rows.join('')).toContain(long);
+    expect(rows.some((r) => r.includes('…'))).toBe(false);
+    expect(s.outputLines).toBeGreaterThan(1);
+  });
+
   it('shows what is scrolled back and that following is paused', () => {
     const lines = Array.from({ length: 60 }, (_, i) => `row ${i}`).join('\n');
     const many = run(root(), stepStart('a'), status('a', 'RUNNING'), output('a', 1, `${lines}\n`));

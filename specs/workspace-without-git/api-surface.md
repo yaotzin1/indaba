@@ -21,6 +21,7 @@
 | `LedgerEntry` gains the optional `basis` | minor; an old line reads as git |
 | new workflow fields, CLI command and option, span attributes, events | minor |
 | `defaults.apply` absent means `never` for `git_worktree` | no change in behaviour, so no changed default |
+| The file field `defaults.apply` is read into `WorkflowDefinition.defaultApply`, once, in the parser | part of the minor above |
 
 The decision that keeps the rest from being a major: `Workspace` and `WorkspaceManager` are not widened (C-01 in
 `spec.md`). If the maintainer prefers one interface, every method below moves onto `Workspace` and the classification is a
@@ -96,6 +97,7 @@ export interface ChangeSet {
 export function isPortableRelativePath(path: string): boolean;
 
 /** The changes whose path matches none of `allowed` (globs of `permissions`). An empty list returns every change. */
+/** Matches with `matchesGlob` and `matchesAny` of `@indaba/core`, the engine of `permissions`, `copy.include` and `copy.exclude`. */
 export function changesOutsideScope(set: ChangeSet, allowed: readonly string[]): readonly FileChange[];
 
 /**
@@ -209,6 +211,8 @@ export class CopyWorkspaceManager implements TrackedWorkspaceManager {
   readonly kind: 'copy';
   constructor(projectDir: string, options?: CopyWorkspaceOptions);
   create(taskId: string, variant?: string, options?: WorkspaceCreateOptions): Promise<TrackedWorkspace>;
+  /** Reopens a kept copy by its name (`indaba apply`, a resume): reads its manifest and record, and tracks it again. */
+  adopt(name: string): Promise<TrackedWorkspace>;
 }
 
 // GitWorktreeManager and GitWorktree now also implement TrackedWorkspaceManager and TrackedWorkspace
@@ -234,7 +238,7 @@ export interface LandingDecider {
 
 export interface WorkflowEngineOptions {
   // ... existing members unchanged; `workspaces` still means the manager for git_worktree ...
-  readonly copyWorkspaces?: TrackedWorkspaceManager;   // the manager for `copy`; absent: a copy step fails (message 1's sibling)
+  readonly copyWorkspaces?: TrackedWorkspaceManager;   // the manager for `copy`; absent: a copy step fails with message 14
   readonly apply?: ApplyPolicy;                        // the --apply override of the file's default
   readonly landing?: LandingDecider;                   // the CLI's terminal prompt; absent: `ask` keeps the workspace
 }
@@ -246,6 +250,11 @@ export interface KeptWorkspaceRecord {
   readonly folder: string;
   readonly createdAt: string;                // ISO 8601
   readonly summary: { readonly added: number; readonly modified: number; readonly deleted: number };
+  readonly keptAt: string;                   // ISO 8601
+  readonly reason: 'asked' | 'nobody_to_ask' | 'conflict' | 'budget' | 'chosen';
+  readonly settings: CopySettings;           // the settings in force, so a later landing reads the same exclusions
+  readonly skipped: number;                  // links and unsafe names not copied
+  readonly workflow: string;
 }
 export function listKeptWorkspaces(projectDir: string): Promise<readonly KeptWorkspaceRecord[]>;
 export function landKeptWorkspace(projectDir: string, name: string, options?: LandOptions): Promise<LandResult>;

@@ -78,6 +78,10 @@ npx indaba plan     examples/task-pipeline.workflow.ai.yml
 npx indaba run      examples/task-pipeline.workflow.ai.yml -w /path/to/project -v
 ```
 
+In a clone of this repository `indaba` is not a command on your path. Run `pnpm install` and `pnpm build` once, then
+write `pnpm indaba <command>` wherever these pages say `npx indaba <command>`, for example
+`pnpm indaba run examples/task-pipeline.workflow.ai.yml --tui`.
+
 More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in one workflow) and
 `api-only.workflow.ai.yml` (the smallest one). A guided first run of this alpha is in
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
