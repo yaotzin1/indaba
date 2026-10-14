@@ -70,7 +70,7 @@ export interface RunState {
   readonly lastAt: string | undefined;
   readonly steps: readonly StepView[];
   /** What the agent runs cost, where known. */
-  readonly cost: { readonly usd: number; readonly unknown: number };
+  readonly cost: { readonly usd: number; readonly unknown: number; readonly calls: number };
   /** Lines the view could not make sense of, newest last. */
   readonly notes: readonly string[];
   /** span id to what it belongs to; internal to the reducer. */
@@ -92,7 +92,7 @@ export function emptyRun(): RunState {
     endedAt: undefined,
     lastAt: undefined,
     steps: [],
-    cost: { usd: 0, unknown: 0 },
+    cost: { usd: 0, unknown: 0, calls: 0 },
     notes: [],
     owners: {},
   };
@@ -296,7 +296,11 @@ function endedSpan(state: RunState, record: SpanEndedRecord): RunState {
     }));
     return {
       ...withRunner,
-      cost: { usd: withRunner.cost.usd + (priced ?? 0), unknown: withRunner.cost.unknown + unknownAdded },
+      cost: {
+        usd: withRunner.cost.usd + (priced ?? 0),
+        unknown: withRunner.cost.unknown + unknownAdded,
+        calls: withRunner.cost.calls + (operation === 'execute_tool' ? 0 : 1),
+      },
     };
   }
 
