@@ -11,6 +11,10 @@ talk to them and answer their questions at any time, and the person chooses who 
 a group of agents, or one agent they promote, such as an architect or a manager. Nothing is hidden: every step,
 cost and decision is in a trace you can read afterwards.
 
+The picture at the top of the [README](../README.md) is this: a council of agents that examine each other's work,
+and an engine that conducts it, deciding what runs next. The conductor is the engine, not a model and not a boss
+agent; who makes each decision is still the person's choice.
+
 ## Who it is for
 
 - **People who repeat work that is worth reviewing**: a change to a codebase, a document that needs drafting and
