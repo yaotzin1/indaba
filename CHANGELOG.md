@@ -88,6 +88,9 @@ port". The PHP prototype that preceded them was never published.
   agent that has finished shows its tokens and cost, or says `tokens unknown` and `cost unknown`. Both the
   terminal dashboard and the plain `run` and `watch` output change; `runnerLines` is exported from
   `@indaba/engine`.
+- The output pane of the terminal dashboard wraps a long line (patch; track `fix`). A line longer than the pane was
+  cut with `…`, so the end of a long message could not be read. It now continues on the next rows, and scrolling
+  counts rows as drawn.
 - A credential no longer reaches the trace through a failed step (patch; track `fix`). The text a step reports when it
   fails (the command line, a runner's error output, a guard's message, the message of an error a runner throws) and
   the `indaba.label` span attribute were redacted on the terminal but stored as they were in `<traceId>.jsonl`,

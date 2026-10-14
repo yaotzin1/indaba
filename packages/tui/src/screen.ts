@@ -7,7 +7,7 @@ import {
   stepMark,
   toolsText,
 } from '@indaba/engine';
-import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS } from './layout.js';
+import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS, wrap } from './layout.js';
 import type { UiState } from './ui-state.js';
 
 /** How a row is drawn when colour is on. State is never shown by tone alone: every row also has a glyph and a word. */
@@ -166,7 +166,10 @@ function detailRows(
   const room = Math.max(0, layout.detailRows - 3);
   const info = infoRows(step, width, options.ascii).slice(0, room);
 
-  const lines = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])];
+  // a long line is wrapped over several rows, so scrolling counts rows as they are drawn
+  const lines = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])].flatMap((line) =>
+    wrap(sanitize(line).replaceAll('\n', ' '), width),
+  );
   const total = lines.length;
   const visible = Math.max(1, layout.detailRows - 1 - info.length - 1);
   const limit = Math.max(0, total - visible);
@@ -182,9 +185,7 @@ function detailRows(
         ? ''
         : ' (paused, f to follow)';
   const divider = row(clip(`${mark} output${state} `.padEnd(width, mark), width, options.ascii), 'dim');
-  const output = window.map((line) =>
-    row(clip(sanitize(line).replaceAll('\n', ' '), width, options.ascii), 'normal'),
-  );
+  const output = window.map((line) => row(line, 'normal'));
   if (step.outputTruncated && scroll === 0) {
     output.push(
       row(clip('(stored output for this run ran out; the rest is not shown)', width, options.ascii), 'dim'),

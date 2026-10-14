@@ -99,8 +99,8 @@ and read by `changes()` and `landKeptWorkspace`:
 | `deleted` | paths whose deletion is complete |
 
 `.indaba/landing/<name>/before/` holds the moved originals under their relative paths, and `.indaba/landing/<name>/stage/`
-the temporary new files when they are not written beside their targets. Rollback moves every path in `moved` back and
-removes every path in `added`, then removes the journal. A path in the journal that is not portable or that resolves outside
+the temporary new files; nothing is ever written beside a target. Rollback moves every path in `moved` back, removes
+every path in `added`, removes the `stage/` folder, then removes the journal. A path in the journal that is not portable or that resolves outside
 the target is refused and the rollback stops with the file named.
 
 ## The change report (`diff()` of a copy)

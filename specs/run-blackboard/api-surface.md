@@ -10,6 +10,8 @@ has, new exports, one new event class, one optional parameter, one new file per 
 default, event, span attribute or file changes; the trace file and the event stream are written byte for byte as
 before (a test pins it). `StepDefinition.board` is optional, so code that builds a `StepDefinition` literal
 still compiles. `ConsensusArbiter.deliberate` gains a fourth optional parameter. `PluginHost` gains nothing.
+`BoardRecorded` is a new event class, which is a minor change. An older `indaba watch` and any listener that does not
+know it ignore it; the one existing output that gains a section is `indaba watch --plain` (spec AC-31, AC-39).
 
 The constants of `BoardLimits` are design choices, not measurements; changing one later is not breaking.
 Adding a `BoardKind` later is additive for writers and readers that treat an unknown kind as unknown (the
@@ -59,7 +61,7 @@ export interface BoardEntry {
   readonly cut: boolean;                // the text was longer than maxEntryChars
 }
 
-export interface BoardStartRecord { readonly type: 'board'; readonly version: 1; readonly at: string; readonly traceId: string; readonly workflow: string }
+export interface BoardStartRecord { readonly type: 'board'; readonly v: 1; readonly at: string; readonly traceId: string; readonly workflow: string }
 export interface BoardPostRecord extends BoardEntry { readonly type: 'post' }
 export interface BoardSettlementRecord {
   readonly type: 'settle'; readonly seq: number; readonly at: string;
@@ -105,14 +107,14 @@ export class RunBoard {
   post(input: BoardPostInput): BoardEntry | undefined;
   /** Settles every pending entry of the step attempt and scope that was posted before this call. */
   settle(input: SettleInput): void;
-  /** Settles as 'superseded' the accepted entries of each listed step (a retry reset them). */
+  /** Settles as 'superseded' the accepted entries of each listed step (a retry reset them): one 'settle' record per accepted (stepId, attempt, scope) of each step. */
   supersede(stepIds: readonly string[]): void;
   stateOf(entry: BoardEntry): EntryState;                   // the latest settlement that follows the entry, else pending
   entries(view?: BoardView): readonly BoardEntry[];         // in seq order
   facts(view?: Pick<BoardView, 'steps'>): ReadonlyMap<string, BoardEntry>;   // accepted facts, latest seq per key
   records(): readonly BoardRecord[];
   isFull(): boolean;
-  /** Rebuilds a board from a file's records; the next seq continues after the last one. */
+  /** Rebuilds a board from a file's records; the next seq continues after the last one. Writes no second 'board' start record. */
   static replay(records: readonly BoardRecord[], options: RunBoardOptions): RunBoard;
 }
 
