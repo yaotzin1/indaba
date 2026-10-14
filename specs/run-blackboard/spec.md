@@ -72,7 +72,9 @@ Checkable statements; each becomes at least one test when implementation is sche
 - [ ] AC-02. An entry has a monotonic `seq` (from 1, one counter for the run), a time from the injected clock,
   the id of the step that produced it, the attempt number, a scope, a source (`agent` or `engine`), a sender, a
   kind, an optional fact key, an optional debate round, single-line text and a `cut` flag. `seq` is the entry's
-  identity and the only ordering; two runs of the same inputs with the same clock produce the same records.
+  identity and the only ordering; two runs of the same inputs with the same clock produce the same records. The
+  step id and the scope are checked against the id syntax of the workflow format before anything is recorded; an
+  entry whose step id or scope does not pass is not recorded, and a test pins it.
 - [ ] AC-03. The kinds are a closed set: `note`, `question`, `result`, `fact` (postable by an agent),
   `proposal`, `critique`, `agreement`, `tool_intent` (the existing message types, posted by the engine for a
   debate) and `decision` (a ruling, posted by the engine). Text is one line: newlines and control characters are
@@ -132,7 +134,9 @@ Checkable statements; each becomes at least one test when implementation is sche
 - [ ] AC-19. Without any workflow field, the engine posts: every message of a debate as it is produced (kind from
   the message type, sender the role, the round), the debate's outcome as a `result` (outcome, rounds, open
   objections, cut to the entry limit) and an arbiter's ruling as a `decision`. These entries are `accepted` when
-  the debate ends, whatever the outcome (the transcript is a record, not a claim; C-05).
+  the debate ends, whatever the outcome (the transcript is a record, not a claim; C-05), and an escalated
+  debate's entries therefore reach the steps after it. When the debate's step is retried, the entries of the
+  failed attempt become `superseded` as the retry starts (AC-24).
 - [ ] AC-20. A step with `board.post` has its reply scanned for post lines under the grammar of section 8 (C-04):
   a line starts, at its first character, with `BOARD `, then a kind from the step's `post` list, then (for `fact`)
   a key, then `: ` and text. Lines inside a fenced code block, lines that do not start at the first character
@@ -151,8 +155,10 @@ Checkable statements; each becomes at least one test when implementation is sche
 - [ ] AC-24. A retried step's next prompt carries, besides the goal and artifacts, the last failure only, as
   today. The digest does not add history: it contains no entry of the failed attempt (`discarded`), none of any
   step the retry reset (`superseded`) and none of the step itself; so a retry's prompt differs from the first
-  attempt's only by the entries that other, accepted steps posted since. A test pins this with a failing step,
-  a retry, and a board that holds the failed attempt's posts.
+  attempt's only by the entries that other, accepted steps posted since. The failed attempt's entries are also
+  absent while they are still `pending`, and a debate's failed attempt is `superseded` when its step is retried
+  (AC-19). A test pins this with a failing step, a retry, and a board that holds the failed attempt's posts, and
+  another with a debate step that is retried.
 
 **Storage**
 
@@ -176,8 +182,9 @@ Checkable statements; each becomes at least one test when implementation is sche
 **Behaviour that must not change**
 
 - [ ] AC-31. For a workflow without `board` fields, the prompts, the replies handled, the step outcomes, the
-  exit codes, the trace file and the event stream are identical to today's. The only additions are the board
-  file and the entries of AC-19.
+  exit codes, the trace file and the event stream are identical to today's, byte for byte, even though every
+  board record passes through the event dispatcher as `BoardRecorded`. The only additions are the board file,
+  the entries of AC-19 and, in `indaba watch --plain`, the section of AC-39. A test pins the event stream.
 - [ ] AC-32. `@indaba/core` imports no `node:` module for any of this (`architecture.test.ts` stays green) and
   `engine` and `runners` keep their layers tests.
 
@@ -187,7 +194,8 @@ Checkable statements; each becomes at least one test when implementation is sche
   entries as they are read from the file: sequence, step, sender, kind (word and glyph), and the first line of
   the text. A new entry appears within 250 ms of being written (the bound of `specs/tui` AC-04).
 - [ ] AC-34. The pane filters by step (the one selected in the step list), by kind and by sender; filters
-  combine, show what is active, and clear in one key. `discarded` and `superseded` entries are hidden by
+  combine, show what is active, and clear in one key. `pending` entries are shown by default and marked
+  `pending`, so a step's notes can be read while it runs; `discarded` and `superseded` entries are hidden by
   default, can be shown, and then carry the word `discarded` or `superseded`.
 - [ ] AC-35. `Enter` opens one entry in full (its step, attempt, sender, kind, round, time, text) and `Esc`
   returns to the list. A facts view lists the current value of each fact with the step that set it.
@@ -201,6 +209,10 @@ Checkable statements; each becomes at least one test when implementation is sche
 - [ ] AC-39. `indaba watch --plain` (and any non-terminal output) prints a board section after the steps: the
   facts, then the newest 50 accepted entries one per line as `#<seq> <step> <kind>: <text>`, with a line saying
   how many older entries are not shown.
+- [ ] AC-40. Every sentence the person reads about the board (the pane, the plain section, the errors and the
+  failure table of section 8) uses plain words: "the board", "notes between steps", "the board is incomplete".
+  None of them contains `digest`, `settle`, `supersede`, `degraded` or `jsonl`. A test lists the messages and
+  checks them against those words.
 
 ## 4. Non-goals
 
@@ -330,7 +342,9 @@ consumer.
   escalates. A retry that re-runs the target and every step after it makes their accepted entries
   `superseded`, so a loop never reads the results of the iteration it is redoing. A debate is the exception:
   its messages and outcome are accepted when it ends in any outcome, because they are a record of what was said
-  and an escalated debate's transcript is exactly what a person or a later step wants. Settlement is a record
+  and an escalated debate's transcript is exactly what a person or a later step wants, so the steps after an
+  escalated debate can read it. The exception ends when the debate's own step is retried: the failed attempt's
+  entries become `superseded` as the retry starts, so retry isolation (C-06) holds for debates too. Settlement is a record
   of its own, written after the entries it concerns, which keeps the file append-only. Rejected: writing an
   entry only after its step completes (the TUI could not show a debate live, and a crash would lose posts);
   rewriting an entry's state (breaks append-only and tailing).

@@ -87,6 +87,9 @@ port". The PHP prototype that preceded them was never published.
   `cost none` for a run that made no model call, which looks like a free run. It now reads `cost no model calls`; a
   call priced at exactly zero still shows `$0.0000`, and `unknown` stays for a call that could not be priced.
   `RunState.cost` gains a `calls` count.
+- The output pane of the terminal dashboard wraps a long line (patch; track `fix`). A line longer than the pane was
+  cut with `…`, so the end of a long message could not be read. It now continues on the next rows, and scrolling
+  counts rows as drawn.
 - A credential no longer reaches the trace through a failed step (patch; track `fix`). The text a step reports when it
   fails (the command line, a runner's error output, a guard's message, the message of an error a runner throws) and
   the `indaba.label` span attribute were redacted on the terminal but stored as they were in `<traceId>.jsonl`,

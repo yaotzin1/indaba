@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { clip, computeLayout, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from '../src/index.js';
+import { wrap } from '../src/layout.js';
 
 describe('computeLayout', () => {
   it('has a minimum size below which it only shows a notice', () => {
@@ -91,5 +92,21 @@ describe('clip and fit', () => {
     expect(fit('abcdef', 5)).toBe('abcd…');
     expect(fit('abcde', 5)).toBe('abcde');
     expect(Array.from(fit('éè', 4)).length).toBe(4);
+  });
+});
+
+describe('wrap', () => {
+  it('keeps a short or empty line as one row', () => {
+    expect(wrap('abc', 5)).toEqual(['abc']);
+    expect(wrap('', 5)).toEqual(['']);
+  });
+
+  it('breaks a long line into rows of the width, counting code points', () => {
+    expect(wrap('abcdefghij', 4)).toEqual(['abcd', 'efgh', 'ij']);
+    expect(wrap('😀😀😀😀😀', 2)).toEqual(['😀😀', '😀😀', '😀']);
+  });
+
+  it('leaves the line alone when there is no width to wrap to', () => {
+    expect(wrap('abc', 0)).toEqual(['abc']);
   });
 });

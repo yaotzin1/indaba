@@ -77,3 +77,16 @@ export function fit(text: string, width: number, ascii = false): string {
   const clipped = clip(text, width, ascii);
   return clipped + ' '.repeat(Math.max(0, width - Array.from(clipped).length));
 }
+
+/** Breaks text into rows of at most `width` characters, so a long line is shown whole. An empty line stays one row. */
+export function wrap(text: string, width: number): string[] {
+  const chars = Array.from(text);
+  if (width <= 0 || chars.length <= width) {
+    return [text];
+  }
+  const rows: string[] = [];
+  for (let i = 0; i < chars.length; i += width) {
+    rows.push(chars.slice(i, i + width).join(''));
+  }
+  return rows;
+}
