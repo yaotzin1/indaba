@@ -51,6 +51,7 @@ const runner = (
   start = T(2),
   end?: string,
   attributes: Record<string, string | number> = {},
+  operation = 'invoke_agent',
 ): RunRecord[] => {
   const spanId = `p-${step}-${name}`;
   const records: RunRecord[] = [
@@ -60,7 +61,7 @@ const runner = (
       traceId: TRACE,
       spanId,
       parentSpanId: `s-${step}`,
-      name: `invoke_agent ${name}`,
+      name: `${operation} ${name}`,
       attributes: { 'indaba.runner': name },
     },
   ];
@@ -166,8 +167,50 @@ describe('formatPlain', () => {
 
   it('shows the runners a step used, with their state, time and cost', () => {
     const text = formatPlain(reduceAll(finished));
-    expect(text).toContain('      runners: openrouter ok 10s $0.0123');
-    expect(text).toContain('      runners: acp ok 26s');
+    expect(text).toContain('      runners: openrouter ok 10s, tokens unknown, $0.0123');
+    expect(text).toContain('      runners: acp ok 26s, tokens unknown, cost unknown');
+  });
+
+  it('shows the tokens an agent reported, and says when only one side is known', () => {
+    const both = formatPlain(
+      reduceAll([
+        root(),
+        stepStart('a'),
+        ...runner('a', 'acp', T(2), T(5), {
+          'gen_ai.usage.input_tokens': 1200,
+          'gen_ai.usage.output_tokens': 340,
+          'indaba.cost.usd': 0.5,
+        }),
+      ]),
+    );
+    expect(both).toContain('      runners: acp ok 3s, 1200 in / 340 out, $0.5000');
+    const one = formatPlain(
+      reduceAll([
+        root(),
+        stepStart('a'),
+        ...runner('a', 'acp', T(2), T(5), { 'gen_ai.usage.output_tokens': 7 }),
+      ]),
+    );
+    expect(one).toContain('acp ok 3s, ? in / 7 out, cost unknown');
+  });
+
+  it('does not report usage for an agent that is still running', () => {
+    const text = formatPlain(reduceAll([root(), stepStart('a'), ...runner('a', 'acp', T(2))]));
+    expect(text).toContain('      runners: acp running\n');
+  });
+
+  it('lists the shell commands of a step on their own line, never as a chain', () => {
+    const text = formatPlain(
+      reduceAll([
+        root(),
+        stepStart('v'),
+        ...runner('v', 'shell', T(2), T(2), {}, 'execute_tool'),
+        ...runner('v', 'shell-2', T(3), T(5), {}, 'execute_tool'),
+      ]),
+    );
+    expect(text).toContain('      commands (2): ok 0s, ok 2s\n');
+    expect(text).not.toContain('runners:');
+    expect(text).not.toContain('->');
   });
 
   it('shows the reason of a failure, at most three lines of it', () => {
