@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 800 520" width="800" height="520" role="img" aria-labelledby="t d">
+  <title id="t">The Indaba council</title>
+  <desc id="d">Six AI agents seated in a circle around a central fire, cross-examining each other until they reach consensus.</desc>
+  <defs>
+    <radialGradient id="bg" cx="50%" cy="55%" r="70%">
+      <stop offset="0" stop-color="#2a2140"/>
+      <stop offset="1" stop-color="#120f1d"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#ffb347" stop-opacity=".55"/>
+      <stop offset="1" stop-color="#ffb347" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="flame" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#e8590c"/>
+      <stop offset=".6" stop-color="#ffa94d"/>
+      <stop offset="1" stop-color="#ffe066"/>
+    </linearGradient>
+    <g id="person">
+      <path d="M-26 0 Q-26 -24 0 -24 Q26 -24 26 0 Z"/>
+      <circle cx="0" cy="-38" r="14"/>
+    </g>
+  </defs>
+
+  <rect width="800" height="520" rx="20" fill="url(#bg)"/>
+
+  <!-- stars -->
+  <g fill="#fff" opacity=".5">
+    <circle cx="70" cy="60" r="1.5"/><circle cx="150" cy="110" r="1"/><circle cx="260" cy="48" r="1.2"/>
+    <circle cx="560" cy="62" r="1.4"/><circle cx="690" cy="104" r="1"/><circle cx="740" cy="52" r="1.5"/>
+    <circle cx="40" cy="440" r="1.2"/><circle cx="760" cy="450" r="1.2"/>
+  </g>
+
+  <text x="400" y="62" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="40" letter-spacing="14" fill="#f4e9d8">INDABA</text>
+  <text x="400" y="88" text-anchor="middle" font-family="Georgia, 'Times New Roman', serif" font-size="15" font-style="italic" fill="#b8a98f">a council for your AI agents</text>
+
+  <!-- ground -->
+  <ellipse cx="400" cy="290" rx="335" ry="165" fill="none" stroke="#6b5a3e" stroke-width="1.5" stroke-dasharray="2 8" stroke-linecap="round"/>
+  <ellipse cx="400" cy="290" rx="290" ry="130" fill="#1b1629" stroke="#3b3252" stroke-width="2"/>
+  <ellipse cx="400" cy="290" rx="95" ry="42" fill="#241c36" stroke="#3b3252"/>
+
+  <!-- cross-examination -->
+  <g fill="none" stroke="#9b8cc9" stroke-width="1.5" stroke-dasharray="5 6" opacity=".75">
+    <path d="M400 170 L651 235"/><path d="M651 235 L651 365"/><path d="M651 365 L400 430"/>
+    <path d="M400 430 L149 365"/><path d="M149 365 L149 235"/><path d="M149 235 L400 170"/>
+    <path d="M149 235 L651 365" opacity=".4"/><path d="M651 235 L149 365" opacity=".4"/>
+  </g>
+
+  <!-- fire -->
+  <ellipse cx="400" cy="285" rx="130" ry="85" fill="url(#glow)"/>
+  <g>
+    <path d="M400 316 C366 316 356 288 372 268 C374 282 384 284 386 276 C380 252 396 238 404 220 C410 242 432 256 430 282 C440 276 440 266 438 258 C456 280 440 316 400 316 Z" fill="url(#flame)"/>
+    <path d="M400 314 C384 314 380 298 390 288 C392 296 398 296 399 290 C397 280 404 274 408 266 C412 278 420 284 418 296 C422 300 418 314 400 314 Z" fill="#fff3bf" opacity=".85"/>
+  </g>
+  <text x="400" y="342" text-anchor="middle" font-family="Georgia, serif" font-size="12" letter-spacing="3" fill="#ffd8a8">CONSENSUS</text>
+
+  <!-- the council -->
+  <g font-family="'Segoe UI', Helvetica, Arial, sans-serif" font-size="13" text-anchor="middle" fill="#e9e3f5">
+    <g transform="translate(400 170) scale(.85)" fill="#4dabf7"><use href="#person"/></g>
+    <text x="400" y="190" fill="#e9e3f5">Architect</text>
+
+    <g transform="translate(651 235)" fill="#69db7c"><use href="#person"/></g>
+    <text x="651" y="258">Implementer</text>
+
+    <g transform="translate(651 365) scale(1.1)" fill="#ff8787"><use href="#person"/></g>
+    <text x="651" y="392">Skeptic</text>
+
+    <g transform="translate(400 430) scale(1.15)" fill="#ffd43b"><use href="#person"/></g>
+    <text x="400" y="458">Arbiter</text>
+
+    <g transform="translate(149 365) scale(1.1)" fill="#da77f2"><use href="#person"/></g>
+    <text x="149" y="392">Reviewer</text>
+
+    <g transform="translate(149 235)" fill="#38d9a9"><use href="#person"/></g>
+    <text x="149" y="258">Tester</text>
+  </g>
+
+  <text x="400" y="502" text-anchor="middle" font-family="Georgia, serif" font-size="13" font-style="italic" fill="#b8a98f">Many voices. One decision.</text>
+</svg>

@@ -1,5 +1,9 @@
 # Indaba
 
+<p align="center">
+  <img src="docs/assets/indaba-council.svg" alt="Six agents seated around a fire, reaching consensus" width="720">
+</p>
+
 **A council for your AI agents.** Indaba is an open-source, deterministic orchestration, debate and
 observability engine for AI agents, written in TypeScript for Node 22 and newer. It runs the same on
 Windows, macOS and Linux. The name is Zulu for a gathering convened to resolve a hard matter by
