@@ -9,6 +9,8 @@ export interface RunSummary {
   readonly runId: string;
   readonly startedAt: string | undefined;
   readonly status: RunStatus;
+  /** The workflow's name, as the run recorded it; undefined when the run does not say. */
+  readonly workflow: string | undefined;
 }
 
 export interface TraceReaderOptions {
@@ -20,6 +22,7 @@ export interface TraceReaderOptions {
 
 const DEFAULT_POLL_MS = 100;
 const WORKFLOW_STATUS = 'indaba.workflow.status';
+const WORKFLOW_NAME = 'indaba.workflow.name';
 const STATUS_OF: Readonly<Record<string, RunStatus>> = {
   COMPLETED: 'completed',
   FAILED: 'failed',
@@ -43,25 +46,38 @@ function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
   });
 }
 
+/** The attribute names the workflow; a span named `indaba.task <name>` does too, for runs recorded without it. */
+function workflowName(attributes: Readonly<Record<string, unknown>>, spanName: string): string | undefined {
+  const named = attributes[WORKFLOW_NAME];
+  if (typeof named === 'string' && named !== '') {
+    return named;
+  }
+  const fromSpan = spanName.match(/^indaba\.task\s+(.+)$/)?.[1];
+  return fromSpan === undefined || fromSpan === '' ? undefined : fromSpan;
+}
+
 /** Where a run stands, from its records. A run is over when its root span has ended. */
 export function summariseRun(records: readonly RunRecord[]): {
   startedAt: string | undefined;
   status: RunStatus;
+  workflow: string | undefined;
 } {
   const roots = new Set<string>();
   let startedAt: string | undefined;
+  let workflow: string | undefined;
   let status: RunStatus = 'running';
   for (const record of records) {
     if (record.type === 'span_started' && record.parentSpanId === undefined) {
       roots.add(record.spanId);
       startedAt ??= record.at;
+      workflow ??= workflowName(record.attributes, record.name);
     }
     if (record.type === 'span_ended' && roots.has(record.spanId)) {
       const named = record.attributes[WORKFLOW_STATUS];
       status = typeof named === 'string' ? (STATUS_OF[named] ?? 'unknown') : 'unknown';
     }
   }
-  return { startedAt, status };
+  return { startedAt, status, workflow };
 }
 
 /**
@@ -236,9 +252,9 @@ export class TraceReader {
       } catch {
         continue; // something named like a run that cannot be read (a folder, no permission) is not a run
       }
-      const { startedAt, status } = summariseRun(records);
+      const { startedAt, status, workflow } = summariseRun(records);
       const time = (await modified(this.eventsFile(runId))) ?? (await modified(this.traceFile(runId))) ?? 0;
-      runs.push({ summary: { runId, startedAt, status }, time });
+      runs.push({ summary: { runId, startedAt, status, workflow }, time });
     }
     return runs
       .sort((a, b) => b.time - a.time || a.summary.runId.localeCompare(b.summary.runId))

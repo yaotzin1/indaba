@@ -14,6 +14,7 @@ import {
   watchExitCode,
 } from '@indaba/engine';
 import type { Io } from './main.js';
+import { printableText } from './printable.js';
 import type { TuiLoad } from './tui-loader.js';
 
 export const WATCH_USAGE = `Usage: indaba watch [run] [options]
@@ -117,8 +118,23 @@ function parseOptions(args: readonly string[]) {
   });
 }
 
+const NAME_WIDTH = 60;
+
+/** A workflow name comes from a file, so it is shown as plain text on one line and bounded. */
+function shownName(name: string | undefined): string {
+  const plain = printableText(name ?? '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (plain === '') {
+    return '-';
+  }
+  return plain.length > NAME_WIDTH ? `${plain.slice(0, NAME_WIDTH - 3)}...` : plain;
+}
+
 function listing(runs: readonly RunSummary[]): string {
-  const rows = runs.map((r) => `${r.runId}  ${r.status.padEnd(9)}  ${r.startedAt ?? '-'}`);
+  const rows = runs.map(
+    (r) => `${r.runId}  ${r.status.padEnd(9)}  ${(r.startedAt ?? '-').padEnd(24)}  ${shownName(r.workflow)}`,
+  );
   return `${rows.join('\n')}\n`;
 }
 
