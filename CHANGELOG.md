@@ -25,6 +25,12 @@ port". The PHP prototype that preceded them was never published.
   `RulingRequest`, `AdjudicatorRegistry`, the step field `arbiter` and `PluginHost.registerAdjudicator`. New span
   attributes: `indaba.arbiter.kind`, `.verdict`, `.source` and `.memo`. Every debate step now also writes
   `.indaba/artifacts/<step>.transcript.md`; a ruled one writes `<step>.ruling.md`.
+- **A retried step shows each attempt** (minor; track `feature`; spec `specs/attempt-history`). The dashboard and
+  the plain view showed a retried step only as `attempt 2` and the reason of the current attempt; the reason of an
+  earlier one was dropped when the step ran again. They now print a line for each earlier attempt, such as
+  `attempt 1: failed after 3s: tests red`. New in `@indaba/engine`: `StepView.history` (the newest 20 attempts),
+  `AttemptView`, `MAX_ATTEMPTS_KEPT` and `attemptLines`. An agent CLI's own internal retries are not recorded and are
+  not shown.
 - **A decision ledger** in `.indaba-decisions/<workflow>.jsonl`, meant to be committed. Every ruling is appended as
   one JSON line (verdict, redacted note, outcome, rounds, commit, time; never the transcript). Before a debate
   runs, a ruling for the same workflow, step, goal and committed files is reused and the debate is skipped; with

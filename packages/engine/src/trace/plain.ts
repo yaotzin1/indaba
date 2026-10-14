@@ -85,6 +85,19 @@ function oneLine(value: string): string {
   return sanitize(value).replaceAll('\n', ' ').trim();
 }
 
+const ATTEMPT_REASON_CHARS = 120;
+
+/** One line for each attempt before the current one: how it ended, how long it ran and the first line of why. */
+export function attemptLines(step: StepView): string[] {
+  return step.history.slice(0, -1).map((a) => {
+    const ran = a.endedAt === undefined ? undefined : Date.parse(a.endedAt) - Date.parse(a.startedAt);
+    const first = oneLine(sanitize(a.reason ?? '').split('\n')[0] ?? '');
+    const cut =
+      first.length > ATTEMPT_REASON_CHARS ? `${first.slice(0, ATTEMPT_REASON_CHARS - 3)}...` : first;
+    return `attempt ${a.attempt}: ${oneLine(a.outcome).toLowerCase()} after ${formatDuration(ran)}${cut === '' ? '' : `: ${cut}`}`;
+  });
+}
+
 function mark(look: Look, options: PlainOptions): { glyph: string; word: string } {
   const glyph = options.ascii === true ? look.ascii : look.glyph;
   if (options.color !== true) {
@@ -174,6 +187,9 @@ function stepLines(step: StepView, options: PlainOptions, idWidth: number): stri
   const lines = [`  ${glyph} ${oneLine(step.id).padEnd(idWidth)}  ${word}${attempts}`];
   const pad = '      ';
 
+  for (const line of attemptLines(step)) {
+    lines.push(`${pad}${line}`);
+  }
   for (const line of runnerLines(step)) {
     lines.push(`${pad}${line}`);
   }

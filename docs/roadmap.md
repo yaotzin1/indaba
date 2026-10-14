@@ -88,7 +88,7 @@ checklist for the next phase; a fix is its own small pull request.
 | 3 | `runners: shell ok 0s -> shell ok 2s` on a step with two commands reads like a fallback chain; it lists the commands | Fix | PR #37 |
 | 4 | Long agent output lines are cut with `…` in the output pane instead of wrapped or openable | Fix | PR #39 |
 | 5 | The runner line (`claude-code ok 27s`) says nothing about tokens or cost; when unknown it should say so | Fix | PR #37 |
-| 6 | An agent's own retries are not visible in the dashboard | Idea | Open |
+| 6 | An agent's own retries are not visible in the dashboard | Feature | PR open (`specs/attempt-history`): the engine's retries, one line per attempt. An agent CLI's own internal retries are not recorded and stay open |
 | 7 | A failure reason repeats the stderr text as `reason:` and again under `output` | Fix (small) | PR #38 |
 | 8 | A step with no output shows an empty pane with no "no output" or exit code | Fix (small) | PR #38 |
 | 9 | `indaba` is not a command in a clone; the documentation should say `pnpm build` then `pnpm indaba ...` | Docs | PR #41 |

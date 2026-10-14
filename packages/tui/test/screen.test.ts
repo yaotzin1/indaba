@@ -46,6 +46,28 @@ describe('buildScreen', () => {
     expect(s.outputLines).toBe(0);
   });
 
+  it('lists the earlier attempts of a retried step, one row each, and not the current one', () => {
+    const retried = run(
+      root(),
+      stepStart('a'),
+      status('a', 'RUNNING', undefined, T(10)),
+      status('a', 'FAILED', 'tests red\nsecond line', T(13)),
+      status('a', 'RUNNING', undefined, T(20)),
+      status('a', 'FAILED', `bad${String.fromCharCode(27)}[31m thing`, T(80)),
+      status('a', 'RUNNING', undefined, T(90)),
+    );
+    const rows = buildScreen(retried, ui(), computeLayout(100, 24), opts).detail.map((r) => r.text);
+    expect(rows).toContain('attempt 1: failed after 3s: tests red');
+    expect(rows.some((r) => r.startsWith('attempt 2: failed after 1m00s: bad'))).toBe(true);
+    expect(rows.some((r) => r.includes('attempt 3:'))).toBe(false);
+    expect(rows.join('')).not.toContain(String.fromCharCode(27));
+  });
+
+  it('shows no attempt rows for a step that ran once', () => {
+    const once = run(root(), stepStart('a'), status('a', 'RUNNING'), status('a', 'FAILED', 'x'));
+    expect(text(buildScreen(once, ui(), computeLayout(100, 24), opts).detail)).not.toContain('attempt 1:');
+  });
+
   it('says a finished step printed nothing, with the exit code when a runner reported one', () => {
     const shell = (code: number): RunRecord[] => [
       {

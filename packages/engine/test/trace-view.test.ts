@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   emptyRun,
+  MAX_ATTEMPTS_KEPT,
   MAX_LINE_CHARS,
   MAX_NOTES,
   MAX_OUTPUT_LINES,
@@ -212,6 +213,52 @@ describe('reduceRun: steps', () => {
       partialLine: '',
       outputTruncated: false,
       startedAt: T(1),
+    });
+  });
+
+  it('keeps each attempt of a step: when it began and ended, how it ended and why', () => {
+    const state = reduceAll([
+      root(),
+      change('a', 'PENDING', 'RUNNING', undefined, T(10)),
+      change('a', 'RUNNING', 'VALIDATING', undefined, T(13)),
+      change('a', 'VALIDATING', 'FAILED', 'tests red', T(14)),
+      change('a', 'FAILED', 'PENDING', undefined, T(15)),
+      change('a', 'PENDING', 'RUNNING', undefined, T(16)),
+    ]);
+    expect(stepOf(state, 'a').history).toEqual([
+      { attempt: 1, startedAt: T(10), endedAt: T(14), outcome: 'FAILED', reason: 'tests red' },
+      { attempt: 2, startedAt: T(16), endedAt: undefined, outcome: 'RUNNING', reason: undefined },
+    ]);
+    expect(stepOf(state, 'a')).toMatchObject({ attempts: 2, reason: undefined });
+  });
+
+  it('ends an attempt at completed or escalated, and makes no entry for a state that follows nothing', () => {
+    const done = reduceAll([
+      root(),
+      change('a', 'PENDING', 'RUNNING', undefined, T(1)),
+      change('a', 'RUNNING', 'COMPLETED', undefined, T(2)),
+    ]);
+    expect(stepOf(done, 'a').history).toEqual([
+      { attempt: 1, startedAt: T(1), endedAt: T(2), outcome: 'COMPLETED', reason: undefined },
+    ]);
+    const stray = reduceAll([root(), change('b', 'RUNNING', 'FAILED', 'x', T(1))]);
+    expect(stepOf(stray, 'b').history).toEqual([]);
+    expect(stepOf(stray, 'b').reason).toBe('x');
+  });
+
+  it('keeps the newest attempts only, and still counts them all', () => {
+    const records: RunRecord[] = [root()];
+    for (let i = 0; i < MAX_ATTEMPTS_KEPT + 5; i++) {
+      records.push(change('a', 'PENDING', 'RUNNING', undefined, T(i * 2)));
+      records.push(change('a', 'RUNNING', 'FAILED', `r${i}`, T(i * 2 + 1)));
+    }
+    const step = stepOf(reduceAll(records), 'a');
+    expect(step.attempts).toBe(MAX_ATTEMPTS_KEPT + 5);
+    expect(step.history).toHaveLength(MAX_ATTEMPTS_KEPT);
+    expect(step.history[0]?.attempt).toBe(6);
+    expect(step.history.at(-1)).toMatchObject({
+      attempt: MAX_ATTEMPTS_KEPT + 5,
+      reason: `r${MAX_ATTEMPTS_KEPT + 4}`,
     });
   });
 
