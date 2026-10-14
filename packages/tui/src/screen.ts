@@ -1,4 +1,5 @@
 import {
+  attemptLines,
   formatHeader,
   type RunState,
   runnerLines,
@@ -119,6 +120,9 @@ function infoRows(step: StepView, width: number, ascii: boolean): Row[] {
   const add = (text: string, tone: Tone = 'normal'): void => {
     rows.push(row(clip(text, width, ascii), tone));
   };
+  for (const line of attemptLines(step)) {
+    add(line, 'warn');
+  }
   for (const line of runnerLines(step)) {
     add(line);
   }

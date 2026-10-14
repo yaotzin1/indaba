@@ -165,6 +165,33 @@ describe('formatPlain', () => {
     expect(lines).toContain('  ✖ code  failed  attempt 2');
   });
 
+  it('tells how each earlier attempt of a step ended, how long it ran and why, on one line', () => {
+    const retried: RunRecord[] = [
+      root(),
+      stepStart('code'),
+      change('code', 'RUNNING', undefined, T(10)),
+      change('code', 'FAILED', 'tests red\nsecond line', T(13)),
+      change('code', 'RUNNING', undefined, T(20)),
+      change('code', 'FAILED', 'x'.repeat(300), T(80)),
+      change('code', 'RUNNING', undefined, T(90)),
+    ];
+    const lines = formatPlain(reduceAll(retried)).split('\n');
+    expect(lines).toContain('      attempt 1: failed after 3s: tests red');
+    expect(lines).toContain(`      attempt 2: failed after 1m00s: ${'x'.repeat(117)}...`);
+    expect(lines.some((l) => l.includes('attempt 3:'))).toBe(false);
+    expect(lines).toContain('  ▶ code  running  attempt 3');
+  });
+
+  it('adds nothing for a step that ran once', () => {
+    const once = [
+      root(),
+      stepStart('a'),
+      change('a', 'RUNNING', undefined, T(1)),
+      change('a', 'FAILED', 'x', T(2)),
+    ];
+    expect(formatPlain(reduceAll(once))).not.toContain('attempt 1:');
+  });
+
   it('shows the runners a step used, with their state, time and cost', () => {
     const text = formatPlain(reduceAll(finished));
     expect(text).toContain('      runners: openrouter ok 10s, tokens unknown, $0.0123');
