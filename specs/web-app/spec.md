@@ -294,6 +294,34 @@ All recommendations; the maintainer confirms.
   content, so an edit asks again; which hash, and where the answer is kept, is decided at plan time (the digest of
   `specs/workflow-inputs` covers resolved inputs, not the file). Both choices are for the maintainer to confirm.
 
+- **C-16. Rules per step, shown and editable (maintainer, 2026-10-17).** A person can say, for a step, what the agent may read,
+  what it may change (nothing, by default) and whether it may run commands, as `permissions` in the workflow file defines them
+  (`docs/workflow-format.md`). The page shows the rule on the graph (a badge such as `read-only` or `writes src/**`), in the step's
+  panel (with how many requests were refused), and in the editor (presets: read-only, edit only these folders, full access).
+  A sentence in a goal ("do not edit files") is a request, not a rule, and the page never presents it as one. The rule is
+  enforced where the runner allows (over ACP as the agent asks; for every runner by the `diff_within_scope` guard after the
+  step) and the page says which of the two applies.
+- **C-17. Where a prompt goes (maintainer, 2026-10-17).** A step's instruction is its `goal`, edited in the step's settings. A
+  value that changes from run to run, such as the spec to execute or review, is an input (`specs/workflow-inputs`) that the
+  page asks for before Run (AC-10). "Execute a spec" and "Review a spec" are workflows (a code step, a verify step, a debate)
+  that take the spec as an input; a quick start that fills one in from a template is a later option for people who do not
+  write workflow files.
+- **C-18. Skills (maintainer, 2026-10-17; not decided, needs its own spec).** A person can bring a skill, a reusable pack of
+  instructions for an agent, from a source they choose, read it, edit it in the editor, and use it in a step. Open: what a skill
+  is for Indaba (the `SKILL.md` format agents already use, or a smaller one), where they come from (a folder, a repository
+  address, a shared catalogue), and whether a skill may carry rules. Constraints that hold whatever is chosen: downloaded text is
+  untrusted data and can steer an agent, so it is shown in full and accepted by the person before first use, pinned by a hash
+  so a change asks again, never run on download, and never able to widen a step's permissions (C-16 stays in the workflow);
+  its licence is shown, and what Indaba itself depends on stays open source and MIT-compatible. The download model of
+  `specs/acp-agent-install` (consent, checksum, per-user store, no silent install) is the one to reuse.
+- **C-19. An assistant in the editor, over ACP, by choice (maintainer, 2026-10-17; not decided, needs its own spec).** While
+  editing a workflow, a skill or a spec, a person may open an assistant panel and talk to an AI agent they already have, through
+  ACP, the way Indaba drives agents today (the presets for claude, codex, gemini and opencode, or a command of their own). It is
+  an option: off by default, and the person chooses the agent or none. The assistant only proposes: it can write to the draft and
+  nothing else, runs no command, and the person sees the difference and accepts or discards it; saving and running stay the
+  person's actions (AC-13, AC-22). It needs the conversation capability that C-07 says has no specification yet, so it comes
+  after `specs/ruling-channel` and a spec for talking to an agent.
+
 ## Artifacts not written
 
 - `research.md`: the graph and layout libraries are compared at plan time against a real workflow.

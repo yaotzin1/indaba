@@ -12,13 +12,14 @@
   <h1>Indaba</h1>
   <nav aria-label="Main">
     <a href="01-runs.html" aria-current="page">Runs</a>
+    <a href="06-workflows.html">Workflows</a>
   </nav>
   <span class="badge" title="This page never starts or changes anything">Read-only</span>
   <span class="badge" id="live">Live: connected</span>
 </header>
 <main id="runs">
   <h2>Runs on this machine</h2>
-  <div class="note"><b>Sketch 1 of 5, sample data.</b> Delivery step 1: a list of runs, not of workflows (the registry is a later
+  <div class="note"><b>Sketch 1 of 6, sample data.</b> Delivery step 1: a list of runs, not of workflows (the registry is a later
     step). Rows come from <code>GET /api/v1/runs</code>; the table updates from <code>GET /api/v1/events</code> without a reload.
     The cost column needs a <code>cost</code> on <code>RunSummary</code>, which it does not have today (question 1 in the README).
     <b>The table is an apsw-gridwright grid</b> (through <code>apsw-gridwright-mui</code>): sorting, selection and paging are its

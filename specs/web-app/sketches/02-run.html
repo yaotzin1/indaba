@@ -38,7 +38,10 @@
 <a class="skip" href="#graph">Skip to the graph</a>
 <header class="app">
   <h1>Indaba</h1>
-  <nav aria-label="Main"><a href="01-runs.html">Runs</a></nav>
+  <nav aria-label="Main">
+    <a href="01-runs.html" aria-current="page">Runs</a>
+    <a href="06-workflows.html">Workflows</a>
+  </nav>
   <span class="badge">Read-only</span>
   <span class="badge">Live: connected</span>
 </header>
@@ -46,7 +49,7 @@
   <p class="muted"><a href="01-runs.html">&larr; Runs</a></p>
   <h2>task-pipeline <span class="state running">&#9654; running</span></h2>
   <p class="muted">Started today 14:02 &middot; running for 6 min 12 s &middot; run <code>4dd7a436&hellip;</code></p>
-  <div class="note"><b>Sketch 2 of 5, sample data. Click a step</b> (in the graph or in the list) to see what happened in it and what happens
+  <div class="note"><b>Sketch 2 of 6, sample data. Click a step</b> (in the graph or in the list) to see what happened in it and what happens
     if it fails. The graph is drawn from the workflow's structure: which step waits for which, and where a failure leads.
     <b>A run's trace does not record that structure today</b>, so this needs a small change in the engine (task T-20, question 7
     in the README). The same graph is meant to become the editor later (<a href="05-editor-later.html">sketch 5</a>). Nothing here
