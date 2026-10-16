@@ -22,7 +22,8 @@ The repository's main README is the tour; these are the parts that need more roo
 | `workflow.ai.yml` at the repository root | the *development* workflow: the tracks, stages, gates and rules for people and agents changing Indaba | Node scripts (`scripts/check-workflow.mjs` and friends), through `scripts/lib/workflow-yaml.mjs` |
 | a workflow file a user writes ([workflow-format.md](workflow-format.md)) | what *Indaba executes*: roles, steps, guards, retries | the parser in `@indaba/engine` |
 
-They share a file name and a family resemblance, and have different schemas. Running the
+They share a file name and a family resemblance, and have different schemas. The development one is explained in
+[development-workflow.md](development-workflow.md). Running the
 development workflow with Indaba itself is a possible future, not a current feature.
 
 ## For people changing Indaba
@@ -30,6 +31,7 @@ development workflow with Indaba itself is a possible future, not a current feat
 | Page | Read it when |
 | :--- | :--- |
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | You are setting up, or about to make your first change |
+| [development-workflow.md](development-workflow.md) | You want to understand the root `workflow.ai.yml`: its sections, what is enforced and what is guidance, the tracks, the gates, and how to change it |
 | [../AGENTS.md](../AGENTS.md) | You are an AI agent working in this repository |
 | [../specs/DEPENDENCY_MAP.md](../specs/DEPENDENCY_MAP.md) | You want to know which package depends on which |
 | [../specs/](../specs/) | You want to know why a feature is shaped as it is, and what it promises |
