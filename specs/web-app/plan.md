@@ -32,7 +32,7 @@ AC-15, AC-21 (sketches precede the page), AC-22.
 | `README.md`, `CHANGELOG.md`, `AGENTS.md`, `specs/DEPENDENCY_MAP.md`, `docs/` | the documentation that moves with a new package and command |
 
 `RunStarter` and `ServerOptions.runs` of `api-surface.md` are not needed by this slice (nothing starts a run); the type
-and the option arrive with the first action. `ServerOptions` here is `{ roots, staticDir, port?, open? }`; adding
+and the option arrive with the first action. `ServerOptions` here is `{ roots, staticDir, port?, token?, pollMs?, sleep?, coalesceMs? }`; opening the browser is the CLI's job, so the server has no `open` option (T-03 amendment, 2026-10-16); adding
 `runs` later is an addition with no default change.
 
 ## Where the behaviour lives
