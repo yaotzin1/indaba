@@ -30,10 +30,14 @@ export interface ServerOptions {
   readonly staticDir: string;              // the folder of the built @indaba/web, resolved by `indaba ui`
   readonly port?: number;                  // default: a free port
   readonly host?: '127.0.0.1';             // the only accepted value in this version
-  readonly open?: boolean;                 // default true
+  readonly token?: string;                 // default: a random token at each start; a test passes its own
+  readonly pollMs?: number;                // how often the streams look for news (default 1000)
+  readonly sleep?: Sleep;                  // replaces the wait between polls; tests inject one
+  readonly coalesceMs?: number;            // events of one run this close together are one snapshot (default 50)
 }
 export interface ServerHandle {
   readonly url: string;                    // includes the token in the fragment
+  readonly port: number;
   close(): Promise<void>;                  // stops every run the server started, then closes the listener
 }
 export const CONTRACT_VERSION = '1.0.0';   // the page's own major is compiled into it at build time (how: plan time)

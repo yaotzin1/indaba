@@ -11,6 +11,7 @@ export default defineConfig({
       '@indaba/engine': src('engine'),
       '@indaba/runners': src('runners'),
       '@indaba/tui': src('tui'),
+      '@indaba/server': src('server'),
     },
   },
   test: {
