@@ -1,6 +1,8 @@
 # Sketches: the local web view, delivery step 1
 
-The three sketches AC-21 asks the maintainer to review before the page is built (task T-09 of `../tasks.md`). They are
+The five sketches AC-21 asks the maintainer to review before the page is built (task T-09 of `../tasks.md`). The first three are
+delivery step 1; the fourth shows what is possible with the data a run has today and with more; the fifth is a later view, shown
+now so the graph is built once. They are
 wireframes: structure, wording and state, not final style. Open the `.html` files in a browser; they use no script and no
 network, follow the system light or dark setting, and are filled with **sample data**, not a real run.
 
@@ -8,6 +10,8 @@ network, follow the system light or dark setting, and are filled with **sample d
 | :--- | :--- |
 | [`01-runs.html`](01-runs.html) | The Runs screen: the runs on this machine, newest first, with state, start time and cost |
 | [`02-run.html`](02-run.html) | One run: the graph of its steps, the step list, the cost, the attempts of a retried step, the output of the selected step |
+| [`04-discussion.html`](04-discussion.html) | The discussion of a debate step: today's summary from the trace, and the full thread (rounds, who said what, agreement, the arbiter's ruling) that needs more data |
+| [`05-editor-later.html`](05-editor-later.html) | Not step 1: the same graph as an editor, with a palette of bricks, a canvas and a settings panel |
 | [`03-states.html`](03-states.html) | Empty and failure states: no runs, server stopped, token missing, stream dropped, half-written file, unknown event, long output, newer server, run not found, unknown cost, a phone at 320 px |
 
 `sketch.css` is shared by the three. Nothing here is shipped: the page itself is `@indaba/web` (T-07, T-08).
@@ -17,6 +21,11 @@ network, follow the system light or dark setting, and are filled with **sample d
 - A state is a word and a symbol; colour and the border style repeat it, never replace it (AC-07, AC-20).
 - Cost: `unknown`, `at least $x (partial)`, `$0.00 (no model calls)`, and `no limit` for a step without a budget (AC-19).
 - The page reads and shows; it has no Run, Stop, edit or delete (those arrive with later delivery steps).
+- Every step can be selected, in the graph or in the list. Its panel says what happened and what happens if it fails: which step
+  runs again, how many times, and whether the run then ends as escalated or failed (as `docs/workflow-format.md` defines them).
+- Tables are `apsw-gridwright` grids (sorting, selection and paging by default; search, column filters, column layout and
+  density as add-ons). The steps of a run are rows, and a retried step opens to show its tries.
+- One graph component, a view mode now and an edit mode later (sketch 5), so the editor is not a second picture.
 - A message that blocks replaces the screen; it never shows part of it, and it says the one thing to do.
 - Text from a run is shown as plain text; the server has already dropped escape sequences and links (AC-16).
 
@@ -36,5 +45,15 @@ network, follow the system light or dark setting, and are filled with **sample d
    first. Prefer top to bottom below 640 px instead?
 6. **Names.** AC-09 of the spec calls the list "the task list". The sketches call it **Steps**, as the workflow file and the
    engine's own `StepView` do. Use "steps" everywhere?
+
+7. **The structure of a run.** The graph needs which step waits for which and where a failure leads, and a run's trace records
+   neither. The recommendation (T-20) is that the engine records both on each step's span: two new attributes, a minor, and an
+   old run shows its steps in order with a note. The alternative is to read the workflow file, which a run does not name
+   reliably and which may have changed since. Record it in the trace?
+8. **The discussion.** With today's trace the page can show a debate's outcome and rounds, not its messages (sketch 4, version A).
+   The full thread needs the board of `specs/run-blackboard` or a transcript kept under the run (T-21). Which, and may step 1
+   ship with the summary only?
+9. **The editor.** Sketch 5 shows the graph as an editor with bricks. It is out of step 1; is the one-component approach (a view
+   mode now, an edit mode later) what you want, and is the list of bricks right? Whether editing is paid is not decided here.
 
 Answer in the pull request or here; T-09 is ticked when you say the sketches stand.

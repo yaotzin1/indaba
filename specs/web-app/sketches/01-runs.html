@@ -18,26 +18,38 @@
 </header>
 <main id="runs">
   <h2>Runs on this machine</h2>
-  <div class="note"><b>Sketch 1 of 3, sample data.</b> Delivery step 1: a list of runs, not of workflows (the registry is a later
+  <div class="note"><b>Sketch 1 of 5, sample data.</b> Delivery step 1: a list of runs, not of workflows (the registry is a later
     step). Rows come from <code>GET /api/v1/runs</code>; the table updates from <code>GET /api/v1/events</code> without a reload.
-    The cost column needs a <code>cost</code> on <code>RunSummary</code>, which it does not have today (question 1 in the README).</div>
+    The cost column needs a <code>cost</code> on <code>RunSummary</code>, which it does not have today (question 1 in the README).
+    <b>The table is an apsw-gridwright grid</b> (through <code>apsw-gridwright-mui</code>): sorting, selection and paging are its
+    defaults; search, column filters, column layout and density are its add-ons, which this screen switches on. The grid is a real
+    <code>&lt;table&gt;</code> with <code>role="grid"</code> and a live region, so keyboard and screen-reader support are the grid's.</div>
 
   <div class="toolbar" role="search">
-    <label for="filter" class="muted">Filter</label>
+    <label for="filter" class="muted">Search</label>
     <input id="filter" type="search" placeholder="workflow name or status">
     <span class="muted" aria-live="polite">4 runs</span>
+    <span class="badge" style="margin-left:auto">Columns &#9662;</span>
+    <span class="badge">Density: comfortable &#9662;</span>
   </div>
 
   <div class="panel" style="overflow-x:auto">
     <table>
-      <caption class="muted" style="text-align:left;padding-bottom:6px">Newest first. Select a run to see it.</caption>
+      <caption class="muted" style="text-align:left;padding-bottom:6px">Newest first. Select a run to see it. Click a column title to sort.</caption>
       <thead>
         <tr>
-          <th scope="col">Workflow</th>
-          <th scope="col">State</th>
-          <th scope="col">Started</th>
-          <th scope="col" class="num">Cost</th>
+          <th scope="col" aria-sort="none">Workflow <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col" aria-sort="none">State <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col" aria-sort="descending">Started <span aria-hidden="true">&#9660;</span></th>
+          <th scope="col" class="num" aria-sort="none">Cost <span class="muted" aria-hidden="true">&#8693;</span></th>
           <th scope="col">Run id</th>
+        </tr>
+        <tr>
+          <td><input type="search" aria-label="Filter workflow" placeholder="filter" style="width:100%"></td>
+          <td><select aria-label="Filter state" style="width:100%"><option>any state</option><option>running</option><option>completed</option><option>failed</option><option>escalated</option></select></td>
+          <td><input type="search" aria-label="Filter started" placeholder="date range" style="width:100%"></td>
+          <td></td>
+          <td></td>
         </tr>
       </thead>
       <tbody>
@@ -71,7 +83,16 @@
         </tr>
       </tbody>
     </table>
+    <nav aria-label="Pages of runs" class="toolbar" style="margin:10px 0 0">
+      <span class="muted">1&ndash;4 of 4</span>
+      <span class="badge" style="margin-left:auto">Rows per page: 25 &#9662;</span>
+      <span class="badge">&lsaquo; Previous</span>
+      <span class="badge" aria-current="page">1</span>
+      <span class="badge">Next &rsaquo;</span>
+    </nav>
   </div>
+  <p class="muted" id="empty-grid" style="margin-top:8px">With no run, or none matching a filter, the grid shows its own empty state, in the words of
+    <a href="03-states.html">sketch 3</a>.</p>
 
   <h3 style="margin-top:20px">What this screen shows</h3>
   <ul>

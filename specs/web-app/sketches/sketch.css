@@ -68,7 +68,7 @@ h3 { font-size: 1rem; margin: 0 0 8px; }
 .muted { color: var(--muted); }
 .state {
   display: inline-flex; gap: 6px; align-items: center; padding: 1px 8px; border-radius: 6px;
-  font-size: 0.85rem; font-weight: 600; border: 1px solid currentColor;
+  font-size: 0.85rem; font-weight: 600; border: 1px solid currentColor; white-space: nowrap;
 }
 .state.completed, .state.ok { color: var(--ok); background: var(--ok-bg); }
 .state.running { color: var(--run); background: var(--run-bg); }
@@ -96,7 +96,7 @@ dl.facts { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; margin
 dl.facts dt { color: var(--muted); }
 dl.facts dd { margin: 0; font-variant-numeric: tabular-nums; }
 .graph { overflow-x: auto; }
-.graph svg { display: block; min-width: 720px; width: 100%; height: auto; }
+.graph > svg { display: block; min-width: 720px; width: 100%; height: auto; }
 .graph text { font: 13px system-ui, sans-serif; fill: var(--ink); }
 .graph .sub { fill: var(--muted); font-size: 11px; }
 .graph .edge { stroke: var(--muted); stroke-width: 1.5; fill: none; }

@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 4: Discussion</title>
+<link rel="stylesheet" href="sketch.css">
+<style>
+  .thread { display: grid; gap: 12px; }
+  .round { border-left: 3px solid var(--line); padding-left: 12px; }
+  .round > h4 { margin: 0 0 8px; color: var(--muted); font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.04em; }
+  .msg { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; background: var(--panel); }
+  .msg + .msg { margin-top: 8px; }
+  .msg header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 4px; }
+  .who { font-weight: 700; }
+  .kind { font-size: 0.8rem; font-weight: 700; padding: 1px 8px; border-radius: 6px; border: 1px solid currentColor; }
+  .kind.critique { color: var(--esc); background: var(--esc-bg); }
+  .kind.agreement { color: var(--ok); background: var(--ok-bg); }
+  .msg p { margin: 4px 0; }
+  details > summary { cursor: pointer; color: var(--focus); }
+  .two { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); }
+</style>
+</head>
+<body>
+<header class="app">
+  <h1>Indaba</h1>
+  <nav aria-label="Main"><a href="01-runs.html">Runs</a></nav>
+  <span class="badge">Read-only</span>
+</header>
+<main>
+  <p class="muted"><a href="02-run.html">&larr; Run</a></p>
+  <h2>web_app_review <span class="state completed">&#10003; completed</span> <span class="badge">debate</span></h2>
+  <div class="note"><b>Sketch 4 of 5. The discussion of a debate step</b>, opened from the step's panel. The content is from a real run
+    (the review of the web-app spec), shortened; the times are illustrative. <b>Two versions, because of what the data allows:</b> a run's trace records only the
+    outcome and the number of rounds of a debate; the messages are in a transcript file named after the step, which the next run
+    overwrites, so it cannot be tied to one run. The full thread needs <code>specs/run-blackboard</code> (a board file per run) or the
+    transcript recorded under the run (task T-21, question 8 in the README).</div>
+
+  <div class="two">
+
+    <section class="panel" aria-labelledby="a-h">
+      <h3 id="a-h">A. Delivery step 1: from the trace today</h3>
+      <dl class="facts">
+        <dt>Participants</dt><dd>claude, antigravity</dd>
+        <dt>Rule</dt><dd>both answer <code>AGREEMENT</code>, up to 4 rounds</dd>
+        <dt>Outcome</dt><dd><span class="state completed">&#10003; reached</span> after <b>2 rounds</b></dd>
+        <dt>Arbiter</dt><dd>human, <b>not needed</b></dd>
+      </dl>
+      <p class="muted" style="margin-top:12px"><b>The messages are not available for this run.</b> The page says so and does not show a file that
+        may belong to a later run. To read the discussion now: <code>.indaba/artifacts/web_app_review.transcript.md</code>, if no later
+        run has replaced it.</p>
+    </section>
+
+    <section class="panel" aria-labelledby="b-h">
+      <h3 id="b-h">B. With the board or a transcript per run</h3>
+      <p class="toolbar" style="margin:0 0 8px"><span class="badge">Round 1</span> <span class="badge">Round 2</span>
+        <span class="muted">Filter:</span> <label><input type="checkbox" checked> claude</label> <label><input type="checkbox" checked> antigravity</label></p>
+
+      <div class="thread">
+        <section class="round" aria-labelledby="r1">
+          <h4 id="r1">Round 1</h4>
+          <article class="msg">
+            <header><span class="who">claude</span><span class="kind critique">CRITIQUE</span><span class="muted">13:27:41</span></header>
+            <p>9 findings, most severe first. <b>1. Auth is self-contradictory (AC-02, section 6).</b> A browser navigation that loads the static
+              bundle cannot send an <code>Authorization</code> header&hellip;</p>
+            <details><summary>Show the whole message</summary><pre>Files opened: spec.md, api-surface.md, review.md, DEPENDENCY_MAP.md.
+I did not open AGENTS.md &hellip; (plain text, escape sequences already dropped)</pre></details>
+          </article>
+          <article class="msg">
+            <header><span class="who">antigravity</span><span class="kind critique">CRITIQUE</span><span class="muted">13:28:12</span></header>
+            <p>I accept Claude's #1, #5, #6 and #7, refine #2, #3, #4, #8 and #9, and add two gaps: <b>10.</b> unspecified payloads and a
+              missing log endpoint; <b>11.</b> multi-tab and input-form gaps.</p>
+            <details><summary>Show the whole message</summary><pre>&hellip;</pre></details>
+          </article>
+        </section>
+        <section class="round" aria-labelledby="r2">
+          <h4 id="r2">Round 2</h4>
+          <article class="msg">
+            <header><span class="who">claude</span><span class="kind agreement">AGREEMENT</span><span class="muted">13:28:55</span></header>
+            <p>I accept Antigravity's refinements and #10 and #11. <b>Final ranked list, each with its edit:</b> 1. Auth&hellip; 2. Run is code execution&hellip; (10 items)</p>
+            <details><summary>Show the whole message</summary><pre>&hellip;</pre></details>
+          </article>
+          <article class="msg">
+            <header><span class="who">antigravity</span><span class="kind agreement">AGREEMENT</span><span class="muted">13:29:30</span></header>
+            <p>Final ranked list of findings and spec edits (10 items), the same as Claude's.</p>
+            <details><summary>Show the whole message</summary><pre>&hellip;</pre></details>
+          </article>
+        </section>
+        <section class="round" aria-labelledby="out">
+          <h4 id="out">Outcome</h4>
+          <p><span class="state completed">&#10003; reached</span> in round 2: both answered <code>AGREEMENT</code>. No arbiter was needed.</p>
+        </section>
+      </div>
+    </section>
+  </div>
+
+  <section class="panel" style="margin-top:16px" aria-labelledby="c-h">
+    <h3 id="c-h">If they had not agreed</h3>
+    <p>With <code>arbiter: "human"</code> the run waits for a person (the terminal asks today; the page asks once <code>specs/ruling-channel</code>
+      exists, and answers as you). The ruling is recorded with who gave it.</p>
+    <table class="small">
+      <thead><tr><th scope="col">Round</th><th scope="col">Result</th><th scope="col">Ruling</th></tr></thead>
+      <tbody><tr><td>4 of 4</td><td><span class="state escalated">&#9888; escalated</span> (max rounds, no agreement)</td><td>asked: <b>accept</b> by you, 21:07, note: &ldquo;&rdquo;</td></tr></tbody>
+    </table>
+    <p class="muted">Read-only in step 1: the page shows a ruling that was given in the terminal; it cannot give one yet.</p>
+  </section>
+</main>
+</body>
+</html>
