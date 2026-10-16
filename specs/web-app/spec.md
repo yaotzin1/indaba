@@ -236,8 +236,11 @@ All recommendations; the maintainer confirms.
 - **C-02. The table component is the maintainer's own.** `apsw-gridwright-mui` is published under the maintainer's
   account, MIT, with peers on React, `@mui/material` and `apsw-gridwright`. The page is a first consumer, so a gap in
   the component is fixed in that project rather than worked around here, and the dependency is pinned to an exact
-  version in the lockfile. If it cannot meet AC-06 and AC-20 (keyboard and screen reader), the fallback is MUI's
-  community data grid, decided at plan time.
+  version in the lockfile. **Every table of the page is an `apsw-gridwright` grid** (decided by the maintainer on 2026-10-17): the
+  Runs table, the steps of a run with their tries as child rows, and later the Workflows table. Sorting, selection and paging are
+  the grid's defaults; search, column filters, column layout and density are its add-ons. Its limits (no range selection of
+  cells, fixed row height under virtualization) are acceptable here. MUI's community data grid stays only as the fallback if the
+  grid cannot meet AC-20 (keyboard and screen reader), decided at plan time.
 - **C-03. Graph.** React Flow gives pan, zoom, selection and a node per step with state classes; the layout library is
   deterministic for a given workflow so the picture does not jump between runs. A loop (debate, review) is a badge and a
   self-edge on the node because adding nodes would make the picture disagree with the file.
@@ -269,6 +272,21 @@ All recommendations; the maintainer confirms.
   `AuthProvider`, a run API the page does not know is remote) are in `docs/hosted-service.md`; none of them changes
   this spec's acceptance criteria.
 - **C-11. Browsers.** The evergreen releases of the last two years.
+- **C-13. One graph, a view now and an editor later.** The graph of AC-07 is one component with a view mode and an edit mode, so
+  designing a workflow by moving bricks from a palette onto the canvas (`specs/workflow-editor`, step 3 of C-09) is the same
+  picture, not a second one. In view mode every step can be selected: its panel says what happened (runners, models, tokens,
+  cost, tools, permissions, guards, output, tries), and what happens if it fails (retry which step, how many times, then
+  escalated or failed). The edit mode writes the workflow file and shows the messages of `indaba validate`. Whether editing is
+  part of a paid edition is a product decision this spec does not make. React Flow (C-01) supports both modes.
+- **C-14. The graph needs the workflow's structure.** A run's trace records, for a step, only its id and attempt number. Which
+  step waits for which (`depends_on`) and where a failure leads (`on_failure`) are in the workflow file, not in the trace, and the
+  trace names the workflow but not the file. Recommendation: the engine records both on each step's span when the run starts
+  (task T-20), so a run describes itself, an old run is still readable, and the page and the dashboard agree. A run recorded
+  before the change shows its steps in order, with a note that its structure was not recorded.
+- **C-15. The discussion of a debate.** The trace holds a debate's outcome and number of rounds. The messages are in
+  `.indaba/artifacts/<step>.transcript.md`, which the next run overwrites, so it cannot be tied to one run. The full discussion
+  (rounds, who said what, `CRITIQUE` or `AGREEMENT`, the arbiter's ruling) needs either the board of `specs/run-blackboard` or the
+  transcript recorded under the run (task T-21). Until then the page shows the summary and says the messages are not available.
 - **C-12. Runs end with `indaba ui`.** The recommendation is that the server is the owner of the runs it starts, so
   ending it cancels them through the engine's teardown, as stopping a run from the page does, and the page tells the
   person before the first Run. The alternative, runs that outlive the server in a process of their own, needs a

@@ -13,8 +13,10 @@ through the same view model, so the page and the dashboard cannot disagree (US-1
 nothing, which also keeps the slice clear of AC-22 (confirmation before running) and of the `Origin` rule for
 state-changing requests: those arrive with the first action.
 
-In scope from the spec: AC-01 to AC-05, AC-07 (graph from the run's steps), AC-09 (task list and cost, no actions),
-AC-16 to AC-20, and a Runs screen in place of the Workflows screen. Out of scope: AC-06, AC-08, AC-10 (Run), AC-11 to
+In scope from the spec: AC-01 to AC-05, AC-07 (the graph, with every step selectable), AC-09 (step list and cost, no actions),
+AC-16 to AC-20, and a Runs screen in place of the Workflows screen. A selected step shows what happened in it and what happens
+if it fails (C-13); the tables are `apsw-gridwright` grids (C-02); the graph is built as one component with a view mode now
+and an edit mode later (C-13). Out of scope: AC-06, AC-08, AC-10 (Run), AC-11 to
 AC-15, AC-21 (sketches precede the page), AC-22.
 
 ## Modules touched
@@ -62,6 +64,8 @@ and the option arrive with the first action. `ServerOptions` here is `{ roots, s
 | Risk | Mitigation |
 | :--- | :--- |
 | the declarations of `view.ts` import record types and `RunStatus`, so they may not be pure data | T-02 checks before anything moves; if one is not, the contract declares its own JSON shape and the server maps to it |
+| the trace records neither `depends_on` nor `on_failure`, so the graph has no edges and no failure route (C-14) | T-20 records both on each step's span in the engine before T-08; a run recorded earlier shows its steps in order with a note |
+| a debate's messages cannot be tied to one run (C-15) | the page shows the outcome and rounds from the trace and says the messages are unavailable; T-21 decides how a run keeps them |
 | a run id or step id from the URL reaches a path | ids are matched against `isRunId` and a fixed pattern before any path is built; the trace directory is the only root; hostile-input tests (T-12) |
 | the page shows secrets or terminal escape sequences from agent output | the server serialises through the engine's `createSanitizer` and the redaction the traces use; the page renders text only; a test with hostile strings built from fragments |
 | the token leaks through the address bar, history or a referrer | fragment removed after load, `Referrer-Policy: no-referrer`, token in memory only (AC-02) |

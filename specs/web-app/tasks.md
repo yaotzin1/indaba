@@ -28,15 +28,28 @@ checkable. The slice and its limits are in `plan.md`.
   started and ended, by polling the trace directory with an injected clock and interval.
 - [ ] **T-07** `packages/web`: Vite and React with TypeScript; fetch-streaming SSE with the header; the token read from
   the fragment, removed from the address, kept in memory. Imports `@indaba/core` types only and no `node:` module.
-- [ ] **T-08** The Runs screen (id, workflow name, status, started, cost) and the Run screen: graph of steps (React Flow
-  and `dagre`, left to right, state colour and text label, a loop as a badge), task list with state and duration, output,
-  cost with "unknown" and partial marked (AC-19), reduced motion, keyboard and screen reader (AC-20), strings from a
-  catalogue.
-- [ ] **T-09** The maintainer reviews three sketches (Runs, Run, and the page's empty and failure states) before T-08's
-  markup is final (AC-21 for this slice). Drafted in `sketches/` (2026-10-16) with six questions in its README; ticked when
-  the maintainer says they stand.
+- [ ] **T-08** The Runs screen (id, workflow name, status, started, cost) and the Run screen. Both tables are `apsw-gridwright`
+  grids through `apsw-gridwright-mui` (C-02): the steps with their tries as child rows. The graph is one component with a view
+  mode and an edit mode (C-13): React Flow and `dagre`, left to right, state colour and text label, the failure route drawn
+  as its own edge, every step selectable. A selected step shows what happened (runners, models, tokens, cost, tools,
+  permissions, guards, tries, output) and what happens if it fails. Cost with "unknown" and partial marked (AC-19), reduced
+  motion, keyboard and screen reader (AC-20), strings from a catalogue.
+- [ ] **T-09** The maintainer reviews the sketches (Runs, Run, the empty and failure states, a debate's discussion, and the
+  editor as a later view) before T-08's markup is final (AC-21 for this slice). Drafted in `sketches/` (2026-10-16, revised
+  2026-10-17) with questions in its README; ticked when the maintainer says they stand.
 - [ ] **T-10** Packaging: where the built page lives (inside `@indaba/server` or its own package), `files` and `exports`
   maps, the published-files audit, and the packed-install smoke test still boots `indaba` without either package.
+
+## Engine, before T-08
+
+- [ ] **T-20** Record a run's structure in its trace (C-14). On each step's span, two new attributes: `indaba.step.depends_on` (the
+  ids of the steps it waits for, comma-separated) and `indaba.step.on_failure` (`retry_step:<target>:<max_retries>`,
+  `escalate` or `fail`). `StepView` gains `dependsOn` and `onFailure`, both `undefined` for a run recorded without them, in
+  `@indaba/core`'s `web-contract`; the reducer fills them; the dashboard ignores them. Adding attributes is a minor (no existing
+  attribute changes); record it in `api-surface.md`, `docs/workflow-format.md` ("What a run reports") and `CHANGELOG.md`. Tests:
+  a run with a retry and a run without `on_failure`, an old trace without the attributes, and the sanitizer on a hostile step id.
+- [ ] **T-21** Decide how a run keeps its debate messages (C-15): the board of `specs/run-blackboard`, or the transcript copied
+  under the run's trace id. Not needed for delivery step 1; until then the discussion shows the summary only.
 
 ## Console
 
