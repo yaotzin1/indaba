@@ -15,15 +15,15 @@ checkable. The slice and its limits are in `plan.md`.
 
 ## Infrastructure
 
-- [ ] **T-03** `packages/server`: package, `tsconfig`, `startServer({ roots, staticDir, port?, open? })` on `node:http`
+- [x] **T-03** `packages/server`: package, `tsconfig`, `startServer({ roots, staticDir, port?, open? })` on `node:http`
   bound to `127.0.0.1` only; a random token per start; `ServerHandle.url` with the token in the fragment; `close()`.
-- [ ] **T-04** Request checks: `Authorization: Bearer` on every `/api/v1` request, `Host` in `localhost`, `127.0.0.1`,
-  `[::1]` with the server's own port, methods other than `GET` and `HEAD` refused, no CORS header, `Referrer-Policy:
+- [x] **T-04** Request checks: `Authorization: Bearer` on every `/api/v1` request, `Host` in `localhost`, `127.0.0.1`,
+  `[::1]` with the server's own port, every method but `GET` refused, no CORS header, `Referrer-Policy:
   no-referrer`. The static files are served without the token, with the `Host` check and the Content-Security-Policy of
   AC-16.
-- [ ] **T-05** `GET /contract`, `GET /runs`, `GET /runs/{id}`: from `TraceReader`, ids matched with `isRunId` before any
+- [x] **T-05** `GET /contract`, `GET /runs`, `GET /runs/{id}`: from `TraceReader`, ids matched with `isRunId` before any
   path is built, output through the sanitizer and the redaction the traces use.
-- [ ] **T-06** `GET /runs/{id}/events` as SSE, resumable with `Last-Event-ID` without a duplicate or a gap (AC-05), built
+- [x] **T-06** `GET /runs/{id}/events` as SSE, resumable with `Last-Event-ID` without a duplicate or a gap (AC-05), built
   on `TraceReader.follow`; `GET /runs/{id}/steps/{step}/log` bounded by a `Range` header; `GET /events` announcing runs
   started and ended, by polling the trace directory with an injected clock and interval.
 - [ ] **T-07** `packages/web`: Vite and React with TypeScript; fetch-streaming SSE with the header; the token read from
@@ -52,7 +52,7 @@ checkable. The slice and its limits are in `plan.md`.
 - [ ] **T-13** Unit coverage for the server (success and failure paths, resume without duplicate or gap, a dropped
   connection, a run that is still being written) and the page (graph from a fixture run, every state and a loop,
   unknown events shown generically); coverage stays at or above 85% on all four metrics.
-- [ ] **T-14** `layers.test.ts` for `packages/server` (imports itself, `node:*`, `@indaba/engine`, `@indaba/core`; no UI
+- [x] **T-14** `layers.test.ts` for `packages/server` (imports itself, `node:*`, `@indaba/engine`, `@indaba/core`; no UI
   package) and `packages/web` (imports itself, `react`, the UI libraries and `import type` from `@indaba/core`; no `node:`);
   the CLI test keeps the lazy edge; `@indaba/core` architecture test green.
 - [ ] **T-15** `pnpm e2e`: start the built CLI with `indaba ui --no-open` over a fixture trace, fetch the Runs list and one
