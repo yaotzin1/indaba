@@ -68,6 +68,10 @@ and the option arrive with the first action. `ServerOptions` here is `{ roots, s
 | two new packages and a build tool grow the install | `@indaba/web` is built in CI and shipped as static files in `@indaba/server`'s package or its own; neither is a dependency of `indaba` (AC-01); the packed-install smoke test checks that `indaba` alone still boots |
 | MUI and React Flow weight on a phone (AC-20) | measure the bundle in the plan's first task; this slice may use plain components and add MUI with the table in step 2 |
 
+## T-02 outcome (2026-10-16)
+
+The declarations of `view.ts` and `trace-reader.ts` the page needs are pure data: `RunState`, `StepView`, `AttemptView`, `RunnerView`, `SkippedRunnerView`, `RunStatus` and `RunSummary` import nothing but each other. They moved to `@indaba/core` (`web-contract/run.ts`) and the engine re-exports them, so no import path broke. `RunState.owners` is the reducer's own bookkeeping, so the page receives `RunSnapshot`, which is `RunState` without it. The stream sends a whole `RunSnapshot` per event, built by the reducer the dashboard uses, instead of raw records: the records and their parser stay in the engine, and a repeated or missed event cannot corrupt the page (`RunStreamEvent`).
+
 ## Out of scope for this change
 
 Everything not in "The slice": the registry and its table, health, Run and Stop, single-step run, questions and
