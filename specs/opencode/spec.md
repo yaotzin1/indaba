@@ -1,6 +1,6 @@
 # Specification: OpenCode integration
 
-> **Status**: Draft (stage 1 written 2026-10-08; stage 2 questions open in section 8)
+> **Status**: Accepted (implemented in #18; question 3 of section 8 stays open until a real run settles it)
 > **Stage entry**: 1
 > **Semver impact**: minor (provisional; confirmed in api-surface.md)
 
