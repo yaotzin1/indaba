@@ -9,7 +9,7 @@ graph BT
     subgraph Domain["@indaba/core: pure domain, no dependencies, no node: import"]
         Core["errors, workflow model, DagBuilder, StepState"]
         Mesh["mesh: AgentMessage, Blackboard, ConsensusArbiter"]
-        Contracts["Runner, RunRequest, RunResult, Guard, Plugin, PluginHost"]
+        Contracts["Runner, RunRequest, RunResult, Guard, Adjudicator, McpCapable, Plugin, PluginHost"]
         Obs["Tracer, Span, TokenUsage, PricingTable, EventDispatcher, Clock, IdGenerator"]
     end
 
@@ -28,7 +28,7 @@ graph BT
     Cli --> Engine
     Cli --> Runners
     Cli --> Domain
-    Cli -.-> Tui
+    Cli -. "optional peer" .-> Tui
     Tui --> Engine
     Plugin --> Contracts
     Cli -. "loads at run time (--plugin)" .-> Plugin
@@ -43,34 +43,100 @@ runner. A plugin depends only on the contracts in `@indaba/core`.
 The guards are the layers tests: `packages/core/test/architecture.test.ts` (core imports only itself,
 no `node:` module), `packages/engine/test/layers.test.ts` and `packages/runners/test/layers.test.ts`
 (only relative files, `node:*`, the declared dependency and `@indaba/core`; never the runners, the
-engine or the CLI upward). A new edge is a design question first and a test change second.
+engine or the CLI upward). Two more keep the edges at the top honest. `packages/cli/test/layers.test.ts`
+allows only `node:`, its own files and `@indaba/core`, `@indaba/engine` and `@indaba/runners`; the CLI
+reaches `@indaba/tui` at run time, never by a static import. `packages/tui/test/layers.test.ts` allows
+only its own files and `@indaba/engine`, with `ink` and `react` in a single adapter file, and fails if
+core, engine or runners import the dashboard, or the CLI imports `ink`, `react` or a subpath of it. A new edge is a design question first
+and a test change second.
+
+## Progress
+
+What is done and what is not, from the first day a spec was written to its last change, or to today
+(2026-10-16) when nothing has shipped. Every date is a commit date from git; a bar is the time the spec
+directory was being worked on, not an estimate. Grey is implemented; blue is specified and waiting.
+The Status column of the next table gives the same facts with the exceptions.
+
+```mermaid
+gantt
+    dateFormat YYYY-MM-DD
+    axisFormat %d %b
+    section Implemented
+    workflow-engine        :done, 2026-10-03, 2026-10-04
+    agent-mesh             :done, 2026-10-03, 2026-10-04
+    runner-adapters        :done, 2026-10-03, 2026-10-04
+    git-workspace          :done, 2026-10-03, 2026-10-04
+    observability          :done, 2026-10-03, 2026-10-04
+    cli                    :done, 2026-10-03, 2026-10-04
+    mcp-support            :done, 2026-10-04, 1d
+    typescript-port        :done, 2026-10-04, 2026-10-10
+    tui                    :done, 2026-10-04, 2026-10-10
+    transport-priority     :done, 2026-10-05, 2026-10-10
+    debate-arbiter         :done, 2026-10-10, 1d
+    opencode               :done, 2026-10-10, 1d
+    attempt-history        :done, 2026-10-14, 1d
+    watch-workflow-name    :done, 2026-10-14, 1d
+    section Specified, not started
+    web-app                :active, 2026-10-04, 2026-10-16
+    acp-agent-install      :active, 2026-10-05, 2026-10-16
+    debate-findings        :active, 2026-10-10, 2026-10-16
+    ruling-channel         :active, 2026-10-10, 2026-10-16
+    voter-arbiter          :active, 2026-10-10, 2026-10-16
+    step-variants          :active, 2026-10-10, 2026-10-16
+    step-verdicts          :active, 2026-10-10, 2026-10-16
+    step-budgets           :active, 2026-10-10, 2026-10-16
+    workflow-editor        :active, 2026-10-10, 2026-10-16
+    run-blackboard         :active, 2026-10-11, 2026-10-16
+    workflow-inputs        :active, 2026-10-11, 2026-10-16
+    workspace-without-git  :active, 2026-10-11, 2026-10-16
+    workflow-registry      :active, 2026-10-12, 2026-10-16
+    single-step-run        :active, 2026-10-12, 2026-10-16
+    agent-sandbox          :active, 2026-10-12, 2026-10-16
+```
+
+`desktop-app` was dropped and is left out of the chart.
 
 ## Feature to package
 
-| Feature (spec) | Packages |
-| :--- | :--- |
-| `typescript-port` | all |
-| `workflow-engine` | `@indaba/core` (model, DAG, state), `@indaba/engine` (parser, guards, engine) |
-| `agent-mesh` | `@indaba/core` |
-| `debate-arbiter` | `@indaba/core` (`Adjudicator` contract, `PluginHost.registerAdjudicator`, the `arbiter` step field), `@indaba/engine` (parser, decision ledger, debate records, `StepExecutor`), `indaba` (the terminal arbiter) |
-| `runner-adapters` | `@indaba/core` (contract), `@indaba/runners` |
-| `transport-priority` | `@indaba/core` (runner chain, permissions model, glob, span events), `@indaba/engine` (parser, fallback loop, scope guard), `@indaba/runners` (API and ACP runners), `indaba` |
-| `git-workspace` | `@indaba/engine` |
-| `observability` | `@indaba/core` (tracer, value types), `@indaba/engine` (exporter) |
-| `cli` | `indaba` |
-| `tui` | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
-| `mcp-support` | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
-| `web-app` | specified, not started: `@indaba/server` (new), `@indaba/web` (new), `indaba` (`ui`) |
-| `workflow-registry` | specified, not started: `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
-| `single-step-run` | specified, not started: `@indaba/core`, `@indaba/engine`, `indaba` |
-| `agent-sandbox` | specified, not started: `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
-| `desktop-app` | dropped; kept for history |
+| Feature (spec) | Status | Packages |
+| :--- | :--- | :--- |
+| `typescript-port` | Implemented | all |
+| `workflow-engine` | Implemented | `@indaba/core` (model, DAG, state), `@indaba/engine` (parser, guards, engine) |
+| `agent-mesh` | Implemented | `@indaba/core` |
+| `debate-arbiter` | Implemented, except T16 (`Adjudicator.description`, done with `workflow-editor`) | `@indaba/core` (`Adjudicator` contract, `PluginHost.registerAdjudicator`, the `arbiter` step field), `@indaba/engine` (parser, decision ledger, debate records, `StepExecutor`), `indaba` (the terminal arbiter) |
+| `runner-adapters` | Implemented | `@indaba/core` (contract), `@indaba/runners` |
+| `transport-priority` | Implemented, except T-22 (the runner contract test helper) | `@indaba/core` (runner chain, permissions model, glob, span events), `@indaba/engine` (parser, fallback loop, scope guard), `@indaba/runners` (API and ACP runners), `indaba` |
+| `git-workspace` | Implemented | `@indaba/engine` |
+| `observability` | Implemented | `@indaba/core` (tracer, value types), `@indaba/engine` (exporter) |
+| `cli` | Implemented | `indaba` |
+| `tui` | Implemented, except one manual run on Windows Terminal | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
+| `mcp-support` | Implemented | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
+| `opencode` | Implemented | `@indaba/runners` (`OpenCodeRunner`, the `opencode` ACP preset) |
+| `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
+| `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
+| `web-app` | Not started (specified) | `@indaba/server` (new), `@indaba/web` (new), `indaba` (`ui`) |
+| `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
+| `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
+| `acp-agent-install` | Not started (specified) | `@indaba/core` (registry types), `@indaba/runners` (installer, store), `indaba` (`agents`, the consent prompt) |
+| `debate-findings` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `ruling-channel` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `voter-arbiter` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `step-variants` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `step-verdicts` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `step-budgets` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba` |
+| `workflow-editor` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
 
 - Changing `Runner`, `RunRequest` or `RunResult` in core breaks every runner, the mesh participant
   and every plugin's runner: a major.
-- Changing `Guard`, `Plugin`, `PluginHost` or `Adjudicator` breaks every plugin: a major.
+- Changing `Guard`, `Plugin`, `PluginHost`, `Adjudicator` (including its `RulingRequest`) or `McpCapable`
+  breaks every plugin: a major.
 - Changing what goes into the decision ledger's key changes which rulings are reused: a major.
 - Changing a workflow model type or the schema breaks the parser, the engine and every workflow file
   in the wild: a major.
