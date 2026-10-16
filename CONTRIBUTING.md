@@ -35,7 +35,8 @@ This repository runs a spec-driven workflow. `workflow.ai.yml` at the root is th
 the tracks, the stages, the skill registry, the gates and the architectural rules; `AGENTS.md` and
 `GEMINI.md` are generated from it, and `scripts/check-workflow.mjs` fails when what it says about the
 repository stops being true. It is the *development* workflow of Indaba, not the file format Indaba
-executes (that is described in `docs/workflow-format.md`).
+executes (that is described in `docs/workflow-format.md`). The file is explained section by section in
+`docs/development-workflow.md`.
 
 Pick the track first: **feature** (a consumer would notice), **fix** (restores documented behaviour),
 **chore** (docs, tooling, CI, tests) or **release**. A feature gets a spec directory:
