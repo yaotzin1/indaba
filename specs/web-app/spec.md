@@ -278,8 +278,6 @@ All recommendations; the maintainer confirms.
 
 ## Artifacts not written
 
-- `plan.md`: planning waits for the clarifications above and for the specifications it builds on.
-- `tasks.md`: nothing to schedule until the plan exists.
 - `research.md`: the graph and layout libraries are compared at plan time against a real workflow.
 - `data-model.md`: the page keeps no model of its own (C-05); the view types are in `api-surface.md`.
 - `events.md`: the page consumes events and emits none; the vocabulary belongs to `specs/observability`.
