@@ -1,14 +1,21 @@
 # Self-review: The local web view
 
-> **Status**: design reviewed on 2026-10-16 (specification only). The implementation self-review stays pending: nothing
-> is built, so sections 2, 5 and 7 have nothing to answer yet.
+> **Status**: design reviewed on 2026-10-16, and the review's edits applied to `spec.md` and `api-surface.md` the same day
+> (specification only). The implementation self-review stays pending: nothing is built, so sections 2, 5 and 7 have
+> nothing to answer yet.
 
 Answer all seven. See [`.agents/rules/review.md`](../../.agents/rules/review.md). This round reviewed the
 specification as a design, not code. Two reviewers (Claude and Antigravity, each through its own CLI) debated it with
 Indaba's own consensus step and settled one list in two rounds; the maintainer then had the findings checked against
 the repository. The transcript is `.indaba/artifacts/web_app_review.transcript.md` (a run artifact, not committed).
-Each finding below says whether it was confirmed, and how. None of the edits has been applied to `spec.md` or
-`api-surface.md` yet; they wait for the maintainer.
+Each finding below says whether it was confirmed, and how. The edits are applied; where a point was a choice, the spec
+now carries it as a recommendation in section 8 (C-04, C-12) for the maintainer to confirm, and the maintainer decided
+one of them (shared types in `@indaba/core`, types only).
+
+**Found while applying the edits, not by the debate:** `spec.md` (C-04) and `api-surface.md` called `RunViewModel` "the
+existing type of `@indaba/engine`". No such name exists in `packages/`, in `specs/tui` or in `docs/`; the type is
+`RunState`, with `StepView`, `AttemptView` and `RunnerView`, in `packages/engine/src/trace/view.ts`. Both documents now use the
+real names. Both reviewers repeated the wrong name.
 
 ## 1. Boundary and layering
 
@@ -103,9 +110,17 @@ The documentation-only change that records this review is verified by the commit
 ## Known gaps
 
 - Specification only; nothing is implemented and nothing was run.
-- The ten edits above are not applied to `spec.md` or `api-surface.md`.
-- Stale text in this directory: the previous version of this file named `docker compose run php composer qa`, and
-  `spec.md` still cites `specs/agent-conversation` (lines 92 and 215), which does not exist; `specs/ruling-channel`
-  is the closest, and `specs/run-api`, which the previous review cited, does not exist either.
-- Not checked: the licence trees of `apsw-gridwright-mui` and `apsw-gridwright`, and whether `@indaba/core` is the right
-  home for the page's types.
+- Applied to `spec.md` and `api-surface.md`: authentication of the static files and the stream; the `Host` and `Origin`
+  rules; a confirmation before the first run of an imported or edited workflow (AC-22); health probes limited to declared
+  hosts (AC-15); an injected run starter and `staticDir` in `ServerOptions`; shared types in `@indaba/core` as
+  declarations only, with `WorkflowStepView`; `dagre` instead of `elkjs`, and the dependencies listed; the missing
+  endpoints (`POST /workflows`, `DELETE /workflows/{id}`, the step log, the server-wide `GET /events`) and a body and
+  response for each; an inputs form before Run; no native folder dialog; `workflow-inputs` in "Builds on";
+  `agent-conversation` removed (C-07); runs end with `indaba ui` (C-12).
+- Still open for the maintainer: C-12 (runs cancelled when `indaba ui` ends, and the confirmation remembered per hash of
+  the file's content, which hash and where is a plan-time choice); whether the data shape of `RunState` can move to
+  core as pure declarations (its file imports the record types of `records.ts` and `RunStatus` of `trace-reader.ts`;
+  check at plan time); the three sketches of AC-21.
+- Not written: `DEPENDENCY_MAP.md` still lists `web-app` as `@indaba/server`, `@indaba/web` and `indaba`; it also gains
+  `@indaba/core` (types) when the dependency map branch merges.
+- Not checked: the licence trees of `apsw-gridwright-mui` and `apsw-gridwright`.

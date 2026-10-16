@@ -7,6 +7,7 @@
 > **Builds on**: [`specs/tui`](../tui/spec.md) (the event stream and the run view model, which the page reuses),
 > [`specs/workflow-registry`](../workflow-registry/spec.md) (the list of workflows),
 > [`specs/single-step-run`](../single-step-run/spec.md) (running one step),
+> [`specs/workflow-inputs`](../workflow-inputs/spec.md) (the values a workflow asks for before it runs),
 > [`specs/agent-sandbox`](../agent-sandbox/spec.md) (isolation and its health),
 > [`specs/run-blackboard`](../run-blackboard/spec.md) and [`specs/ruling-channel`](../ruling-channel/spec.md) (the board
 > and the questions the page shows).
@@ -58,25 +59,35 @@ engine.
 
 - [ ] AC-01. Two new packages: `@indaba/server` (Node, no framework; the local API, event stream and static file
   serving) and `@indaba/web` (React and TypeScript, built with Vite into static files that `@indaba/server` serves).
-  `@indaba/web` imports no `node:` module and is the only package that imports `react` or MUI. `indaba` loads the server
-  lazily, so a user who never runs `indaba ui` installs and loads none of it (the `@indaba/tui` pattern).
+  `@indaba/web` imports no `node:` module and is the only package that imports `react` or MUI; it imports from
+  `@indaba/core` types only (`import type`), and a layers test enforces both. `@indaba/server` imports no UI package and
+  receives the static bundle's folder as an option (`staticDir`). `indaba` loads the server lazily, so a user who never
+  runs `indaba ui` installs and loads none of it (the `@indaba/tui` pattern).
 - [ ] AC-02. `indaba ui` starts the server on `127.0.0.1` on a free port, prints the address with the token in the
-  fragment, and opens the browser unless `--no-open`. The server refuses any request without the token, checks the `Host`
-  and `Origin` headers against its own address, and ends with the command.
+  fragment, and opens the browser unless `--no-open`. Every API request needs the token in an `Authorization` header and
+  the server refuses it without; the static files of the page are the one thing served without it, because a browser
+  navigation cannot send a header, and they carry the `Host` check and the Content-Security-Policy of AC-16. The page
+  reads the token from the fragment, removes the fragment from the address, and keeps the token in memory only. The server
+  checks the `Host` and `Origin` headers (section 6) and ends with the command. Runs it started are stopped through the
+  engine's teardown when it ends, and the page says so before the first Run (C-12).
 - [ ] AC-03. The server binds only to loopback. A flag to bind elsewhere does not exist in this spec; the hosted
   service is a different product with its own security model.
 - [ ] AC-04. The contract between page and server is one versioned HTTP+JSON API plus Server-Sent Events, described in
   `api-surface.md`, with request and response types shared by both packages from one source. A page whose contract
-  major is older than the server's refuses to run and says to restart.
+  major is older than the server's refuses to run and says to restart. The shared types are declarations in
+  `@indaba/core`, with no runtime code (section 7).
 - [ ] AC-05. The event stream resumes with `Last-Event-ID` without duplicating or losing events, and an event reaches
-  the screen within one second of the engine emitting it (the stream tails the files the engine writes).
+  the screen within one second of the engine emitting it (the stream tails the files the engine writes). The page reads
+  it with `fetch` and the `Authorization` header, because the browser's `EventSource` cannot send one. A second stream,
+  for the whole server, announces a new or finished run and a change to the registry, so a second open page learns of
+  them without polling.
 
 **Screens**
 
 - [ ] AC-06. **Workflows** is the home screen: a table with sorting, filtering, selection and pagination, built on
   `apsw-gridwright-mui` (section 8 C-02). Columns: name, project, last result, last cost, last run, state, health. A row
   opens the workflow. Actions: new, edit, copy for another project, import (add a folder to the scan roots), remove from
-  the list (never deletes the file).
+  the list (never deletes the file). Import and new need no path typed into the page (section 6).
 - [ ] AC-07. **Workflow** shows the graph (nodes are steps, edges are `depends_on`), laid out left to right. A node
   shows the step name, the runner, and its state colour **and** a text label (never colour alone). Selecting a node opens
   the inspector. Debate and review loops are drawn as a loop on the node, not as extra nodes.
@@ -87,13 +98,14 @@ engine.
   mode, sandbox mode, the task list (steps with state and duration), and the health list of AC-15.
 - [ ] AC-10. **Run** starts the whole workflow. While it runs, the graph animates state changes, the active node is
   marked, the edges of completed steps are marked, and a user who prefers reduced motion gets the same information without
-  animation. **Run this step** follows `specs/single-step-run`.
+  animation. **Run this step** follows `specs/single-step-run`. When the workflow declares inputs, Run first asks for
+  them in a form, validated as `specs/workflow-inputs` says, and starts nothing until they are given.
 - [ ] AC-11. A **chat** panel sends a message to the step's agent when its runner supports it, shows the agent's
-  questions with their answer boxes, and records who answered (`specs/agent-conversation`, `specs/ruling-channel`).
-  A runner that cannot take a message shows the panel as unavailable, with the reason.
+  questions with their answer boxes, and records who answered (`specs/ruling-channel`). Sending a free-form message has
+  no specification yet (C-07). A runner that cannot take a message shows the panel as unavailable, with the reason.
 - [ ] AC-12. A change list (what a workspace changed) is shown before it is applied, with the apply, keep and discard
   choices of `specs/workspace-without-git`, and the same plain wording.
-- [ ] AC-13. Every action that changes anything (run, stop, apply, discard, answer, remove, import, delete) is an
+- [ ] AC-13. Every action that changes anything (run, stop, apply, discard, answer, remove, import) is an
   explicit user action; a destructive one names what will happen and asks. Nothing starts a run on page load.
 
 **Health**
@@ -103,7 +115,9 @@ engine.
 - [ ] AC-15. The report names, per item: what (a runner, an agent, a key, a server, an engine, a folder), the state
   (`ok`, `warning`, `missing`, `unreachable`, `denied`), why in plain words, and the one next action. For a key it says
   whether the variable is set and never anything about its value. It checks only what the workflow needs, with a
-  timeout of its own and no more than one probe per target per minute.
+  timeout of its own and no more than one probe per target per minute. It probes only hosts the workflow itself
+  declares for an MCP server or an API runner, follows no redirect, sends no credential, and writes no URL to a log or to
+  the page; the page receives the name of the target and the state (AC-17).
 
 **Safety**
 
@@ -124,6 +138,14 @@ engine.
   320 px width (the questions and the run view must be usable on a phone). Strings come from a message catalogue.
 - [ ] AC-21. Three sketches (Workflows, Workflow with graph, Run) are reviewed by the maintainer before the page is
   built (`docs/roadmap.md`).
+
+**Safety, continued**
+
+- [ ] AC-22. Running a workflow is running code: a step may be a `shell` step, and a saved edit followed by a run
+  executes what was written. The first time a workflow that was imported, copied or edited through the page runs, the
+  page shows the runners, the permissions and the shell commands it will use and asks for confirmation; the answer is
+  kept per workflow and per hash of its content, so a later change asks again (C-12). Every state-changing request carries an
+  `Origin` the server accepts (section 6).
 
 ## 4. Non-goals
 
@@ -152,35 +174,50 @@ engine.
 | an event the page does not know | shown generically; never a crash |
 | the contract is newer than the page | a blocking "restart" message, not partial rendering |
 | a health probe hangs | that item shows `unreachable` after its own timeout; the page stays responsive |
-| two pages are open | both read the same files; an action in one appears in the other |
+| two pages are open | both read the same files; an action in one appears in the other, through the server-wide stream of AC-05 |
+| `indaba ui` ends while a run is active | the run is stopped through the engine's teardown and recorded as `cancelled`; the next `indaba ui` shows it so (C-12) |
+| the confirmation of AC-22 is declined | nothing starts; the workflow stays runnable from the terminal as before |
 
 ## 6. Security and data handling
 
 The server is an authenticated way to start programs that change files, so it is treated as one. It listens on loopback
 only, requires a token in a header (not a cookie, so no cross-site request can carry it), checks `Host` and `Origin`
 (against DNS rebinding), and rejects methods it does not serve. The token is random per start and shown only to the
-person who started it.
+person who started it. The accepted `Host` values are `localhost`, `127.0.0.1` and `[::1]`, each with the server's own
+port; any other value is refused. Every request that changes anything must carry an `Origin` equal to the server's own
+address, and one without is refused. The threat to design against is a token that leaks, or a page open in another
+tab of the same browser: with the token an attacker can save a workflow and run it, and a run can execute a shell
+command (AC-22).
 
 - **Paths are identifiers.** The browser sends a workflow id from the registry, never a path. The server resolves it,
   confines it to a registered root, and refuses symbolic links that leave it. Import accepts a path only from the
-  command line or a native folder dialog the person opens, never from the page's own text field without confirmation of
-  the resolved folder.
+  command line (`--root`) or from a path typed into the page that the server resolves and shows back, and that the person
+  confirms. There is no native folder dialog: a page cannot hand a path to the server, and a dialog opened by the server
+  itself is outside this spec.
 - **Untrusted text.** Agent output, diffs, messages and workflow files are rendered as inert text (AC-16).
 - **Secrets.** Redaction happens on the server before serialisation; the page never receives environment values or
   tokens. The health report states presence only.
 - **Cross-origin.** No CORS header is sent; the page is served by the same origin as the API.
-- **Dependencies.** React, MUI, `apsw-gridwright-mui` (and its dependency), a graph library and a layout library are
-  runtime dependencies of `@indaba/web` only, each recorded, MIT-compatible with its tree checked, locked, with no
-  install scripts. `@indaba/server` adds none (`node:http`).
+- **Dependencies.** React, MUI, `apsw-gridwright-mui` (and its dependency `apsw-gridwright`), `@xyflow/react`, `dagre`,
+  `react-router` and `@tanstack/react-query` are runtime dependencies of `@indaba/web` only, each MIT-compatible with its
+  tree checked, locked, with no install scripts. Each is recorded in `project.runtime_dependencies` of `workflow.ai.yml`,
+  naming the package that loads it, in the change that adds it. `elkjs` is not a candidate: its licence is
+  `EPL-2.0 OR GPL-3.0-or-later`, not MIT. `@indaba/server` adds none (`node:http`).
 
 ## 7. Where it lives
 
-- `@indaba/core`: the registry contract (`specs/workflow-registry`); nothing else new for this spec.
-- `@indaba/engine`: the run view model and the event stream (existing, from `specs/tui`), reused unchanged.
+- `@indaba/core`: the registry contract (`specs/workflow-registry`), and the contract types the page and the server share,
+  as declarations only, with no runtime code and no `node:` import (C-04). Adding them is a minor.
+- `@indaba/engine`: the run view model (`RunState` and its parts, from `specs/tui`) and the event stream, reused
+  unchanged. Where the page needs the shape of one of them, the declaration moves to core and the engine re-exports it
+  (C-04).
 - `@indaba/server` (new): the local API, the event stream over files, the health report, static serving, the token and
-  header checks. Depends on `engine` and `core`; imports no UI package.
-- `@indaba/web` (new): the React application. Depends on nothing at run time but the contract types.
-- `indaba` (the CLI): `indaba ui`, loading `@indaba/server` lazily.
+  header checks. Depends on `engine` and `core`; imports no UI package. It does not register runners or plugins:
+  `indaba ui` passes it a function that starts a run (the composition root stays in `indaba`) and the folder of the
+  static files (`staticDir`).
+- `@indaba/web` (new): the React application. Depends at run time on nothing but the contract types of `@indaba/core`.
+- `indaba` (the CLI): `indaba ui`, loading `@indaba/server` lazily, as it loads `@indaba/tui`, so no static import
+  exists. Layers tests for `packages/server` and `packages/web` sit beside the existing ones (AC-01).
 - Contract: the HTTP+JSON+SSE API of `api-surface.md`. The terminal dashboard and the page are two clients of the
   engine's files; neither calls the other.
 
@@ -191,9 +228,11 @@ person who started it.
 All recommendations; the maintainer confirms.
 
 - **C-01. Stack.** React and TypeScript with Vite; MUI for components and theme; `apsw-gridwright-mui` for the
-  workflows table and the task list; `@xyflow/react` (React Flow) with a layout library (`dagre` or `elkjs`) for the
-  graph; React Router; TanStack Query for server state. No global store until a need shows up. Each is MIT, which is
-  checked together with its dependencies when the dependency is added, under the repository's open-source rule.
+  workflows table and the task list; `@xyflow/react` (React Flow) with `dagre` for the layout of the graph; React
+  Router; TanStack Query for server state. No global store until a need shows up. Each is MIT (the registry shows MIT for
+  all of them, and for `apsw-gridwright-mui` and `apsw-gridwright` at the top level); the dependency trees are checked
+  when each dependency is added, under the repository's open-source rule. `elkjs` was a candidate and is dropped: its
+  licence is `EPL-2.0 OR GPL-3.0-or-later`.
 - **C-02. The table component is the maintainer's own.** `apsw-gridwright-mui` is published under the maintainer's
   account, MIT, with peers on React, `@mui/material` and `apsw-gridwright`. The page is a first consumer, so a gap in
   the component is fixed in that project rather than worked around here, and the dependency is pinned to an exact
@@ -202,17 +241,25 @@ All recommendations; the maintainer confirms.
 - **C-03. Graph.** React Flow gives pan, zoom, selection and a node per step with state classes; the layout library is
   deterministic for a given workflow so the picture does not jump between runs. A loop (debate, review) is a badge and a
   self-edge on the node because adding nodes would make the picture disagree with the file.
-- **C-04. One run view model, two clients.** The dashboard's `RunViewModel` (`@indaba/engine`) is the source for both.
-  A field the page needs that the dashboard does not (the inspector's attributes with their sources) is added to a
-  separate `WorkflowView` type, so the dashboard's model does not grow for the page.
+- **C-04. One run view model, two clients, types in core.** The dashboard's `RunState` (`@indaba/engine`, with
+  `StepView`, `AttemptView` and `RunnerView`) is the source for both. A field the page needs that the dashboard does not
+  (the inspector's attributes with their sources) is added to a separate `WorkflowView` type, so the dashboard's model
+  does not grow for the page. The page may import no `node:` module and the engine has some, so the declarations the page
+  shares with the server live in `@indaba/core`, types only (decided by the maintainer on 2026-10-16): `WorkflowView`, its
+  `WorkflowStepView` (not `StepView`, which the engine already exports), `HealthReport`, the request and response types of
+  the API, and the data shape of `RunState` and its parts. The last move is the one to check at plan time: the
+  declarations of `packages/engine/src/trace/view.ts` import the record types of `records.ts` and `RunStatus` of
+  `trace-reader.ts`, and every declaration the page needs must be pure data before it moves; the engine then re-exports it,
+  so no import path breaks.
 - **C-05. State.** The page's own state is only what a person would expect to survive a reload: the open workflow, a
   filter and the sort. It lives in the URL. The workflow list is the registry (`specs/workflow-registry`); runs are the
   files.
 - **C-06. Reading by tailing, not by a database.** The server follows `.indaba/traces/*.jsonl` and
   `<traceId>.board.jsonl` and derives the stream. If that proves too slow with many runs, an index is a performance
   change under the same contract.
-- **C-07. Chat scope.** Phase 2 of the roadmap delivers questions and answers; free-form messages to a running agent
-  depend on `agent-conversation`. Until a runner declares it can take a message, the panel is shown as unavailable.
+- **C-07. Chat scope.** Phase 2 of the roadmap delivers questions and answers (`specs/ruling-channel`). Free-form messages
+  to a running agent have no specification: an earlier draft named `specs/agent-conversation`, and that directory does
+  not exist. Until a spec and a runner capability exist, the panel is shown as unavailable.
 - **C-08. Health is advisory.** It never blocks a run by itself; the run's own preflight does. The health view is where
   a person learns about it beforehand.
 - **C-09. Delivery in three steps.** (1) Read-only: Workflows, Workflow with the graph and inspector, Run with the live
@@ -222,6 +269,12 @@ All recommendations; the maintainer confirms.
   `AuthProvider`, a run API the page does not know is remote) are in `docs/hosted-service.md`; none of them changes
   this spec's acceptance criteria.
 - **C-11. Browsers.** The evergreen releases of the last two years.
+- **C-12. Runs end with `indaba ui`.** The recommendation is that the server is the owner of the runs it starts, so
+  ending it cancels them through the engine's teardown, as stopping a run from the page does, and the page tells the
+  person before the first Run. The alternative, runs that outlive the server in a process of their own, needs a
+  supervisor this spec does not describe. The confirmation of AC-22 is remembered per workflow and per hash of the file's
+  content, so an edit asks again; which hash, and where the answer is kept, is decided at plan time (the digest of
+  `specs/workflow-inputs` covers resolved inputs, not the file). Both choices are for the maintainer to confirm.
 
 ## Artifacts not written
 
