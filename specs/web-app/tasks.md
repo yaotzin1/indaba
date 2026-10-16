@@ -33,7 +33,8 @@ checkable. The slice and its limits are in `plan.md`.
   cost with "unknown" and partial marked (AC-19), reduced motion, keyboard and screen reader (AC-20), strings from a
   catalogue.
 - [ ] **T-09** The maintainer reviews three sketches (Runs, Run, and the page's empty and failure states) before T-08's
-  markup is final (AC-21 for this slice).
+  markup is final (AC-21 for this slice). Drafted in `sketches/` (2026-10-16) with six questions in its README; ticked when
+  the maintainer says they stand.
 - [ ] **T-10** Packaging: where the built page lives (inside `@indaba/server` or its own package), `files` and `exports`
   maps, the published-files audit, and the packed-install smoke test still boots `indaba` without either package.
 
