@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 6: Workflows</title>
+<link rel="stylesheet" href="sketch.css">
+</head>
+<body>
+<a class="skip" href="#workflows">Skip to the workflows</a>
+<header class="app">
+  <h1>Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html">Runs</a>
+    <a href="06-workflows.html" aria-current="page">Workflows</a>
+  </nav>
+  <span class="badge">Live: connected</span>
+</header>
+<main id="workflows">
+  <h2>Workflows</h2>
+  <div class="note"><b>Sketch 6 of 6. Not part of delivery step 1:</b> this is the home screen of the finished page (AC-06), and it needs the
+    registry of <code>specs/workflow-registry</code>, which does not exist yet. <b>Until it does, the page does not show a Workflows item at all</b>:
+    a menu entry with nothing behind it is a dead link, so step 1 shows only Runs. This screen is an <code>apsw-gridwright</code> grid. Opening a
+    workflow shows its graph with the settings of every step, read-only, with an Edit button that switches the same graph to
+    <a href="05-editor-later.html">edit mode</a>.</div>
+
+  <div class="toolbar" role="toolbar" aria-label="Actions on the selected workflow">
+    <label for="filter" class="muted">Search</label>
+    <input id="filter" type="search" placeholder="name, project or state">
+    <button type="button">New workflow</button>
+    <button type="button">Import a folder</button>
+    <span class="muted" role="status">1 selected:</span>
+    <button type="button">Copy to another project</button>
+    <button type="button">Remove from the list</button>
+    <span class="badge" style="margin-left:auto">Columns &#9662;</span>
+    <span class="badge">Density: comfortable &#9662;</span>
+  </div>
+
+  <div class="panel" style="overflow-x:auto">
+    <table>
+      <caption class="muted" style="text-align:left;padding-bottom:6px">Select a row to act on it; open a workflow by its name. Remove takes it off the list and never
+        deletes the file.</caption>
+      <thead>
+        <tr>
+          <th scope="col"><span class="muted">Select</span></th>
+          <th scope="col" aria-sort="ascending">Name <span aria-hidden="true">&#9650;</span></th>
+          <th scope="col" aria-sort="none">Project <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col" aria-sort="none">Last result <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col" class="num" aria-sort="none">Last cost <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col" aria-sort="none">Last run <span class="muted" aria-hidden="true">&#8693;</span></th>
+          <th scope="col">Health</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr aria-selected="true">
+          <td><input type="checkbox" checked aria-label="Select task-pipeline"></td>
+          <th scope="row"><a href="05-editor-later.html">task-pipeline</a></th>
+          <td>Indaba</td>
+          <td><span class="state running">&#9654; running</span></td>
+          <td class="num">at least $0.42 <span class="muted">(partial)</span></td>
+          <td>today 14:02</td>
+          <td><span class="state ok">&#10003; ready</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" aria-label="Select review-debate"></td>
+          <th scope="row"><a href="05-editor-later.html">review-debate</a></th>
+          <td>Indaba</td>
+          <td><span class="state escalated">&#9888; escalated</span></td>
+          <td class="num">$0.00 <span class="muted">(no model calls)</span></td>
+          <td>today 12:06</td>
+          <td><span class="state escalated">&#9888; 1 warning</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" aria-label="Select release-notes"></td>
+          <th scope="row"><a href="05-editor-later.html">release-notes</a></th>
+          <td>apsw-gridwright</td>
+          <td><span class="state completed">&#10003; completed</span></td>
+          <td class="num">unknown</td>
+          <td>yesterday 18:40</td>
+          <td><span class="state failed">&#10007; 1 missing</span></td>
+        </tr>
+        <tr>
+          <td><input type="checkbox" aria-label="Select nightly-audit"></td>
+          <th scope="row"><a href="05-editor-later.html">nightly-audit</a></th>
+          <td>apsw-gridwright</td>
+          <td><span class="state pending">&#9675; never run</span></td>
+          <td class="num muted">&ndash;</td>
+          <td class="muted">&ndash;</td>
+          <td><span class="state ok">&#10003; ready</span></td>
+        </tr>
+      </tbody>
+    </table>
+    <nav aria-label="Pages of workflows" class="toolbar" style="margin:10px 0 0">
+      <span class="muted">1&ndash;4 of 4</span>
+      <span class="badge" style="margin-left:auto">Rows per page: 25 &#9662;</span>
+      <span class="badge">&lsaquo; Previous</span>
+      <span class="badge" aria-current="page">1</span>
+      <span class="badge">Next &rsaquo;</span>
+    </nav>
+  </div>
+
+  <h3 style="margin-top:20px">What this screen shows</h3>
+  <ul>
+    <li><b>Health</b> says what is wrong before a run fails: a missing agent, a missing API key, an unreachable server, a container engine that is
+      not running. <b>1 missing</b> opens to the one thing to do (AC-14, AC-15; it needs <code>specs/agent-sandbox</code>).</li>
+    <li><b>Last result</b> and <b>Last cost</b> come from the latest run of that workflow, and read like the Runs screen (<code>unknown</code>,
+      <code>at least</code>, <code>no model calls</code>).</li>
+    <li><b>New workflow</b> opens the wizard of <code>specs/workflow-editor</code>; <b>Copy to another project</b> makes a draft for the editor;
+      <b>Import a folder</b> adds a folder to the places Indaba looks, and shows the resolved folder for confirmation first (spec section 6).</li>
+    <li>Every action that changes something is an explicit user action, and a destructive one names what will happen and asks (AC-13).</li>
+  </ul>
+</main>
+</body>
+</html>

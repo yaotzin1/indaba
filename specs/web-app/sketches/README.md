@@ -1,8 +1,8 @@
 # Sketches: the local web view, delivery step 1
 
-The five sketches AC-21 asks the maintainer to review before the page is built (task T-09 of `../tasks.md`). The first three are
-delivery step 1; the fourth shows what is possible with the data a run has today and with more; the fifth is a later view, shown
-now so the graph is built once. They are
+The six sketches AC-21 asks the maintainer to review before the page is built (task T-09 of `../tasks.md`). The first three are
+delivery step 1; the fourth shows what is possible with the data a run has today and with more; the fifth and sixth are later views (the editor, and the Workflows
+screen that opens it), shown now so the graph is built once and the navigation is honest. They are
 wireframes: structure, wording and state, not final style. Open the `.html` files in a browser; they use no script and no
 network, follow the system light or dark setting, and are filled with **sample data**, not a real run.
 
@@ -12,6 +12,7 @@ network, follow the system light or dark setting, and are filled with **sample d
 | [`02-run.html`](02-run.html) | One run: the graph of its steps, the step list, the cost, the attempts of a retried step, the output of the selected step |
 | [`04-discussion.html`](04-discussion.html) | The discussion of a debate step: today's summary from the trace, and the full thread (rounds, who said what, agreement, the arbiter's ruling) that needs more data |
 | [`05-editor-later.html`](05-editor-later.html) | Not step 1: the same graph as an editor, with a palette of bricks, a canvas and a settings panel |
+| [`06-workflows.html`](06-workflows.html) | Not step 1: the Workflows screen (a grid of workflows with last result, cost, health and the actions of AC-06) that opens the graph and the editor |
 | [`03-states.html`](03-states.html) | Empty and failure states: no runs, server stopped, token missing, stream dropped, half-written file, unknown event, long output, newer server, run not found, unknown cost, a phone at 320 px |
 
 `sketch.css` is shared by the three. Nothing here is shipped: the page itself is `@indaba/web` (T-07, T-08).
@@ -25,6 +26,8 @@ network, follow the system light or dark setting, and are filled with **sample d
   runs again, how many times, and whether the run then ends as escalated or failed (as `docs/workflow-format.md` defines them).
 - Tables are `apsw-gridwright` grids (sorting, selection and paging by default; search, column filters, column layout and
   density as add-ons). The steps of a run are rows, and a retried step opens to show its tries.
+- **No dead links.** Every sketch carries the same header, Runs and Workflows, and each leads somewhere. In delivery step 1 the real
+  page shows **only Runs**: a Workflows item appears with the registry (`specs/workflow-registry`), not before.
 - One graph component, a view mode now and an edit mode later (sketch 5), so the editor is not a second picture.
 - A message that blocks replaces the screen; it never shows part of it, and it says the one thing to do.
 - Text from a run is shown as plain text; the server has already dropped escape sequences and links (AC-16).

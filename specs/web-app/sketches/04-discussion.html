@@ -24,13 +24,16 @@
 <body>
 <header class="app">
   <h1>Indaba</h1>
-  <nav aria-label="Main"><a href="01-runs.html">Runs</a></nav>
+  <nav aria-label="Main">
+    <a href="01-runs.html" aria-current="page">Runs</a>
+    <a href="06-workflows.html">Workflows</a>
+  </nav>
   <span class="badge">Read-only</span>
 </header>
 <main>
   <p class="muted"><a href="02-run.html">&larr; Run</a></p>
   <h2>web_app_review <span class="state completed">&#10003; completed</span> <span class="badge">debate</span></h2>
-  <div class="note"><b>Sketch 4 of 5. The discussion of a debate step</b>, opened from the step's panel. The content is from a real run
+  <div class="note"><b>Sketch 4 of 6. The discussion of a debate step</b>, opened from the step's panel. The content is from a real run
     (the review of the web-app spec), shortened; the times are illustrative. <b>Two versions, because of what the data allows:</b> a run's trace records only the
     outcome and the number of rounds of a debate; the messages are in a transcript file named after the step, which the next run
     overwrites, so it cannot be tied to one run. The full thread needs <code>specs/run-blackboard</code> (a board file per run) or the
