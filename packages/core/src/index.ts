@@ -73,6 +73,23 @@ export { DEFAULT_TIMEOUT_SECONDS, RunResult, runnerChain } from './runner/index.
 export { matchesAny, matchesGlob } from './support/glob.js';
 export type { Clock, EventDispatcher, IdGenerator } from './support/index.js';
 export { SimpleEventDispatcher } from './support/index.js';
+export type {
+  ApiError,
+  AttemptView,
+  ContractResponse,
+  RunListResponse,
+  RunnerView,
+  RunResponse,
+  RunSnapshot,
+  RunState,
+  RunStatus,
+  RunStreamEvent,
+  RunSummary,
+  ServerStreamEvent,
+  SkippedRunnerView,
+  SpanOwner,
+  StepView,
+} from './web-contract/index.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {
   AgentSpec,

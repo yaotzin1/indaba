@@ -5,10 +5,10 @@ checkable. The slice and its limits are in `plan.md`.
 
 ## Domain
 
-- [ ] **T-01** Declare the contract types of this slice in `@indaba/core` (`web-contract/`): run summary, `ApiError`,
+- [x] **T-01** Declare the contract types of this slice in `@indaba/core` (`web-contract/`): run summary, `ApiError`,
   the responses of `GET /contract`, `GET /runs` and `GET /runs/{id}`, and the event envelope. Types only; `architecture.test.ts`
   stays green and a test asserts the module exports no value.
-- [ ] **T-02** Check whether `RunState`, `StepView`, `AttemptView`, `RunnerView`, `RunStatus` and `RunSummary` are pure
+- [x] **T-02** Check whether `RunState`, `StepView`, `AttemptView`, `RunnerView`, `RunStatus` and `RunSummary` are pure
   data, by reading what `view.ts`, `records.ts` and `trace-reader.ts` import. Record the answer in `plan.md`. If yes, move
   the declarations to core and re-export them from `@indaba/engine` (no import path breaks; a test imports each name from
   the engine). If no, keep them and declare the JSON shapes in T-01 instead.
