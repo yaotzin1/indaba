@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 2: Run</title>
+<link rel="stylesheet" href="sketch.css">
+</head>
+<body>
+<a class="skip" href="#graph">Skip to the graph</a>
+<header class="app">
+  <h1>Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html">Runs</a>
+  </nav>
+  <span class="badge">Read-only</span>
+  <span class="badge">Live: connected</span>
+</header>
+<main>
+  <p class="muted"><a href="01-runs.html">&larr; Runs</a></p>
+  <h2>task-pipeline <span class="state running">&#9654; running</span></h2>
+  <p class="muted">Started today 14:02 &middot; running for 6 min 12 s &middot; run <code>4dd7a436&hellip;</code></p>
+  <div class="note"><b>Sketch 2 of 3, sample data.</b> One run: the graph of its steps, the steps as a list, the cost, and the output
+    of the selected step. Built from the same <code>RunSnapshot</code> the terminal dashboard shows (US-11). Nothing here starts,
+    stops or changes a run: Run, Stop and the inspector arrive with later steps.</div>
+
+  <div class="layout">
+    <div>
+      <section class="panel graph" id="graph" aria-labelledby="graph-h" tabindex="0">
+        <h3 id="graph-h">Steps</h3>
+        <svg viewBox="0 0 860 175" role="img" aria-labelledby="graph-d">
+          <desc id="graph-d">Four steps from left to right. rfc is completed. code is completed. verify is running, attempt 2 of 3,
+            after one failure. debate_review is pending and waits for verify.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="currentColor" class="muted"/>
+            </marker>
+          </defs>
+          <path class="edge done" d="M190 90 H240" marker-end="url(#arrow)"/>
+          <path class="edge done" d="M430 90 H480" marker-end="url(#arrow)"/>
+          <path class="edge" d="M670 90 H690" marker-end="url(#arrow)"/>
+
+          <g class="node completed">
+            <rect x="20" y="50" width="170" height="80" rx="8"/>
+            <text x="34" y="76">rfc</text>
+            <text class="sub" x="34" y="94">openrouter</text>
+            <text x="34" y="116">&#10003; completed &middot; 41 s</text>
+          </g>
+          <g class="node completed">
+            <rect x="240" y="50" width="190" height="80" rx="8"/>
+            <text x="254" y="76">code</text>
+            <text class="sub" x="254" y="94">claude-code</text>
+            <text x="254" y="116">&#10003; completed &middot; 3 min 2 s</text>
+          </g>
+          <g class="node running selected">
+            <rect x="480" y="50" width="190" height="80" rx="8"/>
+            <text x="494" y="76">verify</text>
+            <text class="sub" x="494" y="94">shell</text>
+            <text x="494" y="116">&#9654; running &middot; 12 s</text>
+            <!-- a loop is a badge on the node, not extra nodes (C-03) -->
+            <rect x="494" y="134" width="150" height="22" rx="11" fill="none" stroke="currentColor" class="muted"/>
+            <text class="sub" x="506" y="149">&#8635; attempt 2 of 3 &middot; 1 failed</text>
+          </g>
+          <g class="node pending">
+            <rect x="690" y="50" width="160" height="80" rx="8"/>
+            <text x="704" y="76">debate_review</text>
+            <text class="sub" x="704" y="94">antigravity + claude</text>
+            <text x="704" y="116">&#9675; pending</text>
+          </g>
+        </svg>
+        <p class="muted" style="margin:8px 0 0">Select a step with the arrow keys or Tab; Enter shows its output below. Each node says what it
+          is in words; the border (solid for a finished step, dashed and moving for a running one, dotted for a waiting one) repeats it for people who cannot tell colours apart.</p>
+      </section>
+
+      <section class="panel" style="margin-top:16px" aria-labelledby="out-h">
+        <h3 id="out-h">Output of <code>verify</code> <span class="muted">(attempt 2 of 3, live)</span></h3>
+        <div class="note" style="margin-top:0">Shown as plain text. Escape sequences, control characters and links are dropped by the
+          server before they get here (AC-16).</div>
+        <pre aria-live="off">&gt; pnpm test
+ RUN  v4.1.11
+ ✓ packages/core/test/web-contract.test.ts (7 tests)
+ ✓ packages/server/test/server.test.ts (26 tests)
+ …
+<span class="muted">(waiting for more output)</span></pre>
+        <p class="muted" style="margin:8px 0 0"><a href="03-states.html#long-output">Open the full log</a> when the shown part is cut.</p>
+      </section>
+    </div>
+
+    <aside aria-label="About this run">
+      <section class="panel">
+        <h3>Steps</h3>
+        <ol class="tasks">
+          <li><span>rfc</span> <span><span class="state completed">&#10003; completed</span> 41 s</span></li>
+          <li><span>code</span> <span><span class="state completed">&#10003; completed</span> 3 min 2 s</span></li>
+          <li><span>verify</span> <span><span class="state running">&#9654; running</span> 12 s</span></li>
+          <li><span>debate_review</span> <span><span class="state pending">&#9675; pending</span></span></li>
+        </ol>
+      </section>
+      <section class="panel" style="margin-top:16px">
+        <h3>Cost</h3>
+        <dl class="facts">
+          <dt>So far</dt><dd><b>at least $0.42</b> <span class="muted">(partial)</span></dd>
+          <dt>Model calls</dt><dd>3 <span class="muted">(1 with no price)</span></dd>
+          <dt>Budget</dt><dd>no limit</dd>
+        </dl>
+        <p class="muted" style="margin:8px 0 0">A total that includes a call with no price says so. A step with no budget says
+          <b>no limit</b>, never zero (AC-19).</p>
+      </section>
+      <section class="panel" style="margin-top:16px">
+        <h3>Attempts of <code>verify</code></h3>
+        <ol class="tasks">
+          <li><span>attempt 1</span> <span><span class="state failed">&#10007; failed</span> 18 s</span></li>
+          <li><span>attempt 2</span> <span><span class="state running">&#9654; running</span> 12 s</span></li>
+        </ol>
+        <p class="muted" style="margin:8px 0 0">Attempt 1: <code>pnpm typecheck</code> exited with 2.</p>
+      </section>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

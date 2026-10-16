@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 1: Runs</title>
+<link rel="stylesheet" href="sketch.css">
+</head>
+<body>
+<a class="skip" href="#runs">Skip to the runs</a>
+<header class="app">
+  <h1>Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html" aria-current="page">Runs</a>
+  </nav>
+  <span class="badge" title="This page never starts or changes anything">Read-only</span>
+  <span class="badge" id="live">Live: connected</span>
+</header>
+<main id="runs">
+  <h2>Runs on this machine</h2>
+  <div class="note"><b>Sketch 1 of 3, sample data.</b> Delivery step 1: a list of runs, not of workflows (the registry is a later
+    step). Rows come from <code>GET /api/v1/runs</code>; the table updates from <code>GET /api/v1/events</code> without a reload.
+    The cost column needs a <code>cost</code> on <code>RunSummary</code>, which it does not have today (question 1 in the README).</div>
+
+  <div class="toolbar" role="search">
+    <label for="filter" class="muted">Filter</label>
+    <input id="filter" type="search" placeholder="workflow name or status">
+    <span class="muted" aria-live="polite">4 runs</span>
+  </div>
+
+  <div class="panel" style="overflow-x:auto">
+    <table>
+      <caption class="muted" style="text-align:left;padding-bottom:6px">Newest first. Select a run to see it.</caption>
+      <thead>
+        <tr>
+          <th scope="col">Workflow</th>
+          <th scope="col">State</th>
+          <th scope="col">Started</th>
+          <th scope="col" class="num">Cost</th>
+          <th scope="col">Run id</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <th scope="row"><a href="02-run.html">task-pipeline</a></th>
+          <td><span class="state running">&#9654; running</span></td>
+          <td>today 14:02</td>
+          <td class="num">at least $0.42 <span class="muted">(partial)</span></td>
+          <td><code>4dd7a436&hellip;</code></td>
+        </tr>
+        <tr>
+          <th scope="row"><a href="02-run.html">web-app-spec-review</a></th>
+          <td><span class="state completed">&#10003; completed</span></td>
+          <td>today 13:27</td>
+          <td class="num">unknown</td>
+          <td><code>efb82fc0&hellip;</code></td>
+        </tr>
+        <tr>
+          <th scope="row"><a href="02-run.html">dependency-map-debate</a></th>
+          <td><span class="state escalated">&#9888; escalated</span></td>
+          <td>today 12:06</td>
+          <td class="num">$0.00 <span class="muted">(no model calls)</span></td>
+          <td><code>4dd7a436&hellip;</code></td>
+        </tr>
+        <tr>
+          <th scope="row"><a href="02-run.html">(name not recorded)</a></th>
+          <td><span class="state unknown">? unknown</span></td>
+          <td class="muted">&ndash;</td>
+          <td class="num">unknown</td>
+          <td><code>09c1aa7e&hellip;</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3 style="margin-top:20px">What this screen shows</h3>
+  <ul>
+    <li>State is always a word and a symbol, never colour alone (AC-07, AC-20).</li>
+    <li>A cost that cannot be computed reads <b>unknown</b>; a total that includes one reads <b>at least</b> and
+      <b>(partial)</b>; a run with no model call reads <b>$0.00 (no model calls)</b> (AC-19).</li>
+    <li>A run that did not record its workflow name shows that, not an empty cell.</li>
+    <li>Rows are links; the whole screen works with the keyboard; the table scrolls sideways below 640 px instead of
+      cutting columns.</li>
+  </ul>
+</main>
+</body>
+</html>
