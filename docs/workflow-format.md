@@ -405,3 +405,9 @@ steps:
 `indaba run` ends with `completed`, `failed`, `escalated` or `cancelled`; the exit codes are 0, 1, 2 and
 130. Every step's state changes are printed, and the run is written as a trace under `.indaba/traces`
 (see [getting-started.md](getting-started.md)).
+
+When a run starts, its trace records the shape of the workflow: every step, in the order the engine runs them, with the
+steps it waits for (`depends_on`) and where a failure leads (`on_failure`). It is the `indaba.workflow.structure`
+attribute of the run's root span, one JSON string. A view can draw the whole graph from it before the later steps run,
+and it describes the run even if the workflow file changes afterwards. Runs recorded by an earlier version do not have
+it.

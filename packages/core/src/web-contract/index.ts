@@ -15,5 +15,7 @@ export type {
   RunSummary,
   SkippedRunnerView,
   SpanOwner,
+  StepFailureRoute,
+  StepStructure,
   StepView,
 } from './run.js';

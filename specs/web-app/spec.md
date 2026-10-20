@@ -280,8 +280,8 @@ All recommendations; the maintainer confirms.
   part of a paid edition is a product decision this spec does not make. React Flow (C-01) supports both modes.
 - **C-14. The graph needs the workflow's structure.** A run's trace records, for a step, only its id and attempt number. Which
   step waits for which (`depends_on`) and where a failure leads (`on_failure`) are in the workflow file, not in the trace, and the
-  trace names the workflow but not the file. Recommendation: the engine records both on each step's span when the run starts
-  (task T-20), so a run describes itself, an old run is still readable, and the page and the dashboard agree. A run recorded
+  trace names the workflow but not the file. Recommendation: the engine records both when the run starts
+  (task T-20), on the run's root span because a step's span exists only once it runs, so a run describes itself, an old run is still readable, and the page and the dashboard agree. A run recorded
   before the change shows its steps in order, with a note that its structure was not recorded.
 - **C-15. The discussion of a debate.** The trace holds a debate's outcome and number of rounds. The messages are in
   `.indaba/artifacts/<step>.transcript.md`, which the next run overwrites, so it cannot be tied to one run. The full discussion

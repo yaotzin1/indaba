@@ -1,5 +1,6 @@
 import type { AttemptView, RunnerView, RunState, RunStatus, SkippedRunnerView, StepView } from '@indaba/core';
 import type { RunRecord, SpanEndedRecord, SpanStartedRecord } from './records.js';
+import { readStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from './structure.js';
 
 export type { AttemptView, RunnerView, RunState, SkippedRunnerView, StepView };
 
@@ -29,6 +30,7 @@ export function emptyRun(): RunState {
     endedAt: undefined,
     lastAt: undefined,
     steps: [],
+    structure: undefined,
     cost: { usd: 0, unknown: 0, calls: 0 },
     notes: [],
     owners: {},
@@ -95,6 +97,7 @@ function startedSpan(state: RunState, record: SpanStartedRecord): RunState {
       traceId: record.traceId,
       taskId: text(record.attributes['indaba.task.id']),
       workflow: named,
+      structure: readStructure(record.attributes[WORKFLOW_STRUCTURE_ATTRIBUTE]),
       startedAt: record.at,
       status: 'running',
       owners: { ...base.owners, [record.spanId]: { kind: 'root', stepId: undefined } },

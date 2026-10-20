@@ -17,6 +17,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **A run records the shape of its workflow** (minor; track `feature`; spec `specs/web-app`, task T-20). When a run
+  starts, its root span gains `indaba.workflow.structure`: every step, in the order the engine runs them, with
+  `depends_on` and `on_failure`, as one JSON string. It is written once, on the root, because a step's own span exists
+  only when the step runs. New in `@indaba/core`: `RunState.structure`, `StepStructure` and `StepFailureRoute`. New in
+  `@indaba/engine`: `describeStructure`, `readStructure`, `WORKFLOW_STRUCTURE_ATTRIBUTE` and `MAX_STRUCTURE_STEPS`. The
+  reducer fills `structure` and leaves it `undefined` for an older run or a value it cannot trust; `steps`, the dashboard
+  and the plain output are unchanged.
 - **Every command keeps a log file** (minor; track `feature`; spec `specs/logging`). With no setup, `indaba
   validate`, `plan`, `run` and `watch` append JSON lines to `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in the
   project (for `run`, the one of `--workdir`): a `process.start` record (command name, Indaba, Node, platform and

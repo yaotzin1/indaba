@@ -28,6 +28,12 @@ export type {
 export { isRunId, parseRecord, serializeRecord } from './records.js';
 export type { Sanitizer } from './sanitize.js';
 export { createSanitizer, sanitize } from './sanitize.js';
+export {
+  describeStructure,
+  MAX_STRUCTURE_STEPS,
+  readStructure,
+  WORKFLOW_STRUCTURE_ATTRIBUTE,
+} from './structure.js';
 export type { RunStatus, RunSummary, TraceReaderOptions } from './trace-reader.js';
 export { summariseRun, TraceReader } from './trace-reader.js';
 export type {
