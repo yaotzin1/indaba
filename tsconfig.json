@@ -11,6 +11,7 @@
       "@indaba/server": ["packages/server/src/index.ts"]
     }
   },
+  "exclude": ["packages/web/**"],
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",

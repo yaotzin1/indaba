@@ -17,6 +17,8 @@ graph BT
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
     Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
     Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
+    Server["@indaba/server: the local server of indaba ui, read-only HTTP and SSE over the traces (optional)"]
+    Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
     Plugin["a third-party plugin"]
 
     Mesh --> Core
@@ -30,6 +32,10 @@ graph BT
     Cli --> Domain
     Cli -. "optional peer" .-> Tui
     Tui --> Engine
+    Server --> Engine
+    Server --> Domain
+    Web -. "types only, erased at build" .-> Domain
+    Server -. "serves the built files, no import" .-> Web
     Plugin --> Contracts
     Cli -. "loads at run time (--plugin)" .-> Plugin
 ```
@@ -47,7 +53,12 @@ engine or the CLI upward). Two more keep the edges at the top honest. `packages/
 allows only `node:`, its own files and `@indaba/core`, `@indaba/engine` and `@indaba/runners`; the CLI
 reaches `@indaba/tui` at run time, never by a static import. `packages/tui/test/layers.test.ts` allows
 only its own files and `@indaba/engine`, with `ink` and `react` in a single adapter file, and fails if
-core, engine or runners import the dashboard, or the CLI imports `ink`, `react` or a subpath of it. A new edge is a design question first
+core, engine or runners import the dashboard, or the CLI imports `ink`, `react` or a subpath of it.
+`packages/server/test/layers.test.ts` allows its own files, `node:*`, `@indaba/core` and `@indaba/engine`, and no UI
+package. `packages/web/test/layers.test.ts` allows its own files, the libraries it bundles (React, `apsw-gridwright`,
+`@xyflow/react`, `@dagrejs/dagre`, the fonts) and `import type` from `@indaba/core`, and no `node:` module; it fails if
+any other package imports the page. The page's libraries are build-time dependencies of a private package, so none of
+them enters a consumer's tree. A new edge is a design question first
 and a test change second.
 
 ## Progress
@@ -116,7 +127,7 @@ gantt
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
 | `logging` | Implemented, except the server's logging and the web Settings screen (T-10, T-12, with `web-app`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
-| `web-app` | Not started (specified) | `@indaba/server` (new), `@indaba/web` (new), `indaba` (`ui`) |
+| `web-app` | In progress: delivery step 1 has the server, the page (Runs and Run, read-only) and the run structure in the trace (T-20); `indaba ui` and its packaging are next | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server` (new), `@indaba/web` (new, private), `indaba` (`ui`, not yet) |
 | `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |

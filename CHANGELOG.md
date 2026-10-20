@@ -17,6 +17,15 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The page of `indaba ui`** (minor; track `feature`; spec `specs/web-app`, tasks T-07 and T-08). A new private
+  package, `@indaba/web`, built into static files for `@indaba/server` to serve: the runs on this machine in an
+  `apsw-gridwright` grid, and one run live, with its steps as a graph (React Flow, laid out left to right by
+  `@dagrejs/dagre`), the failure route drawn, every step selectable from the graph or the step list, what happened in
+  it and what happens if it fails, its tries and its output as plain text, and the cost with unknowns marked. Light
+  and dark themes that follow the system, keyboard and screen-reader use, and a phone at 320 px. The token is read
+  from the address fragment, removed from it and kept in memory; the event stream is read with `fetch` so it carries
+  the header, and resumes after a drop. It starts nothing and changes nothing. The page is not published on its own
+  and adds nothing to a consumer's dependencies; `indaba ui` (T-11) is what will serve it.
 - **A run records the shape of its workflow** (minor; track `feature`; spec `specs/web-app`, task T-20). When a run
   starts, its root span gains `indaba.workflow.structure`: every step, in the order the engine runs them, with
   `depends_on` and `on_failure`, as one JSON string. It is written once, on the root, because a step's own span exists

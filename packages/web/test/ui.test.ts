@@ -1,0 +1,352 @@
+// @vitest-environment happy-dom
+import type { RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { createElement as h } from 'react';
+import { afterEach, describe, expect, it } from 'vitest';
+import { ApiFailure, type Client, type Failure, type StreamHandlers } from '../src/client.js';
+import { buildGraph } from '../src/graph-model.js';
+import { App, type AppProps } from '../src/ui/App.js';
+import { StepCard } from '../src/ui/RunGraph.js';
+import { StepPanel } from '../src/ui/StepPanel.js';
+import { liveRun, runner, step, T } from './fixtures.js';
+
+afterEach(cleanup);
+
+const NOW = Date.parse(T(30));
+const clock = { now: () => NOW, timeZone: 'UTC' };
+
+interface FakeClient extends Client {
+  /** Pushes a snapshot to the open run stream, or a run event to the server stream. */
+  push(run: RunSnapshot): void;
+  announce(event: ServerStreamEvent): void;
+  state(state: 'live' | 'reconnecting' | 'ended'): void;
+  fail(failure: Failure): void;
+  runCalls: number;
+}
+
+function fakeClient(options: {
+  readonly runs?: readonly RunSummary[];
+  readonly run?: RunSnapshot | Failure;
+  readonly contract?: string | Failure;
+}): FakeClient {
+  let runHandlers: StreamHandlers<RunSnapshot> | undefined;
+  let serverHandlers: StreamHandlers<ServerStreamEvent> | undefined;
+  const client: FakeClient = {
+    runCalls: 0,
+    async contract() {
+      const c = options.contract ?? '1.0.0';
+      if (typeof c !== 'string') throw new ApiFailure(c);
+      return { contractVersion: c };
+    },
+    async runs() {
+      client.runCalls += 1;
+      return options.runs ?? [];
+    },
+    async run() {
+      const r = options.run ?? liveRun();
+      if ('kind' in r) throw new ApiFailure(r);
+      return r;
+    },
+    followRun(_id, handlers, signal) {
+      runHandlers = handlers;
+      handlers.onState('live');
+      return new Promise((resolve) => signal.addEventListener('abort', () => resolve()));
+    },
+    followServer(handlers, signal) {
+      serverHandlers = handlers;
+      handlers.onState('live');
+      return new Promise((resolve) => signal.addEventListener('abort', () => resolve()));
+    },
+    async stepLog() {
+      return '';
+    },
+    push: (run) => runHandlers?.onEvent(run),
+    announce: (event) => serverHandlers?.onEvent(event),
+    state: (state) => {
+      runHandlers?.onState(state);
+      serverHandlers?.onState(state);
+    },
+    fail: (failure) => {
+      runHandlers?.onFailure(failure);
+      serverHandlers?.onFailure(failure);
+    },
+  };
+  return client;
+}
+
+function appProps(
+  client: Client | undefined,
+  path = '/',
+  search = '',
+): AppProps & { readonly root: { dataset: DOMStringMap } } {
+  window.history.replaceState(null, '', `${path}${search}`);
+  return {
+    client,
+    clock,
+    win: window,
+    origin: 'http://127.0.0.1:4173',
+    root: { dataset: {} as DOMStringMap },
+    store: undefined,
+    tickMs: 60_000,
+  };
+}
+
+const RUNS: readonly RunSummary[] = [
+  { runId: 'older0000000000', startedAt: T(0), status: 'completed', workflow: 'release-notes' },
+  { runId: 'newer0000000000', startedAt: T(20), status: 'running', workflow: 'task-pipeline' },
+  { runId: 'nameless0000000', startedAt: T(10), status: 'escalated', workflow: undefined },
+];
+
+describe('the page without a usable token', () => {
+  it('says how to get the address, and shows nothing else', () => {
+    render(h(App, appProps(undefined)));
+    expect(screen.getByRole('alert').textContent).toContain('This page needs its address');
+    expect(screen.queryByRole('grid')).toBeNull();
+  });
+
+  it('blocks when the server refuses the token, speaks a newer contract, or has stopped', async () => {
+    for (const [failure, text] of [
+      [{ kind: 'unauthorized' }, 'needs its address'],
+      [{ kind: 'newer_contract' }, 'older than the server'],
+      [{ kind: 'unreachable' }, 'Nothing answers at http://127.0.0.1:4173'],
+      [{ kind: 'server', message: 'The server sent nonsense.' }, 'The server sent nonsense.'],
+    ] as const) {
+      render(h(App, appProps(fakeClient({ contract: failure }))));
+      await waitFor(() => expect(screen.getByRole('alert').textContent).toContain(text));
+      cleanup();
+    }
+  });
+});
+
+describe('the Runs screen', () => {
+  it('lists the runs newest first in a grid, each a link to its run', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    const grid = await screen.findByRole('grid', { name: 'Runs on this machine' });
+    const links = within(grid)
+      .getAllByRole('link')
+      .map((a) => a.textContent);
+    expect(links).toEqual(['task-pipeline', 'unnamed', 'release-notes']);
+    expect(within(grid).getByText('escalated')).toBeTruthy();
+    expect(screen.getByText('Live').className).toBe('badge live');
+  });
+
+  it('opens a run from its link, keeping the page, and goes back', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    const grid = await screen.findByRole('grid');
+    fireEvent.click(within(grid).getByText('task-pipeline'));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(window.location.pathname).toBe('/runs/newer0000000000');
+    fireEvent.click(screen.getByText('← Runs'));
+    await screen.findByRole('heading', { level: 2, name: 'Runs' });
+    expect(window.location.pathname).toBe('/');
+  });
+
+  it('opens a run by clicking its row', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    const grid = await screen.findByRole('grid');
+    const row = within(grid).getByText('release-notes').closest('tr');
+    if (row === null) throw new Error('no row');
+    fireEvent.click(row);
+    await waitFor(() => expect(window.location.pathname).toBe('/runs/older0000000000'));
+  });
+
+  it('reads the list again when the server says a run started', async () => {
+    const client = fakeClient({ runs: RUNS });
+    render(h(App, appProps(client)));
+    await screen.findByRole('grid');
+    expect(client.runCalls).toBe(1);
+    act(() => client.announce({ id: 1, kind: 'run_started', run: RUNS[0] as RunSummary }));
+    await waitFor(() => expect(client.runCalls).toBe(2));
+  });
+
+  it('says how to start a run when there is none', async () => {
+    render(h(App, appProps(fakeClient({ runs: [] }))));
+    expect((await screen.findByText('No runs yet')).tagName).toBe('H3');
+    expect(screen.getByText('indaba run workflow.yml')).toBeTruthy();
+  });
+
+  it('blocks when the list cannot be read for good', async () => {
+    const client = fakeClient({ runs: RUNS });
+    client.runs = async () => {
+      throw new ApiFailure({ kind: 'unauthorized' });
+    };
+    render(h(App, appProps(client)));
+    expect((await screen.findByRole('alert')).textContent).toContain('needs its address');
+  });
+});
+
+describe('the Run screen', () => {
+  it('shows the run, its cost with unknowns marked, and opens the running step', async () => {
+    render(h(App, appProps(fakeClient({}), '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(screen.getByText(/Started today 12:00, running for 30 s, run r1/)).toBeTruthy();
+    expect(screen.getByText('at least $0.21 (partial)')).toBeTruthy();
+    expect(screen.getByText('(1 with no price)')).toBeTruthy();
+    const panel = screen.getByRole('article');
+    expect(within(panel).getByRole('heading', { level: 3 }).textContent).toContain('verify');
+    expect(within(panel).getByText(/Up to 3 retries, 1 used/)).toBeTruthy();
+    expect(within(panel).getByText('pnpm typecheck exited with 2')).toBeTruthy();
+    expect(within(panel).getByText('Output (live)')).toBeTruthy();
+  });
+
+  it('selects a step from the step list and keeps it in the address', async () => {
+    render(h(App, appProps(fakeClient({}), '/runs/r1')));
+    const list = await screen.findByRole('treegrid', { name: /Steps of this run/ });
+    fireEvent.click(within(list).getByRole('button', { name: 'rfc' }));
+    await waitFor(() =>
+      expect(within(screen.getByRole('article')).getByRole('heading', { level: 3 }).textContent).toContain(
+        'rfc',
+      ),
+    );
+    expect(window.location.search).toBe('?step=rfc');
+    expect(screen.getByText('some/model')).toBeTruthy();
+  });
+
+  it('opens the step the address names', async () => {
+    render(h(App, appProps(fakeClient({}), '/runs/r1', '?step=review')));
+    const panel = await screen.findByRole('article');
+    expect(within(panel).getByText('Waits for verify.')).toBeTruthy();
+    expect(within(panel).getByText(/escalated at once/)).toBeTruthy();
+  });
+
+  it('follows the live stream, and greys the run out while reconnecting', async () => {
+    const client = fakeClient({});
+    const { container } = render(h(App, appProps(client, '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    act(() => client.state('reconnecting'));
+    expect(screen.getByText(/The connection dropped/)).toBeTruthy();
+    expect(container.querySelector('.stale')).not.toBeNull();
+    act(() => client.push(liveRun({ status: 'completed', endedAt: T(40) })));
+    act(() => client.state('ended'));
+    await screen.findByText(/took 40 s/);
+    expect(screen.queryByText(/The connection dropped/)).toBeNull();
+    expect(screen.getByText('Run ended')).toBeTruthy();
+  });
+
+  it('says a run is not found, from the first read or from the stream', async () => {
+    render(
+      h(
+        App,
+        appProps(fakeClient({ run: { kind: 'not_found', message: 'No run has this id.' } }), '/runs/gone'),
+      ),
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('Run not found');
+    cleanup();
+    const client = fakeClient({});
+    render(h(App, appProps(client, '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    act(() => client.fail({ kind: 'not_found', message: 'gone' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('Run not found');
+  });
+
+  it('blocks when the stream refuses the token', async () => {
+    const client = fakeClient({});
+    render(h(App, appProps(client, '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    act(() => client.fail({ kind: 'unauthorized' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('needs its address');
+  });
+
+  it('blocks when the first read fails for another reason', async () => {
+    render(h(App, appProps(fakeClient({ run: { kind: 'unreachable' } }), '/runs/r1')));
+    expect((await screen.findByRole('alert')).textContent).toContain('The server stopped');
+  });
+
+  it('says when a run did not record its structure, and lists what it could not read', async () => {
+    render(
+      h(
+        App,
+        appProps(
+          fakeClient({ run: liveRun({ structure: undefined, notes: ['line 4: not JSON'] }) }),
+          '/runs/r1',
+        ),
+      ),
+    );
+    expect(await screen.findByText(/recorded before Indaba wrote down/)).toBeTruthy();
+    expect(screen.getByText('line 4: not JSON')).toBeTruthy();
+    expect(screen.getByText(/did not record where a failure leads/)).toBeTruthy();
+  });
+
+  it('treats an address it does not know as the Runs screen', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }), '/no/such/place')));
+    expect(await screen.findByRole('heading', { level: 2, name: 'Runs' })).toBeTruthy();
+  });
+});
+
+describe('the theme switch', () => {
+  it('puts the chosen theme on the root and remembers it', async () => {
+    const map = new Map<string, string>();
+    const props = {
+      ...appProps(fakeClient({})),
+      store: {
+        getItem: (k: string) => map.get(k) ?? null,
+        setItem: (k: string, v: string) => void map.set(k, v),
+      },
+    };
+    render(h(App, props));
+    fireEvent.click(screen.getByLabelText('Dark'));
+    await waitFor(() => expect(props.root.dataset.theme).toBe('dark'));
+    expect(map.get('indaba.theme')).toBe('dark');
+    fireEvent.click(screen.getByLabelText('System'));
+    await waitFor(() => expect(props.root.dataset.theme).toBeUndefined());
+  });
+});
+
+describe('a step', () => {
+  const graph = buildGraph(liveRun());
+  const node = (id: string) => {
+    const found = graph.nodes.find((n) => n.id === id);
+    if (found === undefined) throw new Error(id);
+    return found;
+  };
+
+  it('shows the commands of a shell step with their exit codes', () => {
+    const shell = {
+      ...node('verify'),
+      step: step('verify', {
+        status: 'COMPLETED',
+        startedAt: T(0),
+        endedAt: T(2),
+        runners: [runner({ spanId: 'a', name: 'shell', operation: 'execute_tool', exitCode: 0 })],
+      }),
+    };
+    render(h(StepPanel, { node: shell, structureKnown: true, retriedBy: [], now: NOW }));
+    expect(screen.getByRole('columnheader', { name: 'Exit code' })).toBeTruthy();
+    expect(screen.getByText('Nothing yet.')).toBeTruthy();
+  });
+
+  it('shows agent output as text, never as markup (AC-16)', () => {
+    const hostile = `<img src=x onerror=${'alert'}(1)> <a href="javascript:void(0)">x</a>`;
+    const agent = {
+      ...node('code'),
+      step: step('code', {
+        status: 'COMPLETED',
+        output: [hostile],
+        outputTruncated: true,
+        consensus: { outcome: 'reached', rounds: 1 },
+        skipped: [{ runner: 'codex', reason: 'not installed' }],
+      }),
+    };
+    const { container } = render(
+      h(StepPanel, { node: agent, structureKnown: true, retriedBy: ['verify'], now: NOW }),
+    );
+    expect(container.querySelector('img')).toBeNull();
+    expect(container.querySelector('pre a')).toBeNull();
+    expect(container.querySelector('pre')?.textContent).toBe(hostile);
+    expect(screen.getByText('Only the last part is shown.')).toBeTruthy();
+    expect(screen.getByText('If verify fails, this step runs again.')).toBeTruthy();
+    expect(screen.getByText('The debate ended reached after 1 round.')).toBeTruthy();
+    expect(screen.getByText('Skipped codex: not installed')).toBeTruthy();
+    expect(screen.getByText('No runner has started for this step yet.')).toBeTruthy();
+  });
+
+  it('draws a card with a symbol, a word and the time, and marks the selected one', () => {
+    const { container } = render(
+      h(StepCard, { data: { node: node('verify'), selected: true, now: NOW, retriedBy: [] } }),
+    );
+    const card = container.querySelector('.step-card');
+    expect(card?.className).toBe('step-card running selected');
+    expect(card?.textContent).toContain('running, 20 s');
+    expect(card?.textContent).toContain('try 2, 1 failed');
+  });
+});
