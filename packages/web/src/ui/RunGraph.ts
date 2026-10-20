@@ -51,17 +51,28 @@ function elapsed(data: StepCardData): string | undefined {
   return stepTime(step, data.now);
 }
 
-/** How long a step took, or has been running; undefined before it starts. */
+/**
+ * How long the step's latest try took, or has been running: the earlier tries are in its history, and a time that
+ * spanned them all would read as one slow try. Undefined for a step that is waiting, including one reset to run again.
+ */
 export function stepTime(
   step: {
     readonly startedAt: string | undefined;
     readonly endedAt: string | undefined;
     readonly status: string;
+    readonly history?: readonly { readonly startedAt: string; readonly endedAt: string | undefined }[];
   },
   now: number,
 ): string | undefined {
-  const end = step.endedAt ?? (isActive(step.status) ? new Date(now).toISOString() : undefined);
-  const ms = between(step.startedAt, end);
+  if (step.status === 'PENDING') {
+    return undefined;
+  }
+  const latest = step.history?.at(-1);
+  const start = latest?.startedAt ?? step.startedAt;
+  const end =
+    (latest === undefined ? step.endedAt : latest.endedAt) ??
+    (isActive(step.status) ? new Date(now).toISOString() : undefined);
+  const ms = between(start, end);
   return ms === undefined ? undefined : formatDuration(ms);
 }
 
