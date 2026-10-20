@@ -19,7 +19,7 @@
   .graph a { cursor: pointer; }
   .graph a:hover rect { stroke-width: 4; }
   .graph a:focus-visible { outline: none; }
-  .graph a:focus-visible rect { outline: 3px solid var(--focus); outline-offset: 3px; }
+  .graph a:focus-visible rect { outline: 3px solid var(--brand); outline-offset: 3px; }
   .graph .edge.fail { stroke: var(--fail); stroke-dasharray: 7 4; stroke-width: 2; }
   .graph .fail-label { fill: var(--fail); font-size: 12px; }
   .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
@@ -37,18 +37,24 @@
 <body>
 <a class="skip" href="#graph">Skip to the graph</a>
 <header class="app">
-  <h1>Indaba</h1>
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
   <nav aria-label="Main">
     <a href="01-runs.html" aria-current="page">Runs</a>
     <a href="06-workflows.html">Workflows</a>
   </nav>
   <span class="badge">Read-only</span>
   <span class="badge">Live: connected</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
 </header>
 <main>
   <p class="muted"><a href="01-runs.html">&larr; Runs</a></p>
   <h2>task-pipeline <span class="state running">&#9654; running</span></h2>
-  <p class="muted">Started today 14:02 &middot; running for 6 min 12 s &middot; run <code>4dd7a436&hellip;</code></p>
+  <p class="muted">Started today 14:02, running for 6 min 12 s, run <code>4dd7a436&hellip;</code></p>
   <div class="note"><b>Sketch 2 of 6, sample data. Click a step</b> (in the graph or in the list) to see what happened in it and what happens
     if it fails. The graph is drawn from the workflow's structure: which step waits for which, and where a failure leads.
     <b>A run's trace does not record that structure today</b>, so this needs a small change in the engine (task T-20, question 7
@@ -74,14 +80,14 @@
           <path class="edge done" d="M430 88 H480" marker-end="url(#arrow)"/>
           <path class="edge" d="M670 88 H690" marker-end="url(#arrow)"/>
           <path class="edge fail" d="M575 136 C575 196 335 196 335 138" marker-end="url(#arrow-fail)"/>
-          <text class="fail-label" x="455" y="214" text-anchor="middle">if verify fails: run code again (then verify, debate_review) &middot; 1 of 3 used</text>
+          <text class="fail-label" x="455" y="214" text-anchor="middle">if verify fails: run code again (then verify, debate_review), 1 of 3 used</text>
 
           <a href="#insp-rfc" aria-label="rfc, completed. Show details.">
             <g class="node completed">
               <rect x="20" y="40" width="170" height="96" rx="8"/>
               <text x="34" y="66">rfc</text>
               <text class="sub" x="34" y="84">openrouter</text>
-              <text x="34" y="106">&#10003; completed &middot; 41 s</text>
+              <text x="34" y="106">&#10003; completed, 41 s</text>
             </g>
           </a>
           <a href="#insp-code" aria-label="code, completed. Show details.">
@@ -89,7 +95,7 @@
               <rect x="240" y="40" width="190" height="96" rx="8"/>
               <text x="254" y="66">code</text>
               <text class="sub" x="254" y="84">claude-code</text>
-              <text x="254" y="106">&#10003; completed &middot; 3 min 2 s</text>
+              <text x="254" y="106">&#10003; completed, 3 min 2 s</text>
               <text class="sub" x="254" y="124">will run again if verify fails</text>
             </g>
           </a>
@@ -98,8 +104,8 @@
               <rect x="480" y="40" width="190" height="96" rx="8"/>
               <text x="494" y="66">verify</text>
               <text class="sub" x="494" y="84">shell</text>
-              <text x="494" y="106">&#9654; running &middot; 12 s</text>
-              <text class="sub" x="494" y="124">&#8635; try 2 &middot; 1 failed</text>
+              <text x="494" y="106">&#9654; running, 12 s</text>
+              <text class="sub" x="494" y="124">&#8635; try 2, 1 failed</text>
             </g>
           </a>
           <a href="#insp-debate_review" aria-label="debate_review, pending. Show details.">
@@ -136,7 +142,7 @@
         </article>
 
         <article class="insp" id="insp-code" aria-labelledby="h-code">
-          <h3 id="h-code">code <span class="state completed">&#10003; completed</span> <span class="muted">3 min 2 s &middot; ran 1 time</span></h3>
+          <h3 id="h-code">code <span class="state completed">&#10003; completed</span> <span class="muted">3 min 2 s, ran 1 time</span></h3>
           <section>
             <h4>What happened</h4>
             <table class="small"><thead><tr><th scope="col">Runner</th><th scope="col">Model</th><th scope="col" class="num">Tokens in / out</th><th scope="col" class="num">Cost</th></tr></thead>
@@ -154,7 +160,7 @@ Changed 4 files.</pre></section>
         </article>
 
         <article class="insp" id="insp-verify" aria-labelledby="h-verify">
-          <h3 id="h-verify">verify <span class="state running">&#9654; running</span> <span class="muted">12 s &middot; try 2</span></h3>
+          <h3 id="h-verify">verify <span class="state running">&#9654; running</span> <span class="muted">12 s, try 2</span></h3>
           <section>
             <h4>What is happening</h4>
             <p>Running <code>pnpm test</code>, the first of two commands (<code>pnpm test</code>, <code>pnpm typecheck</code>). The first command that

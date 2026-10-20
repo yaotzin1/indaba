@@ -15,7 +15,25 @@ network, follow the system light or dark setting, and are filled with **sample d
 | [`06-workflows.html`](06-workflows.html) | Not step 1: the Workflows screen (a grid of workflows with last result, cost, health and the actions of AC-06) that opens the graph and the editor |
 | [`03-states.html`](03-states.html) | Empty and failure states: no runs, server stopped, token missing, stream dropped, half-written file, unknown event, long output, newer server, run not found, unknown cost, a phone at 320 px |
 
-`sketch.css` is shared by the three. Nothing here is shipped: the page itself is `@indaba/web` (T-07, T-08).
+`sketch.css` is shared by all six. Nothing here is shipped: the page itself is `@indaba/web` (T-07, T-08).
+
+## The look
+
+The sketches carry the intended look, not only the structure, in a light and a dark theme. They follow the system setting
+unless **Light** or **Dark** is picked in the header (three radio buttons and CSS `:has()`, so still no script; the choice
+does not carry to the next sketch, the real page keeps it).
+
+- **Accent: deep ochre** from the logo (`docs/assets/indaba-mark.svg`), `#8f4f12` on light and `#eab36a` on dark. It marks
+  the current page, focus, links, the primary button and the sketch notes, and is never a state.
+- **States** are a symbol and a word first; colour repeats them: completed green, running blue, failed red, pending grey,
+  and escalated **violet** (handed to a person), so it is not mistaken for the accent. Every text and state pair meets
+  WCAG 2.2 AA (5.1:1 or more) in both themes.
+- **Type: Atkinson Hyperlegible Next** for the interface and **Atkinson Hyperlegible Mono** for output and code (SIL
+  Open Font License), chosen for legibility (AC-20). `@indaba/web` bundles them; the sketches use them when installed and
+  fall back to the system's own sans otherwise.
+- **The graph sits on a dotted canvas**, the one decorative element; panels are flat, with no shadows, and the radius
+  falls with rank (region 12 px, item 8 px, chip 5 px).
+- Notes about a sketch have an ochre rule in the margin, so they are never read as part of the product.
 
 ## What the sketches commit to
 
