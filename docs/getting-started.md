@@ -232,6 +232,9 @@ shown as a symbol and a word, never by colour alone; `--ascii` avoids box and ar
 turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state.
 
+The same runs can be followed in a browser, as a graph with each step's details: see [web-view.md](web-view.md). It is
+in progress and opened from a checkout for now.
+
 ### Starting a run and watching it at once
 
 ```bash
