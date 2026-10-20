@@ -74,6 +74,27 @@ export interface StepView {
   readonly outputTruncated: boolean;
 }
 
+/** Where a step's failure leads, as the workflow declared it (`on_failure`). */
+export interface StepFailureRoute {
+  /** `retry_step`, `escalate` or `fail`. */
+  readonly action: string;
+  /** The step that runs again, for `retry_step`. */
+  readonly target: string | undefined;
+  readonly maxRetries: number;
+}
+
+/**
+ * One step of the workflow as the run recorded it when it started: what it waits for and where a failure leads. Known
+ * for every step, including those that have not run, so a view can draw the whole graph from the first moment.
+ */
+export interface StepStructure {
+  readonly id: string;
+  /** The steps it waits for (`depends_on`), in the order the workflow lists them. */
+  readonly dependsOn: readonly string[];
+  /** Undefined when the step sets no `on_failure` (a failure then ends the run as failed). */
+  readonly onFailure: StepFailureRoute | undefined;
+}
+
 /** What a span id belongs to; internal to the reducer that builds {@link RunState}. */
 export interface SpanOwner {
   readonly kind: 'root' | 'step' | 'runner' | 'other';
@@ -90,6 +111,12 @@ export interface RunState {
   /** The time of the latest record, for the elapsed time of a run that has not ended. */
   readonly lastAt: string | undefined;
   readonly steps: readonly StepView[];
+  /**
+   * The workflow's steps in the order the engine runs them, with their edges, as recorded when the run started.
+   * Undefined for a run recorded before Indaba wrote it, or when the record could not be read: a view then shows the
+   * steps in `steps` in order and says the structure is unknown.
+   */
+  readonly structure: readonly StepStructure[] | undefined;
   /** What the agent runs cost, where known. */
   readonly cost: { readonly usd: number; readonly unknown: number; readonly calls: number };
   /** Lines the view could not make sense of, newest last. */

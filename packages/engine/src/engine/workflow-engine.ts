@@ -18,6 +18,7 @@ import {
   StepStatus,
   StepStatusChanged,
 } from '@indaba/core';
+import { describeStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from '../trace/structure.js';
 import type { Workspace, WorkspaceManager } from '../workspace/workspace.js';
 import { type StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
 import type { StepExecutor } from './step-executor.js';
@@ -91,6 +92,7 @@ export class WorkflowEngine {
     const root = await this.tracer.startTrace(`indaba.task ${workflow.name}`, {
       'indaba.task.id': taskId,
       'indaba.workflow.name': workflow.name,
+      [WORKFLOW_STRUCTURE_ATTRIBUTE]: describeStructure(order),
     });
 
     let workspace: Workspace | undefined;

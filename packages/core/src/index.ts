@@ -88,6 +88,8 @@ export type {
   ServerStreamEvent,
   SkippedRunnerView,
   SpanOwner,
+  StepFailureRoute,
+  StepStructure,
   StepView,
 } from './web-contract/index.js';
 export { DagBuilder } from './workflow/dag-builder.js';

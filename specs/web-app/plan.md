@@ -64,7 +64,7 @@ and the option arrive with the first action. `ServerOptions` here is `{ roots, s
 | Risk | Mitigation |
 | :--- | :--- |
 | the declarations of `view.ts` import record types and `RunStatus`, so they may not be pure data | T-02 checks before anything moves; if one is not, the contract declares its own JSON shape and the server maps to it |
-| the trace records neither `depends_on` nor `on_failure`, so the graph has no edges and no failure route (C-14) | T-20 records both on each step's span in the engine before T-08; a run recorded earlier shows its steps in order with a note |
+| the trace records neither `depends_on` nor `on_failure`, so the graph has no edges and no failure route (C-14) | T-20 records both, on the run's root span when it starts, on each step's span in the engine before T-08; a run recorded earlier shows its steps in order with a note |
 | a debate's messages cannot be tied to one run (C-15) | the page shows the outcome and rounds from the trace and says the messages are unavailable; T-21 decides how a run keeps them |
 | a run id or step id from the URL reaches a path | ids are matched against `isRunId` and a fixed pattern before any path is built; the trace directory is the only root; hostile-input tests (T-12) |
 | the page shows secrets or terminal escape sequences from agent output | the server serialises through the engine's `createSanitizer` and the redaction the traces use; the page renders text only; a test with hostile strings built from fragments |

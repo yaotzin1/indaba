@@ -42,12 +42,15 @@ checkable. The slice and its limits are in `plan.md`.
 
 ## Engine, before T-08
 
-- [ ] **T-20** Record a run's structure in its trace (C-14). On each step's span, two new attributes: `indaba.step.depends_on` (the
-  ids of the steps it waits for, comma-separated) and `indaba.step.on_failure` (`retry_step:<target>:<max_retries>`,
-  `escalate` or `fail`). `StepView` gains `dependsOn` and `onFailure`, both `undefined` for a run recorded without them, in
-  `@indaba/core`'s `web-contract`; the reducer fills them; the dashboard ignores them. Adding attributes is a minor (no existing
-  attribute changes); record it in `api-surface.md`, `docs/workflow-format.md` ("What a run reports") and `CHANGELOG.md`. Tests:
-  a run with a retry and a run without `on_failure`, an old trace without the attributes, and the sanitizer on a hostile step id.
+- [x] **T-20** Record a run's structure in its trace (C-14). **Amended 2026-10-20:** a step's span exists only once the step
+  runs, so the structure is not on each step's span but on the run's root span when the run starts: one attribute,
+  `indaba.workflow.structure`, a JSON list of every step in the order the engine runs them, with `dependsOn` and `onFailure`
+  (`action`, `target`, `maxRetries`). The graph can then draw the steps that have not run yet. `RunState` gains
+  `structure` (`StepStructure`, `StepFailureRoute` in `@indaba/core`'s `web-contract`), filled by the reducer and left
+  `undefined` for a run recorded without it or with a value it cannot trust (all or nothing: a wrong edge is worse than none);
+  `steps` and the dashboard are unchanged. Writer and reader are one module, `packages/engine/src/trace/structure.ts`.
+  Adding an attribute and a field is a minor. Tests in `packages/engine/test/structure.test.ts`: a retry, an escalation and a
+  step with none, the engine's run order, an old trace, and nineteen malformed or hostile values.
 - [ ] **T-21** Decide how a run keeps its debate messages (C-15): the board of `specs/run-blackboard`, or the transcript copied
   under the run's trace id. Not needed for delivery step 1; until then the discussion shows the summary only.
 

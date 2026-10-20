@@ -108,7 +108,13 @@ All declared in `@indaba/core`, `web-contract`, with no runtime code:
 
 ## Workflow schema, CLI (other commands), events and attributes
 
-No change.
+No change to the workflow schema, the other commands or the events. **One span attribute is added** (task T-20, amended
+2026-10-20 in `tasks.md`): `indaba.workflow.structure` on the run's root span, written when the run starts, a JSON list of
+`{ id, dependsOn, onFailure?: { action, target?, maxRetries } }` in the order the engine runs the steps. With it,
+`RunState` (and so `RunSnapshot`) gains `structure: readonly StepStructure[] | undefined`, and `@indaba/core` gains the
+declarations `StepStructure` and `StepFailureRoute`; `@indaba/engine` gains `describeStructure`, `readStructure`,
+`WORKFLOW_STRUCTURE_ATTRIBUTE` and `MAX_STRUCTURE_STEPS`. Adding an attribute and a field is a minor; no existing
+attribute or field changes.
 
 ## Defaults introduced
 
