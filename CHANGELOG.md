@@ -25,7 +25,9 @@ port". The PHP prototype that preceded them was never published.
   and dark themes that follow the system, keyboard and screen-reader use, and a phone at 320 px. The token is read
   from the address fragment, removed from it and kept in memory; the event stream is read with `fetch` so it carries
   the header, and resumes after a drop. It starts nothing and changes nothing. The page is not published on its own
-  and adds nothing to a consumer's dependencies; `indaba ui` (T-11) is what will serve it.
+  and adds nothing to a consumer's dependencies; `indaba ui` (T-11) is what will serve it. Until then, `pnpm try:ui`
+  serves it from a checkout (`--demo` runs a small workflow with a retry first, with no agent or key). Documented in
+  `docs/web-view.md`, and for contributors in `docs/web-view-development.md`.
 - **A run records the shape of its workflow** (minor; track `feature`; spec `specs/web-app`, task T-20). When a run
   starts, its root span gains `indaba.workflow.structure`: every step, in the order the engine runs them, with
   `depends_on` and `on_failure`, as one JSON string. It is written once, on the root, because a step's own span exists

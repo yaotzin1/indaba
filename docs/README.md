@@ -14,6 +14,7 @@ The repository's main README is the tour; these are the parts that need more roo
 | [workflow-format.md](workflow-format.md) | You are writing a workflow file: every field, guards, retries, MCP servers, with examples |
 | [logging.md](logging.md) | You want to find what went wrong, change where logs go (`indaba.config`, Graylog, a collector), or report an issue with `indaba report` |
 | [extending.md](extending.md) | You want to add a runner, a guard type, an event listener or a log sink with a plugin |
+| [web-view.md](web-view.md) | You want to see your runs in a browser: opening the page, reading a run, what the states and costs mean, and how it keeps your work private |
 | [vision.md](vision.md) | You want the founding requirement: mission, modules, the runtime workflow contract. Kept verbatim, with a note on what the TypeScript port superseded |
 
 ## Two kinds of `workflow.ai.yml`
@@ -34,6 +35,7 @@ development workflow with Indaba itself is a possible future, not a current feat
 | [../CONTRIBUTING.md](../CONTRIBUTING.md) | You are setting up, or about to make your first change |
 | [development-workflow.md](development-workflow.md) | You want to understand the root `workflow.ai.yml`: its sections, what is enforced and what is guidance, the tracks, the gates, and how to change it |
 | [../AGENTS.md](../AGENTS.md) | You are an AI agent working in this repository |
+| [web-view-development.md](web-view-development.md) | You are changing the web view: its packages, the rules it keeps, theming, `apsw-gridwright` and React Flow, adding something it shows, tests |
 | [../specs/DEPENDENCY_MAP.md](../specs/DEPENDENCY_MAP.md) | You want to know which package depends on which |
 | [../specs/](../specs/) | You want to know why a feature is shaped as it is, and what it promises |
 | [../specs/typescript-port/](../specs/typescript-port/) | You want the contract of the packages as they are now |
