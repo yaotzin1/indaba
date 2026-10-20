@@ -26,17 +26,20 @@ checkable. The slice and its limits are in `plan.md`.
 - [x] **T-06** `GET /runs/{id}/events` as SSE, resumable with `Last-Event-ID` without a duplicate or a gap (AC-05), built
   on `TraceReader.follow`; `GET /runs/{id}/steps/{step}/log` bounded by a `Range` header; `GET /events` announcing runs
   started and ended, by polling the trace directory with an injected clock and interval.
-- [ ] **T-07** `packages/web`: Vite and React with TypeScript; fetch-streaming SSE with the header; the token read from
+- [x] **T-07** `packages/web`: Vite and React with TypeScript; fetch-streaming SSE with the header; the token read from
   the fragment, removed from the address, kept in memory. Imports `@indaba/core` types only and no `node:` module.
-- [ ] **T-08** The Runs screen (id, workflow name, status, started, cost) and the Run screen. Both tables are `apsw-gridwright`
+- [x] **T-08** The Runs screen (id, workflow name, status, started, cost) and the Run screen. Both tables are `apsw-gridwright`
   grids through `apsw-gridwright-mui` (C-02): the steps with their tries as child rows. The graph is one component with a view
   mode and an edit mode (C-13): React Flow and `dagre`, left to right, state colour and text label, the failure route drawn
   as its own edge, every step selectable. A selected step shows what happened (runners, models, tokens, cost, tools,
   permissions, guards, tries, output) and what happens if it fails. Cost with "unknown" and partial marked (AC-19), reduced
   motion, keyboard and screen reader (AC-20), strings from a catalogue.
-- [ ] **T-09** The maintainer reviews the sketches (Runs, Run, the empty and failure states, a debate's discussion, and the
+- [x] **T-09** The maintainer reviews the sketches (Runs, Run, the empty and failure states, a debate's discussion, and the
   Workflows screen and the editor as later views) before T-08's markup is final (AC-21 for this slice). Drafted in `sketches/` (2026-10-16, revised
-  2026-10-17) with questions in its README; ticked when the maintainer says they stand.
+  2026-10-17, themed 2026-10-20) with questions in its README. The maintainer approved the look on 2026-10-20 and asked for
+  the tables on `apsw-gridwright`; the open questions were taken as recommended (no cost column on Runs, a banner and greyed
+  `last known` states on a drop, one place for output, left to right with a readable zoom on a phone, "steps" everywhere,
+  the structure recorded in the trace, the debate summary only).
 - [ ] **T-10** Packaging: where the built page lives (inside `@indaba/server` or its own package), `files` and `exports`
   maps, the published-files audit, and the packed-install smoke test still boots `indaba` without either package.
 
@@ -79,9 +82,11 @@ checkable. The slice and its limits are in `plan.md`.
 
 - [ ] **T-16** `README.md`, `docs/` (a page for `indaba ui`) and `AGENTS.md` repository map (two packages).
 - [ ] **T-17** `CHANGELOG.md` entry under Unreleased: a minor, below 1.0, with the classification.
-- [ ] **T-18** `specs/DEPENDENCY_MAP.md`: the two packages, the core types and their edges, and the row for `web-app`.
-- [ ] **T-19** `workflow.ai.yml`: the new runtime dependencies in `project.runtime_dependencies`, each with the package
-  that loads it, and `scripts/check-workflow.mjs` passing (a `Workflow-Change:` trailer on the commit).
+- [x] **T-18** `specs/DEPENDENCY_MAP.md`: the two packages, the core types and their edges, and the row for `web-app`.
+- [x] **T-19** `workflow.ai.yml`: the new runtime dependencies in `project.runtime_dependencies`, each with the package
+  that loads it, and `scripts/check-workflow.mjs` passing (a `Workflow-Change:` trailer on the commit). **Done differently (2026-10-20):** the page's libraries are bundled
+  build-time dependencies of a private package, so `runtime_dependencies` is unchanged and `project.architecture` records
+  why (plan, "Decisions taken while building the page").
 
 ## Stage 7: Verification
 

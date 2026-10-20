@@ -76,6 +76,30 @@ and the option arrive with the first action. `ServerOptions` here is `{ roots, s
 
 The declarations of `view.ts` and `trace-reader.ts` the page needs are pure data: `RunState`, `StepView`, `AttemptView`, `RunnerView`, `SkippedRunnerView`, `RunStatus` and `RunSummary` import nothing but each other. They moved to `@indaba/core` (`web-contract/run.ts`) and the engine re-exports them, so no import path broke. `RunState.owners` is the reducer's own bookkeeping, so the page receives `RunSnapshot`, which is `RunState` without it. The stream sends a whole `RunSnapshot` per event, built by the reducer the dashboard uses, instead of raw records: the records and their parser stay in the engine, and a repeated or missed event cannot corrupt the page (`RunStreamEvent`).
 
+## Decisions taken while building the page (2026-10-20)
+
+- **The libraries are bundled, not installed.** `@indaba/web` is a private package; Vite builds it into static files
+  that `@indaba/server` serves. React, `apsw-gridwright`, `@xyflow/react`, `@dagrejs/dagre` and the Atkinson
+  Hyperlegible fonts are its `devDependencies`, so they reach a consumer as bundled files, never as packages in their
+  tree, and `project.runtime_dependencies` does not change. `workflow.ai.yml` says so in `project.architecture`.
+  Licences, checked with `npm view` when each was added: React, `apsw-gridwright` (no dependencies), `@xyflow/react`
+  (with `@xyflow/system`, `zustand`, `classcat`), `@dagrejs/dagre` (with `@dagrejs/graphlib`) are MIT; the `d3-*`
+  modules under `@xyflow/system` are ISC; the fonts are SIL OFL 1.1. Each is pinned to an exact version.
+- **`apsw-gridwright` without MUI** (amends C-01 and C-02 for this slice). The grids are `apsw-gridwright` themed
+  through its `--gw-*` properties, which map onto the page's own light and dark tokens. MUI and
+  `apsw-gridwright-mui` would add weight for nothing this slice draws; they can arrive with the editor if it needs
+  form components. The steps of a run use `treeData()` for their tries and `responsive()` on a narrow screen.
+- **No router or query library yet** (C-01 named React Router and TanStack Query). Two screens need a path parser of
+  forty lines (`ui/router.ts`) and a fetch client; both are tested. Revisit when the registry adds screens.
+- **React through `h()` in `.ts` files, as `@indaba/tui` does.** No JSX, so every gate that reads `.ts` (the security
+  audit, coverage, the typecheck) covers the page without a change to a gate. `tsconfig.json` leaves `packages/web` to
+  its own `tsconfig.json` (DOM types, no Node types), and `pnpm typecheck` runs both.
+- **The selection lives in the address** (`?step=`, C-05). The graph is controlled: React Flow reports what the
+  person did through `onNodesChange`, and the selection comes back from the address. Reading the canvas's own
+  selection back made the two chase each other in a loop, which a test now catches.
+- **A wide graph opens readable.** When the graph cannot fit at 0.8 zoom (a phone), it opens at 0.8 from the left
+  edge and the reader pans, instead of shrinking every card below reading size.
+
 ## Out of scope for this change
 
 Everything not in "The slice": the registry and its table, health, Run and Stop, single-step run, questions and

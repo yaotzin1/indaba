@@ -233,6 +233,8 @@ All recommendations; the maintainer confirms.
   all of them, and for `apsw-gridwright-mui` and `apsw-gridwright` at the top level); the dependency trees are checked
   when each dependency is added, under the repository's open-source rule. `elkjs` was a candidate and is dropped: its
   licence is `EPL-2.0 OR GPL-3.0-or-later`.
+  *Amended 2026-10-20 for delivery step 1 (plan, "Decisions taken while building the page"): no MUI, no router or query
+  library yet; `@dagrejs/dagre` (the maintained `dagre`); the libraries are bundled, not installed.*
 - **C-02. The table component is the maintainer's own.** `apsw-gridwright-mui` is published under the maintainer's
   account, MIT, with peers on React, `@mui/material` and `apsw-gridwright`. The page is a first consumer, so a gap in
   the component is fixed in that project rather than worked around here, and the dependency is pinned to an exact
