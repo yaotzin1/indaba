@@ -45,7 +45,7 @@ function CommandsTable(props: { readonly step: StepView }): ReactElement {
           'tr',
           null,
           h('th', { scope: 'col' }, messages.step.command),
-          h('th', { scope: 'col' }, messages.step.runner),
+          h('th', { scope: 'col', className: 'narrow-hide' }, messages.step.runner),
           h('th', { scope: 'col', className: 'num' }, messages.step.exitCode),
           h('th', { scope: 'col', className: 'num' }, messages.run.time),
         ),
@@ -59,7 +59,7 @@ function CommandsTable(props: { readonly step: StepView }): ReactElement {
             'tr',
             { key: runner.spanId },
             h('td', null, String(index + 1)),
-            h('td', null, runner.name),
+            h('td', { className: 'narrow-hide' }, runner.name),
             h('td', { className: 'num' }, runner.exitCode === undefined ? '–' : String(runner.exitCode)),
             h('td', { className: 'num' }, ms === undefined ? '–' : formatDuration(ms)),
           );
@@ -86,7 +86,7 @@ function RunnersTable(props: { readonly step: StepView }): ReactElement {
           'tr',
           null,
           h('th', { scope: 'col' }, messages.step.runner),
-          h('th', { scope: 'col' }, messages.step.model),
+          h('th', { scope: 'col', className: 'narrow-hide' }, messages.step.model),
           h('th', { scope: 'col', className: 'num' }, messages.step.tokens),
           h('th', { scope: 'col', className: 'num' }, messages.step.cost),
         ),
@@ -101,7 +101,7 @@ function RunnersTable(props: { readonly step: StepView }): ReactElement {
             h('td', null, runner.name),
             h(
               'td',
-              null,
+              { className: 'narrow-hide' },
               runner.operation === 'execute_tool' ? '–' : (runner.model ?? messages.step.notReported),
             ),
             h(
@@ -123,41 +123,29 @@ function RunnersTable(props: { readonly step: StepView }): ReactElement {
   );
 }
 
-function TriesTable(props: { readonly step: StepView }): ReactElement {
+/**
+ * The tries of a step, as a list: each try's result and time on one line, and why it failed under it. A reason can be
+ * long (a command's last output), so it gets the full width rather than a table column, on a phone as on a desktop.
+ */
+function TriesList(props: { readonly step: StepView }): ReactElement {
   return h(
-    'div',
-    { className: 'table-scroll' },
-    h(
-      'table',
-      { className: 'plain' },
-      h(
-        'thead',
-        null,
+    'ol',
+    { className: 'tries' },
+    ...props.step.history.map((attempt) => {
+      const ms = between(attempt.startedAt, attempt.endedAt);
+      return h(
+        'li',
+        { key: attempt.attempt },
         h(
-          'tr',
-          null,
-          h('th', { scope: 'col' }, messages.run.step),
-          h('th', { scope: 'col' }, messages.step.result),
-          h('th', { scope: 'col', className: 'num' }, messages.run.time),
-          h('th', { scope: 'col' }, messages.step.why),
+          'p',
+          { className: 'try-line' },
+          h('b', null, messages.run.tryLabel(attempt.attempt)),
+          h(StateChip, { look: stepLook(attempt.outcome) }),
+          h('span', { className: 'muted' }, ms === undefined ? '–' : formatDuration(ms)),
         ),
-      ),
-      h(
-        'tbody',
-        null,
-        ...props.step.history.map((attempt) => {
-          const ms = between(attempt.startedAt, attempt.endedAt);
-          return h(
-            'tr',
-            { key: attempt.attempt },
-            h('td', null, messages.run.tryLabel(attempt.attempt)),
-            h('td', null, h(StateChip, { look: stepLook(attempt.outcome) })),
-            h('td', { className: 'num' }, ms === undefined ? '–' : formatDuration(ms)),
-            h('td', null, attempt.reason ?? '–'),
-          );
-        }),
-      ),
-    ),
+        attempt.reason === undefined ? null : h('p', { className: 'try-reason' }, attempt.reason),
+      );
+    }),
   );
 }
 
@@ -263,7 +251,7 @@ export function StepPanel(props: StepPanelProps): ReactElement {
         : null,
     ),
     step !== undefined && step.history.length > 1
-      ? h(Section, { title: messages.step.tries }, h(TriesTable, { step }))
+      ? h(Section, { title: messages.step.tries }, h(TriesList, { step }))
       : null,
     h(
       Section,

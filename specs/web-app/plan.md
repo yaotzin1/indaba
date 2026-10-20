@@ -97,6 +97,11 @@ The declarations of `view.ts` and `trace-reader.ts` the page needs are pure data
 - **The selection lives in the address** (`?step=`, C-05). The graph is controlled: React Flow reports what the
   person did through `onNodesChange`, and the selection comes back from the address. Reading the canvas's own
   selection back made the two chase each other in a loop, which a test now catches.
+- **Reactive** (the maintainer, 2026-10-20): live without a reload, and usable at any width from 320 px. Checked in a
+  browser against a real run that retried, and at ten widths from 320 to 1920 px with no sideways scroll of the page.
+  The check found that a step's time spanned all its tries and that a long failure reason crushed the tries table on a
+  phone: a step now shows its latest try's time (none while it waits), and the tries are a list with the reason under
+  each.
 - **A wide graph opens readable.** When the graph cannot fit at 0.8 zoom (a phone), it opens at 0.8 from the left
   edge and the reader pans, instead of shrinking every card below reading size.
 

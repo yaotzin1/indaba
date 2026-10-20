@@ -102,6 +102,22 @@ The page keeps what a person expects to survive a reload in the address: the scr
 `navigate` from `ui/router.ts`; a step change replaces the history entry instead of adding one. The theme is the one
 thing in `localStorage`, read and written inside `try`, because storage can be blocked.
 
+### Reactive: live and any width
+
+The maintainer's standing requirement. **Live**: everything a run changes reaches the screen without a reload, through
+the streams (`followRun`, `followServer`); a component never fetches on a timer, and a new field shown from a run is
+read from the snapshot the stream delivers. **Any width**: from 320 px to a wide desktop, the page never scrolls sideways.
+A wide thing scrolls inside its own box (the graph pans, a table scrolls in `.table-scroll`), a grid uses `responsive()`,
+the least useful column of a table carries `narrow-hide`, and long text (a failure reason, output) wraps rather than
+widening a column. Check both before you say a change is done:
+
+```bash
+pnpm try:ui -- --root <a project with a run going>   # watch it move without reloading
+```
+
+and look at the page at 320, 375, 768 and 1440 px wide (a browser's device toolbar does it); in each,
+`document.documentElement.scrollWidth` must equal `clientWidth`.
+
 ### Colour never alone
 
 A state is a symbol and a word (`status.ts`); colour repeats them. A new state needs all three, in both themes.

@@ -238,6 +238,20 @@ describe('the graph of a run', () => {
     );
     expect(stepTime({ startedAt: T(0), endedAt: T(3), status: 'COMPLETED' }, Date.parse(T(41)))).toBe('3 s');
     expect(stepTime({ startedAt: undefined, endedAt: undefined, status: 'PENDING' }, 0)).toBeUndefined();
+    const retried = {
+      startedAt: T(0),
+      endedAt: T(20),
+      status: 'COMPLETED',
+      history: [attempt(1, 'FAILED', 0, 4), attempt(2, 'COMPLETED', 16, 20)],
+    };
+    expect(stepTime(retried, 0)).toBe('4 s');
+    expect(stepTime({ ...retried, status: 'PENDING' }, 0)).toBeUndefined();
+    expect(
+      stepTime(
+        { ...retried, status: 'RUNNING', history: [attempt(1, 'FAILED', 0, 4), attempt(2, 'RUNNING', 16)] },
+        Date.parse(T(30)),
+      ),
+    ).toBe('14 s');
   });
 
   it('opens the running step first, else the last that failed, else the first', () => {
@@ -254,8 +268,8 @@ describe('the graph of a run', () => {
     const rows = stepRows(buildGraph(liveRun()).nodes, Date.parse(T(30)));
     expect(rows.map((r) => [r.label, r.look.word, r.time])).toEqual([
       ['rfc', 'completed', '4 s'],
-      ['code', 'completed', '15 s'],
-      ['verify', 'running', '20 s'],
+      ['code', 'completed', '5 s'],
+      ['verify', 'running', '9 s'],
       ['review', 'pending', '–'],
     ]);
     expect(rows[2]?.children?.map((r) => [r.label, r.look.word, r.time])).toEqual([

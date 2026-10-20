@@ -704,7 +704,39 @@ body .gw-root.ix-grid {
   opacity: 0.75;
 }
 
+ol.tries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ol.tries li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+ol.tries li:last-child {
+  border-bottom: 0;
+}
+.try-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0;
+}
+.try-reason {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  max-width: 78ch;
+}
+
 /* ---------- Narrow screens ---------- */
+@media (max-width: 480px) {
+  .narrow-hide {
+    display: none;
+  }
+}
 @media (max-width: 640px) {
   header.app {
     padding: 10px 16px;

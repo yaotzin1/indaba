@@ -346,7 +346,7 @@ describe('a step', () => {
     );
     const card = container.querySelector('.step-card');
     expect(card?.className).toBe('step-card running selected');
-    expect(card?.textContent).toContain('running, 20 s');
+    expect(card?.textContent).toContain('running, 9 s');
     expect(card?.textContent).toContain('try 2, 1 failed');
   });
 });
