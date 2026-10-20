@@ -10,25 +10,31 @@
   @media (max-width: 1000px) { .studio { grid-template-columns: minmax(0, 1fr); } }
   .brick { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; cursor: grab; }
   .brick small { display: block; color: var(--muted); }
-  .palette h4 { margin: 12px 0 6px; font-size: 0.8rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
-  .drop { fill: none; stroke: var(--focus); stroke-width: 2; stroke-dasharray: 5 4; }
+  .palette h4 { margin: 12px 0 6px; font-size: 0.8rem; color: var(--muted); }
+  .drop { fill: none; stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; }
   .field { display: block; margin-bottom: 8px; }
   .field span { display: block; font-size: 0.8rem; color: var(--muted); }
   .field input, .field select, .field textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
   .problems { border: 1px solid var(--ok); background: var(--ok-bg); border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; }
   .graph .node rect { fill: var(--panel); }
   .graph .edge.fail { stroke: var(--fail); stroke-dasharray: 7 4; stroke-width: 2; }
-  .graph .handle { fill: var(--focus); }
+  .graph .handle { fill: var(--brand); }
 </style>
 </head>
 <body>
 <header class="app">
-  <h1>Indaba</h1>
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
   <nav aria-label="Main">
     <a href="01-runs.html">Runs</a>
     <a href="06-workflows.html" aria-current="page">Workflows</a>
   </nav>
   <span class="badge">Editing: task-pipeline</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
 </header>
 <main style="max-width:1400px">
   <h2>Design a workflow by arranging bricks</h2>
@@ -72,7 +78,7 @@
         <text x="455" y="212" text-anchor="middle" style="fill:var(--fail);font-size:12px">on failure: retry code, up to 3</text>
         <g class="node pending"><rect x="20" y="40" width="170" height="96" rx="8"/><text x="34" y="66">rfc</text><text class="sub" x="34" y="84">openrouter</text><text class="sub" x="34" y="106">guard: git_diff_empty</text></g>
         <g class="node pending"><rect x="240" y="40" width="190" height="96" rx="8"/><text x="254" y="66">code</text><text class="sub" x="254" y="84">claude-code</text><text class="sub" x="254" y="106">isolation: git worktree</text></g>
-        <g class="node pending selected"><rect x="480" y="40" width="190" height="96" rx="8" style="stroke:var(--focus)"/><text x="494" y="66">verify</text><text class="sub" x="494" y="84">shell</text><text class="sub" x="494" y="106">2 commands</text>
+        <g class="node pending selected"><rect x="480" y="40" width="190" height="96" rx="8" style="stroke:var(--brand)"/><text x="494" y="66">verify</text><text class="sub" x="494" y="84">shell</text><text class="sub" x="494" y="106">2 commands</text>
           <circle class="handle" cx="670" cy="88" r="6"/><circle class="handle" cx="575" cy="136" r="6"/></g>
         <g class="node pending"><rect x="690" y="40" width="170" height="96" rx="8"/><text x="704" y="66">debate_review</text><text class="sub" x="704" y="84">debate</text><text class="sub" x="704" y="106">antigravity + claude</text></g>
         <!-- a brick being dragged from the palette: a new step may land here -->

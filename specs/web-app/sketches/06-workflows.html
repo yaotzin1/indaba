@@ -9,12 +9,18 @@
 <body>
 <a class="skip" href="#workflows">Skip to the workflows</a>
 <header class="app">
-  <h1>Indaba</h1>
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
   <nav aria-label="Main">
     <a href="01-runs.html">Runs</a>
     <a href="06-workflows.html" aria-current="page">Workflows</a>
   </nav>
   <span class="badge">Live: connected</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
 </header>
 <main id="workflows">
   <h2>Workflows</h2>
@@ -27,7 +33,7 @@
   <div class="toolbar" role="toolbar" aria-label="Actions on the selected workflow">
     <label for="filter" class="muted">Search</label>
     <input id="filter" type="search" placeholder="name, project or state">
-    <button type="button">New workflow</button>
+    <button type="button" class="primary">New workflow</button>
     <button type="button">Import a folder</button>
     <span class="muted" role="status">1 selected:</span>
     <button type="button">Copy to another project</button>
