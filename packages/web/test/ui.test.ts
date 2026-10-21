@@ -237,6 +237,32 @@ describe('the Run screen', () => {
     );
   });
 
+  it('says a call still running has no cost yet, and counts it apart', async () => {
+    const run = liveRun({
+      steps: [
+        step('debate', {
+          status: 'RUNNING',
+          runners: [runner({ spanId: 'live', endedAt: undefined })],
+        }),
+        step('review', {
+          status: 'RUNNING',
+          runners: [runner({ spanId: 'done', costUsd: 0.5 }), runner({ spanId: 'next', endedAt: undefined })],
+        }),
+      ],
+      structure: undefined,
+    });
+    render(h(App, appProps(fakeClient({ run }), '/runs/r1')));
+    const table = await screen.findByRole('grid', { name: 'The cost of each step that called a model' });
+    const rows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.textContent);
+    expect(rows).toEqual([
+      'debate0 (1 still running)' + 'unknown / unknown' + 'unknown',
+      'review1 (1 still running)' + 'unknown / unknown' + '$0.50',
+    ]);
+  });
+
   it('says when no step has called a model', async () => {
     const run = liveRun({
       steps: [step('lint', { status: 'COMPLETED' })],
@@ -569,5 +595,71 @@ describe('text from a run that attacks the page (T-12)', () => {
       expect(link.getAttribute('href') ?? '').not.toContain(scriptUrl);
     }
     expect(container.innerHTML).not.toContain('src="x"');
+  });
+});
+
+describe('a run with every state, a step that retries itself and records the page cannot read (T-13)', () => {
+  const states = [
+    'COMPLETED',
+    'RUNNING',
+    'VALIDATING',
+    'FAILED',
+    'ESCALATED',
+    'CANCELLED',
+    'PENDING',
+    'REWOUND',
+  ];
+  const words = [
+    'completed',
+    'running',
+    'checking',
+    'failed',
+    'escalated',
+    'cancelled',
+    'pending',
+    'unknown',
+  ];
+  const ids = states.map((s) => s.toLowerCase());
+  const run = liveRun({
+    status: 'running',
+    structure: ids.map((id, i) => ({
+      id,
+      dependsOn: i === 0 ? [] : [ids[i - 1] as string],
+      onFailure: id === 'failed' ? { action: 'retry_step', target: 'failed', maxRetries: 2 } : undefined,
+    })),
+    steps: states.map((status, i) =>
+      step(ids[i] as string, {
+        status,
+        attempts: status === 'FAILED' ? 2 : 1,
+        history:
+          status === 'FAILED'
+            ? [attempt(1, 'FAILED', 0, 1, 'first'), attempt(2, 'FAILED', 2, 3, 'second')]
+            : [attempt(1, status, 0, 1)],
+      }),
+    ),
+    notes: ['a record of a kind this view does not know: future_event'],
+  });
+
+  it('names every state in words in the step list, the unknown one as unknown', async () => {
+    render(h(App, appProps(fakeClient({ run }), '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    const grid = screen.getByLabelText('Steps of this run. Select a step to open it.');
+    for (const word of words) {
+      expect(within(grid).getAllByText(word).length, word).toBeGreaterThan(0);
+    }
+  });
+
+  it('draws the loop of a step that retries itself, with the retries it used', () => {
+    const graph = buildGraph(run);
+    expect(graph.edges.filter((e) => e.kind === 'failure')).toEqual([
+      expect.objectContaining({ source: 'failed', target: 'failed', retries: { used: 2, max: 2 } }),
+    ]);
+    expect(graph.nodes.map((n) => n.id)).toEqual(ids);
+  });
+
+  it('lists what it could not read as plain notes instead of failing', async () => {
+    render(h(App, appProps(fakeClient({ run }), '/runs/r1')));
+    expect(await screen.findByText('Records this page could not read')).toBeTruthy();
+    expect(screen.getByText('a record of a kind this view does not know: future_event').tagName).toBe('LI');
   });
 });
