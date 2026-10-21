@@ -58,6 +58,8 @@ export const messages = {
     callsWithNoPrice: (n: number): string => `${n} with no price`,
     costTableLabel: 'The cost of each step that called a model',
     calls: 'Calls',
+    tokens: 'Tokens',
+    tokensInOut: (input: string, output: string): string => `${input} in, ${output} out`,
     callsRunning: (n: number): string => `${n} still running`,
     noModelCalls: 'No step of this run has called a model.',
     budget: 'Budget',

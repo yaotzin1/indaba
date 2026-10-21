@@ -635,6 +635,8 @@ body .gw-root.ix-grid {
   font-weight: 600;
   margin-top: auto;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .step-card.completed {
   border-color: var(--ok);

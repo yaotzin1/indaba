@@ -172,3 +172,29 @@ pnpm audit --audit-level low           No known vulnerabilities found
 **Not done in this round:** a manual run in a browser (the page's changes are covered by tests in happy-dom only); the
 runs on Windows and macOS (CI runs them); `@indaba/server` in `.github/workflows/release.yml`, which needs its npm
 trusted publisher configured by the maintainer first; T-16 and the rest of T-17.
+
+## Browser check, 2026-10-21
+
+Chromium 141 (Playwright's build, headless) on Linux, against the built `indaba ui --no-open` over a project with three
+runs written by the built `indaba run`: shell steps with a retry, a plugin agent whose calls report a model and tokens
+(two priced, one not), and a run still going. Checked at 1280 px in the light and dark themes and at 375 px:
+
+- the Runs grid with its Cost column (`at least $0.17 (partial)`, `$0.00 (no model calls)`) and the tooltip
+  (`3 model calls, 1 with no price`); the token gone from the address after load;
+- the Run screen's cost table: its rows (`$0.06`, `unknown`, `$0.11`) add up to the total; the graph left to right
+  on a wide screen and top to bottom at 375 px, with no sideways scroll of the page;
+- stopping the server while following the live run: every state and card says `last known`, and after the attempts run
+  out the header says `Server stopped` with the `Check again` banner;
+- no console error and no page error in any of it.
+
+**Found and fixed in the same change:**
+
+- Opening a run from its link pushed two identical history entries (the link and the row both navigate), so Back took
+  two presses. `navigate` now replaces instead of pushing when the address would not change; a test fails without it.
+- On a phone a card's state line clipped `last known` with no ellipsis. It moved to the card's last line, and every
+  line of a card ends in an ellipsis with the full text on hover.
+- The cost table never showed its tokens column (the side panel is narrower than its 420 px threshold) and, once shown,
+  was wider than the panel. The header is now `Tokens` with `in` and `out` given per cell to a screen reader and on hover,
+  and the column hides only below 334 px, where the step's panel still has the tokens.
+
+Not checked: Firefox and Safari, a screen reader, and Windows and macOS (CI runs the tests there, not a browser).

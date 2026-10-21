@@ -77,7 +77,9 @@ export function useRoute(win: Navigator): readonly [Route, Navigate] {
   const navigate = useCallback<Navigate>(
     (next, options) => {
       const href = hrefOf(next);
-      if (options?.replace === true) {
+      // Going where the page already is adds no history entry: a link inside a clickable row fires both, and Back
+      // would otherwise need two presses to leave a run.
+      if (options?.replace === true || href === `${win.location.pathname}${win.location.search}`) {
         win.history.replaceState(null, '', href);
       } else {
         win.history.pushState(null, '', href);

@@ -92,18 +92,25 @@ export function StepCard(props: { readonly data: StepCardData }): ReactElement {
   const { runner, note } = cardLines(data);
   const time = elapsed(data);
   const stale = useStale();
+  const state = `${look.word}${time === undefined ? '' : `, ${time}`}`;
+  // While the stream is down the card says so on its last line, which has room on a phone where the state line has not.
+  const last = stale
+    ? note === undefined
+      ? messages.state.lastKnown
+      : `${messages.state.lastKnown} · ${note}`
+    : note;
   return h(
     'div',
     { className: `step-card ${look.tone}${data.selected ? ' selected' : ''}` },
-    h('span', { className: 'name' }, data.node.id),
+    h('span', { className: 'name', title: data.node.id }, data.node.id),
     h('span', { className: 'sub' }, runner === '' ? ' ' : runner),
     h(
       'span',
-      { className: 'line' },
+      { className: 'line', title: state },
       h('span', { className: look.tone, 'aria-hidden': true }, look.symbol),
-      ` ${look.word}${time === undefined ? '' : `, ${time}`}${stale ? `, ${messages.state.lastKnown}` : ''}`,
+      ` ${state}`,
     ),
-    h('span', { className: 'sub' }, note ?? ' '),
+    h('span', { className: stale ? 'sub last-known' : 'sub', title: last }, last ?? ' '),
   );
 }
 
