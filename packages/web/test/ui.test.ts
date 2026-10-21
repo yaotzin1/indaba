@@ -8,7 +8,7 @@ import { buildGraph } from '../src/graph-model.js';
 import { App, type AppProps } from '../src/ui/App.js';
 import { StepCard } from '../src/ui/RunGraph.js';
 import { StepPanel } from '../src/ui/StepPanel.js';
-import { liveRun, runner, step, T } from './fixtures.js';
+import { attempt, liveRun, runner, step, T } from './fixtures.js';
 
 afterEach(cleanup);
 
@@ -518,5 +518,56 @@ describe('the discussion of a debate step', () => {
     render(h(App, appProps(client, '/runs/r1', '?step=rfc')));
     fireEvent.click(await screen.findByRole('button', { name: 'Show the discussion' }));
     expect(await screen.findByText('Round 1')).toBeTruthy();
+  });
+});
+
+describe('text from a run that attacks the page (T-12)', () => {
+  const markup = `<img src=x on${'error'}=alert(1)><${'script'}>alert(2)</${'script'}>`;
+  const scriptUrl = ['java', 'script', ':alert(3)'].join('');
+  /** Any element the page did not put there itself: the logo is its only image. */
+  const FOREIGN = 'img:not([src="/indaba-mark.svg"]), script, iframe, object, embed';
+
+  it('a workflow name and a run id stay text, and every link stays inside the page', async () => {
+    const runs: readonly RunSummary[] = [
+      {
+        runId: scriptUrl,
+        startedAt: T(0),
+        status: 'failed',
+        workflow: markup,
+        cost: { usd: 0, unknown: 0, calls: 0 },
+      },
+    ];
+    const { container } = render(h(App, appProps(fakeClient({ runs }))));
+    const grid = await screen.findByRole('grid');
+    expect(within(grid).getByText(markup).tagName).toBe('A');
+    expect(container.querySelector(FOREIGN)).toBeNull();
+    for (const link of Array.from(container.querySelectorAll('a'))) {
+      const href = link.getAttribute('href') ?? '';
+      expect(href.startsWith('/') || href.startsWith('#')).toBe(true);
+    }
+  });
+
+  it('output, a failure reason and a runner name are shown as text, never as markup or a live link', async () => {
+    const run = liveRun({
+      steps: [
+        step('verify', {
+          status: 'FAILED',
+          attempts: 1,
+          reason: markup,
+          history: [attempt(1, 'FAILED', 0, 3, markup)],
+          runners: [runner({ spanId: 's9', name: markup, model: scriptUrl })],
+          output: [markup, `[open](${scriptUrl})`, scriptUrl],
+        }),
+      ],
+      structure: undefined,
+    });
+    const { container } = render(h(App, appProps(fakeClient({ run }), '/runs/r1', '?step=verify')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(screen.getAllByText(markup, { exact: false }).length).toBeGreaterThan(0);
+    expect(container.querySelector(FOREIGN)).toBeNull();
+    for (const link of Array.from(container.querySelectorAll('a'))) {
+      expect(link.getAttribute('href') ?? '').not.toContain(scriptUrl);
+    }
+    expect(container.innerHTML).not.toContain('src="x"');
   });
 });
