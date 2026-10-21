@@ -17,6 +17,8 @@ import {
 } from '@indaba/core';
 import {
   DecisionLedger,
+  DISCUSSION_DIRECTORY,
+  DiscussionStore,
   GitWorktreeManager,
   GuardRegistry,
   JsonlSpanExporter,
@@ -68,6 +70,8 @@ export interface CreateEngineOptions {
   readonly chooseAuthMethod?: AuthChooser;
   /** Lets a person rule on a debate that failed, as the arbiter "human". Only an interactive front end passes one. */
   readonly humanAdjudicator?: Adjudicator;
+  /** Where the messages of each debate are kept for a viewer. Default `<projectDir>/.indaba/discussions`. */
+  readonly discussionDirectory?: string;
   /** Per-step timeout in seconds. */
   readonly stepTimeoutSeconds?: number;
   /** Receives what a failing event listener threw; by default it is dropped. */
@@ -174,6 +178,9 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     events,
     adjudicators,
     ledger: new DecisionLedger(options.projectDir),
+    discussions: new DiscussionStore(
+      options.discussionDirectory ?? join(options.projectDir, DISCUSSION_DIRECTORY),
+    ),
     clock,
     redact: (text) => redact(text, secrets),
     ...(options.stepTimeoutSeconds === undefined ? {} : { timeoutSeconds: options.stepTimeoutSeconds }),

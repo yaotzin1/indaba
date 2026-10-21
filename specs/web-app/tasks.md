@@ -54,17 +54,18 @@ checkable. The slice and its limits are in `plan.md`.
   `steps` and the dashboard are unchanged. Writer and reader are one module, `packages/engine/src/trace/structure.ts`.
   Adding an attribute and a field is a minor. Tests in `packages/engine/test/structure.test.ts`: a retry, an escalation and a
   step with none, the engine's run order, an old trace, and nineteen malformed or hostile values.
-- [ ] **T-21** Decide how a run keeps its debate messages (C-15): the board of `specs/run-blackboard`, or the transcript copied
+- [x] **T-21** (done 2026-10-21: one JSON file per run and step, in a folder the person chooses; see C-15) Decide how a run keeps its debate messages (C-15): the board of `specs/run-blackboard`, or the transcript copied
   under the run's trace id. Not needed for delivery step 1; until then the discussion shows the summary only.
 
 ## Console
 
-- [ ] **T-11** `indaba ui [--port <n>] [--no-open] [--root <dir>...]` in `packages/cli`, loading `@indaba/server`
+- [x] **T-11** `indaba ui [--port <n>] [--no-open] [--root <dir>...]` in `packages/cli`, loading `@indaba/server`
   lazily through a loader like `tui-loader.ts`, with a plain message when it is not installed; prints the address, opens
   the browser unless `--no-open`, and ends with the command.
 
 ## Tests
 
+- [x] **T-22** (added 2026-10-21, answer 2) The page stops after repeated failed attempts, shows `Server stopped`, and offers `Check again`.
 - [ ] **T-12** Hostile-input tests, with strings built from fragments: a run id or step id with `..`, separators, a drive
   letter, an encoded form and a NUL; a `Host` of another name and of a DNS-rebinding name; a missing and a wrong token; a
   `POST`; agent output with escape sequences, HTML and a `javascript:` link; a secret in the environment of a recorded

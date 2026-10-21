@@ -289,7 +289,8 @@ header.app nav a[aria-current] {
 .badge.live[data-state="live"]::before {
   background: var(--ok);
 }
-.badge.live[data-state="reconnecting"]::before {
+.badge.live[data-state="reconnecting"]::before,
+.badge.live[data-state="unavailable"]::before {
   background: var(--fail);
 }
 .theme {
@@ -365,6 +366,12 @@ main {
   .layout {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+.banner.unavailable {
+  margin: 12px var(--gutter, 16px);
+}
+.banner.unavailable p {
+  margin: 6px 0;
 }
 .banner {
   border-left: 3px solid var(--fail);

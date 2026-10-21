@@ -92,6 +92,9 @@ export function App(props: AppProps): ReactElement {
   const [live, setLive] = useState<StreamState>('connecting');
   const [theme, setTheme] = useState<Theme>(() => readTheme(store));
   const [now, setNow] = useState(() => clock.now());
+  // Bumped when the server answers again, so the screens (and their streams) start afresh.
+  const [attempt, setAttempt] = useState(0);
+  const [checking, setChecking] = useState<'idle' | 'checking' | 'down'>('idle');
 
   useEffect(() => applyTheme(root, theme), [root, theme]);
 
@@ -124,6 +127,25 @@ export function App(props: AppProps): ReactElement {
     },
     [store],
   );
+  const checkAgain = useCallback(() => {
+    if (client === undefined) {
+      return;
+    }
+    setChecking('checking');
+    client.contract().then(
+      () => {
+        setChecking('idle');
+        setLive('connecting');
+        setAttempt((n) => n + 1);
+      },
+      (error: unknown) => {
+        if (error instanceof ApiFailure && error.failure.kind !== 'server') {
+          setFatal(error.failure);
+        }
+        setChecking('down');
+      },
+    );
+  }, [client]);
   const home = (event: MouseEvent<HTMLAnchorElement>): void => {
     if (isPlainClick(event)) {
       event.preventDefault();
@@ -136,7 +158,7 @@ export function App(props: AppProps): ReactElement {
     content = blockingOf(fatal ?? { kind: 'unauthorized' }, origin);
   } else if (route.name === 'run') {
     content = h(RunScreen, {
-      key: route.runId,
+      key: `${route.runId}:${attempt}`,
       client,
       clock,
       now,
@@ -147,7 +169,7 @@ export function App(props: AppProps): ReactElement {
       onLive,
     });
   } else {
-    content = h(RunsScreen, { client, clock, navigate, onFatal, onLive });
+    content = h(RunsScreen, { key: attempt, client, clock, navigate, onFatal, onLive });
   }
 
   return h(
@@ -182,6 +204,21 @@ export function App(props: AppProps): ReactElement {
         : null,
       h(ThemeSwitch, { theme, onChange: changeTheme }),
     ),
+    fatal === undefined && live === 'unavailable'
+      ? h(
+          'div',
+          { className: 'banner unavailable', role: 'alert' },
+          h('strong', null, messages.unavailable.title),
+          h('p', null, messages.unavailable.body),
+          h('p', null, messages.unavailable.action),
+          h(
+            'button',
+            { type: 'button', onClick: checkAgain, disabled: checking === 'checking' },
+            checking === 'checking' ? messages.unavailable.checking : messages.unavailable.check,
+          ),
+          checking === 'down' ? h('p', { role: 'status' }, messages.unavailable.stillDown) : null,
+        )
+      : null,
     h('main', { id: 'content', tabIndex: -1 }, content),
   );
 }

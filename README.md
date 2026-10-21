@@ -124,7 +124,8 @@ rules for developing Indaba itself.
 A page on your own machine that lists your runs and follows one live: every step as a graph (including the ones that
 have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
 the cost, with anything unknown shown as unknown. It has light and dark themes, works with a keyboard and on a phone,
-and only reads: it starts and changes nothing. Until `indaba ui` exists, try it from a checkout:
+and only reads: it starts and changes nothing. Start it in a project with `indaba ui` (`--root` for others, `--no-open`,
+`--port`); from a checkout, try it with a demo:
 
 ```bash
 pnpm install && pnpm build

@@ -17,6 +17,26 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The discussion of a debate, kept and shown** (minor; track `feature`; spec `specs/web-app`, task T-21). When a debate
+  step ends, the engine keeps its messages (round, sender, type, text, and the ruling if one was asked for) as
+  `<traceId>.<stepId>.json`, redacted and with control sequences dropped, in `.indaba/discussions` or the folder given
+  with `indaba run --discussion-dir <dir>`. The server answers
+  `GET /api/v1/runs/{id}/steps/{step}/discussion` (404 `discussion_not_found` when none was kept) and looks in each
+  root's default folder plus any `indaba ui --discussion-dir <dir>`. The step panel of a debate has a closed
+  `Show the discussion` section: the rounds, who said what, where each participant ended, and the ruling, as plain text.
+  New in `@indaba/core`: `DiscussionView`, `DiscussionMessage`, `DiscussionRuling`, `DiscussionResponse` (types only);
+  in `@indaba/engine`: `DiscussionStore`, `discussionOf`, `DISCUSSION_DIRECTORY`. A run from before this change has no
+  messages and the page says so.
+- **The page stops asking a server that is not there** (minor; track `feature`; spec `specs/web-app`, answer 2 of the
+  sketches). After 8 failed attempts in a row (about half a minute with the growing waits; a starting value, not a
+  measurement) a stream reports `unavailable`; the header says `Server stopped`, a banner says what to do, and a
+  `Check again` button asks the server once and restarts the screen's streams when it answers. The state on screen stays
+  as the last known one.
+- **`indaba ui [--root <dir>]... [--port <n>] [--no-open]`** (minor; track `feature`; spec `specs/web-app`, task T-11). Starts
+  the local server over the runs of one or more projects, prints the address with its token, opens the browser unless
+  `--no-open`, and serves until Ctrl+C. `@indaba/server` is loaded on demand like `@indaba/tui` (an optional peer
+  dependency of `indaba`), and says what to install when it is missing; `@indaba/server` gains `defaultPageDirectory()`.
+  The browser is opened with `rundll32`, `open` or `xdg-open` and the address as one argument, never through a shell.
 - **The page of `indaba ui`** (minor; track `feature`; spec `specs/web-app`, tasks T-07 and T-08). A new private
   package, `@indaba/web`, built into static files for `@indaba/server` to serve: the runs on this machine in an
   `apsw-gridwright` grid, and one run live, with its steps as a graph (React Flow, laid out left to right by
@@ -25,7 +45,7 @@ port". The PHP prototype that preceded them was never published.
   and dark themes that follow the system, keyboard and screen-reader use, and a phone at 320 px. The token is read
   from the address fragment, removed from it and kept in memory; the event stream is read with `fetch` so it carries
   the header, and resumes after a drop. It starts nothing and changes nothing. The page is not published on its own
-  and adds nothing to a consumer's dependencies; `indaba ui` (T-11) is what will serve it. Until then, `pnpm try:ui`
+  and adds nothing to a consumer's dependencies; `indaba ui` serves it, and `pnpm try:ui`
   serves it from a checkout (`--demo` runs a small workflow with a retry first, with no agent or key). Documented in
   `docs/web-view.md`, and for contributors in `docs/web-view-development.md`.
 - **A run records the shape of its workflow** (minor; track `feature`; spec `specs/web-app`, task T-20). When a run

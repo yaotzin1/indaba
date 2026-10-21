@@ -17,6 +17,35 @@ export interface RunListResponse {
   readonly runs: readonly RunSummary[];
 }
 
+/** One message of a debate, as the engine kept it: redacted, with control sequences dropped. */
+export interface DiscussionMessage {
+  readonly round: number;
+  readonly sender: string;
+  /** PROPOSAL, CRITIQUE, AGREEMENT or any other type the debate used. */
+  readonly type: string;
+  readonly content: string;
+}
+
+/** The ruling that settled a debate which did not reach quorum. */
+export interface DiscussionRuling {
+  readonly verdict: string;
+  readonly decidedBy: string;
+  readonly note: string;
+}
+
+/** The whole discussion of one debate step of one run. */
+export interface DiscussionView {
+  readonly stepId: string;
+  readonly outcome: string;
+  readonly rounds: number;
+  readonly messages: readonly DiscussionMessage[];
+  readonly ruling?: DiscussionRuling;
+}
+
+export interface DiscussionResponse {
+  readonly discussion: DiscussionView;
+}
+
 export interface RunResponse {
   readonly run: RunSnapshot;
 }

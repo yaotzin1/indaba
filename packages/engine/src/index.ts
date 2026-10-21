@@ -1,3 +1,4 @@
+export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 /**
  * The logging contract of @indaba/core, and the one description of its settings, re-exported so a package that may
  * only import the engine (the terminal dashboard and its Settings screen) takes them from the same place as everyone

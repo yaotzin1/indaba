@@ -12,10 +12,30 @@ what each step did, what happens if it fails, its output and what it cost. It re
 </p>
 
 > **Status.** Delivery step 1 of [`specs/web-app`](../specs/web-app/spec.md): read-only, Runs and Run. It is on the
-> `feat/web-app` branch and not in a published version. The `indaba ui` command that will start it is not written yet
-> (task T-11); until then, start it from a checkout with `pnpm try:ui`, below.
+> `feat/web-app` branch and not in a published version. `indaba ui` starts it (task T-11); `pnpm try:ui`, below, also
+> makes a demo project to look at.
+
+## A debate's discussion
+
+A step that is a debate has a closed **Show the discussion** section in its panel: the rounds, who said what, where each
+participant ended, and the ruling if you were asked for one. The engine keeps the messages when the debate ends, in
+`.indaba/discussions` of the project, or in the folder you name with `indaba run --discussion-dir <dir>`; if you kept them
+elsewhere, tell the page with `indaba ui --discussion-dir <dir>` (repeatable). A run from before this was added, or one
+whose folder the server was not told about, says that no messages were kept. Secrets are removed when the messages are
+written.
 
 ## Open it
+
+In a project, with the page built (in a checkout: `pnpm build`):
+
+```bash
+indaba ui                      # the runs of the current folder; opens your browser
+indaba ui --root ../other-project --root .   # several projects
+indaba ui --no-open --port 4173
+```
+
+It prints an address with a token, opens it in your browser unless `--no-open`, and serves until `Ctrl+C`. It reads
+the runs and starts none. From a checkout, without installing the command, use the demo below.
 
 From a checkout of this repository, with Node 22 and pnpm 9:
 

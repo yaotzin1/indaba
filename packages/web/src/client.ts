@@ -1,4 +1,11 @@
-import type { ApiError, ContractResponse, RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
+import type {
+  ApiError,
+  ContractResponse,
+  DiscussionView,
+  RunSnapshot,
+  RunSummary,
+  ServerStreamEvent,
+} from '@indaba/core';
 import { SseParser } from './sse.js';
 
 /** The contract major this page speaks (`specs/web-app/api-surface.md`). A server with a newer one is refused. */
@@ -22,7 +29,7 @@ export class ApiFailure extends Error {
 }
 
 /** The state of a stream, for the badge in the header and the banner of a dropped connection. */
-export type StreamState = 'connecting' | 'live' | 'reconnecting' | 'ended';
+export type StreamState = 'connecting' | 'live' | 'reconnecting' | 'unavailable' | 'ended';
 
 export interface StreamHandlers<T> {
   onEvent(event: T): void;
@@ -40,9 +47,17 @@ export interface ClientOptions {
   readonly sleep?: Sleep;
   /** The first wait after a drop; doubled up to {@link MAX_RETRY_MS}. Default 500. */
   readonly retryMs?: number;
+  /** Failed attempts in a row after which the stream stops asking and reports `unavailable`. Default {@link MAX_FAILED_ATTEMPTS}. */
+  readonly giveUpAfter?: number;
 }
 
 export const MAX_RETRY_MS = 5000;
+
+/**
+ * Failed attempts in a row after which a stream stops asking a server that is not there (specs/web-app, the health
+ * answer of 2026-10-21). A starting value, not a measurement: with the waits above it is about half a minute.
+ */
+export const MAX_FAILED_ATTEMPTS = 8;
 
 export interface Client {
   contract(): Promise<ContractResponse>;
@@ -54,6 +69,8 @@ export interface Client {
   followServer(handlers: StreamHandlers<ServerStreamEvent>, signal: AbortSignal): Promise<void>;
   /** The output of a step as the server keeps it, as plain text. */
   stepLog(runId: string, stepId: string): Promise<string>;
+  /** The kept messages of a debate step, or undefined when the run kept none. */
+  discussion(runId: string, stepId: string): Promise<DiscussionView | undefined>;
 }
 
 const defaultSleep: Sleep = (ms, signal) =>
@@ -88,6 +105,23 @@ export function isRunSnapshot(value: unknown): value is RunSnapshot {
   );
 }
 
+function isDiscussion(value: unknown): value is DiscussionView {
+  return (
+    isRecord(value) &&
+    typeof value.outcome === 'string' &&
+    typeof value.rounds === 'number' &&
+    Array.isArray(value.messages) &&
+    value.messages.every(
+      (m: unknown) =>
+        isRecord(m) &&
+        typeof m.round === 'number' &&
+        typeof m.sender === 'string' &&
+        typeof m.type === 'string' &&
+        typeof m.content === 'string',
+    )
+  );
+}
+
 function isRunSummary(value: unknown): value is RunSummary {
   return isRecord(value) && typeof value.runId === 'string' && typeof value.status === 'string';
 }
@@ -114,6 +148,7 @@ async function failureOf(response: Response): Promise<Failure> {
 export function createClient(options: ClientOptions): Client {
   const sleep = options.sleep ?? defaultSleep;
   const firstRetry = options.retryMs ?? 500;
+  const giveUpAfter = options.giveUpAfter ?? MAX_FAILED_ATTEMPTS;
   const headers = (extra: Readonly<Record<string, string>> = {}): Record<string, string> => ({
     Authorization: `Bearer ${options.token}`,
     ...extra,
@@ -150,6 +185,7 @@ export function createClient(options: ClientOptions): Client {
     signal: AbortSignal,
   ): Promise<void> => {
     let lastId = 0;
+    let failures = 0;
     let wait = firstRetry;
     let first = true;
     while (!signal.aborted) {
@@ -174,6 +210,7 @@ export function createClient(options: ClientOptions): Client {
       if (response?.ok === true && response.body !== null) {
         handlers.onState('live');
         wait = firstRetry;
+        failures = 0;
         const parser = new SseParser();
         const decoder = new TextDecoder();
         const reader = response.body.getReader();
@@ -206,6 +243,11 @@ export function createClient(options: ClientOptions): Client {
         }
       }
       if (signal.aborted) {
+        return;
+      }
+      failures += 1;
+      if (failures >= giveUpAfter) {
+        handlers.onState('unavailable');
         return;
       }
       handlers.onState('reconnecting');
@@ -269,6 +311,28 @@ export function createClient(options: ClientOptions): Client {
         handlers,
         signal,
       );
+    },
+
+    async discussion(runId, stepId) {
+      let body: unknown;
+      try {
+        body = await json(
+          `/runs/${encodeURIComponent(runId)}/steps/${encodeURIComponent(stepId)}/discussion`,
+        );
+      } catch (error) {
+        if (error instanceof ApiFailure && error.failure.kind === 'not_found') {
+          return undefined;
+        }
+        throw error;
+      }
+      const found: unknown = isRecord(body) ? body.discussion : undefined;
+      if (!isDiscussion(found)) {
+        throw new ApiFailure({
+          kind: 'server',
+          message: 'The server sent a discussion this page cannot read.',
+        });
+      }
+      return found;
     },
 
     async stepLog(runId, stepId) {

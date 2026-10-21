@@ -12,6 +12,7 @@ export const messages = {
     connecting: 'Connecting',
     live: 'Live',
     reconnecting: 'Reconnecting',
+    unavailable: 'Server stopped',
     ended: 'Run ended',
   },
   theme: { legend: 'Theme', system: 'System', light: 'Light', dark: 'Dark' },
@@ -139,6 +140,28 @@ export const messages = {
     newerTitle: 'This page is older than the server',
     newerBody: 'The server was updated while this page was open.',
     newerAction: 'Reload the page.',
+  },
+
+  unavailable: {
+    title: 'The server is not answering',
+    body: 'The page stopped asking. What you see is the last known state.',
+    action: 'If you stopped indaba ui, start it again and open the new address. Otherwise check again.',
+    check: 'Check again',
+    checking: 'Checking...',
+    stillDown: 'Still not answering.',
+  },
+
+  discussion: {
+    title: 'The discussion',
+    show: 'Show the discussion',
+    hide: 'Hide the discussion',
+    loading: 'Loading...',
+    none: 'No messages were kept for this step of this run. A run from before messages were kept has none, and so does a run whose messages were kept in a folder this server was not told about (indaba ui --discussion-dir).',
+    failed: 'The messages could not be loaded.',
+    summary: (participants: string): string => `Where each one ended: ${participants}.`,
+    round: (n: number): string => `Round ${n}`,
+    ruling: (verdict: string, by: string): string => `Ruling: ${verdict}, decided by ${by}.`,
+    rulingNote: 'Note with the ruling',
   },
 
   reconnecting: 'The connection dropped. Reconnecting; what you see is the last known state.',
