@@ -37,6 +37,7 @@ import {
   type LogOptions,
   LogUsageError,
   openCommandLogger,
+  testSink,
 } from './log.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
@@ -44,6 +45,7 @@ import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { runWithDashboard } from './run-tui.js';
+import { settingsCommand } from './settings.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
 import { watch } from './watch.js';
 
@@ -88,6 +90,7 @@ Commands:
   run [file]        Execute a workflow
   watch [run]       Follow or read a run from the files it writes (no run: list them)
   report [run]      Gather the log, trace and environment of a run into a folder to attach to an issue
+  settings          Show or change the logging settings of the project (indaba.config)
 
 Options:
   -h, --help        Show help
@@ -320,6 +323,27 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   const args = logOptions.args;
   if (command === 'watch') {
     return logged(command, io.cwd, logOptions, io, (logger) => watchCommand(args, io, logger));
+  }
+  if (command === 'settings') {
+    return logged(command, io.cwd, logOptions, io, (logger) =>
+      settingsCommand(args, io, (workdir) => resolve(io.cwd, workdir), {
+        logger,
+        loadTui: io.loadTui ?? loadTui,
+        noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
+        testSink,
+        isVariableSet: (name) => io.env[name] !== undefined && io.env[name] !== '',
+        sinkOptions: (root) => ({
+          root,
+          level: 'debug',
+          dir: logOptions.dir,
+          stderr: io.stderr,
+          environment: io.env,
+          clock: io.clock ?? (() => new Date()),
+          pid: io.pid ?? process.pid,
+          hostname: hostname(),
+        }),
+      }),
+    );
   }
   if (command === 'report') {
     return logged(command, io.cwd, logOptions, io, (logger) => reportCommand(args, io, logger, logOptions));

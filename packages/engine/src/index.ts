@@ -1,9 +1,32 @@
 /**
- * The logging contract of @indaba/core, re-exported so a package that may only import the engine (the terminal
- * dashboard) takes a logger from the same place as everyone else.
+ * The logging contract of @indaba/core, and the one description of its settings, re-exported so a package that may
+ * only import the engine (the terminal dashboard and its Settings screen) takes them from the same place as everyone
+ * else.
  */
-export type { LogContext, LogFields, Logger, LogLevel, LogRecord, LogSink } from '@indaba/core';
-export { createLogger, noopLogger } from '@indaba/core';
+export type {
+  LogContext,
+  LogFields,
+  Logger,
+  LoggingSettings,
+  LogLevel,
+  LogRecord,
+  LogSink,
+  SettingDescription,
+  SinkSettings,
+  SinkType,
+} from '@indaba/core';
+export {
+  createLogger,
+  defaultLoggingSettings,
+  isLogLevel,
+  LOG_LEVELS,
+  LOGGING_DEFAULTS,
+  LOGGING_SETTINGS,
+  loggingSettingsToConfig,
+  noopLogger,
+  resolveLoggingSettings,
+  SINK_TYPES,
+} from '@indaba/core';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { ProjectConfig } from './config/project-config.js';

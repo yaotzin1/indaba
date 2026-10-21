@@ -1,6 +1,8 @@
 # Specification: Logging
 
-> **Status**: Draft (stage 1, with the clarifications of section 8 as recommendations for the maintainer to confirm)
+> **Status**: Implemented except AC-09 and the web half of AC-20 (the server and its Settings screen, with `specs/web-app`).
+> Section 8, item 7 (`indaba.config`, `indaba report`) was confirmed by the maintainer on 2026-10-21; the other items are
+> as recommended.
 > **Stage entry**: 1
 > **Semver impact**: minor (a new `Logger` contract in `@indaba/core`, a CLI option and a new file under `.indaba/`;
 > nothing existing changes meaning)
@@ -32,49 +34,49 @@ there, and a person with nothing must still get usable files with no setup.
 
 ## 3. Acceptance criteria
 
-- [ ] AC-01. `@indaba/core` defines `Logger`, `LogLevel`, `LogRecord` and `LogSink` as declarations plus a small
+- [x] AC-01. `@indaba/core` defines `Logger`, `LogLevel`, `LogRecord` and `LogSink` as declarations plus a small
   `createLogger` that takes a sink list, a clock and a minimum level. It imports no `node:` module and reads no clock,
   environment or process by itself.
-- [ ] AC-02. The levels are `error`, `warn`, `info`, `debug`, in that order. A record below the minimum level is dropped
+- [x] AC-02. The levels are `error`, `warn`, `info`, `debug`, in that order. A record below the minimum level is dropped
   before any sink sees it. The default minimum level is `info`.
-- [ ] AC-03. Logging is **a must for the whole project**: every package that starts a process, reads or writes a file,
+- [x] AC-03. Logging is **a must for the whole project**: every package that starts a process, reads or writes a file,
   calls HTTP, loads a plugin, parses a workflow, or catches an error logs it through the injected `Logger`. A layers test
   in each package fails on a bare `console.*` or `process.stdout.write` outside the one module that is the output of the
   command line (the existing `cli` rule, extended to engine, runners, server and tui).
-- [ ] AC-04. A record is `{ time, level, component, message, fields? }`. `time` comes from the injected clock, `component`
+- [x] AC-04. A record is `{ time, level, component, message, fields? }`. `time` comes from the injected clock, `component`
   is the package and area (`engine.worktree`, `server.http`), `message` is a fixed sentence, and `fields` holds only
   strings, numbers and booleans. Untrusted text (agent output, a workflow's goal, a request path) goes in `fields`, never
   into `message`.
-- [ ] AC-05. **Secrets never reach a record.** Every record passes the existing redaction (the environment's secret
+- [x] AC-05. **Secrets never reach a record.** Every record passes the existing redaction (the environment's secret
   values, bearer tokens, API-key shapes, the `#token=` fragment) before any sink sees it, so a sink cannot forget to.
   Agent output and prompts are not logged at `info`; at `debug` they are length-limited and printable-filtered (the
   `printable.ts` rule).
-- [ ] AC-06. With no setup, the command line writes a JSON-lines file to `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in
+- [x] AC-06. With no setup, the command line writes a JSON-lines file to `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in
   the project, one record per line. The size of a file and the number of files kept are **settings** (`maxFileBytes`,
   `maxFiles`); the defaults are in section 8. It never writes outside the project root unless the person names another
   folder (AC-13), and the path never comes from untrusted input.
-- [ ] AC-13. **Logging is configurable.** A `logging` section of the project configuration (and the command-line options
+- [x] AC-13. **Logging is configurable.** A `logging` section of the project configuration (and the command-line options
   for the common ones) sets: the minimum level; the list of sinks and each one's settings; `maxFileBytes` and `maxFiles`
   for the file sink; the folder of the file sink (a path resolved and confined like `--workdir`, or an absolute path the
   person typed themselves); and whether `stderr` also receives `warn` and above. Unknown keys and wrong types are a
   usage error that names the key, never ignored.
-- [ ] AC-14. **Records can be correlated.** Every record carries, when they exist, `runId`, `taskId`, `stepId`, `traceId`
+- [x] AC-14. **Records can be correlated.** Every record carries, when they exist, `runId`, `taskId`, `stepId`, `traceId`
   and `pid`, so one run, or one failure, can be found with a filter. Each process writes a `process.start` record with the
   Indaba version, Node version, operating system and the command name (never its arguments' values when they could hold
   a secret), so a report states its environment without being asked.
-- [ ] AC-15. **Sinks shipped.** `file` (AC-06), `stderr` (AC-08), `gelf` (Graylog's JSON format, GELF 1.1, over HTTP, TCP
+- [x] AC-15. **Sinks shipped.** `file` (AC-06), `stderr` (AC-08), `gelf` (Graylog's JSON format, GELF 1.1, over HTTP, TCP
   or UDP, written with `node:http`, `node:net` and `node:dgram`: no dependency is added) and `http-json` (one JSON record
   per POST to a URL, for any collector that takes JSON). Any other destination is a plugin sink (AC-10). Each sink has its
   own level, so a collector can receive `warn` while the file keeps `debug`.
-- [ ] AC-16. **A remote sink never stops a run.** Sends are asynchronous, bounded (a queue of limited length; when it is
+- [x] AC-16. **A remote sink never stops a run.** Sends are asynchronous, bounded (a queue of limited length; when it is
   full the oldest `debug` records are dropped and the count is logged once), time-limited, and retried a bounded number of
   times. A destination that is down costs one `warn` per outage, not one per record. The destination address comes from
   configuration only, must be `http`, `https`, `tcp` or `udp`, is never taken from a workflow, an agent or a request,
   and a credential in it is read from a named environment variable, never written in the file or the log.
-- [ ] AC-18. **Defaults.** Every setting has a default, so Indaba logs usefully with no configuration and a fresh clone
+- [x] AC-18. **Defaults.** Every setting has a default, so Indaba logs usefully with no configuration and a fresh clone
   needs no file. The defaults are the table in section 8 (item 2), named constants in one module of `@indaba/core`, shown
   by `indaba` in the settings screens as "default" next to the value in use, and restorable one by one.
-- [ ] AC-19. **One description of the settings.** `@indaba/core` exports a declarative `LOGGING_SETTINGS` schema: for each
+- [x] AC-19. **One description of the settings.** `@indaba/core` exports a declarative `LOGGING_SETTINGS` schema: for each
   setting its key, type, default, allowed range or values, a plain-words label and help text, and whether it is secret.
   The configuration parser, the command-line help, the web page and the terminal dashboard are all built from it, so a
   setting is added in one place and a UI never carries a second, drifting copy of a default or a limit.
@@ -85,37 +87,37 @@ there, and a person with nothing must still get usable files with no setup.
   writes, so it arrives with the actions step of `specs/web-app`, not with step 1, and has its own requirements there: the
   token, the `Host` check, a `PUT` the server accepts for this one resource only, a confined path, and the secret rule
   below. Until then the file, the options and the variable are the way.
-- [ ] AC-21. **Secrets in settings.** A setting marked secret (a collector's password or token) is entered in the UI as
+- [x] AC-21. **Secrets in settings.** A setting marked secret (a collector's password or token) is entered in the UI as
   the *name of an environment variable*, never the value, and is never sent back to the page, written to the file or
   logged. The page shows whether that variable is set in the server's environment (set / not set), not what it holds.
-- [ ] AC-17. **Reporting an issue.** `indaba report [run]` writes one redacted bundle (a folder or an archive) with the
+- [x] AC-17. **Reporting an issue.** `indaba report [run]` writes one redacted bundle (a folder or an archive) with the
   relevant log lines, the run's trace and events, the workflow file, and the environment record of AC-14, and prints what
-  it contains and where it is. It sends nothing anywhere. (Recommendation; see section 8, item 7.)
-- [ ] AC-07. `indaba <command> --log-level <error|warn|info|debug>` and the environment variable `INDABA_LOG_LEVEL` set
+  it contains and where it is. It sends nothing anywhere. (Confirmed; see section 8, item 7.)
+- [x] AC-07. `indaba <command> --log-level <error|warn|info|debug>` and the environment variable `INDABA_LOG_LEVEL` set
   the minimum level; the option wins. Anything else is a usage error that names the allowed values. Only `main`, `bin` and
   the engine factory read the environment (the existing layers rule).
-- [ ] AC-08. `warn` and `error` records are also written to standard error in plain text (`level: message`, then
+- [x] AC-08. `warn` and `error` records are also written to standard error in plain text (`level: message`, then
   `key=value` fields); `info` and `debug` go to the file only, so the output of a command does not change.
 - [ ] AC-09. `indaba ui` logs through the same logger: the server starting and stopping, the address (never the token),
   each refused request (method, path without any query or fragment, status, reason), and each stream opening and closing.
   It logs no request body and no `Authorization` header.
-- [ ] AC-10. A sink is an extension contract: `Plugin` and `PluginHost` accept a `LogSink`; a failing sink is isolated (it
+- [x] AC-10. A sink is an extension contract: `Plugin` and `PluginHost` accept a `LogSink`; a failing sink is isolated (it
   is dropped for the rest of the run after one `warn` to the other sinks and never throws into the engine), and the
   built-in file sink gets no access an external sink lacks.
-- [ ] AC-22. **The engine's events reach the log.** `logEngineEvents(events, logger)` in `@indaba/engine` listens to
+- [x] AC-22. **The engine's events reach the log.** `logEngineEvents(events, logger)` in `@indaba/engine` listens to
   the events a run already dispatches and writes: every step state change (`info`, `taskId` and `stepId` in the
   context, the reason as a printable one-line field), every span that ends with an error (`info`, `traceId` in the
   context), and what a step streams (`debug` only, printable-filtered and cut by the logger). None of it is `warn`: the
   outcome of a run is already on standard output, and `warn` is kept for trouble of Indaba's own. Code that announces
   what it does through events needs no logger calls of its own, and the ids lead from a log line to the trace.
-- [ ] AC-23. **One place to plug a logger in.** The engine package re-exports the logging contract, so a package that
+- [x] AC-23. **One place to plug a logger in.** The engine package re-exports the logging contract, so a package that
   may only import the engine (the terminal dashboard) takes `Logger` from the same place as the others. `createEngine`
   of `indaba` takes `logger` and connects it to the engine's events and to the plugins (`PluginHost.logger`); the
   dashboard's `watch` takes `logger` and records when it opens and closes and a run source that fails (at `info`,
   because `warn` would be printed over the screen).
-- [ ] AC-11. Logging never changes behaviour: a run with every sink failing ends with the same states, events and traces as
+- [x] AC-11. Logging never changes behaviour: a run with every sink failing ends with the same states, events and traces as
   one with none.
-- [ ] AC-12. The engine stays deterministic with a logger: the same inputs and the same fake clock produce the same
+- [x] AC-12. The engine stays deterministic with a logger: the same inputs and the same fake clock produce the same
   records in the same order, which a test asserts.
 
 ## 4. Non-goals
@@ -198,7 +200,10 @@ there, and a person with nothing must still get usable files with no setup.
 6. **A workflow rule?** "A must for the whole project" belongs in `workflow.ai.yml` as an architectural rule enforced by the
    layers tests. That file is protected: the change needs a `Workflow-Change:` trailer and the sync scripts. Recommendation:
    yes, in a separate commit after the contract exists.
-7. **Where the settings live.** No project configuration file exists yet (`specs/agent-sandbox` mentions `indaba.config`
+7. **Where the settings live.** *(Confirmed 2026-10-21: `indaba.config` in the project root, YAML, holding `logging:`
+   and nothing else yet; `indaba report` ships now. The terminal Settings screen is opened by a new command,
+   `indaba settings`, rather than from inside the run dashboard, which shows one run and is read-only.)* No project
+   configuration file existed (`specs/agent-sandbox` mentions `indaba.config`
    without defining it). Recommendation: this feature introduces the `logging` section of `indaba.config` (YAML, parsed
    with the `yaml` package the engine already uses) and nothing else, and the sandbox spec adds its keys later. Options
    and `INDABA_LOG_LEVEL` override it. The alternative is only options and variables, which cannot express a list of

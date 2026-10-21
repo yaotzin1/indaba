@@ -12,6 +12,7 @@ import {
   type LogSink,
   type LogSinkRegistry,
   resolveLoggingSettings,
+  type SinkSettings,
 } from '@indaba/core';
 import { FileLogSink, GelfLogSink, HttpJsonLogSink, type RemoteLogTrouble } from '@indaba/engine';
 import { printableText } from './printable.js';
@@ -247,4 +248,54 @@ export function openCommandLogger(options: CommandLogOptions): CommandLogger {
     );
   }
   return logger;
+}
+
+export interface SinkTestResult {
+  readonly ok: boolean;
+  readonly text: string;
+}
+
+/**
+ * Sends one test record through a sink built from `sink`, the way the command's logger would build it, and says how it
+ * went (the "send one test record" of the Settings screens, AC-20). The standard-error sink is not written to: on a
+ * screen that would draw over it.
+ */
+export async function testSink(sink: SinkSettings, options: CommandLogOptions): Promise<SinkTestResult> {
+  if (sink.type === 'stderr') {
+    return { ok: true, text: 'The terminal sink writes to standard error; there is nothing to send.' };
+  }
+  let failure: string | undefined;
+  const quiet = { write: () => undefined };
+  const logger = openCommandLogger({
+    ...options,
+    level: 'debug',
+    stderr: quiet,
+    settings: { level: 'debug', sinks: [sink] },
+  });
+  // The trouble a sink reports arrives as a warning record; the sink under test is the only one, so catch it here.
+  logger.addSink({
+    level: 'warn',
+    write: (record) => {
+      if (
+        record.component === 'logging.file' ||
+        record.message.startsWith('a log collector cannot be reached')
+      ) {
+        failure = typeof record.fields?.reason === 'string' ? record.fields.reason : record.message;
+      }
+    },
+  });
+  logger.info('logging.test', 'a test record from the settings screen');
+  await logger.flush();
+  if (failure !== undefined) {
+    return { ok: false, text: `The test record was not delivered: ${failure}` };
+  }
+  return {
+    ok: true,
+    text:
+      sink.type === 'file'
+        ? 'The test record was written to the log folder.'
+        : sink.address.startsWith('udp:')
+          ? 'The test record was sent; UDP gives no answer, so look for it in the collector.'
+          : 'The collector took the test record.',
+  };
 }

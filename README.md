@@ -68,7 +68,7 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`, `watch`), plugin loading, the composition root | the three below; optional `@indaba/tui` |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
@@ -98,6 +98,10 @@ More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in o
 consensus: a human is needed) and `130` when cancelled. A debate step can name an `arbiter` (`human`, or one a
 plugin registers) that rules on a debate that failed; its rulings are kept in a committed
 `.indaba-decisions/` and reused when the same question comes up on the same files.
+
+Every command keeps a log in `.indaba/logs/`, redacted, and can also send it to Graylog or any JSON collector
+(`indaba.config`, or `indaba settings`). When something goes wrong, `indaba report` gathers the log, trace and
+environment of a run into one folder to attach to an issue; it sends nothing. See [`docs/logging.md`](docs/logging.md).
 
 [`docs/getting-started.md`](docs/getting-started.md) covers prerequisites, environment variables, each
 runner and what a run leaves on disk. [`docs/workflow-format.md`](docs/workflow-format.md) describes
@@ -138,7 +142,7 @@ Windows a CLI that is only a `.cmd` shim cannot be started; use a native executa
 
 ## Extension
 
-A runner, a guard type or an event listener is added without editing Indaba: write a plugin that
+A runner, a guard type, an event listener or a log sink is added without editing Indaba: write a plugin that
 default-exports `{ name, register(host) }` and load it with `--plugin`. The contracts live in
 `@indaba/core`, and the built-ins register through the same host a plugin gets.
 

@@ -37,7 +37,8 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 ## Settings screens (with the actions step of `specs/web-app`)
 
 - [ ] **T-12** `GET`/`PUT /api/v1/settings/logging` and the Settings screen of the web page (AC-20, AC-21).
-- [ ] **T-13** The Settings screen of the terminal dashboard.
+- [x] **T-13** The Settings screen of the terminal dashboard: `editLoggingSettings` in `@indaba/tui`, opened by
+  `indaba settings` (which prints the settings without a terminal).
 
 ## Tests
 
@@ -48,7 +49,8 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 
 ## Documentation
 
-- [ ] **T-17** `docs/` page on logging and reporting an issue; `README.md`, `AGENTS.md` map if a package changes.
+- [x] **T-17** `docs/logging.md` on logging and reporting an issue; `README.md`, `getting-started.md`, `extending.md`.
+  No package was added, so the `AGENTS.md` map is unchanged.
 - [x] **T-18** `CHANGELOG.md` under Unreleased (a minor, below 1.0).
-- [ ] **T-19** `specs/DEPENDENCY_MAP.md`; no dependency is added.
+- [x] **T-19** `specs/DEPENDENCY_MAP.md`; no dependency is added.
 - [ ] **T-20** The architectural rule in `workflow.ai.yml` ("logging is a must"), with a `Workflow-Change:` trailer, then the sync scripts.

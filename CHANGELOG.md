@@ -54,6 +54,15 @@ port". The PHP prototype that preceded them was never published.
   `parseCollectorAddress`, `readProjectConfig`, `parseProjectConfig`, `writeLoggingConfig` and `PROJECT_CONFIG_FILE`.
   New in `@indaba/runners`: `LoggingProcessSpawner`, `LoggingStreamingSpawner`, `loggingFetch` and the `logger`
   option of `RunnerRegistry.withDefaults`. New in `indaba`: `CreateEngineOptions.logSinks`.
+- **`indaba report [run]` and `indaba settings`** (minor; track `feature`; spec `specs/logging`). `report` writes one
+  redacted folder under `.indaba/reports/` (or `--out`) with the log lines of the commands that ran the run, its trace
+  and events, the workflow file, `indaba.config` and the environment, says what it could not include, and sends
+  nothing. `settings` prints the logging settings in use (`--plain`, or without a terminal) or, with `@indaba/tui`,
+  opens a Settings screen: each value with its default beside it, checked as it is typed by the same rules as the
+  file, a test record through one sink, and Save, which writes `indaba.config` keeping its comments and other keys.
+  A collector's credential is entered as a variable's name; the screen shows whether it is set, never its value. New
+  in `@indaba/tui`: `editLoggingSettings` and the pure state behind it (`reduceSettings`, `buildSettingsScreen`, ...);
+  the engine re-exports the settings description so the dashboard takes it from there.
 - **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
   with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
   first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it

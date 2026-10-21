@@ -12,7 +12,8 @@ The repository's main README is the tour; these are the parts that need more roo
 | [using-the-alpha.md](using-the-alpha.md) | You want to try this alpha: which transport (API, ACP or CLI) to choose when, a first run, and what to expect to break |
 | [getting-started.md](getting-started.md) | You want to run a workflow: prerequisites, the commands, environment variables, runners, what a run leaves on disk |
 | [workflow-format.md](workflow-format.md) | You are writing a workflow file: every field, guards, retries, MCP servers, with examples |
-| [extending.md](extending.md) | You want to add a runner, a guard type or an event listener with a plugin |
+| [logging.md](logging.md) | You want to find what went wrong, change where logs go (`indaba.config`, Graylog, a collector), or report an issue with `indaba report` |
+| [extending.md](extending.md) | You want to add a runner, a guard type, an event listener or a log sink with a plugin |
 | [vision.md](vision.md) | You want the founding requirement: mission, modules, the runtime workflow contract. Kept verbatim, with a note on what the TypeScript port superseded |
 
 ## Two kinds of `workflow.ai.yml`
