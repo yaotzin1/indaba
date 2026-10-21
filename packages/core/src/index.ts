@@ -12,6 +12,37 @@ export type { Guard, Plugin, PluginHost } from './extension/index.js';
 export { GuardResult } from './extension/index.js';
 export type { McpCapable } from './extension/mcp.js';
 export { isMcpCapable, McpCapability, mcpCapabilityOf } from './extension/mcp.js';
+export type {
+  FileSinkSettings,
+  GelfSinkSettings,
+  HttpJsonSinkSettings,
+  LogContext,
+  LogFields,
+  Logger,
+  LoggerOptions,
+  LoggingSettings,
+  LogLevel,
+  LogRecord,
+  LogSink,
+  RemoteDelivery,
+  ResolvedLogging,
+  SettingDescription,
+  SinkSettings,
+  SinkType,
+  StderrSinkSettings,
+} from './logging/index.js';
+export {
+  createLogger,
+  isLogLevel,
+  LOG_LEVELS,
+  LOGGING_DEFAULTS,
+  LOGGING_SETTINGS,
+  levelEnabled,
+  MAX_FIELD_LENGTH,
+  noopLogger,
+  resolveLoggingSettings,
+  SINK_TYPES,
+} from './logging/index.js';
 export type { Adjudicator, RulingRequest } from './mesh/adjudicator.js';
 export { AdjudicatorRegistry, Ruling, RulingSource, Verdict } from './mesh/adjudicator.js';
 export { Blackboard } from './mesh/blackboard.js';
