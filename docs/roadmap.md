@@ -59,8 +59,8 @@ and are replaced by what the first pull request actually took.
    trace files. No page yet; tested over HTTP.
 4. `@indaba/web` read-only: three sketches reviewed first, then the workflows table (`apsw-gridwright`), the graph
    and inspector, and the live run view. `indaba ui`. *Under way:* the sketches are reviewed, and the Runs and Run screens,
-   the server and the run structure in the trace are built on `feat/web-app`; `indaba ui`, the workflows table (it needs
-   the registry of step 1) and health are next.
+   the server, the run structure in the trace, `indaba ui` and the packaging of the page inside `@indaba/server` are
+   built on `feat/web-app`; the workflows table (it needs the registry of step 1) and health are next.
 5. Actions: run, stop, resume, run one step, answers and messages, apply or discard a change list.
 6. Editing: the wizard and editor of `specs/workflow-editor`, and copy for another project.
 

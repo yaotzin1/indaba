@@ -207,6 +207,7 @@ confirmed on real installs yet.
 | `.indaba/traces/<traceId>.jsonl` | One JSON object per ended span: the task, each step, each agent call or command, with `gen_ai.*` attributes, token counts and cost where known. Safe to read and diff; it never contains secrets |
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
 | `.indaba/artifacts/<step>.transcript.md`, `<step>.ruling.md` | The messages of a debate step and, when an arbiter ruled, its ruling |
+| `.indaba/discussions/<traceId>.<stepId>.json` | The same messages of a debate, per run, for the web view to show (redacted, control sequences dropped). `indaba run --discussion-dir <dir>` keeps them elsewhere |
 | `.indaba-decisions/<workflow>.jsonl` | **Committed, not ignored.** Every arbiter ruling, one JSON line each, and the memory that lets an identical re-run skip the debate. See [Consensus steps](workflow-format.md#consensus-steps) |
 | the paths your workflow names under `artifacts` | Whatever the steps wrote there, and the diff of an isolated worktree if you named a `patch` artifact |
 
@@ -232,8 +233,9 @@ shown as a symbol and a word, never by colour alone; `--ascii` avoids box and ar
 turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state.
 
-The same runs can be followed in a browser, as a graph with each step's details: see [web-view.md](web-view.md). It is
-in progress and opened from a checkout for now.
+The same runs can be followed in a browser, as a graph with each step's details and cost: `indaba ui` in the project
+(`--root` for others, `--no-open`, `--port`). It needs the optional `@indaba/server`, which is not published yet, so for
+now use `pnpm indaba ui` from a built checkout. See [web-view.md](web-view.md).
 
 ### Starting a run and watching it at once
 

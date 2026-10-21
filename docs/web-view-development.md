@@ -19,8 +19,9 @@ made while building it). The repository's rules in [`workflow.ai.yml`](../workfl
 | :--- | :--- | :--- |
 | `packages/core/src/web-contract/` | The shapes the page and the server share: `RunSnapshot`, `RunSummary`, `StepView`, `StepStructure`, the request and response types. Declarations only | nothing |
 | `packages/engine/src/trace/` | Reading a run: `TraceReader`, the reducer that the dashboard and the page both use, `readStructure` for the recorded graph | core |
-| `packages/server/` | `startServer({ roots, staticDir, port?, token? })`: the API under `/api/v1`, the streams, the page's files | core, engine, `node:` |
-| `packages/web/` | The page. **Private**: never published on its own. Vite builds it into `packages/web/dist`, which the server serves | its own files, the libraries below, `import type` from core |
+| `packages/server/` | `startServer({ roots, staticDir, port?, token? })`: the API under `/api/v1`, the streams, the page's files. `defaultPageDirectory()` finds the page: its own `page/` in an installed package, `packages/web/dist` in a checkout | core, engine, `node:` |
+| `packages/web/` | The page. **Private**: never published on its own. Vite builds it into `packages/web/dist`, which ships inside `@indaba/server` (see [Packaging](#packaging)) | its own files, the libraries below, `import type` from core |
+| `packages/cli/src/ui.ts` | `indaba ui`: loads `@indaba/server` lazily, asks it for the page, starts it, opens the browser | the server through `server-loader.ts`, never statically |
 
 Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and no other Indaba package at run time.
 `packages/web/test/layers.test.ts` and `packages/server/test/layers.test.ts` fail the build if that changes.
@@ -35,23 +36,26 @@ Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and n
 | `session.ts` | Reading the token from `#token=` and removing it from the address |
 | `graph-model.ts` | A run to nodes and edges, laid out left to right by `@dagrejs/dagre`. Pure |
 | `format.ts`, `status.ts` | Durations, money, tokens, times; a state's symbol, word and colour class. Pure |
+| `cost.ts` | The cost of a step and the rows of a run's cost table, added up the way the engine's reducer adds up the run's. Pure |
 | `messages.ts` | Every string the page shows |
 | `styles.css` | The tokens of both themes and every rule; the `--gw-*` mapping for the grids |
 | `ui/App.ts` | Header, theme switch, the screen the address names, the messages that replace a screen |
 | `ui/RunsScreen.ts`, `ui/RunScreen.ts` | The two screens |
 | `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph, the selected step, the step list |
+| `ui/CostTable.ts`, `ui/Discussion.ts` | The cost of each step that called a model; a debate's kept messages, loaded when opened |
 | `ui/router.ts`, `ui/theme.ts`, `ui/parts.ts` | The address, the theme, small shared parts |
 
 ## Run it while you work
 
 ```bash
 pnpm build                       # every package, then the page (pnpm --filter @indaba/web build)
-pnpm try:ui -- --demo            # a throwaway run with a retry, served with the built page
+pnpm indaba ui --no-open         # the runs of this checkout, served with the built page
+pnpm try:ui -- --demo            # a throwaway run with a retry, then the same server over it
 ```
 
 After changing the page, `pnpm --filter @indaba/web build` rebuilds only the page; reload the browser (the server reads
-the files on each request). After changing the server, stop `try:ui` and run `pnpm build` again. `try:ui` is in
-`scripts/try-ui.mjs`; `indaba ui` will replace it (task T-11).
+the files on each request). After changing the server or the CLI, stop it and run `pnpm build` again. `try:ui` is in
+`scripts/try-ui.mjs` and is kept for `--demo`, which makes the project to look at.
 
 ## The rules the page keeps
 
@@ -231,6 +235,19 @@ rest of the repository and must stay at 85% or more on every metric; the page is
 Before you say a change to the page works, look at it: `pnpm try:ui -- --demo`, both themes, a narrow window, and
 the keyboard.
 
+## Packaging
+
+The page reaches a person inside `@indaba/server`, never as a package of its own:
+
+- `pnpm pack` (and so the release and `pnpm smoke`) runs the server's `prepack`, `scripts/stage-page.mjs`, which copies
+  `packages/web/dist` to `packages/server/page` and writes `page/THIRD-PARTY-LICENSES.txt`; its `postpack` removes the
+  copy, so a checkout always serves `packages/web/dist`. `packages/server/page/` is gitignored.
+- With no build the pack fails: no server tarball ships without its page.
+- `pnpm smoke` reads every tarball and fails on a file that does not belong (anything but `dist/`, the manifest, the
+  readme and the licence, plus `page/` for the server), installs `indaba` alone to check it boots without the optional
+  packages, and installs everything to check the server finds its page. Its checks are `auditFiles` and the install
+  steps in `scripts/smoke-pack.mjs`, with self-tests next to it.
+
 ## Dependencies
 
 The page's libraries are `devDependencies` of a private package, bundled into `packages/web/dist` at build time. A user
@@ -240,6 +257,8 @@ of Indaba receives them as files, never as packages in their tree, so they are n
 - pin an exact version, at least two weeks old where a choice exists;
 - check its licence and its dependencies' licences (`npm view <package> license dependencies`) and write them in the
   plan; MIT, ISC, BSD and the SIL OFL for fonts are fine;
+- add it to `BUNDLED` (it reaches the page) or `TOOLS` (build and tests only) in `scripts/stage-page.mjs`: a
+  devDependency in neither stops the pack, so no library ships without its licence in `THIRD-PARTY-LICENSES.txt`;
 - keep the bundle in mind: it is about 170 kB gzipped today, and a phone loads it.
 
 Today: `react` and `react-dom`, `apsw-gridwright`, `@xyflow/react`, `@dagrejs/dagre`,
