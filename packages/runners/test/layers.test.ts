@@ -32,6 +32,13 @@ describe('runners boundary', () => {
     expect(files.length).toBeGreaterThan(10);
   });
 
+  it('logs through the injected Logger: no console and no direct stdout or stderr (specs/logging, AC-03)', () => {
+    const offenders = files.filter((file) =>
+      /\bconsole\.|process\.(stdout|stderr)\.write/.test(readFileSync(file, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it('imports only relative files, node:* and @indaba/core', () => {
     for (const file of files) {
       for (const specifier of importSpecifiers(readFileSync(file, 'utf8'))) {

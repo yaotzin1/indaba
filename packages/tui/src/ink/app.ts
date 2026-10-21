@@ -1,4 +1,4 @@
-import { emptyRun, type RunRecord, type RunState, reduceRun } from '@indaba/engine';
+import { emptyRun, type Logger, type RunRecord, type RunState, reduceRun } from '@indaba/engine';
 import { computeLayout } from '../layout.js';
 import { buildScreen } from '../screen.js';
 import { clampUi, initialUi, type KeyName, reduceUi, type UiContext, type UiState } from '../ui-state.js';
@@ -32,6 +32,8 @@ export interface AppProps {
   readonly flushMs?: number;
   /** Called once, when the person quits. */
   readonly onFinish: (result: AppResult) => void;
+  /** Told when the source of records fails. */
+  readonly logger?: Logger;
 }
 
 const DEFAULT_FLUSH_MS = 50;
@@ -89,8 +91,11 @@ export function App(props: AppProps): ReactElement {
           }
           inbox.current.push(record);
         }
-      } catch {
-        // a source that fails ends like one that finished: the screen shows what it has
+      } catch (error) {
+        // a source that fails ends like one that finished: the screen shows what it has, and the log says why
+        props.logger?.info('tui.dashboard', 'the run source failed; the screen shows what it has', {
+          reason: error instanceof Error ? error.message : String(error),
+        });
       } finally {
         flush();
       }

@@ -55,11 +55,27 @@ from are in [`examples/`](../examples/).
 | `--timeout <secs>` | Per-step timeout in seconds (default 900); applies to every runner |
 | `--plugin <spec>` | Load a plugin (repeatable); also accepted by `validate` and `plan`. See [extending.md](extending.md) |
 | `-v` | Print the cost of each span that has one; `-vv` also streams the agent's output live |
+| `--log-level <level>` | `error`, `warn`, `info` (default) or `debug`; every command accepts it. See [Logs](#logs) |
+| `--log-dir <dir>` | Folder of the log files (default `.indaba/logs`); every command accepts it |
 | `-h, --help`, `-V, --version` | Help and version |
 
 Exit codes: 0 completed, 1 failed (also: any error), 2 escalated or a usage error, 130 cancelled. Press
 Ctrl+C once to cancel a run: the running step is stopped and worktrees are removed. A second Ctrl+C
 exits immediately.
+
+### Logs
+
+Every command (`validate`, `plan`, `run`, `watch`) appends JSON lines, one record per line, to
+`.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in the project (for `run`, the `--workdir` one). Each process writes a
+`process.start` record (the command name, the Indaba and Node versions, the platform and architecture, never the
+arguments) and a `process.end` record with the exit code. A run adds a record for every step state change and every
+span that ends with an error, with the task, step or trace id to find it in `.indaba/traces`; with `--log-level debug`
+also what each step streams, filtered to printable text. Records at `warn` and above are also printed on standard
+error as one plain line; standard output does not change. A file is closed at 10 MiB and the newest 10 files are kept
+(starting values, not measurements). Values of environment variables whose name contains `key`, `token`, `secret`,
+`password` or `credential` are replaced by `[redacted]` before anything is written; even so, read a log before you send
+it to someone. `--log-dir` takes a folder inside the project, or an absolute path anywhere. A folder that cannot be
+written costs one warning and the command goes on without a file.
 
 ## Environment variables
 
@@ -71,6 +87,7 @@ Indaba reads only these from its environment, and passes only these to the runne
 | `INDABA_OPENAI_COMPAT_<NAME>_BASE_URL` | an OpenAI-compatible runner | Adds a runner named `<name>` in lower case with `_` as `-` (`LM_STUDIO` is `lm-studio`). The URL is `http` or `https`, up to the version segment, for example `http://localhost:11434/v1` |
 | `INDABA_OPENAI_COMPAT_<NAME>_KEY_ENV` | the same | The **name** of the variable that holds that endpoint's key. Without it the endpoint is treated as keyless (a local server) |
 | `INDABA_OPENAI_COMPAT_<NAME>_MODEL` | the same | The model used when a role names none |
+| `INDABA_LOG_LEVEL` | every command | The log level when `--log-level` is not given: `error`, `warn`, `info` or `debug`. Anything else is a usage error |
 | `INDABA_ACP_PASS_ENV` | `acp` runner | Extra variables to pass on to an ACP agent: comma-separated names, or a prefix ending in `*`. See [ACP agents](#acp-agents) |
 | `INDABA_CODEX_CMD` | `codex` runner | Replaces the built-in Codex command line. Space-separated words; `{prompt}` and `{model}` mark where those go |
 | `INDABA_ANTIGRAVITY_CMD` | `antigravity` runner | The same, for Antigravity |

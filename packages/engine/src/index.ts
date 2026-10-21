@@ -1,3 +1,9 @@
+/**
+ * The logging contract of @indaba/core, re-exported so a package that may only import the engine (the terminal
+ * dashboard) takes a logger from the same place as everyone else.
+ */
+export type { LogContext, LogFields, Logger, LogLevel, LogRecord, LogSink } from '@indaba/core';
+export { createLogger, noopLogger } from '@indaba/core';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { RunnerPlan } from './engine/chain.js';
@@ -13,7 +19,11 @@ export { WorkflowEngine } from './engine/workflow-engine.js';
 export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';
+export type { FileLogSinkOptions } from './observability/file-log-sink.js';
+export { FileLogSink } from './observability/file-log-sink.js';
 export { JsonlSpanExporter } from './observability/jsonl-span-exporter.js';
+export type { EventSource } from './observability/log-events.js';
+export { logEngineEvents } from './observability/log-events.js';
 export { RandomIdGenerator, SystemClock } from './observability/system.js';
 export { ErrorBag } from './parser/error-bag.js';
 export { Interpolator } from './parser/interpolator.js';

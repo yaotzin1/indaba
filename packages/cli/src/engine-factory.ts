@@ -3,6 +3,8 @@ import {
   type Adjudicator,
   AdjudicatorRegistry,
   IndabaError,
+  type Logger,
+  noopLogger,
   type Plugin,
   PricingTable,
   SimpleEventDispatcher,
@@ -17,6 +19,7 @@ import {
   GitWorktreeManager,
   GuardRegistry,
   JsonlSpanExporter,
+  logEngineEvents,
   McpPlanner,
   RandomIdGenerator,
   RunEventWriter,
@@ -68,6 +71,11 @@ export interface CreateEngineOptions {
   readonly stepTimeoutSeconds?: number;
   /** Receives what a failing event listener threw; by default it is dropped. */
   readonly onListenerError?: (error: unknown) => void;
+  /**
+   * Where Indaba logs (specs/logging). The engine's events are turned into records, and plugins receive it as
+   * `host.logger`. Without one nothing is logged.
+   */
+  readonly logger?: Logger;
 }
 
 export interface EngineBundle {
@@ -91,6 +99,8 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   }
 
   const events = new SimpleEventDispatcher(options.onListenerError);
+  const logger = options.logger ?? noopLogger;
+  logEngineEvents(events, logger);
   const traceDirectory = join(options.projectDir, '.indaba', 'traces');
   const exporter = new JsonlSpanExporter(traceDirectory);
   events.addListener(SpanEnded, (event) => exporter.onSpanEnded(event));
@@ -119,7 +129,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   const guards = GuardRegistry.withDefaults();
 
   const adjudicators = new AdjudicatorRegistry();
-  const host = new RegistryPluginHost(runners, guards, events, adjudicators);
+  const host = new RegistryPluginHost(runners, guards, events, adjudicators, logger);
   if (options.humanAdjudicator !== undefined) {
     host.registerAdjudicator('human', options.humanAdjudicator);
   }

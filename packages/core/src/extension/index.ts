@@ -1,3 +1,4 @@
+import type { Logger } from '../logging/logger.js';
 import type { Adjudicator } from '../mesh/adjudicator.js';
 import type { Runner } from '../runner/index.js';
 import type { GuardDefinition } from '../workflow/model.js';
@@ -39,6 +40,12 @@ export interface PluginHost {
     type: abstract new (...args: never[]) => E,
     listener: (event: E) => unknown,
   ): void;
+  /**
+   * The logger of the command, the same one the built-ins write through (specs/logging, US-03). Records go through
+   * the same redaction and sinks. Optional only so a host written before it existed still type-checks; the `indaba`
+   * command line always provides one.
+   */
+  readonly logger?: Logger;
 }
 
 /** An extension package default-exports one of these. Core never learns what plugins exist. */

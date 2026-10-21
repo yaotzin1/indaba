@@ -35,6 +35,13 @@ describe('engine layering', () => {
     expect(files.length).toBeGreaterThan(0);
   });
 
+  it('logs through the injected Logger: no console and no direct stdout or stderr (specs/logging, AC-03)', () => {
+    const offenders = files.filter((file) =>
+      /\bconsole\.|process\.(stdout|stderr)\.write/.test(readFileSync(file, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it('imports only relative files, node:*, yaml and @indaba/core', () => {
     const allowed = (s: string): boolean =>
       s.startsWith('./') ||

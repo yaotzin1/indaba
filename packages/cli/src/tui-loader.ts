@@ -1,3 +1,5 @@
+import type { Logger } from '@indaba/core';
+
 /** What the command line needs of `@indaba/tui`. The package is optional, so its types are not imported. */
 export interface TuiWatchOptions {
   readonly directory: string;
@@ -10,6 +12,7 @@ export interface TuiWatchOptions {
   readonly stdout: NodeJS.WritableStream;
   readonly stdin: NodeJS.ReadableStream;
   readonly signal?: AbortSignal;
+  readonly logger?: Logger;
 }
 
 export interface TuiWatchResult {

@@ -151,6 +151,21 @@ steps:
 (That workflow fails at the `outputs` check, because the echo runner writes no file; it is there to show
 the three names in use. Add a `shell` step before it that creates `hello.txt` to make it pass.)
 
+## Logging from a plugin
+
+`host.logger` is the logger of the command, the one the built-ins write through: same file, same level, same
+redaction. Pass a component name of your own, a fixed sentence, and anything from outside as fields:
+
+```js
+register(host) {
+  host.logger?.info('plugin.demo', 'the plugin registered', { version: '1.2.0' });
+}
+```
+
+It is optional in the type so a host written before it existed still type-checks; the `indaba` command line always
+provides one. To log what a run does, listen to an event (`StepStatusChanged`, `SpanEnded`) with `host.addListener`
+rather than logging the same thing twice: the command line already records those.
+
 ## Running with a plugin
 
 Pass `--plugin` to `validate`, `plan` and `run`. The option repeats, and the value is a file path
@@ -170,7 +185,9 @@ compiled first (or run under a loader you provide).
 `indaba` exports `createEngine({ projectDir, env, plugins })`, which wires the registries, the tracer and
 the engine, and registers the plugins you pass. Its result gives you the `engine`, the `parser`
 (validating against the same guard registry, so plugin guard types are valid), the `runners` and
-`guards` registries and the `events` dispatcher. Parsing a file and running it:
+`guards` registries and the `events` dispatcher. Pass `logger` (built with `createLogger` from `@indaba/core`, with
+your own sinks, or with `FileLogSink` from `@indaba/engine`) and the engine's events are logged through it and plugins
+receive it as `host.logger`; without one nothing is logged. Parsing a file and running it:
 
 ```ts
 import { createEngine } from 'indaba';

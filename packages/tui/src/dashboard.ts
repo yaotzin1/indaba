@@ -1,4 +1,4 @@
-import { emptyRun, type RunRecord } from '@indaba/engine';
+import { emptyRun, type Logger, type RunRecord } from '@indaba/engine';
 import { h, type RenderOptions, render } from './ink/adapter.js';
 import { App, type AppResult } from './ink/app.js';
 
@@ -11,6 +11,7 @@ export interface DashboardOptions {
   readonly stdout: NodeJS.WritableStream;
   readonly stdin: NodeJS.ReadableStream;
   readonly flushMs?: number;
+  readonly logger?: Logger;
 }
 
 /**
@@ -37,6 +38,7 @@ export async function runDashboard(options: DashboardOptions): Promise<AppResult
       ascii: options.ascii,
       color: options.color,
       ...(options.flushMs === undefined ? {} : { flushMs: options.flushMs }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
       onFinish: (finished) => {
         result = finished;
       },

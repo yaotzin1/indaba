@@ -1,4 +1,4 @@
-import type { RunRecord } from '@indaba/engine';
+import { createLogger, type Logger, type LogRecord, type RunRecord } from '@indaba/engine';
 import { describe, expect, it, vi } from 'vitest';
 
 // the colour library decides at load time whether the terminal can show colour; a fake one cannot, so say it can
@@ -27,7 +27,7 @@ async function* endless(records: readonly RunRecord[]): AsyncGenerator<RunRecord
 
 function start(
   source: AsyncIterable<RunRecord>,
-  extra: { attached?: boolean; ascii?: boolean; color?: boolean } = {},
+  extra: { attached?: boolean; ascii?: boolean; color?: boolean; logger?: Logger } = {},
 ) {
   const stdout = new FakeStdout();
   const stdin = new FakeStdin();
@@ -39,6 +39,7 @@ function start(
     stdout: stdout as unknown as NodeJS.WritableStream,
     stdin: stdin as unknown as NodeJS.ReadableStream,
     flushMs: 5,
+    ...(extra.logger === undefined ? {} : { logger: extra.logger }),
   });
   return { stdout, stdin, done };
 }
@@ -91,10 +92,35 @@ describe('runDashboard', () => {
       yield* sampleRecords();
       throw new Error('the file went away');
     }
-    const { stdout, stdin, done } = start(failing());
+    const records: LogRecord[] = [];
+    const logger = createLogger({ sinks: [{ write: (r) => records.push(r) }], clock: () => new Date(0) });
+    const { stdout, stdin, done } = start(failing(), { logger });
     await until(() => stdout.text.includes('plan'));
     stdin.type('q');
     expect((await done).run.steps).toHaveLength(2);
+    expect(records).toMatchObject([
+      {
+        level: 'info',
+        component: 'tui.dashboard',
+        message: 'the run source failed; the screen shows what it has',
+        fields: { reason: 'the file went away' },
+      },
+    ]);
+  });
+
+  it('says so in the log, not on the screen, when a source throws something that is not an Error', async () => {
+    async function* failing(): AsyncGenerator<RunRecord> {
+      yield* sampleRecords();
+      throw 'gone';
+    }
+    const records: LogRecord[] = [];
+    const logger = createLogger({ sinks: [{ write: (r) => records.push(r) }], clock: () => new Date(0) });
+    const { stdout, stdin, done } = start(failing(), { logger });
+    await until(() => stdout.text.includes('plan'));
+    stdin.type('q');
+    await done;
+    expect(records[0]?.fields).toEqual({ reason: 'gone' });
+    expect(stdout.text).not.toContain('gone');
   });
 
   it('asks what to do with a run the screen started, and detaches or cancels as told', async () => {

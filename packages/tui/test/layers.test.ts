@@ -42,6 +42,13 @@ describe('tui layering', () => {
     expect(tuiFiles.length).toBeGreaterThan(0);
   });
 
+  it('logs through the injected Logger: no console and no direct stdout or stderr (specs/logging, AC-03)', () => {
+    const offenders = tuiFiles.filter((file) =>
+      /\bconsole\.|process\.(stdout|stderr)\.write/.test(readFileSync(file, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it('imports ink and react in one file only, the adapter', () => {
     const files = new Set(imports.filter((i) => isUi(i.specifier)).map((i) => i.file));
     expect([...files]).toEqual(['ink/adapter.ts']);
