@@ -122,8 +122,28 @@ function isDiscussion(value: unknown): value is DiscussionView {
   );
 }
 
+const isCount = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+/** A cost the page can show: a sum of dollars that is a real number, and counts that are whole and not negative. */
+function isRunCost(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.usd === 'number' &&
+    Number.isFinite(value.usd) &&
+    value.usd >= 0 &&
+    isCount(value.unknown) &&
+    isCount(value.calls)
+  );
+}
+
 function isRunSummary(value: unknown): value is RunSummary {
-  return isRecord(value) && typeof value.runId === 'string' && typeof value.status === 'string';
+  return (
+    isRecord(value) &&
+    typeof value.runId === 'string' &&
+    typeof value.status === 'string' &&
+    isRunCost(value.cost)
+  );
 }
 
 /** The major of a version such as `1.2.0`; NaN when it has none. */

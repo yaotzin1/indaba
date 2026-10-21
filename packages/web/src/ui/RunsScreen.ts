@@ -2,7 +2,8 @@ import type { RunSummary } from '@indaba/core';
 import { Gridwright, type GridwrightColumn, responsive } from 'apsw-gridwright/react';
 import { createElement as h, type MouseEvent, type ReactElement, useEffect, useMemo, useState } from 'react';
 import { ApiFailure, type Client, type Failure, type StreamState } from '../client.js';
-import { type Clock, formatWhen, shortId } from '../format.js';
+import { costTip } from '../cost.js';
+import { type Clock, formatRunCost, formatWhen, shortId } from '../format.js';
 import { messages } from '../messages.js';
 import { runLook } from '../status.js';
 import { StateChip } from './parts.js';
@@ -48,6 +49,14 @@ function runColumns(clock: Clock, navigate: Navigate): GridwrightColumn<RunSumma
       id: 'startedAt',
       header: messages.runs.started,
       formatValue: (value) => formatWhen(typeof value === 'string' ? value : undefined, clock),
+    },
+    {
+      id: 'cost',
+      header: messages.runs.cost,
+      align: 'end',
+      // Sorted by what is known to have been spent; the cell says when that is partial or unknown.
+      accessor: (run) => run.cost.usd,
+      cell: ({ row }) => h('span', { title: costTip(row.cost) }, formatRunCost(row.cost)),
     },
     {
       id: 'runId',

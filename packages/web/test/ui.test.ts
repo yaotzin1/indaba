@@ -99,9 +99,27 @@ function appProps(
 }
 
 const RUNS: readonly RunSummary[] = [
-  { runId: 'older0000000000', startedAt: T(0), status: 'completed', workflow: 'release-notes' },
-  { runId: 'newer0000000000', startedAt: T(20), status: 'running', workflow: 'task-pipeline' },
-  { runId: 'nameless0000000', startedAt: T(10), status: 'escalated', workflow: undefined },
+  {
+    runId: 'older0000000000',
+    startedAt: T(0),
+    status: 'completed',
+    workflow: 'release-notes',
+    cost: { usd: 0.42, unknown: 0, calls: 2 },
+  },
+  {
+    runId: 'newer0000000000',
+    startedAt: T(20),
+    status: 'running',
+    workflow: 'task-pipeline',
+    cost: { usd: 0.1, unknown: 1, calls: 3 },
+  },
+  {
+    runId: 'nameless0000000',
+    startedAt: T(10),
+    status: 'escalated',
+    workflow: undefined,
+    cost: { usd: 0, unknown: 0, calls: 0 },
+  },
 ];
 
 describe('the page without a usable token', () => {
@@ -135,6 +153,16 @@ describe('the Runs screen', () => {
     expect(links).toEqual(['task-pipeline', 'unnamed', 'release-notes']);
     expect(within(grid).getByText('escalated')).toBeTruthy();
     expect(screen.getByText('Live').className).toBe('badge live');
+  });
+
+  it('shows the cost of each run, marking a partial or an absent price, with what it is made of on hover', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    const grid = await screen.findByRole('grid', { name: 'Runs on this machine' });
+    expect(within(grid).getByText('$0.42').getAttribute('title')).toBe('2 model calls, each with a price');
+    expect(within(grid).getByText('at least $0.10 (partial)').getAttribute('title')).toBe(
+      '3 model calls, 1 with no price',
+    );
+    expect(within(grid).getByText('$0.00 (no model calls)').getAttribute('title')).toBe('No model calls');
   });
 
   it('opens a run from its link, keeping the page, and goes back', async () => {
@@ -194,6 +222,28 @@ describe('the Run screen', () => {
     expect(within(panel).getByText(/Up to 3 retries, 1 used/)).toBeTruthy();
     expect(within(panel).getByText('pnpm typecheck exited with 2')).toBeTruthy();
     expect(within(panel).getByText('Output (live)')).toBeTruthy();
+  });
+
+  it('opens a table of the cost of each step that called a model, adding up to the total', async () => {
+    render(h(App, appProps(fakeClient({}), '/runs/r1')));
+    const table = await screen.findByRole('grid', { name: 'The cost of each step that called a model' });
+    const rows = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.textContent);
+    expect(rows).toEqual(['rfc1' + '8.1k / 2.4k' + '$0.21', 'code1' + 'unknown / unknown' + 'unknown']);
+    expect(screen.getByText('at least $0.21 (partial)').getAttribute('title')).toBe(
+      '2 model calls, 1 with no price',
+    );
+  });
+
+  it('says when no step has called a model', async () => {
+    const run = liveRun({
+      steps: [step('lint', { status: 'COMPLETED' })],
+      cost: { usd: 0, unknown: 0, calls: 0 },
+    });
+    render(h(App, appProps(fakeClient({ run }), '/runs/r1')));
+    expect(await screen.findByText('No step of this run has called a model.')).toBeTruthy();
   });
 
   it('selects a step from the step list and keeps it in the address', async () => {

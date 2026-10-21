@@ -12,6 +12,7 @@ export type {
 } from './api.js';
 export type {
   AttemptView,
+  RunCost,
   RunnerView,
   RunSnapshot,
   RunState,

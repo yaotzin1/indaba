@@ -88,6 +88,7 @@ export type {
   DiscussionResponse,
   DiscussionRuling,
   DiscussionView,
+  RunCost,
   RunListResponse,
   RunnerView,
   RunResponse,

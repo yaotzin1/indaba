@@ -11,6 +11,8 @@ import {
 } from '../src/client.js';
 import { liveRun } from './fixtures.js';
 
+const COST = { usd: 0.25, unknown: 1, calls: 3 };
+
 // Built from parts so no file holds a string shaped like a credential (the security audit reads tests too).
 const TOKEN = ['test', 'token', '0123456789'].join('-');
 
@@ -138,13 +140,24 @@ describe('the client', () => {
   it('keeps only the runs and the run it can read', async () => {
     const run = liveRun();
     const replies = fakeFetch([
-      json({ runs: [{ runId: 'a', status: 'running' }, { nope: true }, 'x'] }),
+      json({
+        runs: [
+          { runId: 'a', status: 'running', cost: COST },
+          { nope: true },
+          'x',
+          { runId: 'no-cost', status: 'running' },
+          { runId: 'negative', status: 'running', cost: { ...COST, usd: -1 } },
+          { runId: 'fraction', status: 'running', cost: { ...COST, calls: 1.5 } },
+          { runId: 'nan', status: 'running', cost: { ...COST, usd: Number.NaN } },
+          { runId: 'text', status: 'running', cost: { ...COST, unknown: '1' } },
+        ],
+      }),
       json({ nope: true }),
       json({ run }),
       json({ run: { status: 'running' } }),
     ]);
     const client = createClient({ token: TOKEN, fetch: replies.fetch });
-    expect(await client.runs()).toEqual([{ runId: 'a', status: 'running' }]);
+    expect(await client.runs()).toEqual([{ runId: 'a', status: 'running', cost: COST }]);
     expect(await client.runs()).toEqual([]);
     expect(await client.run('id with space')).toEqual(run);
     expect(replies.calls[2]?.url).toBe('/api/v1/runs/id%20with%20space');
@@ -342,7 +355,7 @@ describe('following a run', () => {
 
 describe('following the server', () => {
   it('announces runs that start and end, and nothing else', async () => {
-    const summary = { runId: 'r1', status: 'running', startedAt: undefined, workflow: 'w' };
+    const summary = { runId: 'r1', status: 'running', startedAt: undefined, workflow: 'w', cost: COST };
     const replies = fakeFetch([
       sse([
         frame(1, 'run', { id: 1, kind: 'run_started', run: summary }),

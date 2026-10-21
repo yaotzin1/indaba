@@ -54,6 +54,12 @@ checkable. The slice and its limits are in `plan.md`.
   `steps` and the dashboard are unchanged. Writer and reader are one module, `packages/engine/src/trace/structure.ts`.
   Adding an attribute and a field is a minor. Tests in `packages/engine/test/structure.test.ts`: a retry, an escalation and a
   step with none, the engine's run order, an old trace, and nineteen malformed or hostile values.
+- [x] **T-23** (added 2026-10-21, answer 1) `RunSummary.cost` (`RunCost` in `@indaba/core`), filled by
+  `listRuns` with the reducer the run's view uses; a Cost column on the Runs screen with a tooltip of the calls and the
+  unpriced ones; on the Run screen a table of the cost of each step that called a model, adding up to the total
+  (`packages/web/src/cost.ts`, `ui/CostTable.ts`). Tests in `packages/engine/test/trace-reader.test.ts`,
+  `packages/web/test/cost.test.ts`, `ui.test.ts` and `client.test.ts` (a cost that is not a real, non-negative sum is
+  refused).
 - [x] **T-21** (done 2026-10-21: one JSON file per run and step, in a folder the person chooses; see C-15) Decide how a run keeps its debate messages (C-15): the board of `specs/run-blackboard`, or the transcript copied
   under the run's trace id. Not needed for delivery step 1; until then the discussion shows the summary only.
 
