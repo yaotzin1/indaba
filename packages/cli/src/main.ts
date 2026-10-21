@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
+import { hostname } from 'node:os';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
@@ -18,14 +19,18 @@ import {
 } from '@indaba/core';
 import {
   effectiveGuards,
+  PROJECT_CONFIG_FILE,
   planForStep,
+  readProjectConfig,
   type WorkflowParser,
   WorkflowStatus,
   WorkflowValidator,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
+import type { ExitHooks } from './exit.js';
 import {
+  type CommandLogger,
   chooseLevel,
   extractLogOptions,
   LOG_OPTIONS_USAGE,
@@ -36,6 +41,7 @@ import {
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
+import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { runWithDashboard } from './run-tui.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
@@ -62,6 +68,8 @@ export interface Io {
   readonly clock?: () => Date;
   /** The process id the log records carry. Defaults to this process. */
   readonly pid?: number;
+  /** Where the command registers what must happen before an early exit (a second Ctrl+C): the log's flush. */
+  readonly exitHooks?: ExitHooks;
 }
 
 export const EXIT_OK = 0;
@@ -79,6 +87,7 @@ Commands:
   plan [file]       Show the execution order of a workflow without running it
   run [file]        Execute a workflow
   watch [run]       Follow or read a run from the files it writes (no run: list them)
+  report [run]      Gather the log, trace and environment of a run into a folder to attach to an issue
 
 Options:
   -h, --help        Show help
@@ -153,22 +162,35 @@ async function logged(
   root: string,
   options: LogOptions,
   io: Io,
-  body: (logger: Logger) => Promise<number>,
+  body: (logger: CommandLogger) => Promise<number>,
 ): Promise<number> {
-  let logger: Logger;
+  let logger: CommandLogger;
   try {
+    const config = await readProjectConfig(root);
+    if (config.problems.length > 0) {
+      return usageError(
+        io,
+        `${PROJECT_CONFIG_FILE} is invalid:\n${config.problems.map((p) => ` - ${p}`).join('\n')}`,
+        command,
+      );
+    }
     logger = openCommandLogger({
       root,
-      level: chooseLevel(options.level, io.env.INDABA_LOG_LEVEL),
+      level: chooseLevel(options.level, io.env.INDABA_LOG_LEVEL, config.logging.settings.level),
       dir: options.dir,
+      settings: config.logging.settings,
       stderr: io.stderr,
       environment: io.env,
       clock: io.clock ?? (() => new Date()),
       pid: io.pid ?? process.pid,
+      hostname: hostname(),
     });
   } catch (error) {
     if (error instanceof LogUsageError) {
       return usageError(io, error.message, command);
+    }
+    if (error instanceof IndabaError) {
+      return usageError(io, redact(error.message, io.env), command);
     }
     throw error;
   }
@@ -180,11 +202,17 @@ async function logged(
     platform: process.platform,
     arch: process.arch,
   });
+  // A second Ctrl+C leaves before `finally` runs; the records of the run are written first (bounded by exit.ts).
+  const removeHook = io.exitHooks?.add(async () => {
+    logger.info('cli.process', 'process.end', { exitCode: EXIT_INTERRUPTED, interruptedTwice: true });
+    await logger.flush();
+  });
   let code = EXIT_FAILURE;
   try {
     code = await body(logger);
     return code;
   } finally {
+    removeHook?.();
     logger.info('cli.process', 'process.end', { exitCode: code });
     await logger.flush();
   }
@@ -293,6 +321,9 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === 'watch') {
     return logged(command, io.cwd, logOptions, io, (logger) => watchCommand(args, io, logger));
   }
+  if (command === 'report') {
+    return logged(command, io.cwd, logOptions, io, (logger) => reportCommand(args, io, logger, logOptions));
+  }
   if (command !== 'validate' && command !== 'plan' && command !== 'run') {
     return usageError(io, `Unknown command "${command}".`);
   }
@@ -351,6 +382,40 @@ async function watchCommand(args: readonly string[], io: Io, logger: Logger): Pr
   }
 }
 
+/** The folders the file sinks of a project write to: those of its indaba.config, or the default, or --log-dir. */
+async function logFoldersOf(root: string, options: LogOptions): Promise<string[]> {
+  const config = await readProjectConfig(root);
+  const folders = config.logging.settings.sinks.flatMap((sink) =>
+    sink.type === 'file' ? [resolve(root, options.dir ?? sink.folder)] : [],
+  );
+  return [...new Set(folders)];
+}
+
+async function reportCommand(
+  args: readonly string[],
+  io: Io,
+  logger: Logger,
+  logOptions: LogOptions,
+): Promise<number> {
+  try {
+    return await report(args, io, {
+      logger,
+      redact: (text) => redact(text, io.env),
+      runtime: {
+        indabaVersion: readVersion(),
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch,
+      },
+      logFolders: (root) => logFoldersOf(root, logOptions),
+    });
+  } catch (error) {
+    const message = redact(error instanceof Error ? error.message : String(error), io.env);
+    (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+    return EXIT_FAILURE;
+  }
+}
+
 /** Reads the workflow file; when none was named and the default is missing, says what to do about it. */
 async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Promise<WorkflowDefinition> {
   try {
@@ -370,9 +435,15 @@ async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Pro
   }
 }
 
-async function validate(parsed: Parsed, io: Io, logger: Logger): Promise<number> {
+async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, plugins, logger });
+  const { parser } = await createEngine({
+    projectDir: io.cwd,
+    env: io.env,
+    plugins,
+    logger,
+    logSinks: logger,
+  });
   let workflow: WorkflowDefinition;
   try {
     workflow = await loadWorkflow(parser, parsed, io);
@@ -395,9 +466,15 @@ async function validate(parsed: Parsed, io: Io, logger: Logger): Promise<number>
   return EXIT_OK;
 }
 
-async function plan(parsed: Parsed, io: Io, logger: Logger): Promise<number> {
+async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser, planner } = await createEngine({ projectDir: io.cwd, env: io.env, plugins, logger });
+  const { parser, planner } = await createEngine({
+    projectDir: io.cwd,
+    env: io.env,
+    plugins,
+    logger,
+    logSinks: logger,
+  });
   const workflow = await loadWorkflow(parser, parsed, io);
   const order = new DagBuilder().build(workflow);
 
@@ -489,11 +566,12 @@ async function runInDashboard(
   );
 }
 
-async function run(parsed: Parsed, projectDir: string, io: Io, logger: Logger): Promise<number> {
+async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { engine, parser, events } = await createEngine({
     projectDir,
     logger,
+    logSinks: logger,
     env: io.env,
     plugins,
     ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),

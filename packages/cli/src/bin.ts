@@ -1,16 +1,23 @@
 #!/usr/bin/env node
 import { fileURLToPath } from 'node:url';
 import { terminalAdjudicator } from './arbiter-prompt.js';
+import { EarlyExit } from './exit.js';
 import { main } from './main.js';
 import { terminalAuthChooser } from './prompt.js';
 import { CANCEL_MESSAGE, createRunStarter } from './run-child.js';
 
 const controller = new AbortController();
+const earlyExit = new EarlyExit();
 
-// The first SIGINT cancels the run so teardown (worktree removal) happens; a second one gives up.
+// The first SIGINT cancels the run so teardown (worktree removal) happens. A second one gives up on the run, but
+// first gives the log a bounded moment to write its last records; a third leaves at once.
 process.on('SIGINT', () => {
-  if (controller.signal.aborted) {
+  if (earlyExit.started) {
     process.exit(130);
+  }
+  if (controller.signal.aborted) {
+    void earlyExit.run().then(() => process.exit(130));
+    return;
   }
   controller.abort();
 });
@@ -30,6 +37,7 @@ const code = await main(process.argv.slice(2), {
   env: process.env,
   cwd: process.cwd(),
   signal: controller.signal,
+  exitHooks: earlyExit,
   startRun: createRunStarter(process.execPath, fileURLToPath(import.meta.url)),
   // Only a person at a terminal can be asked how an agent should log in, or to rule on a debate.
   ...(process.stdin.isTTY && process.stdout.isTTY

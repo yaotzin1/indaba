@@ -61,6 +61,16 @@ export interface Logger {
   flush(): Promise<void>;
 }
 
+/**
+ * A logger that sinks can join after it was built: the composition root makes the logger before it loads the plugins,
+ * and a plugin's sink joins through `PluginHost.registerLogSink` (specs/logging, AC-10). Every logger derived with
+ * `child` shares the same sinks.
+ */
+export interface LogSinkRegistry {
+  /** Adds a sink for the records from now on, with the same isolation as the sinks given at the start. */
+  addSink(sink: LogSink): void;
+}
+
 export interface LoggerOptions {
   readonly sinks: readonly LogSink[];
   readonly clock: () => Date;
@@ -104,7 +114,7 @@ export const noopLogger: Logger = {
   flush: () => Promise.resolve(),
 };
 
-export function createLogger(options: LoggerOptions): Logger {
+export function createLogger(options: LoggerOptions): Logger & LogSinkRegistry {
   const minimum = options.level ?? 'info';
   const redact = options.redact ?? identity;
   const active = [...options.sinks];
@@ -177,5 +187,12 @@ export function createLogger(options: LoggerOptions): Logger {
     },
   });
 
-  return build({});
+  return {
+    ...build({}),
+    addSink: (sink) => {
+      if (!active.includes(sink)) {
+        active.push(sink);
+      }
+    },
+  };
 }

@@ -1,19 +1,23 @@
 import {
   createLogger,
+  createRedactor,
+  type GelfSinkSettings,
+  type HttpJsonSinkSettings,
   isLogLevel,
   LOG_LEVELS,
   type Logger,
+  type LoggingSettings,
   type LogLevel,
   type LogRecord,
   type LogSink,
+  type LogSinkRegistry,
   resolveLoggingSettings,
 } from '@indaba/core';
-import { FileLogSink } from '@indaba/engine';
+import { FileLogSink, GelfLogSink, HttpJsonLogSink, type RemoteLogTrouble } from '@indaba/engine';
 import { printableText } from './printable.js';
-import { redact } from './redact.js';
 
 /** The logging options every command accepts (specs/logging, AC-07 and section 8, item 3). */
-export const LOG_OPTIONS_USAGE = `Logging (every command):
+export const LOG_OPTIONS_USAGE = `Logging (every command; more in the logging: section of indaba.config):
       --log-level <level>  error, warn, info or debug (default: info; or INDABA_LOG_LEVEL)
       --log-dir <dir>      Folder of the log files (default: .indaba/logs; a relative one stays in the project)
 `;
@@ -77,15 +81,22 @@ function splitOption(arg: string): [string, string | undefined] {
   return at < 0 ? [arg, undefined] : [arg.slice(0, at), arg.slice(at + 1)];
 }
 
-/** The option wins over the variable; neither means the default (AC-07). */
-export function chooseLevel(option: LogLevel | undefined, variable: string | undefined): LogLevel {
+/**
+ * The option wins over the variable, the variable over `indaba.config`, and with none of them the default applies
+ * (AC-07, AC-13).
+ */
+export function chooseLevel(
+  option: LogLevel | undefined,
+  variable: string | undefined,
+  configured: LogLevel = resolveLoggingSettings(undefined).settings.level,
+): LogLevel {
   if (option !== undefined) {
     return option;
   }
   if (variable !== undefined && variable !== '') {
     return levelOf(variable, 'INDABA_LOG_LEVEL');
   }
-  return resolveLoggingSettings(undefined).settings.level;
+  return configured;
 }
 
 /** One line of printable text: escape sequences and controls dropped, line breaks and tabs made spaces. */
@@ -115,24 +126,63 @@ export interface CommandLogOptions {
   /** The project the command works in; the default log folder is inside it. */
   readonly root: string;
   readonly level: LogLevel;
+  /** `--log-dir`: replaces the folder of every file sink. */
   readonly dir: string | undefined;
+  /** The sinks, from `indaba.config` or the defaults. */
+  readonly settings?: LoggingSettings;
   readonly stderr: { write(text: string): void };
-  /** The values to keep out of every record, by the rule of redact.ts. */
+  /** The values to keep out of every record, by the rule of `createRedactor`, and the source of collector credentials. */
   readonly environment: Readonly<Record<string, string | undefined>>;
   readonly clock: () => Date;
   readonly pid: number;
+  /** The `host` of a GELF message: this machine's name. */
+  readonly hostname?: string;
+}
+
+/** The logger of a command, and the door a plugin's sink comes in through. */
+export type CommandLogger = Logger & LogSinkRegistry;
+
+const TROUBLE: Readonly<Record<RemoteLogTrouble['kind'], string>> = {
+  unreachable: 'a log collector cannot be reached; records for it are dropped until it answers',
+  'reachable-again': 'a log collector answers again',
+  dropped: 'records for a log collector were dropped',
+};
+
+function remoteSink(
+  settings: GelfSinkSettings | HttpJsonSinkSettings,
+  options: CommandLogOptions,
+  credential: string | undefined,
+  tell: (trouble: RemoteLogTrouble) => void,
+): LogSink {
+  const common = {
+    level: settings.level,
+    address: settings.address,
+    queueLength: settings.queueLength,
+    timeoutSeconds: settings.timeoutSeconds,
+    retries: settings.retries,
+    onTrouble: tell,
+    ...(credential === undefined ? {} : { credential }),
+  };
+  return settings.type === 'gelf'
+    ? new GelfLogSink({ ...common, source: options.hostname ?? 'indaba', pid: options.pid })
+    : new HttpJsonLogSink(common);
 }
 
 /**
- * The one logger of a command: the file sink and the standard-error sink of the defaults, the level chosen, and the
- * environment's secret values redacted before any sink sees a record (AC-05). A log folder that cannot be written costs
- * one warning on standard error and the command goes on without the file (specs/logging, section 5).
+ * The one logger of a command: the sinks of `indaba.config` (or the default file and standard-error sinks), the level
+ * chosen, and every record redacted before any sink sees it (AC-05, T-06): the environment's secret values, the
+ * credentials of the collectors, bearer tokens, API-key shapes and a token in a URL. A log folder that cannot be
+ * written costs one warning and the command goes on without the file; a collector that is down costs one warning per
+ * outage (specs/logging, section 5, AC-16). A collector's credential is read here, from the variable `secretEnv`
+ * names, and from nowhere else.
  */
-export function openCommandLogger(options: CommandLogOptions): Logger {
-  const defaults = resolveLoggingSettings(undefined).settings.sinks;
+export function openCommandLogger(options: CommandLogOptions): CommandLogger {
+  const configured = options.settings ?? resolveLoggingSettings(undefined).settings;
   const sinks: LogSink[] = [];
-  let logger: Logger | undefined;
-  for (const sink of defaults) {
+  const credentials: string[] = [];
+  const unsetVariables: string[] = [];
+  let logger: CommandLogger | undefined;
+  for (const sink of configured.sinks) {
     if (sink.type === 'file') {
       try {
         sinks.push(
@@ -149,10 +199,35 @@ export function openCommandLogger(options: CommandLogOptions): Logger {
           }),
         );
       } catch (error) {
-        throw new LogUsageError(`--log-dir: ${error instanceof Error ? error.message : String(error)}`);
+        const where = options.dir === undefined ? 'logging folder' : '--log-dir';
+        throw new LogUsageError(`${where}: ${error instanceof Error ? error.message : String(error)}`);
       }
     } else if (sink.type === 'stderr') {
       sinks.push(stderrSink(options.stderr, sink.level));
+    } else {
+      const credential = sink.secretEnv === undefined ? undefined : options.environment[sink.secretEnv];
+      if (sink.secretEnv !== undefined && (credential === undefined || credential === '')) {
+        unsetVariables.push(sink.secretEnv);
+      }
+      if (credential !== undefined && credential !== '') {
+        credentials.push(credential);
+      }
+      const address = sink.address;
+      const type = sink.type;
+      try {
+        sinks.push(
+          remoteSink(sink, options, credential === '' ? undefined : credential, (trouble) =>
+            logger?.warn('logging.remote', TROUBLE[trouble.kind], {
+              sink: type,
+              address,
+              ...(trouble.kind === 'unreachable' ? { reason: trouble.reason } : {}),
+              ...(trouble.kind === 'dropped' ? { count: trouble.count } : {}),
+            }),
+          ),
+        );
+      } catch (error) {
+        throw new LogUsageError(`logging: ${error instanceof Error ? error.message : String(error)}`);
+      }
     }
   }
   logger = createLogger({
@@ -160,7 +235,16 @@ export function openCommandLogger(options: CommandLogOptions): Logger {
     clock: options.clock,
     level: options.level,
     pid: options.pid,
-    redact: (text) => redact(text, options.environment),
+    redact: createRedactor({ environment: options.environment, values: credentials }),
   });
+  for (const variable of unsetVariables) {
+    logger.warn(
+      'logging.remote',
+      'the variable named in secretEnv is not set; the collector gets no credential',
+      {
+        variable,
+      },
+    );
+  }
   return logger;
 }

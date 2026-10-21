@@ -1,4 +1,4 @@
-import type { Logger } from '../logging/logger.js';
+import type { Logger, LogSink } from '../logging/logger.js';
 import type { Adjudicator } from '../mesh/adjudicator.js';
 import type { Runner } from '../runner/index.js';
 import type { GuardDefinition } from '../workflow/model.js';
@@ -46,10 +46,21 @@ export interface PluginHost {
    * command line always provides one.
    */
   readonly logger?: Logger;
+  /**
+   * Adds a place the command's records go (specs/logging, AC-10). The sink receives the same redacted records as the
+   * built-in file and standard-error sinks, and is isolated the same way: one that throws is dropped after one warning.
+   * Optional so a host written before it existed still type-checks; the `indaba` command line always provides it.
+   */
+  registerLogSink?(sink: LogSink): void;
 }
 
 /** An extension package default-exports one of these. Core never learns what plugins exist. */
 export interface Plugin {
   readonly name: string;
+  /**
+   * Sinks this plugin adds, registered before `register` is called, so the plugin's own first records reach them.
+   * The same as calling `host.registerLogSink` for each one.
+   */
+  readonly logSinks?: readonly LogSink[];
   register(host: PluginHost): void | Promise<void>;
 }

@@ -1,14 +1,20 @@
+import { createRedactor } from '@indaba/core';
+
+type Environment = Readonly<Record<string, string | undefined>>;
+
+const redactors = new WeakMap<Environment, (text: string) => string>();
+
 /**
- * Environment values that look like credentials never reach the terminal, a file or a trace, even inside an
- * error or an agent's output. The rule is by variable name (key, token, secret, password, credential) and a
- * value of at least four characters, so a short flag such as `1` is never treated as a secret.
+ * Credentials never reach the terminal, a file or a trace, even inside an error or an agent's output. The rule is
+ * `createRedactor` of `@indaba/core` (specs/logging, T-06): the values of the variables named like a credential, bearer
+ * tokens, API-key shapes and a token in a URL. The function built for one environment is kept, so a run that redacts
+ * every chunk of output does not rebuild it each time.
  */
-export function redact(text: string, env: Readonly<Record<string, string | undefined>>): string {
-  let out = text;
-  for (const [key, value] of Object.entries(env)) {
-    if (value !== undefined && value.length >= 4 && /key|token|secret|password|credential/i.test(key)) {
-      out = out.split(value).join('[redacted]');
-    }
+export function redact(text: string, env: Environment): string {
+  let redactor = redactors.get(env);
+  if (redactor === undefined) {
+    redactor = createRedactor({ environment: env });
+    redactors.set(env, redactor);
   }
-  return out;
+  return redactor(text);
 }
