@@ -38,6 +38,7 @@ indaba ui --no-open --port 4173
 | `--discussion-dir <dir>` | Another folder with the kept messages of debates; repeatable. Default: each root's `.indaba/discussions` |
 | `--port <n>` | The port to listen on. Default: a free one |
 | `--no-open` | Print the address and do not open the browser |
+| `--log-level`, `--log-dir` | As for every command: how much goes to the log file, and where it is |
 
 It prints an address with a token, opens it in your browser unless `--no-open`, and serves until `Ctrl+C`. It reads the
 runs and starts none; runs you started in a terminal carry on when you stop it:
@@ -174,6 +175,11 @@ The page can show your agents' work, so it is built like something that could le
 - **Text stays text.** Everything a run produced (agent output, commands, messages) is shown as plain text: no HTML, no
   links, and terminal escape sequences are removed by the server first. The page loads nothing from the internet (no
   fonts, scripts or analytics), and a Content-Security-Policy forbids it.
+- **What it logs.** Like every command, `indaba ui` appends to the project's log (`.indaba/logs`, see `--log-level` and
+  `--log-dir`): the server's start and stop with its address but never the token, each refused request (method, the path
+  without any query, status and reason), each stream opening and closing, and anything that failed. It never logs a
+  request body or the `Authorization` header. A failure is also printed in the terminal; refused requests are not, so a
+  page left open after a restart does not fill it.
 - **Third-party code.** The page bundles a few open-source libraries and fonts; their licences ship with it, in
   `page/THIRD-PARTY-LICENSES.txt` inside the `@indaba/server` package.
 - **No secrets in what it reads.** A value of an environment variable named like a key, token, secret, password or

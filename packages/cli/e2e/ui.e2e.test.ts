@@ -1,3 +1,5 @@
+import { readdir, readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { makeGitRepo, requireBuild, runCli, startCli, waitFor, writeFileIn } from './support.js';
 
@@ -32,9 +34,11 @@ describe('indaba ui', () => {
     expect(ran.code).toBe(0);
 
     const ui = startCli(['ui', '--no-open'], dir);
+    const printed = { token: 'not printed' };
     try {
       await waitFor(() => ADDRESS.test(ui.stdout()), 'the address to be printed');
       const [, origin, , token] = ui.stdout().match(ADDRESS) ?? [];
+      printed.token = token ?? printed.token;
       const auth = { Authorization: `Bearer ${token}` };
 
       const list = await fetch(`${origin}/api/v1/runs`, { headers: auth });
@@ -94,5 +98,29 @@ describe('indaba ui', () => {
         expect(ended.stdout).toContain('Stopped.');
       }
     }
+
+    // The log of the command (specs/logging, AC-09): the server's records are in it, and its token is not.
+    const logs = join(dir, '.indaba', 'logs');
+    const text = (
+      await Promise.all((await readdir(logs)).map((name) => readFile(join(logs, name), 'utf8')))
+    ).join('');
+    const records = text
+      .split('\n')
+      .filter((line) => line !== '')
+      .map((line) => JSON.parse(line) as { message: string; fields?: Record<string, unknown> });
+    const messages = records.map((r) => r.message);
+    expect(messages).toContain('process.start');
+    expect(messages).toContain('server started');
+    expect(messages).toContain('request refused');
+    if (process.platform !== 'win32') {
+      expect(messages).toContain('server stopped');
+      expect(messages).toContain('process.end');
+    }
+    // The same file holds the run recorded above; the ui command has its own process.start.
+    expect(records.filter((r) => r.message === 'process.start').map((r) => r.fields?.command)).toEqual([
+      'run',
+      'ui',
+    ]);
+    expect(text).not.toContain(printed.token);
   });
 });

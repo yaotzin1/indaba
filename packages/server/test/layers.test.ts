@@ -63,6 +63,13 @@ describe('server layering', () => {
     expect(offenders).toEqual([]);
   });
 
+  it('logs through the injected Logger: no console and no direct stdout or stderr (specs/logging, AC-03)', () => {
+    const offenders = sourceFiles(srcOf('server')).filter((file) =>
+      /\bconsole\.|process\.(stdout|stderr)\.write/.test(readFileSync(file, 'utf8')),
+    );
+    expect(offenders).toEqual([]);
+  });
+
   it('writes nothing and starts nothing: no file write, no process, no environment', () => {
     for (const file of sourceFiles(srcOf('server'))) {
       const text = readFileSync(file, 'utf8');

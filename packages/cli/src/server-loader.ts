@@ -1,9 +1,13 @@
+import type { Logger } from '@indaba/core';
+
 /** What the command line needs of `@indaba/server`. The package is optional, so its types are not imported. */
 export interface UiServerOptions {
   readonly roots: readonly string[];
   readonly staticDir: string;
   readonly discussionDirectories?: readonly string[];
   readonly port?: number;
+  /** The command's logger (specs/logging, AC-09); the contract is core's, which the command line already has. */
+  readonly logger?: Logger;
 }
 
 export interface UiServerHandle {

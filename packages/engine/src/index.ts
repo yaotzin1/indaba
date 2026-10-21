@@ -1,4 +1,3 @@
-export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 /**
  * The logging contract of @indaba/core, and the one description of its settings, re-exported so a package that may
  * only import the engine (the terminal dashboard and its Settings screen) takes them from the same place as everyone
@@ -28,6 +27,7 @@ export {
   resolveLoggingSettings,
   SINK_TYPES,
 } from '@indaba/core';
+export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { ProjectConfig } from './config/project-config.js';
