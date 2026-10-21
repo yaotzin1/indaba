@@ -64,7 +64,8 @@ port". The PHP prototype that preceded them was never published.
   `@dagrejs/dagre`), the failure route drawn, every step selectable from the graph or the step list, what happened in
   it and what happens if it fails, its tries and its output as plain text, and the cost with unknowns marked. Light
   and dark themes that follow the system, keyboard and screen-reader use, and a phone at 320 px, where the graph runs
-  top to bottom. While the connection is down every state says `last known` in words as well as turning grey. The token is read
+  top to bottom. While the connection is down every state says `last known` in words as well as turning grey. Opening a
+  run adds one entry to the browser's history, so Back leaves it at once. The token is read
   from the address fragment, removed from it and kept in memory; the event stream is read with `fetch` so it carries
   the header, and resumes after a drop. It starts nothing and changes nothing. The page is not published on its own
   and adds nothing to a consumer's dependencies: its build ships inside `@indaba/server`, in `page/`, with

@@ -177,6 +177,15 @@ describe('the Runs screen', () => {
     expect(window.location.pathname).toBe('/');
   });
 
+  it('opens a run from its link with one history entry, so Back leaves it at once', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    const grid = await screen.findByRole('grid');
+    const before = window.history.length;
+    fireEvent.click(within(grid).getByText('task-pipeline'));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(window.history.length).toBe(before + 1);
+  });
+
   it('opens a run by clicking its row', async () => {
     render(h(App, appProps(fakeClient({ runs: RUNS }))));
     const grid = await screen.findByRole('grid');
@@ -232,7 +241,8 @@ describe('the Run screen', () => {
       .getAllByRole('row')
       .slice(1)
       .map((row) => row.textContent);
-    expect(rows).toEqual(['rfc1' + '8.1k / 2.4k' + '$0.21', 'code1' + 'unknown / unknown' + 'unknown']);
+    expect(rows).toEqual(['rfc1' + '8.1k / 2.4k' + '$0.21', 'code1' + 'unknown' + 'unknown']);
+    expect(within(table).getByText('8.1k / 2.4k').getAttribute('aria-label')).toBe('8.1k in, 2.4k out');
     expect(screen.getByText('at least $0.21 (partial)').getAttribute('title')).toBe(
       '2 model calls, 1 with no price',
     );
@@ -259,8 +269,8 @@ describe('the Run screen', () => {
       .slice(1)
       .map((row) => row.textContent);
     expect(rows).toEqual([
-      'debate0 (1 still running)' + 'unknown / unknown' + 'unknown',
-      'review1 (1 still running)' + 'unknown / unknown' + '$0.50',
+      'debate0 (1 still running)' + 'unknown' + 'unknown',
+      'review1 (1 still running)' + 'unknown' + '$0.50',
     ]);
   });
 

@@ -29,7 +29,7 @@ export function CostTable(props: CostTableProps): ReactElement {
         id: 'calls',
         header: messages.run.calls,
         align: 'end',
-        width: 96,
+        width: 60,
         accessor: (row) => row.cost.calls,
         cell: ({ row }) =>
           row.running > 0
@@ -43,16 +43,37 @@ export function CostTable(props: CostTableProps): ReactElement {
       },
       {
         id: 'tokens',
-        header: messages.step.tokens,
+        // "Tokens", not "Tokens in / out": the longer header alone made the table wider than a side panel. Each cell
+        // says which is which to a screen reader and on hover.
+        header: messages.run.tokens,
         align: 'end',
         sortable: false,
-        responsive: { hideBelow: 420 },
-        cell: ({ row }) => `${formatTokens(row.inputTokens)} / ${formatTokens(row.outputTokens)}`,
+        responsive: { hideBelow: 334 },
+        // One "unknown" when neither count was reported, so the column stays narrow enough for a side panel.
+        cell: ({ row }) =>
+          row.inputTokens === undefined && row.outputTokens === undefined
+            ? messages.cost.unknown
+            : h(
+                'span',
+                {
+                  title: messages.run.tokensInOut(
+                    formatTokens(row.inputTokens),
+                    formatTokens(row.outputTokens),
+                  ),
+                  'aria-label': messages.run.tokensInOut(
+                    formatTokens(row.inputTokens),
+                    formatTokens(row.outputTokens),
+                  ),
+                  style: { whiteSpace: 'nowrap' },
+                },
+                `${formatTokens(row.inputTokens)} / ${formatTokens(row.outputTokens)}`,
+              ),
       },
       {
         id: 'cost',
         header: messages.step.cost,
         align: 'end',
+        width: 88,
         accessor: (row) => row.cost.usd,
         // A step whose only call is still running has no cost yet: unknown, not "no model calls".
         cell: ({ row }) =>
