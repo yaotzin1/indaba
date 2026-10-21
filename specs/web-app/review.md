@@ -124,3 +124,51 @@ The documentation-only change that records this review is verified by the commit
 - Not written: `DEPENDENCY_MAP.md` still lists `web-app` as `@indaba/server`, `@indaba/web` and `indaba`; it also gains
   `@indaba/core` (types) when the dependency map branch merges.
 - Not checked: the licence trees of `apsw-gridwright-mui` and `apsw-gridwright`.
+
+## Implementation round, 2026-10-21: cost on the run list, packaging, hostile input, coverage, end to end
+
+Tasks T-23 (answer 1 of the sketches), T-10, T-12, T-13 and T-15, on `feat/web-app`. Stages run: plan (the cost
+amendment in `api-surface.md`, the packaging decisions in `plan.md`), tasks, implement, verify. Not run as separate
+stages: specify and clarify (the maintainer's answers of 2026-10-21 settled them), and a written analyze pass; the
+seven dimensions below are answered for this round only.
+
+1. **Boundary.** `RunCost` is a declaration in `@indaba/core`; the cost is added up by the engine's reducer, and the
+   list reuses it (`listRuns` calls `reduceAll`), so no second rule for money exists. The page's per-step table follows
+   the same rule and its test checks that the rows add up to the run's total.
+2. **Determinism and failure isolation.** Nothing new reads a clock. The stream tests show that a resume after a drop
+   neither repeats an id nor loses what was written meanwhile, and that dropped streams leave the server answering.
+3. **Surface.** One field and one type, a minor (`api-surface.md`, "Cost on the run list"). Code that builds its own
+   `RunSummary` must add `cost`: said in the changelog. No attribute, event, option or default changed.
+4. **Security.** T-12 found a real gap: the server cleaned output and reasons but not the workflow's name, the task
+   id, runner names, models, states, tool kinds or a debate's outcome, so an escape sequence in a workflow name reached
+   the page. Fixed in `snapshotOf` and `summaryOf`; tested with hostile values. The secret test runs the real
+   `indaba run` and reads every byte the server sends. The server writes nothing to a log, whatever it is sent.
+5. **Honest numbers.** The list's cost is `unknown`, `at least … (partial)` or `$0.00 (no model calls)` exactly as on
+   the Run screen; a step whose only call is still running says `unknown`, not `no model calls`.
+6. **Packaging.** The page ships in `@indaba/server`'s `page/`, staged at pack time, with
+   `THIRD-PARTY-LICENSES.txt` (28 packages). The check found that the bundle carried no licence notice at all, against
+   what `vite.config.ts` said, and that `d3-ease` is BSD-3-Clause, not ISC as the licence check of 2026-10-20 recorded.
+   `pnpm smoke` now audits every tarball and boots `indaba` without the optional packages.
+7. **Tests.** New: `packages/server/test/hostile.test.ts`, `runs.test.ts`, `streams.test.ts`,
+   `packages/cli/test/secret-to-page.test.ts`, `packages/cli/e2e/ui.e2e.test.ts`, `packages/web/test/cost.test.ts`,
+   page cases in `ui.test.ts` and `client.test.ts`, and the script self-tests `stage-page.test.mjs` and
+   `smoke-pack.test.mjs`.
+
+**Gate output (Linux, Node 22.22.0, pnpm 9.15.1, after `pnpm install`):**
+
+```
+node scripts/check-workflow.mjs        workflow.ai.yml matches the repository
+node scripts/security-audit.mjs        security audit: no findings (source, manifests, tsconfig, biome.json)
+node --test scripts/*.test.mjs         tests 83, pass 83, fail 0
+pnpm qa                                Biome: 249 files, no errors; tsc strict: clean;
+                                       Vitest: 83 files, 1510 passed, 1 skipped
+                                       coverage 97.78 / 93.68 / 97.66 / 97.96 (statements, branches, functions, lines)
+pnpm e2e                               9 files, 32 passed
+pnpm smoke                             6 packages packed and audited; indaba 0.1.0-alpha.2 boots without @indaba/tui
+                                       and @indaba/server, and the installed server finds its page
+pnpm audit --audit-level low           No known vulnerabilities found
+```
+
+**Not done in this round:** a manual run in a browser (the page's changes are covered by tests in happy-dom only); the
+runs on Windows and macOS (CI runs them); `@indaba/server` in `.github/workflows/release.yml`, which needs its npm
+trusted publisher configured by the maintainer first; T-16 and the rest of T-17.
