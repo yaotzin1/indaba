@@ -53,4 +53,4 @@ Ordered by dependency. Domain first, infrastructure second, console and document
   No package was added, so the `AGENTS.md` map is unchanged.
 - [x] **T-18** `CHANGELOG.md` under Unreleased (a minor, below 1.0).
 - [x] **T-19** `specs/DEPENDENCY_MAP.md`; no dependency is added.
-- [ ] **T-20** The architectural rule in `workflow.ai.yml` ("logging is a must"), with a `Workflow-Change:` trailer, then the sync scripts.
+- [x] **T-20** The architectural rule in `workflow.ai.yml` ("logging is a must"), with a `Workflow-Change:` trailer, then the sync scripts.
