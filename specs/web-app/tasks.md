@@ -101,8 +101,12 @@ checkable. The slice and its limits are in `plan.md`.
 - [x] **T-14** `layers.test.ts` for `packages/server` (imports itself, `node:*`, `@indaba/engine`, `@indaba/core`; no UI
   package) and `packages/web` (imports itself, `react`, the UI libraries and `import type` from `@indaba/core`; no `node:`);
   the CLI test keeps the lazy edge; `@indaba/core` architecture test green.
-- [ ] **T-15** `pnpm e2e`: start the built CLI with `indaba ui --no-open` over a fixture trace, fetch the Runs list and one
-  run with the token, and see a refusal without it.
+- [x] **T-15** `pnpm e2e`: start the built CLI with `indaba ui --no-open` over a fixture trace, fetch the Runs list and one
+  run with the token, and see a refusal without it. **Done 2026-10-21:** `packages/cli/e2e/ui.e2e.test.ts`. The fixture is
+  a trace the built `indaba run` writes (two shell steps), so the test also proves the run's structure and cost reach the
+  page; the list and the run answer with the printed token, three endpoints refuse with none and with a wrong one, the
+  page is served without it, and Ctrl+C stops the command (exit 130, checked off Windows, where a signal ends a process at
+  once).
 
 ## Documentation
 
