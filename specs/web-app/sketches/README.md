@@ -84,7 +84,7 @@ does not carry to the next sketch, the real page keeps it).
 3. Keep the `last known` label on state chips when the stream drops.
 4. The graph and the list select the same step, and the output shows in one panel.
 5. On a phone the graph runs top to bottom.
-6. "Steps" stays. Whether Indaba's Zulu origin should name anything in the interface is open; renaming a workflow field is a major.
+6. "Steps" stays, in the interface as in the workflow file and the engine. No Zulu name replaces it (decided 2026-10-21).
 7. Yes. The structure is recorded in the trace (T-20).
 8. Keep the debate's messages. The page shows a summary, with an optional review of the discussion. The user chooses where the discussion log is stored (T-21).
 9. Yes: one graph component, a view mode now and an edit mode later, with the list of bricks as drawn.
