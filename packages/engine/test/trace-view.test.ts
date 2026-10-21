@@ -636,7 +636,13 @@ describe('the run view types, now declared in @indaba/core', () => {
   it('stay importable from the engine and are the same types', () => {
     const state: CoreRunState = emptyRun();
     const engineState: RunState = state;
-    const summary: RunSummary = { runId: 'a1', startedAt: undefined, status: 'running', workflow: undefined };
+    const summary: RunSummary = {
+      runId: 'a1',
+      startedAt: undefined,
+      status: 'running',
+      workflow: undefined,
+      cost: { usd: 0, unknown: 0, calls: 0 },
+    };
     const coreSummary: CoreRunSummary = summary;
     expect(engineState.steps).toEqual([]);
     expect(coreSummary.runId).toBe('a1');

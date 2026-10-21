@@ -25,6 +25,7 @@ export const messages = {
     workflow: 'Workflow',
     state: 'State',
     started: 'Started',
+    cost: 'Cost',
     unnamed: 'unnamed',
     emptyTitle: 'No runs yet',
     emptyBody: 'Start one in a terminal and it appears here while it runs.',
@@ -55,6 +56,10 @@ export const messages = {
     costTotal: 'Total',
     modelCalls: 'Model calls',
     callsWithNoPrice: (n: number): string => `${n} with no price`,
+    costTableLabel: 'The cost of each step that called a model',
+    calls: 'Calls',
+    callsRunning: (n: number): string => `${n} still running`,
+    noModelCalls: 'No step of this run has called a model.',
     budget: 'Budget',
     noLimit: 'no limit',
     costNote:
@@ -110,6 +115,11 @@ export const messages = {
     noCalls: (money: string): string => `${money} (no model calls)`,
     partial: (money: string): string => `at least ${money} (partial)`,
     lessThanCent: 'less than $0.01',
+    tipNone: 'No model calls',
+    tipCalls: (calls: number): string =>
+      `${calls} model ${calls === 1 ? 'call' : 'calls'}, each with a price`,
+    tipPartial: (calls: number, unknown: number): string =>
+      `${calls} model ${calls === 1 ? 'call' : 'calls'}, ${unknown} with no price`,
   },
 
   state: {

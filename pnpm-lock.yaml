@@ -128,8 +128,8 @@ importers:
         specifier: 12.12.0
         version: 12.12.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       apsw-gridwright:
-        specifier: 0.21.2
-        version: 0.21.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+        specifier: 0.21.3
+        version: 0.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
       happy-dom:
         specifier: 21.0.1
         version: 21.0.1
@@ -861,8 +861,8 @@ packages:
     resolution: {integrity: sha512-kKvt3m4uwzqL0wlkPd09CmljPJGOZZ4D0fP65sqFSvPkMRKhNi+74MgIJ5QxE6SxqB4t4KyUFGg8+n5zjo6hew==}
     engines: {node: '>=22'}
 
-  apsw-gridwright@0.21.2:
-    resolution: {integrity: sha512-f+0jJV7+2DGpRMkgLoa30FIKFb05+JcBXl77JOTSQjxObq8ig7/EER7Ac6sYBQECWsySEaGyOIOQV48RKjJ1zA==}
+  apsw-gridwright@0.21.3:
+    resolution: {integrity: sha512-JiYGKSm7cUXABe7rFUVgTMZEt0rePs8y09gg2NOrMyyG4EcppYO0ed5VYSaaA7hVM5cjqCn+wa7VRJ88ftCM2Q==}
     engines: {node: '>=22.12'}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
@@ -2583,7 +2583,7 @@ snapshots:
 
   ansi-styles@7.0.0: {}
 
-  apsw-gridwright@0.21.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
+  apsw-gridwright@0.21.3(react-dom@19.3.0(react@19.3.0))(react@19.3.0):
     optionalDependencies:
       react: 19.3.0
       react-dom: 19.3.0(react@19.3.0)

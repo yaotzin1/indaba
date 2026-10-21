@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { StringDecoder } from 'node:string_decoder';
 import type { RunStatus, RunSummary } from '@indaba/core';
 import { isRunId, parseRecord, type RunRecord } from './records.js';
+import { reduceAll } from './view.js';
 
 export type { RunStatus, RunSummary };
 
@@ -246,8 +247,10 @@ export class TraceReader {
         continue; // something named like a run that cannot be read (a folder, no permission) is not a run
       }
       const { startedAt, status, workflow } = summariseRun(records);
+      // The reducer the run's own view uses, so the cost in the list is the cost on the run's screen.
+      const { cost } = reduceAll(records);
       const time = (await modified(this.eventsFile(runId))) ?? (await modified(this.traceFile(runId))) ?? 0;
-      runs.push({ summary: { runId, startedAt, status, workflow }, time });
+      runs.push({ summary: { runId, startedAt, status, workflow, cost }, time });
     }
     return runs
       .sort((a, b) => b.time - a.time || a.summary.runId.localeCompare(b.summary.runId))

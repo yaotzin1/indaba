@@ -6,12 +6,26 @@
 
 export type RunStatus = 'running' | 'completed' | 'failed' | 'escalated' | 'cancelled' | 'unknown';
 
+/**
+ * What the agent runs of a run cost, where known. `usd` adds up only the calls that had a price; `unknown` counts the
+ * calls that had none, so a view says `unknown` or `at least` instead of a number the data does not support.
+ */
+export interface RunCost {
+  readonly usd: number;
+  /** Finished model calls with no price. */
+  readonly unknown: number;
+  /** Finished model calls; shell commands are not counted. */
+  readonly calls: number;
+}
+
 export interface RunSummary {
   readonly runId: string;
   readonly startedAt: string | undefined;
   readonly status: RunStatus;
   /** The workflow's name, as the run recorded it; undefined when the run does not say. */
   readonly workflow: string | undefined;
+  /** The same cost the run's own view adds up, so the list and the run cannot disagree. */
+  readonly cost: RunCost;
 }
 
 export interface RunnerView {
@@ -118,7 +132,7 @@ export interface RunState {
    */
   readonly structure: readonly StepStructure[] | undefined;
   /** What the agent runs cost, where known. */
-  readonly cost: { readonly usd: number; readonly unknown: number; readonly calls: number };
+  readonly cost: RunCost;
   /** Lines the view could not make sense of, newest last. */
   readonly notes: readonly string[];
   /** span id to what it belongs to; internal to the reducer. */

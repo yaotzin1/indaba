@@ -361,7 +361,12 @@ describe('the runs', () => {
       runs: { runId: string; status: string; workflow: string }[];
     };
     expect(body.runs).toEqual([
-      expect.objectContaining({ runId: RUN, status: 'completed', workflow: 'demo' }),
+      expect.objectContaining({
+        runId: RUN,
+        status: 'completed',
+        workflow: 'demo',
+        cost: { usd: 0, unknown: 0, calls: 0 },
+      }),
     ]);
   });
 

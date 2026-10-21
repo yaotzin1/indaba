@@ -9,10 +9,12 @@ import {
   useState,
 } from 'react';
 import { ApiFailure, type Client, type Failure, type StreamState } from '../client.js';
+import { costTip } from '../cost.js';
 import { between, type Clock, formatDuration, formatRunCost, formatWhen, shortId } from '../format.js';
 import { buildGraph, type GraphNode, retriedBy } from '../graph-model.js';
 import { messages } from '../messages.js';
 import { isActive, runLook } from '../status.js';
+import { CostTable } from './CostTable.js';
 import { StateChip } from './parts.js';
 import { RunGraph } from './RunGraph.js';
 import { hrefOf, isPlainClick, type Navigate } from './router.js';
@@ -43,8 +45,8 @@ export function defaultStep(nodes: readonly GraphNode[]): string | undefined {
   return troubled?.id ?? nodes[0]?.id;
 }
 
-function CostPanel(props: { readonly run: RunSnapshot }): ReactElement {
-  const { run } = props;
+function CostPanel(props: { readonly run: RunSnapshot; readonly nodes: readonly GraphNode[] }): ReactElement {
+  const { run, nodes } = props;
   const { cost } = run;
   return h(
     'section',
@@ -54,7 +56,7 @@ function CostPanel(props: { readonly run: RunSnapshot }): ReactElement {
       'dl',
       { className: 'facts' },
       h('dt', null, run.status === 'running' ? messages.run.costSoFar : messages.run.costTotal),
-      h('dd', null, h('b', null, formatRunCost(cost))),
+      h('dd', null, h('b', { title: costTip(cost) }, formatRunCost(cost))),
       h('dt', null, messages.run.modelCalls),
       h(
         'dd',
@@ -67,6 +69,7 @@ function CostPanel(props: { readonly run: RunSnapshot }): ReactElement {
       h('dt', null, messages.run.budget),
       h('dd', null, messages.run.noLimit),
     ),
+    h(CostTable, { nodes }),
     h('p', { className: 'muted' }, messages.run.costNote),
   );
 }
@@ -252,7 +255,7 @@ export function RunScreen(props: RunScreenProps): ReactElement {
           h('h3', { id: 'steps-title' }, messages.run.stepsTitle),
           h(StepsGrid, { nodes: graph.nodes, selected, now, onSelect: select }),
         ),
-        h(CostPanel, { run }),
+        h(CostPanel, { run, nodes: graph.nodes }),
       ),
     ),
   );

@@ -17,6 +17,12 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The cost of a run in the list of runs** (minor; track `feature`; spec `specs/web-app`, task T-23, answer 1 of the
+  sketches). `RunSummary` gains `cost` (`RunCost` in `@indaba/core`: `usd`, `unknown`, `calls`, the shape
+  `RunState.cost` already had), filled by `TraceReader.listRuns` with the reducer a run's own view uses, so the two never
+  disagree; `GET /api/v1/runs` carries it. The Runs screen of `indaba ui` has a Cost column (`unknown`, `at least … (partial)`
+  and `$0.00 (no model calls)` as on the Run screen) with what the cost is made of in a tooltip, and the Run screen has a
+  table of the cost of each step that called a model. Code that builds its own `RunSummary` value adds the field.
 - **The discussion of a debate, kept and shown** (minor; track `feature`; spec `specs/web-app`, task T-21). When a debate
   step ends, the engine keeps its messages (round, sender, type, text, and the ruling if one was asked for) as
   `<traceId>.<stepId>.json`, redacted and with control sequences dropped, in `.indaba/discussions` or the folder given

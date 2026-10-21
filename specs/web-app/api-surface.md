@@ -121,6 +121,20 @@ attribute or field changes.
 Loopback only; token required for every API request; `Host` checked, and `Origin` checked on every request that changes
 anything. Changing any of these later is a major.
 
+## Cost on the run list (T-23, added 2026-10-21, answer 1 of the sketches)
+
+`RunSummary` gains `cost: RunCost`, and `@indaba/core` gains the declaration `RunCost`
+(`{ usd, unknown, calls }`, the shape `RunState.cost` already had, now named and shared by both). `TraceReader.listRuns`
+fills it with the engine's own reducer (`reduceAll(records).cost`), so the Runs screen and a run's screen show the same
+number and a cost the data does not support is never invented (AC-19). `GET /api/v1/runs` and the `run` of the
+server-wide stream carry it. The page shows it as a column of the Runs grid, with what it is made of in a tooltip, and
+the Run screen opens a table of the cost of each step that called a model.
+
+Classification: a **minor**. `RunSummary` is produced by Indaba and read by consumers; a field a reader receives is an
+addition. Code outside Indaba that builds its own `RunSummary` value (a test fixture) must add the field: that is the
+only compile break, it changes no behaviour, and below 1.0 it rides in the next minor. No attribute, event, default or
+CLI option changes; `indaba watch` prints the same columns.
+
 ## Debate discussion (T-21, added 2026-10-21)
 
 | Name | Kind | Package |
