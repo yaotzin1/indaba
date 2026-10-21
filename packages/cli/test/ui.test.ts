@@ -47,7 +47,7 @@ describe('indaba ui', () => {
   it('serves the current folder, prints the address, opens the browser and stops on request', async () => {
     const { dir, controller, captured, server, opened, finished } = await runUi([]);
     await settle();
-    expect(server.started).toEqual([{ roots: [dir], staticDir: '/page' }]);
+    expect(server.started).toEqual([{ roots: [dir], staticDir: '/page', logger: expect.anything() }]);
     expect(captured.stdout()).toContain(ADDRESS);
     expect(opened).toEqual([ADDRESS]);
     expect(server.closed()).toBe(0);

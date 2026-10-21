@@ -135,6 +135,14 @@ addition. Code outside Indaba that builds its own `RunSummary` value (a test fix
 only compile break, it changes no behaviour, and below 1.0 it rides in the next minor. No attribute, event, default or
 CLI option changes; `indaba watch` prints the same columns.
 
+## Logging (T-25, added 2026-10-21)
+
+`ServerOptions` gains `logger?: Logger` (the contract of `@indaba/core`, `specs/logging`); without one the server
+records nothing, as before. `@indaba/server` exports `loggedPath(url)`, the path a record keeps (no query or fragment, at
+most 200 characters). What it records is AC-09 of `specs/logging`: start (address without the token) and stop, a refused
+request at `info`, a stream opening and closing at `info`, a not-found at `debug`, a failed request at `error`. Additive:
+a minor. The record names (`server started`, `request refused`, ...) are not a contract.
+
 ## Debate discussion (T-21, added 2026-10-21)
 
 | Name | Kind | Package |

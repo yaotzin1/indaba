@@ -84,6 +84,9 @@ checkable. The slice and its limits are in `plan.md`.
   add `, last known` while it is set. `buildGraph(run, direction)` lays out `TB` as well as `LR`, the cards' handles
   follow (`handlesOf`), and `useMediaQuery(NARROW)` picks the direction, following a resize. Tests in `logic.test.ts`
   and `ui.test.ts`; `docs/web-view.md` updated.
+- [x] **T-25** (added 2026-10-21, after rebasing onto `main` with `specs/logging`) The server and `indaba ui` log through
+  the command's logger: AC-09 of `specs/logging`, and its tasks T-09 (the server), T-10 and T-15 (the server's layers
+  rule). `ServerOptions.logger` is optional and defaults to a logger that records nothing.
 - [x] **T-22** (added 2026-10-21, answer 2) The page stops after repeated failed attempts, shows `Server stopped`, and offers `Check again`.
 - [x] **T-12** Hostile-input tests, with strings built from fragments: a run id or step id with `..`, separators, a drive
   letter, an encoded form and a NUL; a `Host` of another name and of a DNS-rebinding name; a missing and a wrong token; a

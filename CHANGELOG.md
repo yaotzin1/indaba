@@ -40,7 +40,7 @@ port". The PHP prototype that preceded them was never published.
   as the last known one.
 - **`@indaba/server`, the local server of the web view** (minor, below 1.0; track `feature`; spec `specs/web-app`, tasks
   T-01 to T-06, T-10 and T-12). A new optional package. `startServer({ roots, staticDir, port?, token?, pollMs?, sleep?,
-  coalesceMs?, discussionDirectories? })` returns `{ url, port, close() }`, and `CONTRACT_VERSION` is `1.0.0`. It answers
+  coalesceMs?, discussionDirectories?, logger? })` returns `{ url, port, close() }`, and `CONTRACT_VERSION` is `1.0.0`. It answers
   `GET` only, under `/api/v1`: `/contract`, `/runs`, `/runs/{id}`, `/runs/{id}/events` (Server-Sent Events, resumable
   with `Last-Event-ID`), `/runs/{id}/steps/{step}/log`, `/runs/{id}/steps/{step}/discussion` and `/events` (a run
   started or ended). Its defaults are part of the contract, and changing any of them later is a major: it listens on
@@ -49,7 +49,9 @@ port". The PHP prototype that preceded them was never published.
   CORS header, and serves the page with a Content-Security-Policy that allows no inline script. Run and step ids are
   matched before any path is built, and every text of a run (output, reasons, names of the workflow, the steps' runners
   and models, states, tool kinds) is sent with control and escape sequences removed. The built page ships in the
-  package's `page/`. New in `@indaba/core`, as declarations only: the `web-contract` types (`RunSnapshot`, `RunSummary`,
+  package's `page/`. With `logger` (the contract of `specs/logging`) it records its start and stop with the address but
+  never the token, each refused request, each stream opening and closing and a failed request; `indaba ui` hands it the
+  command's logger, so all of it lands in `.indaba/logs`. `loggedPath` is exported. New in `@indaba/core`, as declarations only: the `web-contract` types (`RunSnapshot`, `RunSummary`,
   `RunCost`, `ApiError`, the request, response and stream types), and `RunState`, `StepView`, `AttemptView`,
   `RunnerView`, `SkippedRunnerView` and `RunStatus`, which moved from `@indaba/engine`; the engine re-exports them, so no
   import path breaks.

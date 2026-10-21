@@ -304,9 +304,12 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   }
   const args = logOptions.args;
   if (command === 'ui') {
-    return logged(command, io.cwd, logOptions, io, async () => {
+    return logged(command, io.cwd, logOptions, io, async (logger) => {
       try {
-        return await ui(args, io, io.loadServer === undefined ? {} : { loadServer: io.loadServer });
+        return await ui(args, io, {
+          logger,
+          ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
+        });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
         (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);

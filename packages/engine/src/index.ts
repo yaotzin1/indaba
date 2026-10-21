@@ -1,10 +1,10 @@
-export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 /**
  * The logging contract of @indaba/core, re-exported so a package that may only import the engine (the terminal
  * dashboard) takes a logger from the same place as everyone else.
  */
 export type { LogContext, LogFields, Logger, LogLevel, LogRecord, LogSink } from '@indaba/core';
 export { createLogger, noopLogger } from '@indaba/core';
+export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { RunnerPlan } from './engine/chain.js';
