@@ -78,10 +78,16 @@ checkable. The slice and its limits are in `plan.md`.
 ## Tests
 
 - [x] **T-22** (added 2026-10-21, answer 2) The page stops after repeated failed attempts, shows `Server stopped`, and offers `Check again`.
-- [ ] **T-12** Hostile-input tests, with strings built from fragments: a run id or step id with `..`, separators, a drive
+- [x] **T-12** Hostile-input tests, with strings built from fragments: a run id or step id with `..`, separators, a drive
   letter, an encoded form and a NUL; a `Host` of another name and of a DNS-rebinding name; a missing and a wrong token; a
   `POST`; agent output with escape sequences, HTML and a `javascript:` link; a secret in the environment of a recorded
-  step. Nothing reaches a path, a response or a log.
+  step. Nothing reaches a path, a response or a log. **Done 2026-10-21:** `packages/server/test/hostile.test.ts` (fifteen
+  ids against every endpoint, eleven `Host` values, ten wrong or misplaced tokens, every writing method with the
+  server's own `Origin`, escapes, an OSC 8 link, markup and a script URL in output, and no write to a log),
+  `packages/server/test/runs.test.ts`, the page's half in `packages/web/test/ui.test.ts`, and the secret through a real
+  `indaba run` in `packages/cli/test/secret-to-page.test.ts`. **Found:** the server cleaned output and reasons but not
+  the workflow's name, the task id, runner names, models, states, tool kinds or a debate's outcome, so an escape in a
+  workflow name reached the page; `snapshotOf` and the list now clean every text of a run.
 - [ ] **T-13** Unit coverage for the server (success and failure paths, resume without duplicate or gap, a dropped
   connection, a run that is still being written) and the page (graph from a fixture run, every state and a loop,
   unknown events shown generically); coverage stays at or above 85% on all four metrics.
