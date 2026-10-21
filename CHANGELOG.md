@@ -38,7 +38,22 @@ port". The PHP prototype that preceded them was never published.
   measurement) a stream reports `unavailable`; the header says `Server stopped`, a banner says what to do, and a
   `Check again` button asks the server once and restarts the screen's streams when it answers. The state on screen stays
   as the last known one.
-- **`indaba ui [--root <dir>]... [--port <n>] [--no-open]`** (minor; track `feature`; spec `specs/web-app`, task T-11). Starts
+- **`@indaba/server`, the local server of the web view** (minor, below 1.0; track `feature`; spec `specs/web-app`, tasks
+  T-01 to T-06, T-10 and T-12). A new optional package. `startServer({ roots, staticDir, port?, token?, pollMs?, sleep?,
+  coalesceMs?, discussionDirectories? })` returns `{ url, port, close() }`, and `CONTRACT_VERSION` is `1.0.0`. It answers
+  `GET` only, under `/api/v1`: `/contract`, `/runs`, `/runs/{id}`, `/runs/{id}/events` (Server-Sent Events, resumable
+  with `Last-Event-ID`), `/runs/{id}/steps/{step}/log`, `/runs/{id}/steps/{step}/discussion` and `/events` (a run
+  started or ended). Its defaults are part of the contract, and changing any of them later is a major: it listens on
+  `127.0.0.1` only, requires `Authorization: Bearer <token>` on every API request with a new random token at each start,
+  accepts only its own `Host` (`localhost`, `127.0.0.1` or `[::1]` with its port), refuses every other method, sends no
+  CORS header, and serves the page with a Content-Security-Policy that allows no inline script. Run and step ids are
+  matched before any path is built, and every text of a run (output, reasons, names of the workflow, the steps' runners
+  and models, states, tool kinds) is sent with control and escape sequences removed. The built page ships in the
+  package's `page/`. New in `@indaba/core`, as declarations only: the `web-contract` types (`RunSnapshot`, `RunSummary`,
+  `RunCost`, `ApiError`, the request, response and stream types), and `RunState`, `StepView`, `AttemptView`,
+  `RunnerView`, `SkippedRunnerView` and `RunStatus`, which moved from `@indaba/engine`; the engine re-exports them, so no
+  import path breaks.
+- **`indaba ui [--root <dir>]... [--discussion-dir <dir>]... [--port <n>] [--no-open]`** (minor; track `feature`; spec `specs/web-app`, task T-11). Starts
   the local server over the runs of one or more projects, prints the address with its token, opens the browser unless
   `--no-open`, and serves until Ctrl+C. `@indaba/server` is loaded on demand like `@indaba/tui` (an optional peer
   dependency of `indaba`), and says what to install when it is missing; `@indaba/server` gains `defaultPageDirectory()`.

@@ -124,7 +124,10 @@ checkable. The slice and its limits are in `plan.md`.
   `BUNDLED`/`TOOLS` rule), `docs/getting-started.md` (`indaba ui`, `.indaba/discussions`), `docs/roadmap.md`, `README.md`
   (`ui` and `@indaba/server` in the package table, how to start it while unpublished) and `AGENTS.md` (`ui`, the page
   inside the server's tarball). Writing it found T-24.
-- [ ] **T-17** `CHANGELOG.md` entry under Unreleased: a minor, below 1.0, with the classification.
+- [x] **T-17** `CHANGELOG.md` entry under Unreleased: a minor, below 1.0, with the classification. **Done 2026-10-21:**
+  one entry per part, each classified: `@indaba/server` with its endpoints, its defaults (named as a major to change)
+  and the core declarations; `indaba ui` with `--discussion-dir`; the page; the run's structure; the cost on the list;
+  the kept discussion; the stopped-server banner.
 - [x] **T-18** `specs/DEPENDENCY_MAP.md`: the two packages, the core types and their edges, and the row for `web-app`.
 - [x] **T-19** `workflow.ai.yml`: the new runtime dependencies in `project.runtime_dependencies`, each with the package
   that loads it, and `scripts/check-workflow.mjs` passing (a `Workflow-Change:` trailer on the commit). **Done differently (2026-10-20):** the page's libraries are bundled
