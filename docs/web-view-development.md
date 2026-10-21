@@ -44,6 +44,7 @@ Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and n
 | `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph, the selected step, the step list |
 | `ui/CostTable.ts`, `ui/Discussion.ts` | The cost of each step that called a model; a debate's kept messages, loaded when opened |
 | `ui/router.ts`, `ui/theme.ts`, `ui/parts.ts` | The address, the theme, small shared parts |
+| `ui/stale.ts`, `ui/media.ts` | Whether what is shown is the last known state (the app provides it, every chip and card reads it); a media query as a hook, for the graph's direction below 640 px |
 
 ## Run it while you work
 

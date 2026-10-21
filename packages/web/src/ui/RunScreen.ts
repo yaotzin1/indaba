@@ -15,6 +15,7 @@ import { buildGraph, type GraphNode, retriedBy } from '../graph-model.js';
 import { messages } from '../messages.js';
 import { isActive, runLook } from '../status.js';
 import { CostTable } from './CostTable.js';
+import { NARROW, useMediaQuery } from './media.js';
 import { StateChip } from './parts.js';
 import { RunGraph } from './RunGraph.js';
 import { hrefOf, isPlainClick, type Navigate } from './router.js';
@@ -130,7 +131,9 @@ export function RunScreen(props: RunScreenProps): ReactElement {
     return () => controller.abort();
   }, [client, runId, onFatal, onLive]);
 
-  const graph = useMemo(() => (run === undefined ? undefined : buildGraph(run)), [run]);
+  // On a phone the steps run top to bottom, so a long workflow scrolls with the page instead of sideways.
+  const direction = useMediaQuery(NARROW) ? 'TB' : 'LR';
+  const graph = useMemo(() => (run === undefined ? undefined : buildGraph(run, direction)), [run, direction]);
   const selected = step ?? (graph === undefined ? undefined : defaultStep(graph.nodes));
   const select = useCallback(
     (stepId: string) => navigate({ name: 'run', runId, step: stepId }, { replace: true }),

@@ -710,6 +710,11 @@ body .gw-root.ix-grid {
   filter: grayscale(1);
   opacity: 0.75;
 }
+/* The words say it too: grey alone would be colour carrying meaning. */
+.state .last-known {
+  font-weight: 400;
+  font-style: italic;
+}
 
 ol.tries {
   list-style: none;

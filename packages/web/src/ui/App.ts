@@ -13,6 +13,7 @@ import { Blocking } from './parts.js';
 import { RunScreen } from './RunScreen.js';
 import { RunsScreen } from './RunsScreen.js';
 import { hrefOf, isPlainClick, type Navigator, useRoute } from './router.js';
+import { StaleContext } from './stale.js';
 import { applyTheme, readTheme, type Store, saveTheme, THEMES, type Theme } from './theme.js';
 
 export interface AppProps {
@@ -219,6 +220,10 @@ export function App(props: AppProps): ReactElement {
           checking === 'down' ? h('p', { role: 'status' }, messages.unavailable.stillDown) : null,
         )
       : null,
-    h('main', { id: 'content', tabIndex: -1 }, content),
+    h(
+      'main',
+      { id: 'content', tabIndex: -1 },
+      h(StaleContext.Provider, { value: live === 'reconnecting' || live === 'unavailable' }, content),
+    ),
   );
 }

@@ -13,7 +13,7 @@ import { buildGraph, retriedBy, retriesUsed } from '../src/graph-model.js';
 import { takeToken, tokenFromFragment } from '../src/session.js';
 import { MAX_PENDING_CHARS, SseParser } from '../src/sse.js';
 import { isActive, runLook, stepLook } from '../src/status.js';
-import { cardLines, flowOf, initialZoom, READABLE_ZOOM, stepTime } from '../src/ui/RunGraph.js';
+import { cardLines, flowOf, handlesOf, initialZoom, READABLE_ZOOM, stepTime } from '../src/ui/RunGraph.js';
 import { defaultStep } from '../src/ui/RunScreen.js';
 import { hrefOf, isPlainClick, parseRoute } from '../src/ui/router.js';
 import { failureSentence } from '../src/ui/StepPanel.js';
@@ -177,6 +177,35 @@ describe('the graph of a run', () => {
       retries: { used: 1, max: 3 },
     });
     expect(retriedBy(graph, 'code')).toEqual(['verify']);
+  });
+
+  it('runs top to bottom when asked: each step below the one it waits for, in a column one card wide', () => {
+    const graph = buildGraph(liveRun(), 'TB');
+    expect(graph.direction).toBe('TB');
+    const ys = graph.nodes.map((n) => n.y);
+    expect([...ys].sort((a, b) => a - b)).toEqual(ys);
+    expect(new Set(graph.nodes.map((n) => n.x)).size).toBe(1);
+    expect(graph.width).toBeLessThan(graph.height);
+    // The edges are the same whichever way it runs: only the picture turns.
+    expect(graph.edges).toEqual(buildGraph(liveRun()).edges);
+    expect(buildGraph(liveRun()).direction).toBe('LR');
+  });
+
+  it('shows an old run as a column on a phone', () => {
+    const graph = buildGraph(liveRun({ structure: undefined }), 'TB');
+    expect(graph.nodes.map((n) => n.x)).toEqual([0, 0, 0]);
+    expect(graph.nodes.map((n) => n.y)).toEqual([0, 140, 280]);
+    expect(graph).toMatchObject({ width: 200, height: 384 });
+    expect(buildGraph(liveRun({ structure: undefined, steps: [] }), 'TB')).toMatchObject({
+      width: 0,
+      height: 0,
+    });
+  });
+
+  it('meets its cards on the sides that face the way it runs', () => {
+    expect(handlesOf('LR')).toEqual({ in: 'left', out: 'right', failure: 'bottom' });
+    expect(handlesOf('TB')).toEqual({ in: 'top', out: 'bottom', failure: 'right' });
+    expect(flowOf(buildGraph(liveRun(), 'TB'), undefined, 0).nodes[0]?.data.direction).toBe('TB');
   });
 
   it('is the same picture every time for the same run', () => {

@@ -1,11 +1,12 @@
 // @vitest-environment happy-dom
 import type { DiscussionView, RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { ApiFailure, type Client, type Failure, type StreamHandlers } from '../src/client.js';
 import { buildGraph } from '../src/graph-model.js';
 import { App, type AppProps } from '../src/ui/App.js';
+import { NARROW, useMediaQuery } from '../src/ui/media.js';
 import { StepCard } from '../src/ui/RunGraph.js';
 import { StepPanel } from '../src/ui/StepPanel.js';
 import { attempt, liveRun, runner, step, T } from './fixtures.js';
@@ -299,10 +300,17 @@ describe('the Run screen', () => {
     act(() => client.state('reconnecting'));
     expect(screen.getByText(/The connection dropped/)).toBeTruthy();
     expect(container.querySelector('.stale')).not.toBeNull();
+    // Every state says in words that it is the last known one: the run's, each step's in the list, each card's.
+    const labels = container.querySelectorAll('.last-known');
+    expect(labels.length).toBeGreaterThanOrEqual(1 + 4);
+    expect(labels[0]?.textContent).toBe(', last known');
+    expect(container.querySelector('.step-card')?.textContent).toContain('last known');
     act(() => client.push(liveRun({ status: 'completed', endedAt: T(40) })));
     act(() => client.state('ended'));
     await screen.findByText(/took 40 s/);
     expect(screen.queryByText(/The connection dropped/)).toBeNull();
+    expect(container.querySelector('.last-known')).toBeNull();
+    expect(container.querySelector('.step-card')?.textContent).not.toContain('last known');
     expect(screen.getByText('Run ended')).toBeTruthy();
   });
 
@@ -315,6 +323,7 @@ describe('the Run screen', () => {
     expect(banner.textContent).toContain('The server is not answering');
     expect(screen.getByText('Server stopped')).toBeTruthy();
     expect(screen.queryByText(/The connection dropped/)).toBeNull();
+    expect(screen.getAllByText(', last known').length).toBeGreaterThan(0);
     fireEvent.click(within(banner).getByRole('button', { name: 'Check again' }));
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
     expect(await screen.findByText('Live')).toBeTruthy();
@@ -661,5 +670,60 @@ describe('a run with every state, a step that retries itself and records the pag
     render(h(App, appProps(fakeClient({ run }), '/runs/r1')));
     expect(await screen.findByText('Records this page could not read')).toBeTruthy();
     expect(screen.getByText('a record of a kind this view does not know: future_event').tagName).toBe('LI');
+  });
+});
+
+describe('the graph on a phone (answer 5)', () => {
+  /** A `matchMedia` that says narrow until told otherwise, and tells its listeners when that changes. */
+  function fakeMedia(initial: boolean) {
+    let matches = initial;
+    const listeners = new Set<() => void>();
+    const original = window.matchMedia;
+    window.matchMedia = ((query: string) => ({
+      get matches() {
+        return query === NARROW && matches;
+      },
+      media: query,
+      addEventListener: (_: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_: string, listener: () => void) => listeners.delete(listener),
+    })) as unknown as typeof window.matchMedia;
+    return {
+      set(next: boolean) {
+        matches = next;
+        for (const listener of listeners) listener();
+      },
+      restore() {
+        window.matchMedia = original;
+      },
+      listeners,
+    };
+  }
+
+  it('runs top to bottom below 640 px, and turns back when the screen widens', async () => {
+    const media = fakeMedia(true);
+    try {
+      const { container } = render(h(App, appProps(fakeClient({}), '/runs/r1')));
+      await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+      await waitFor(() => expect(container.querySelector('.react-flow__handle-top')).not.toBeNull());
+      expect(container.querySelector('.react-flow__handle-left')).toBeNull();
+      act(() => media.set(false));
+      await waitFor(() => expect(container.querySelector('.react-flow__handle-left')).not.toBeNull());
+      expect(container.querySelector('.react-flow__handle-top')).toBeNull();
+      cleanup();
+      expect(media.listeners.size).toBe(0);
+    } finally {
+      media.restore();
+    }
+  });
+
+  it('keeps the wide layout where the browser cannot say how wide it is', () => {
+    const original = window.matchMedia;
+    Reflect.deleteProperty(window, 'matchMedia');
+    try {
+      const { result } = renderHook(() => useMediaQuery(NARROW));
+      expect(result.current).toBe(false);
+    } finally {
+      window.matchMedia = original;
+    }
   });
 });
