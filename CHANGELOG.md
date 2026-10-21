@@ -51,7 +51,8 @@ port". The PHP prototype that preceded them was never published.
   and dark themes that follow the system, keyboard and screen-reader use, and a phone at 320 px. The token is read
   from the address fragment, removed from it and kept in memory; the event stream is read with `fetch` so it carries
   the header, and resumes after a drop. It starts nothing and changes nothing. The page is not published on its own
-  and adds nothing to a consumer's dependencies; `indaba ui` serves it, and `pnpm try:ui`
+  and adds nothing to a consumer's dependencies: its build ships inside `@indaba/server`, in `page/`, with
+  `page/THIRD-PARTY-LICENSES.txt` carrying the licence of every library it bundles (task T-10). `indaba ui` serves it, and `pnpm try:ui`
   serves it from a checkout (`--demo` runs a small workflow with a retry first, with no agent or key). Documented in
   `docs/web-view.md`, and for contributors in `docs/web-view-development.md`.
 - **A run records the shape of its workflow** (minor; track `feature`; spec `specs/web-app`, task T-20). When a run

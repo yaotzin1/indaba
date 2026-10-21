@@ -40,8 +40,14 @@ checkable. The slice and its limits are in `plan.md`.
   the tables on `apsw-gridwright`; the open questions were taken as recommended (no cost column on Runs, a banner and greyed
   `last known` states on a drop, one place for output, left to right with a readable zoom on a phone, "steps" everywhere,
   the structure recorded in the trace, the debate summary only).
-- [ ] **T-10** Packaging: where the built page lives (inside `@indaba/server` or its own package), `files` and `exports`
+- [x] **T-10** Packaging: where the built page lives (inside `@indaba/server` or its own package), `files` and `exports`
   maps, the published-files audit, and the packed-install smoke test still boots `indaba` without either package.
+  **Done 2026-10-21:** inside `@indaba/server`, in `page/` (plan, "Packaging"). The server's `prepack` copies
+  `packages/web/dist` there with `THIRD-PARTY-LICENSES.txt` (`scripts/stage-page.mjs`) and its `postpack` removes it;
+  `files` gains `page`, `exports` is unchanged (the page is read from disk, never imported). `pnpm smoke` packs the six
+  published packages (never `@indaba/web`), audits every tarball's files, boots `indaba` with neither optional package
+  installed, and checks that an installed server finds its page. Self-tests in `scripts/stage-page.test.mjs` and
+  `scripts/smoke-pack.test.mjs`.
 
 ## Engine, before T-08
 
