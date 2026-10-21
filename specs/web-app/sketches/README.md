@@ -77,4 +77,16 @@ does not carry to the next sketch, the real page keeps it).
 9. **The editor.** Sketch 5 shows the graph as an editor with bricks. It is out of step 1; is the one-component approach (a view
    mode now, an edit mode later) what you want, and is the list of bricks right? Whether editing is paid is not decided here.
 
+## Answers (maintainer, 2026-10-21)
+
+1. Add `cost` to `RunSummary`. A run opens a table of its cost (a tooltip on the summary is welcome).
+2. The page checks the server's health, shows whether it is available, and stops sending requests to a server that is down.
+3. Keep the `last known` label on state chips when the stream drops.
+4. The graph and the list select the same step, and the output shows in one panel.
+5. On a phone the graph runs top to bottom.
+6. "Steps" stays. Whether Indaba's Zulu origin should name anything in the interface is open; renaming a workflow field is a major.
+7. Yes. The structure is recorded in the trace (T-20).
+8. Keep the debate's messages. The page shows a summary, with an optional review of the discussion. The user chooses where the discussion log is stored (T-21).
+9. Yes: one graph component, a view mode now and an edit mode later, with the list of bricks as drawn.
+
 Answer in the pull request or here; T-09 is ticked when you say the sketches stand.
