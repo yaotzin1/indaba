@@ -17,6 +17,17 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Every command keeps a log file** (minor; track `feature`; spec `specs/logging`). With no setup, `indaba
+  validate`, `plan`, `run` and `watch` append JSON lines to `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in the
+  project (for `run`, the one of `--workdir`): a `process.start` record (command name, Indaba, Node, platform and
+  architecture, never the arguments) and a `process.end` record with the exit code. A file is closed at 10 MiB and
+  10 files are kept; both are starting values, not measurements. `warn` and above also go to standard error as one
+  plain line; standard output does not change. New options on every command: `--log-level <error|warn|info|debug>`
+  (default `info`; also the variable `INDABA_LOG_LEVEL`, which the option overrides) and `--log-dir <dir>` (a
+  relative folder must stay inside the project). An unknown level is a usage error, exit code 2. A folder that cannot
+  be written costs one warning and the command goes on. New in `@indaba/core`: `Logger`, `LogRecord`, `LogSink`,
+  `createLogger`, `noopLogger`, `LOGGING_DEFAULTS`, `LOGGING_SETTINGS` and `resolveLoggingSettings`. New in
+  `@indaba/engine`: `FileLogSink`.
 - **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
   with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
   first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it

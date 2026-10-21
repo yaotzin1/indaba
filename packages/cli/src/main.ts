@@ -24,6 +24,14 @@ import {
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
+import {
+  chooseLevel,
+  extractLogOptions,
+  LOG_OPTIONS_USAGE,
+  type LogOptions,
+  LogUsageError,
+  openCommandLogger,
+} from './log.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
@@ -49,6 +57,10 @@ export interface Io {
   readonly loadTui?: () => Promise<TuiLoad>;
   /** Starts `indaba run` as a process of its own, for `run --tui`. Supplied by the binary; tests replace it. */
   readonly startRun?: RunStarter;
+  /** The clock of the log records. Defaults to the wall clock; tests replace it. */
+  readonly clock?: () => Date;
+  /** The process id the log records carry. Defaults to this process. */
+  readonly pid?: number;
 }
 
 export const EXIT_OK = 0;
@@ -74,7 +86,8 @@ Options:
 The file defaults to ${DEFAULT_FILE}. Every command accepts --plugin <specifier> (repeatable):
 a file path or package name whose default export is an Indaba plugin.
 Run "indaba <command> --help" for the options of one command.
-`;
+
+${LOG_OPTIONS_USAGE}`;
 
 const COMMAND_USAGE: Readonly<Record<string, string>> = {
   validate: `Usage: indaba validate [file] [--plugin <specifier>]...
@@ -100,6 +113,10 @@ Options:
 `,
 };
 
+function withLogOptions(usage: string): string {
+  return `${usage}\n${LOG_OPTIONS_USAGE}`;
+}
+
 const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose', 'tui'] as const;
 
 function processIo(): Io {
@@ -116,9 +133,60 @@ function readVersion(): string {
 
 class UsageError extends Error {}
 
+function commandUsage(command: string | undefined): string {
+  const usage = command === undefined ? undefined : COMMAND_USAGE[command];
+  return usage === undefined ? USAGE : withLogOptions(usage);
+}
+
 function usageError(io: Io, message: string, command?: string): number {
-  io.stderr.write(`${message}\n\n${command === undefined ? USAGE : (COMMAND_USAGE[command] ?? USAGE)}`);
+  io.stderr.write(`${message}\n\n${commandUsage(command)}`);
   return EXIT_USAGE;
+}
+
+/**
+ * Runs one command with its logger: the `process.start` record first, a `process.end` record with the exit code last,
+ * and every sink flushed before the command returns (specs/logging, AC-14, T-07).
+ */
+async function logged(
+  command: string,
+  root: string,
+  options: LogOptions,
+  io: Io,
+  body: () => Promise<number>,
+): Promise<number> {
+  let logger: ReturnType<typeof openCommandLogger>;
+  try {
+    logger = openCommandLogger({
+      root,
+      level: chooseLevel(options.level, io.env.INDABA_LOG_LEVEL),
+      dir: options.dir,
+      stderr: io.stderr,
+      environment: io.env,
+      clock: io.clock ?? (() => new Date()),
+      pid: io.pid ?? process.pid,
+    });
+  } catch (error) {
+    if (error instanceof LogUsageError) {
+      return usageError(io, error.message, command);
+    }
+    throw error;
+  }
+  // What a report needs to state its environment without being asked; never the arguments' values (AC-14).
+  logger.info('cli.process', 'process.start', {
+    command,
+    indabaVersion: readVersion(),
+    nodeVersion: process.version,
+    platform: process.platform,
+    arch: process.arch,
+  });
+  let code = EXIT_FAILURE;
+  try {
+    code = await body();
+    return code;
+  } finally {
+    logger.info('cli.process', 'process.end', { exitCode: code });
+    await logger.flush();
+  }
 }
 
 interface Parsed {
@@ -210,18 +278,19 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     io.stdout.write(`${readVersion()}\n`);
     return EXIT_OK;
   }
-  if (command === 'watch') {
-    try {
-      return await watch(rest, io, {
-        noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
-        loadTui: io.loadTui ?? loadTui,
-      });
-    } catch (error) {
-      const message = redact(error instanceof Error ? error.message : String(error), io.env);
-      (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}
-`);
-      return EXIT_FAILURE;
+  let logOptions: LogOptions;
+  try {
+    logOptions = extractLogOptions(rest);
+    chooseLevel(logOptions.level, io.env.INDABA_LOG_LEVEL);
+  } catch (error) {
+    if (error instanceof LogUsageError) {
+      return usageError(io, error.message, COMMAND_USAGE[command] === undefined ? undefined : command);
     }
+    throw error;
+  }
+  const args = logOptions.args;
+  if (command === 'watch') {
+    return logged(command, io.cwd, logOptions, io, () => watchCommand(args, io));
   }
   if (command !== 'validate' && command !== 'plan' && command !== 'run') {
     return usageError(io, `Unknown command "${command}".`);
@@ -229,7 +298,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
 
   let parsed: Parsed;
   try {
-    parsed = parseCommand(command, rest);
+    parsed = parseCommand(command, args);
   } catch (error) {
     if (error instanceof UsageError) {
       return usageError(io, error.message, command);
@@ -237,18 +306,42 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     throw error;
   }
   if (parsed.help) {
-    io.stdout.write(COMMAND_USAGE[command] ?? USAGE);
+    io.stdout.write(withLogOptions(COMMAND_USAGE[command] ?? USAGE));
     return EXIT_OK;
   }
 
+  let root = io.cwd;
+  if (command === 'run') {
+    const projectDir = await projectDirOf(parsed, io);
+    if (projectDir === undefined) {
+      return EXIT_FAILURE;
+    }
+    root = projectDir;
+  }
+
+  return logged(command, root, logOptions, io, async () => {
+    try {
+      if (command === 'validate') {
+        return await validate(parsed, io);
+      }
+      if (command === 'plan') {
+        return await plan(parsed, io);
+      }
+      return parsed.tui ? await runInDashboard(root, rest, io) : await run(parsed, root, io);
+    } catch (error) {
+      const message = redact(error instanceof Error ? error.message : String(error), io.env);
+      (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+      return EXIT_FAILURE;
+    }
+  });
+}
+
+async function watchCommand(args: readonly string[], io: Io): Promise<number> {
   try {
-    if (command === 'validate') {
-      return await validate(parsed, io);
-    }
-    if (command === 'plan') {
-      return await plan(parsed, io);
-    }
-    return parsed.tui ? await runInDashboard(parsed, rest, io) : await run(parsed, io);
+    return await watch(args, io, {
+      noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
+      loadTui: io.loadTui ?? loadTui,
+    });
   } catch (error) {
     const message = redact(error instanceof Error ? error.message : String(error), io.env);
     (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
@@ -380,11 +473,7 @@ async function projectDirOf(parsed: Parsed, io: Io): Promise<string | undefined>
 }
 
 /** `run --tui`: the same command line, without the flag, in a process of its own, shown as a dashboard. */
-async function runInDashboard(parsed: Parsed, args: readonly string[], io: Io): Promise<number> {
-  const projectDir = await projectDirOf(parsed, io);
-  if (projectDir === undefined) {
-    return EXIT_FAILURE;
-  }
+async function runInDashboard(projectDir: string, args: readonly string[], io: Io): Promise<number> {
   return runWithDashboard(
     args.filter((arg) => arg !== '--tui'),
     projectDir,
@@ -393,12 +482,7 @@ async function runInDashboard(parsed: Parsed, args: readonly string[], io: Io): 
   );
 }
 
-async function run(parsed: Parsed, io: Io): Promise<number> {
-  const projectDir = await projectDirOf(parsed, io);
-  if (projectDir === undefined) {
-    return EXIT_FAILURE;
-  }
-
+async function run(parsed: Parsed, projectDir: string, io: Io): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { engine, parser, events } = await createEngine({
     projectDir,

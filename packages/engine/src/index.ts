@@ -13,6 +13,8 @@ export { WorkflowEngine } from './engine/workflow-engine.js';
 export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';
+export type { FileLogSinkOptions } from './observability/file-log-sink.js';
+export { FileLogSink } from './observability/file-log-sink.js';
 export { JsonlSpanExporter } from './observability/jsonl-span-exporter.js';
 export { RandomIdGenerator, SystemClock } from './observability/system.js';
 export { ErrorBag } from './parser/error-bag.js';
