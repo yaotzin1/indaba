@@ -12,8 +12,8 @@ what each step did, what happens if it fails, its output and what it cost. It re
 </p>
 
 > **Status.** Delivery step 1 of [`specs/web-app`](../specs/web-app/spec.md): read-only, Runs and Run. It is on the
-> `feat/web-app` branch and not in a published version. `indaba ui` starts it (task T-11); `pnpm try:ui`, below, also
-> makes a demo project to look at.
+> `feat/web-app` branch and not in a published version yet, so run it from a checkout (below). `pnpm try:ui -- --demo`
+> also makes a demo project to look at.
 
 ## A debate's discussion
 
@@ -26,18 +26,55 @@ written.
 
 ## Open it
 
-In a project, with the page built (in a checkout: `pnpm build`):
-
 ```bash
 indaba ui                      # the runs of the current folder; opens your browser
 indaba ui --root ../other-project --root .   # several projects
 indaba ui --no-open --port 4173
 ```
 
-It prints an address with a token, opens it in your browser unless `--no-open`, and serves until `Ctrl+C`. It reads
-the runs and starts none. From a checkout, without installing the command, use the demo below.
+| Option | Does |
+| :--- | :--- |
+| `--root <dir>` | A project whose runs to show (its `.indaba/traces`); repeatable. Default: the current folder |
+| `--discussion-dir <dir>` | Another folder with the kept messages of debates; repeatable. Default: each root's `.indaba/discussions` |
+| `--port <n>` | The port to listen on. Default: a free one |
+| `--no-open` | Print the address and do not open the browser |
 
-From a checkout of this repository, with Node 22 and pnpm 9:
+It prints an address with a token, opens it in your browser unless `--no-open`, and serves until `Ctrl+C`. It reads the
+runs and starts none; runs you started in a terminal carry on when you stop it:
+
+```text
+Indaba is serving the runs of:
+  /path/to/project
+
+Open this address in a browser (it carries the token, so keep it to yourself):
+
+  http://127.0.0.1:4173/#token=AUrK9NZ7CGDGRlcaz_6Lw...
+
+Stop with Ctrl+C. Runs started in a terminal are not affected.
+```
+
+`indaba ui` needs the optional package `@indaba/server` installed next to `indaba`; the page is inside that package, so
+there is nothing else to install. Without it the command says so and exits 1:
+
+```text
+indaba ui needs the package @indaba/server, which could not be loaded (...).
+Install it next to indaba, then try again: npm install -g @indaba/server
+```
+
+Neither package is published yet. In a checkout of this repository, with Node 22 and pnpm 9, build once and use
+`pnpm indaba` in place of `indaba`:
+
+```bash
+pnpm install
+pnpm build
+pnpm indaba ui --root /path/to/your/project
+```
+
+A checkout that has not been built says `The page of indaba ui has not been built. In a checkout of Indaba, run: pnpm build`.
+
+### A demo with nothing to set up
+
+From a checkout:
 
 ```bash
 pnpm install
@@ -54,14 +91,8 @@ Open this address in a browser (it carries the token, so keep it to yourself):
   http://127.0.0.1:52344/#token=q5G3fDM5i6QKij...
 ```
 
-Open that address. To look at the runs of your own project instead:
-
-```bash
-pnpm try:ui -- --root /path/to/your/project
-```
-
-The page lists the runs under `/path/to/your/project/.indaba/traces`, and a run you start there with `indaba run`
-appears while it runs. Repeat `--root` for several projects; `--port 4173` picks the port. `Ctrl+C` stops it.
+Open that address. `pnpm try:ui -- --root /path/to/your/project` does what `pnpm indaba ui --root` does, without
+opening the browser. Either way, a run you start in that project with `indaba run` appears while it runs.
 
 ## What you see
 
@@ -111,9 +142,11 @@ with no budget says **no limit**.
 
 ### When the connection drops
 
-If the server stops answering while you follow a run, a red banner says so, the run's states turn grey (the last
-known state, not a live one) and the page reconnects by itself, resuming where it left off. Nothing on the page claims
-to be live while it is not.
+If the server stops answering while you follow a run, a red banner says so and that what you see is the last
+known state, the run's states turn grey, and the page reconnects by itself, resuming where it left off without repeating or skipping
+anything. After 8 failed attempts in a row (about half a minute) it stops asking: the header says **Server stopped**, a
+banner says what to do, and **Check again** asks once and picks up again if the server answers. Nothing on the page
+claims to be live while it is not.
 
 ## Themes, keyboard and phone
 
@@ -140,6 +173,8 @@ The page can show your agents' work, so it is built like something that could le
 - **Text stays text.** Everything a run produced (agent output, commands, messages) is shown as plain text: no HTML, no
   links, and terminal escape sequences are removed by the server first. The page loads nothing from the internet (no
   fonts, scripts or analytics), and a Content-Security-Policy forbids it.
+- **Third-party code.** The page bundles a few open-source libraries and fonts; their licences ship with it, in
+  `page/THIRD-PARTY-LICENSES.txt` inside the `@indaba/server` package.
 - **No secrets in what it reads.** A value of an environment variable named like a key, token, secret, password or
   credential is replaced by `[redacted]` before a run writes its trace, so it is not in the files the page shows.
 
@@ -155,9 +190,11 @@ The page can show your agents' work, so it is built like something that could le
 
 ## Not there yet
 
-From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned:
-`indaba ui` itself; the list of workflows with their health (it needs `specs/workflow-registry`); Run, Stop and "run this
-step"; answering an agent's questions; applying or discarding a run's changes; the workflow editor. A debate's full
-discussion is not shown: the page has its outcome and rounds, and the messages need `specs/run-blackboard`.
+From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
+published `@indaba/server`, so `indaba ui` works from npm; the list of workflows with their health (it needs
+`specs/workflow-registry`); Run, Stop and "run this step"; answering an agent's questions; applying or discarding a
+run's changes; the workflow editor. On a phone the graph still runs left to right (opening at a readable size and
+dragged sideways); top to bottom below 640 px is decided and not built yet, and so is a `last known` label on each state
+when the connection drops (today the states turn grey and the banner says it).
 
 Working on the page itself: [web-view-development.md](web-view-development.md).

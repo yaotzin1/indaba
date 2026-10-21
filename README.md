@@ -70,13 +70,13 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
 | `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
-| `@indaba/server` | Optional local server of the web view: the runs over HTTP and Server-Sent Events, behind a token, read-only | `@indaba/core`, `@indaba/engine` |
-| `@indaba/web` | The web view's page, built into static files the server serves. Private: not published on its own, its libraries are bundled | none at run time |
+| `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, read-only. Its package carries the built page | `@indaba/core`, `@indaba/engine` |
+| `@indaba/web` | The web view's page, built into static files that ship inside `@indaba/server`. Private: never published on its own; its libraries are bundled, with their licences in `page/THIRD-PARTY-LICENSES.txt` | none at run time |
 
 All packages are ESM, ship their types, and need Node 22 or newer.
 
@@ -123,14 +123,17 @@ rules for developing Indaba itself.
 
 A page on your own machine that lists your runs and follows one live: every step as a graph (including the ones that
 have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
-the cost, with anything unknown shown as unknown. It has light and dark themes, works with a keyboard and on a phone,
-and only reads: it starts and changes nothing. Start it in a project with `indaba ui` (`--root` for others, `--no-open`,
-`--port`); from a checkout, try it with a demo:
+the cost of each run and of each step, with anything unknown shown as unknown. It has light and dark themes, works with
+a keyboard and on a phone, and only reads: it starts and changes nothing.
+
+Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
+the optional `@indaba/server` installed next to `indaba`; the page comes inside that package. Neither is in a published
+version yet, so for now run it from a checkout:
 
 ```bash
 pnpm install && pnpm build
+pnpm indaba ui                           # the runs of this folder (--root /path/to/project for yours)
 pnpm try:ui -- --demo                    # a throwaway run with a retry, no agent or key needed
-pnpm try:ui -- --root /path/to/project   # the runs of your own project
 ```
 
 It is the first delivery step of [`specs/web-app`](specs/web-app/spec.md). [docs/web-view.md](docs/web-view.md) explains
