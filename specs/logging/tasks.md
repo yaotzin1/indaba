@@ -26,8 +26,8 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 - [x] **T-08** `warn` and above on standard error (AC-08) without changing standard output.
 - [ ] **T-09** Pass the logger to the engine, the runners, the server and the plugins; `runId`, `taskId`, `stepId`, `traceId` through `child`.
   Done: the plugins (`host.logger`), the engine's events through the bridge (T-21), with `taskId`, `stepId` and
-  `traceId`, and the runners (`RunnerRegistry.withDefaults({ logger })`: processes and HTTP requests). Open: the server
-  (on `feat/web-app`, rebased on this).
+  `traceId`, and the runners (`RunnerRegistry.withDefaults({ logger })`: processes and HTTP requests). The server: done on
+  `feat/web-app` (T-10).
 - [x] **T-21** `logEngineEvents` (AC-22) in `@indaba/engine`, connected by `createEngine`; the logging contract
   re-exported by the engine (AC-23).
 - [x] **T-22** `@indaba/tui` takes `logger` in `watch`: opened, closed, a failing source (AC-23).
