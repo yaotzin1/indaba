@@ -5,7 +5,14 @@ import type { LogRecord } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/index.js';
 import { chooseLevel, extractLogOptions, formatForTerminal, openCommandLogger } from '../src/log.js';
-import { captureIo, makeTempDir } from './support.js';
+import {
+  captureIo,
+  FIXTURE_WORKFLOW,
+  fakePluginSource,
+  makeTempDir,
+  writePlugin,
+  writeWorkflow,
+} from './support.js';
 
 const example = fileURLToPath(new URL('../../../examples/task-pipeline.workflow.ai.yml', import.meta.url));
 const NOW = '2026-10-21T08:00:00.000Z';
@@ -229,5 +236,43 @@ describe('the logger of the command line', () => {
     expect(chooseLevel(undefined, 'error')).toBe('error');
     expect(chooseLevel(undefined, '')).toBe('info');
     expect(chooseLevel(undefined, undefined)).toBe('info');
+  });
+});
+
+describe('the logger reaches the engine and the plugins', () => {
+  it('records the steps of a run and what a plugin logs through host.logger', async () => {
+    const dir = await makeTempDir();
+    const plugin = await writePlugin(
+      dir,
+      'logging-plugin.mjs',
+      fakePluginSource(join(dir, 'plugin.log')).replace(
+        'register(host) {',
+        "register(host) {\n    host.logger.info('plugin.demo', 'the plugin registered', { name: 'fake-plugin' });",
+      ),
+    );
+    const workflow = await writeWorkflow(dir, 'flow.workflow.ai.yml', FIXTURE_WORKFLOW);
+    const r = await command(['run', workflow, '--plugin', plugin, '--task-id', 'logged'], dir);
+    expect(r.code).toBe(0);
+    expect(r.err).toBe('');
+
+    const written = await records(join(dir, '.indaba', 'logs'));
+    expect(written.map((x) => x.message)).toEqual([
+      'process.start',
+      'the plugin registered',
+      'a step changed state',
+      'a step changed state',
+      'a step changed state',
+      'process.end',
+    ]);
+    expect(written[1]).toMatchObject({
+      component: 'plugin.demo',
+      fields: { name: 'fake-plugin' },
+      pid: 4242,
+    });
+    expect(written.slice(2, 5).map((x) => [x.fields?.to, x.context])).toEqual([
+      ['RUNNING', { taskId: 'logged', stepId: 'work' }],
+      ['VALIDATING', { taskId: 'logged', stepId: 'work' }],
+      ['COMPLETED', { taskId: 'logged', stepId: 'work' }],
+    ]);
   });
 });

@@ -68,7 +68,9 @@ exits immediately.
 Every command (`validate`, `plan`, `run`, `watch`) appends JSON lines, one record per line, to
 `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in the project (for `run`, the `--workdir` one). Each process writes a
 `process.start` record (the command name, the Indaba and Node versions, the platform and architecture, never the
-arguments) and a `process.end` record with the exit code. Records at `warn` and above are also printed on standard
+arguments) and a `process.end` record with the exit code. A run adds a record for every step state change and every
+span that ends with an error, with the task, step or trace id to find it in `.indaba/traces`; with `--log-level debug`
+also what each step streams, filtered to printable text. Records at `warn` and above are also printed on standard
 error as one plain line; standard output does not change. A file is closed at 10 MiB and the newest 10 files are kept
 (starting values, not measurements). Values of environment variables whose name contains `key`, `token`, `secret`,
 `password` or `credential` are replaced by `[redacted]` before anything is written; even so, read a log before you send

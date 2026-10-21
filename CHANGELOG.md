@@ -26,8 +26,11 @@ port". The PHP prototype that preceded them was never published.
   (default `info`; also the variable `INDABA_LOG_LEVEL`, which the option overrides) and `--log-dir <dir>` (a
   relative folder must stay inside the project). An unknown level is a usage error, exit code 2. A folder that cannot
   be written costs one warning and the command goes on. New in `@indaba/core`: `Logger`, `LogRecord`, `LogSink`,
-  `createLogger`, `noopLogger`, `LOGGING_DEFAULTS`, `LOGGING_SETTINGS` and `resolveLoggingSettings`. New in
-  `@indaba/engine`: `FileLogSink`.
+  `createLogger`, `noopLogger`, `LOGGING_DEFAULTS`, `LOGGING_SETTINGS`, `resolveLoggingSettings` and the optional
+  `PluginHost.logger`. New in `@indaba/engine`: `FileLogSink`, `logEngineEvents` (every step state change and every
+  span that ends with an error is a record with its task, step or trace id; at `debug`, what a step streams) and the
+  logging contract re-exported. New options: `logger` on `createEngine` of `indaba` and on `watch` of `@indaba/tui`.
+  A plugin logs through `host.logger`.
 - **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
   with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
   first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it

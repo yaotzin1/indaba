@@ -1,4 +1,12 @@
-import { isRunId, type RunRecord, type RunState, TraceReader, watchExitCode } from '@indaba/engine';
+import {
+  isRunId,
+  type Logger,
+  noopLogger,
+  type RunRecord,
+  type RunState,
+  TraceReader,
+  watchExitCode,
+} from '@indaba/engine';
 import { runDashboard } from './dashboard.js';
 import { replay } from './replay.js';
 
@@ -25,6 +33,11 @@ export interface WatchOptions {
   readonly stdout: NodeJS.WritableStream;
   readonly stdin: NodeJS.ReadableStream;
   readonly signal?: AbortSignal;
+  /**
+   * Where the dashboard logs (specs/logging): when it opens and closes, and a run source that fails. Without one
+   * nothing is logged. It logs nothing at `warn`: that level is also printed on standard error, over the screen.
+   */
+  readonly logger?: Logger;
 }
 
 export interface WatchResult {
@@ -50,6 +63,7 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
   if (!isRunId(options.runId)) {
     throw new RangeError('A run id is lowercase hexadecimal.');
   }
+  const logger = (options.logger ?? noopLogger).child({ runId: options.runId });
   const reader = new TraceReader(options.directory);
   const controller = new AbortController();
   const onAbort = (): void => controller.abort();
@@ -59,8 +73,13 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
     ? replay(await reader.readAll(options.runId), { speed: options.speed, signal: controller.signal })
     : reader.follow(options.runId, controller.signal);
 
+  logger.info('tui.dashboard', 'the dashboard opened', {
+    replay: options.replay,
+    attached: options.attached,
+  });
   try {
     const result = await runDashboard({
+      logger,
       source,
       attached: options.attached,
       ascii: options.ascii,
@@ -69,7 +88,9 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
       stdin: options.stdin,
     });
     const quit = result.quit === 'none' ? 'close' : result.quit;
-    return { quit, code: exitCodeFor(quit, result.run), run: result.run };
+    const code = exitCodeFor(quit, result.run);
+    logger.info('tui.dashboard', 'the dashboard closed', { quit, code });
+    return { quit, code, run: result.run };
   } finally {
     controller.abort();
     options.signal?.removeEventListener('abort', onAbort);

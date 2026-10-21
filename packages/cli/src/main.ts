@@ -8,6 +8,7 @@ import {
   IndabaError,
   isConsensusStep,
   isShellStep,
+  type Logger,
   type Plugin,
   SpanEnded,
   StepStatusChanged,
@@ -152,9 +153,9 @@ async function logged(
   root: string,
   options: LogOptions,
   io: Io,
-  body: () => Promise<number>,
+  body: (logger: Logger) => Promise<number>,
 ): Promise<number> {
-  let logger: ReturnType<typeof openCommandLogger>;
+  let logger: Logger;
   try {
     logger = openCommandLogger({
       root,
@@ -181,7 +182,7 @@ async function logged(
   });
   let code = EXIT_FAILURE;
   try {
-    code = await body();
+    code = await body(logger);
     return code;
   } finally {
     logger.info('cli.process', 'process.end', { exitCode: code });
@@ -290,7 +291,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   }
   const args = logOptions.args;
   if (command === 'watch') {
-    return logged(command, io.cwd, logOptions, io, () => watchCommand(args, io));
+    return logged(command, io.cwd, logOptions, io, (logger) => watchCommand(args, io, logger));
   }
   if (command !== 'validate' && command !== 'plan' && command !== 'run') {
     return usageError(io, `Unknown command "${command}".`);
@@ -319,15 +320,15 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     root = projectDir;
   }
 
-  return logged(command, root, logOptions, io, async () => {
+  return logged(command, root, logOptions, io, async (logger) => {
     try {
       if (command === 'validate') {
-        return await validate(parsed, io);
+        return await validate(parsed, io, logger);
       }
       if (command === 'plan') {
-        return await plan(parsed, io);
+        return await plan(parsed, io, logger);
       }
-      return parsed.tui ? await runInDashboard(root, rest, io) : await run(parsed, root, io);
+      return parsed.tui ? await runInDashboard(root, rest, io, logger) : await run(parsed, root, io, logger);
     } catch (error) {
       const message = redact(error instanceof Error ? error.message : String(error), io.env);
       (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
@@ -336,9 +337,10 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   });
 }
 
-async function watchCommand(args: readonly string[], io: Io): Promise<number> {
+async function watchCommand(args: readonly string[], io: Io, logger: Logger): Promise<number> {
   try {
     return await watch(args, io, {
+      logger,
       noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '',
       loadTui: io.loadTui ?? loadTui,
     });
@@ -368,9 +370,9 @@ async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Pro
   }
 }
 
-async function validate(parsed: Parsed, io: Io): Promise<number> {
+async function validate(parsed: Parsed, io: Io, logger: Logger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, plugins });
+  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, plugins, logger });
   let workflow: WorkflowDefinition;
   try {
     workflow = await loadWorkflow(parser, parsed, io);
@@ -393,9 +395,9 @@ async function validate(parsed: Parsed, io: Io): Promise<number> {
   return EXIT_OK;
 }
 
-async function plan(parsed: Parsed, io: Io): Promise<number> {
+async function plan(parsed: Parsed, io: Io, logger: Logger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser, planner } = await createEngine({ projectDir: io.cwd, env: io.env, plugins });
+  const { parser, planner } = await createEngine({ projectDir: io.cwd, env: io.env, plugins, logger });
   const workflow = await loadWorkflow(parser, parsed, io);
   const order = new DagBuilder().build(workflow);
 
@@ -473,19 +475,25 @@ async function projectDirOf(parsed: Parsed, io: Io): Promise<string | undefined>
 }
 
 /** `run --tui`: the same command line, without the flag, in a process of its own, shown as a dashboard. */
-async function runInDashboard(projectDir: string, args: readonly string[], io: Io): Promise<number> {
+async function runInDashboard(
+  projectDir: string,
+  args: readonly string[],
+  io: Io,
+  logger: Logger,
+): Promise<number> {
   return runWithDashboard(
     args.filter((arg) => arg !== '--tui'),
     projectDir,
     { ...io, loadTui: io.loadTui ?? loadTui },
-    { environment: io.env, noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '' },
+    { environment: io.env, noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '', logger },
   );
 }
 
-async function run(parsed: Parsed, projectDir: string, io: Io): Promise<number> {
+async function run(parsed: Parsed, projectDir: string, io: Io, logger: Logger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { engine, parser, events } = await createEngine({
     projectDir,
+    logger,
     env: io.env,
     plugins,
     ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),

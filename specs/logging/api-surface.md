@@ -20,6 +20,11 @@
 | Settings screen for logging | web page (with the actions step) and terminal dashboard | `@indaba/web`, `@indaba/tui` |
 | `PUT /api/v1/settings/logging`, `GET /api/v1/settings/logging` | HTTP, with the actions step of `specs/web-app` | `@indaba/server` |
 | `logger?: Logger` | option on the engine, the runners and `ServerOptions` | each package |
+| `logEngineEvents(events, logger)`, `EventSource` | function, interface: engine events into log records (AC-22) | `@indaba/engine` |
+| `Logger`, `LogRecord`, `LogSink`, `LogLevel`, `LogContext`, `LogFields`, `createLogger`, `noopLogger` | re-exports of `@indaba/core` (AC-23) | `@indaba/engine` |
+| `PluginHost.logger?` | the command's logger, for plugins (optional so an existing host still type-checks) | `@indaba/core` |
+| `CreateEngineOptions.logger?` | wires the logger to the events and the plugin host | `indaba` |
+| `WatchOptions.logger?` | the dashboard's log | `@indaba/tui` |
 | `Plugin.logSinks?` | extension point | `@indaba/core` |
 
 ```ts

@@ -23,6 +23,11 @@ Ordered by dependency. Domain first, infrastructure second, console and document
   (`packages/cli/src/log.ts`, `main.ts`). Open: `indaba.config`, which waits for section 8, item 7 to be confirmed.
 - [x] **T-08** `warn` and above on standard error (AC-08) without changing standard output.
 - [ ] **T-09** Pass the logger to the engine, the runners, the server and the plugins; `runId`, `taskId`, `stepId`, `traceId` through `child`.
+  Done: the plugins (`host.logger`) and the engine's events through the bridge (T-21), with `taskId`, `stepId` and
+  `traceId`. Open: the runners, and the server (on `feat/web-app`, once this branch is on `main`).
+- [x] **T-21** `logEngineEvents` (AC-22) in `@indaba/engine`, connected by `createEngine`; the logging contract
+  re-exported by the engine (AC-23).
+- [x] **T-22** `@indaba/tui` takes `logger` in `watch`: opened, closed, a failing source (AC-23).
 - [ ] **T-10** `indaba ui` logs through it from its first line (specs/web-app, T-11).
 - [ ] **T-11** `indaba report [run]` (AC-17), a second step.
 

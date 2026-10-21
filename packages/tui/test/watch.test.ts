@@ -1,7 +1,7 @@
 import { mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type RunRecord, serializeRecord } from '@indaba/engine';
+import { createLogger, type LogRecord, type RunRecord, serializeRecord } from '@indaba/engine';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { watch } from '../src/index.js';
 import { output, root, rootEnd, sampleRecords, status, stepStart, T, TRACE } from './fixtures.js';
@@ -44,6 +44,23 @@ function options(extra: { replay?: boolean; speed?: 1 | 10; attached?: boolean; 
     },
   };
 }
+
+describe('watch logging', () => {
+  it('logs when the dashboard opens and closes, with the run id', async () => {
+    await writeRun([...sampleRecords(), rootEnd('COMPLETED')]);
+    const records: LogRecord[] = [];
+    const logger = createLogger({ sinks: [{ write: (r) => records.push(r) }], clock: () => new Date(0) });
+    const t = options();
+    const done = watch({ ...t.options, logger });
+    await until(() => t.stdout.text.includes('completed'));
+    t.stdin.type('q');
+    await done;
+    expect(records.map((r) => [r.message, r.fields, r.context])).toEqual([
+      ['the dashboard opened', { replay: false, attached: false }, { runId: TRACE }],
+      ['the dashboard closed', { quit: 'close', code: 0 }, { runId: TRACE }],
+    ]);
+  });
+});
 
 describe('watch', () => {
   it('refuses anything that is not a run id, before it touches a file', async () => {

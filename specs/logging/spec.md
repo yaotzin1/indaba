@@ -102,6 +102,17 @@ there, and a person with nothing must still get usable files with no setup.
 - [ ] AC-10. A sink is an extension contract: `Plugin` and `PluginHost` accept a `LogSink`; a failing sink is isolated (it
   is dropped for the rest of the run after one `warn` to the other sinks and never throws into the engine), and the
   built-in file sink gets no access an external sink lacks.
+- [ ] AC-22. **The engine's events reach the log.** `logEngineEvents(events, logger)` in `@indaba/engine` listens to
+  the events a run already dispatches and writes: every step state change (`info`, `taskId` and `stepId` in the
+  context, the reason as a printable one-line field), every span that ends with an error (`info`, `traceId` in the
+  context), and what a step streams (`debug` only, printable-filtered and cut by the logger). None of it is `warn`: the
+  outcome of a run is already on standard output, and `warn` is kept for trouble of Indaba's own. Code that announces
+  what it does through events needs no logger calls of its own, and the ids lead from a log line to the trace.
+- [ ] AC-23. **One place to plug a logger in.** The engine package re-exports the logging contract, so a package that
+  may only import the engine (the terminal dashboard) takes `Logger` from the same place as the others. `createEngine`
+  of `indaba` takes `logger` and connects it to the engine's events and to the plugins (`PluginHost.logger`); the
+  dashboard's `watch` takes `logger` and records when it opens and closes and a run source that fails (at `info`,
+  because `warn` would be printed over the screen).
 - [ ] AC-11. Logging never changes behaviour: a run with every sink failing ends with the same states, events and traces as
   one with none.
 - [ ] AC-12. The engine stays deterministic with a logger: the same inputs and the same fake clock produce the same
@@ -114,8 +125,10 @@ there, and a person with nothing must still get usable files with no setup.
   it; the project does not ship them.
 - A log server, a search index or an issue tracker inside Indaba. Indaba produces and forwards the records; tracking
   happens in the tool the team already uses.
-- Replacing traces or events. Traces say what a run did and feed the dashboards; logs say what Indaba did to run it. A
-  fact is recorded in one of the two, not both.
+- Replacing traces or events. Traces say what a run did and feed the dashboards; logs say what Indaba did to run it.
+  Logs are not sent as events either: the dispatcher of a run exists only once an engine does, while a command logs
+  from its first line, and every event is public surface. The bridge of AC-22 goes the other way, events into the log,
+  and keeps to the state changes and errors a report needs, with the ids that lead to the trace for the rest.
 - Log levels per package or per component in this step (one global minimum).
 - Logging of agent conversations as a record of the debate (that is the transcript, `specs/run-blackboard`, T-21 of
   `specs/web-app`).

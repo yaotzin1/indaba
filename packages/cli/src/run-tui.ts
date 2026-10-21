@@ -1,4 +1,5 @@
 import { join } from 'node:path';
+import type { Logger } from '@indaba/core';
 import { sanitize, TraceReader } from '@indaba/engine';
 import type { Io } from './main.js';
 import { redact } from './redact.js';
@@ -22,6 +23,8 @@ export interface RunTuiOptions {
   readonly waitMs?: number;
   /** Tests replace the wait. */
   readonly sleep?: (ms: number) => Promise<void>;
+  /** The command's logger, handed on to the dashboard. */
+  readonly logger?: Logger;
 }
 
 const realSleep = (ms: number): Promise<void> => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -147,6 +150,7 @@ async function show(
       stdout: terminal.stdout,
       stdin: terminal.stdin,
       ...(io.signal === undefined ? {} : { signal: io.signal }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
     });
   } catch (error) {
     // The screen failing is no reason to stop the run: say where it is and leave it going.

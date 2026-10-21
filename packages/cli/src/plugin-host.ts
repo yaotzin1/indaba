@@ -2,6 +2,7 @@ import type {
   Adjudicator,
   AdjudicatorRegistry,
   Guard,
+  Logger,
   PluginHost,
   Runner,
   SimpleEventDispatcher,
@@ -19,6 +20,7 @@ export class RegistryPluginHost implements PluginHost {
     private readonly guards: GuardRegistry,
     private readonly events: SimpleEventDispatcher,
     private readonly adjudicators: AdjudicatorRegistry,
+    readonly logger: Logger,
   ) {}
 
   registerRunner(runner: Runner): void {

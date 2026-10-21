@@ -1,5 +1,6 @@
 import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
+import type { Logger } from '@indaba/core';
 import {
   emptyRun,
   formatEvent,
@@ -46,6 +47,8 @@ export interface WatchOptions {
   readonly noColor?: boolean;
   /** Loads the optional terminal view. Without it the command only prints lines. */
   readonly loadTui?: () => Promise<TuiLoad>;
+  /** The command's logger, handed on to the dashboard. */
+  readonly logger?: Logger;
 }
 
 class WatchUsage extends Error {}
@@ -282,6 +285,7 @@ async function showScreen(
       stdout: io.terminal.stdout,
       stdin: io.terminal.stdin,
       ...(io.signal === undefined ? {} : { signal: io.signal }),
+      ...(options.logger === undefined ? {} : { logger: options.logger }),
     });
     return result.code;
   } catch (error) {
