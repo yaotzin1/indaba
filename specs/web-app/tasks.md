@@ -120,6 +120,7 @@ checkable. The slice and its limits are in `plan.md`.
 
 ## Stage 7: Verification
 
-- [ ] `pnpm qa` and the node gates (`node scripts/check-workflow.mjs`) green end to end, output recorded in `review.md`
-- [ ] `pnpm e2e` and `pnpm smoke` green, output recorded in `review.md`
+- [x] `pnpm qa` and the node gates (`node scripts/check-workflow.mjs`) green end to end, output recorded in `review.md`
+  (2026-10-21, Linux)
+- [x] `pnpm e2e` and `pnpm smoke` green, output recorded in `review.md` (2026-10-21, Linux)
 - [ ] A manual run on Windows, macOS and Linux, or the report says which was not done
