@@ -36,5 +36,13 @@ export {
   LOGGING_SETTINGS,
   loggingSettingsToConfig,
   resolveLoggingSettings,
+  SINK_DEFAULTS,
   SINK_TYPES,
 } from './settings.js';
+export type {
+  LoggingSettingsCheckResponse,
+  LoggingSettingsRequest,
+  LoggingSettingsResponse,
+  SinkTestRequest,
+  SinkTestResponse,
+} from './settings-api.js';

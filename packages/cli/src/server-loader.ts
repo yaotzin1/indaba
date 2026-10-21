@@ -1,4 +1,10 @@
-import type { Logger } from '@indaba/core';
+import type {
+  Logger,
+  LoggingSettings,
+  LoggingSettingsResponse,
+  SinkSettings,
+  SinkTestResponse,
+} from '@indaba/core';
 
 /** What the command line needs of `@indaba/server`. The package is optional, so its types are not imported. */
 export interface UiServerOptions {
@@ -8,6 +14,17 @@ export interface UiServerOptions {
   readonly port?: number;
   /** The command's logger (specs/logging, AC-09); the contract is core's, which the command line already has. */
   readonly logger?: Logger;
+  /** The logging settings of the project, for the page's Settings screen (specs/logging, AC-20). */
+  readonly loggingSettings?: UiSettingsBackend;
+}
+
+/** What the command line knows of a project's settings; the server adds their description. */
+export type UiSettingsState = Omit<LoggingSettingsResponse, 'descriptions' | 'sinkDefaults'>;
+
+export interface UiSettingsBackend {
+  read(): Promise<UiSettingsState>;
+  save(settings: LoggingSettings): Promise<UiSettingsState>;
+  test(sink: SinkSettings): Promise<SinkTestResponse>;
 }
 
 export interface UiServerHandle {

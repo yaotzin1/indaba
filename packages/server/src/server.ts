@@ -6,13 +6,21 @@ import {
   type ApiError,
   type ContractResponse,
   type DiscussionResponse,
+  LOGGING_SETTINGS,
   type Logger,
+  type LoggingSettings,
+  type LoggingSettingsCheckResponse,
+  type LoggingSettingsResponse,
   noopLogger,
   type RunListResponse,
   type RunResponse,
+  resolveLoggingSettings,
+  SINK_DEFAULTS,
+  type SinkSettings,
+  type SinkTestResponse,
 } from '@indaba/core';
 import { DISCUSSION_DIRECTORY, DiscussionStore } from '@indaba/engine';
-import { bearerOf, hostAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
+import { bearerOf, hostAllowed, originAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
 import { readStatic } from './static.js';
@@ -21,6 +29,35 @@ import { readStatic } from './static.js';
 export const CONTRACT_VERSION = '1.0.0';
 
 const API = '/api/v1';
+const SETTINGS_PATH = `${API}/settings/logging`;
+const SINK_TEST_PATH = `${SETTINGS_PATH}/test`;
+const SETTINGS_CHECK_PATH = `${SETTINGS_PATH}/check`;
+
+function described(state: LoggingSettingsState): LoggingSettingsResponse {
+  return { ...state, descriptions: LOGGING_SETTINGS, sinkDefaults: SINK_DEFAULTS };
+}
+
+/**
+ * The largest body the server reads, for the one resource it writes. The logging section of a project is a few hundred
+ * bytes; this keeps a hostile body from filling memory. A starting value, not a measurement.
+ */
+export const MAX_BODY_BYTES = 64 * 1024;
+
+/**
+ * What the server may do with the logging settings of the project it was started in (specs/logging, AC-20, AC-21):
+ * the command line supplies it, with the file, the environment and the sinks that are its own. Without it the server
+ * only reads, as in delivery step 1, and the settings answer 404.
+ */
+/** What the backend knows of the project; the server adds the description of the settings from `@indaba/core`. */
+export type LoggingSettingsState = Omit<LoggingSettingsResponse, 'descriptions' | 'sinkDefaults'>;
+
+export interface LoggingSettingsBackend {
+  read(): Promise<LoggingSettingsState>;
+  /** Writes `indaba.config` through the same writer as `indaba settings`; rejects when it cannot. */
+  save(settings: LoggingSettings): Promise<LoggingSettingsState>;
+  /** Sends one test record through a sink built from these settings. */
+  test(sink: SinkSettings): Promise<SinkTestResponse>;
+}
 const DEFAULT_POLL_MS = 1000;
 const DEFAULT_COALESCE_MS = 50;
 
@@ -49,6 +86,12 @@ export interface ServerOptions {
    * Default: a logger that records nothing.
    */
   readonly logger?: Logger;
+  /**
+   * The logging settings of the project, readable and writable from the page. This is the one thing the server writes,
+   * through one resource (`PUT /api/v1/settings/logging`, and `POST .../test` for a test record), with the token, the
+   * `Host` check and the same-origin check; every other request is still read-only.
+   */
+  readonly loggingSettings?: LoggingSettingsBackend;
 }
 
 export interface ServerHandle {
@@ -93,6 +136,58 @@ export function loggedPath(url: string | undefined): string {
   return path.length > MAX_LOGGED_PATH ? `${path.slice(0, MAX_LOGGED_PATH)}…` : path;
 }
 
+class BodyProblem extends Error {
+  constructor(
+    readonly status: number,
+    readonly error: ApiError,
+  ) {
+    super(error.code);
+  }
+}
+
+/** Reads a JSON body of at most {@link MAX_BODY_BYTES}; anything else is a problem with its own status. */
+async function readJson(req: IncomingMessage): Promise<unknown> {
+  const type = String(req.headers['content-type'] ?? '')
+    .split(';')[0]
+    ?.trim()
+    .toLowerCase();
+  if (type !== 'application/json') {
+    throw new BodyProblem(415, { code: 'unsupported_media_type', message: 'Send the settings as JSON.' });
+  }
+  const chunks: Buffer[] = [];
+  let size = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
+    size += buffer.length;
+    if (size > MAX_BODY_BYTES) {
+      throw new BodyProblem(413, { code: 'too_large', message: 'The settings sent are too large.' });
+    }
+    chunks.push(buffer);
+  }
+  try {
+    return JSON.parse(Buffer.concat(chunks).toString('utf8'));
+  } catch {
+    throw new BodyProblem(400, { code: 'bad_request', message: 'The settings sent are not valid JSON.' });
+  }
+}
+
+function fieldOf(body: unknown, key: string): unknown {
+  return typeof body === 'object' && body !== null && !Array.isArray(body)
+    ? (body as Readonly<Record<string, unknown>>)[key]
+    : undefined;
+}
+
+/** The methods a path accepts. Everything is read-only but the logging settings, and only when the backend exists. */
+function methodsOf(path: string, settings: boolean): readonly string[] {
+  if (settings && path === SETTINGS_PATH) {
+    return ['GET', 'PUT'];
+  }
+  if (settings && (path === SINK_TEST_PATH || path === SETTINGS_CHECK_PATH)) {
+    return ['POST'];
+  }
+  return ['GET'];
+}
+
 function lastEventId(req: IncomingMessage): number {
   const header = req.headers['last-event-id'];
   const value = Array.isArray(header) ? header[0] : header;
@@ -103,7 +198,8 @@ function lastEventId(req: IncomingMessage): number {
 /**
  * Starts the local server on 127.0.0.1. It reads files and serves them: it starts nothing and writes nothing. Every
  * `/api/v1` request needs the token; the files of the page do not, because a browser navigation cannot send a
- * header. Every request must carry a `Host` the server owns (DNS rebinding) and only `GET` is served.
+ * header. Every request must carry a `Host` the server owns (DNS rebinding) and only `GET` is served, except for the
+ * logging settings when `loggingSettings` is given: `PUT` of that one resource and `POST` of its test.
  */
 export async function startServer(options: ServerOptions): Promise<ServerHandle> {
   const token = options.token ?? randomBytes(32).toString('base64url');
@@ -161,6 +257,10 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     if (head === 'contract' && parts.length === 1) {
       const body: ContractResponse = { contractVersion: CONTRACT_VERSION };
       sendJson(res, 200, body);
+      return;
+    }
+    if (head === 'settings' && [SETTINGS_PATH, SINK_TEST_PATH, SETTINGS_CHECK_PATH].includes(path)) {
+      await handleSettings(req, res, path);
       return;
     }
     if (head === 'events' && parts.length === 1) {
@@ -232,6 +332,81 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     missing(req, res, NOT_FOUND);
   };
 
+  const handleSettings = async (req: IncomingMessage, res: ServerResponse, path: string): Promise<void> => {
+    const backend = options.loggingSettings;
+    if (backend === undefined) {
+      missing(req, res, {
+        code: 'settings_unavailable',
+        message: 'This server does not offer the settings.',
+      });
+      return;
+    }
+    if (req.method === 'GET') {
+      sendJson(res, 200, described(await backend.read()));
+      return;
+    }
+    let body: unknown;
+    try {
+      body = await readJson(req);
+    } catch (error) {
+      if (error instanceof BodyProblem) {
+        refuse(req, res, error.status, error.error);
+        return;
+      }
+      throw error;
+    }
+    if (path === SETTINGS_CHECK_PATH) {
+      // What saving would say, without saving: the page checks a draft as the person types.
+      const checked: LoggingSettingsCheckResponse = {
+        problems: resolveLoggingSettings(fieldOf(body, 'logging')).problems,
+      };
+      sendJson(res, 200, checked);
+      return;
+    }
+    if (path === SINK_TEST_PATH) {
+      const checked = resolveLoggingSettings({ sinks: [fieldOf(body, 'sink')] });
+      const sink = checked.settings.sinks[0];
+      if (checked.problems.length > 0 || sink === undefined) {
+        refuse(req, res, 422, {
+          code: 'invalid_settings',
+          message: 'This sink cannot be tested until its problems are fixed.',
+          problems: checked.problems.map((p) => p.replace(/^sinks\[0\]\./, '')),
+        });
+        return;
+      }
+      const result = await backend.test(sink);
+      log.info('server.settings', 'a test record was sent', { sink: sink.type, ok: result.ok });
+      sendJson(res, 200, result);
+      return;
+    }
+    const checked = resolveLoggingSettings(fieldOf(body, 'logging'));
+    if (checked.problems.length > 0) {
+      refuse(req, res, 422, {
+        code: 'invalid_settings',
+        message: 'The settings were not saved: fix the problems shown.',
+        problems: checked.problems,
+      });
+      return;
+    }
+    let saved: LoggingSettingsState;
+    try {
+      saved = await backend.save(checked.settings);
+    } catch (error) {
+      log.info('server.settings', 'the settings could not be saved', {
+        reason: error instanceof Error ? error.message : String(error),
+      });
+      refuse(req, res, 409, {
+        code: 'not_saved',
+        message:
+          'indaba.config could not be written. It may not be valid YAML, or the folder may be read-only.',
+        nextAction: 'Run indaba settings in a terminal to see why.',
+      });
+      return;
+    }
+    log.info('server.settings', 'the logging settings were saved', { sinks: saved.settings.sinks.length });
+    sendJson(res, 200, described(saved));
+  };
+
   const stream = async (
     res: ServerResponse,
     what: Readonly<Record<string, string | number>>,
@@ -258,16 +433,32 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       });
       return;
     }
-    if (req.method !== 'GET') {
-      res.setHeader('Allow', 'GET');
-      refuse(req, res, 405, { code: 'method_not_allowed', message: 'This server only reads.' });
-      return;
-    }
     let path: string;
     try {
       path = new URL(req.url ?? '/', 'http://localhost').pathname;
     } catch {
       refuse(req, res, 400, { code: 'bad_request', message: 'The address is not valid.' });
+      return;
+    }
+    const allowed = methodsOf(path, options.loggingSettings !== undefined);
+    if (!allowed.includes(req.method ?? '')) {
+      res.setHeader('Allow', allowed.join(', '));
+      refuse(req, res, 405, {
+        code: 'method_not_allowed',
+        message:
+          allowed.length === 1 && allowed[0] === 'GET'
+            ? 'This server only reads.'
+            : 'This address does not take that.',
+      });
+      return;
+    }
+    // A write must come from the page itself: a browser names the page that sent it, and another one is refused even
+    // with the token (which another page cannot have; this is a second lock on the same door).
+    if (req.method !== 'GET' && !originAllowed(req.headers.origin, port)) {
+      refuse(req, res, 403, {
+        code: 'origin_not_allowed',
+        message: 'Only the page of this server can change settings.',
+      });
       return;
     }
     if (path === API || path.startsWith(`${API}/`)) {

@@ -6,6 +6,7 @@ import {
   type LoggingSettings,
   type LogLevel,
   resolveLoggingSettings,
+  SINK_DEFAULTS,
   type SinkSettings,
   type SinkType,
 } from '@indaba/engine';
@@ -80,21 +81,13 @@ export const SINK_NAMES: Readonly<Record<SinkType, string>> = {
 
 /** The level a sink takes when its entry names none, as `resolveLoggingSettings` reads it. */
 export function sinkDefaultLevel(type: SinkType): LogLevel {
-  if (type === 'file') {
-    return 'debug';
-  }
-  return type === 'stderr' ? LOGGING_DEFAULTS.stderr.level : 'info';
+  const level = SINK_DEFAULTS[type].level;
+  return isLogLevel(level) ? level : 'info';
 }
 
 /** The default of one setting of one kind of sink, as text; empty when it has none (an address). */
 export function fieldDefault(type: SinkType, key: string): string {
-  if (key === 'level') {
-    return sinkDefaultLevel(type);
-  }
-  const value =
-    type === 'file'
-      ? (LOGGING_DEFAULTS.file as Readonly<Record<string, string | number>>)[key]
-      : (LOGGING_DEFAULTS.remote as Readonly<Record<string, string | number>>)[key];
+  const value = SINK_DEFAULTS[type][key];
   return value === undefined ? '' : String(value);
 }
 

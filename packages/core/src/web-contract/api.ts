@@ -11,6 +11,8 @@ export interface ApiError {
   /** Plain words a person can act on; never a secret, a path or a URL. */
   readonly message: string;
   readonly nextAction?: string;
+  /** For settings that were refused: one plain sentence per problem, each naming its key. */
+  readonly problems?: readonly string[];
 }
 
 export interface RunListResponse {

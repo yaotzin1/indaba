@@ -21,6 +21,22 @@ export type SinkType = 'file' | 'stderr' | 'gelf' | 'http-json';
 
 export const SINK_TYPES: readonly SinkType[] = ['file', 'stderr', 'gelf', 'http-json'];
 
+/**
+ * What each kind of sink takes when its entry leaves a key out, as `resolveLoggingSettings` reads it: the one table the
+ * screens show as "default" beside a value (AC-18). An address has no default.
+ */
+export const SINK_DEFAULTS: Readonly<Record<SinkType, Readonly<Record<string, string | number>>>> = {
+  file: {
+    level: 'debug',
+    folder: LOGGING_DEFAULTS.file.folder,
+    maxFileBytes: LOGGING_DEFAULTS.file.maxFileBytes,
+    maxFiles: LOGGING_DEFAULTS.file.maxFiles,
+  },
+  stderr: { level: LOGGING_DEFAULTS.stderr.level },
+  gelf: { level: 'info', ...LOGGING_DEFAULTS.remote },
+  'http-json': { level: 'info', ...LOGGING_DEFAULTS.remote },
+};
+
 export interface FileSinkSettings {
   readonly type: 'file';
   readonly level: LogLevel;
@@ -332,10 +348,8 @@ interface ConfigMapping {
 
 /** A sink's level when its entry does not name one, as `resolveLoggingSettings` reads it. */
 function defaultLevelOf(type: SinkType): LogLevel {
-  if (type === 'file') {
-    return 'debug';
-  }
-  return type === 'stderr' ? LOGGING_DEFAULTS.stderr.level : 'info';
+  const level = SINK_DEFAULTS[type].level;
+  return isLogLevel(level) ? level : 'info';
 }
 
 function sinkToConfig(sink: SinkSettings): ConfigMapping {

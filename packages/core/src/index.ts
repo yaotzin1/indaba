@@ -21,6 +21,9 @@ export type {
   Logger,
   LoggerOptions,
   LoggingSettings,
+  LoggingSettingsCheckResponse,
+  LoggingSettingsRequest,
+  LoggingSettingsResponse,
   LogLevel,
   LogRecord,
   LogSink,
@@ -30,6 +33,8 @@ export type {
   ResolvedLogging,
   SettingDescription,
   SinkSettings,
+  SinkTestRequest,
+  SinkTestResponse,
   SinkType,
   StderrSinkSettings,
 } from './logging/index.js';
@@ -47,6 +52,7 @@ export {
   noopLogger,
   REDACTED,
   resolveLoggingSettings,
+  SINK_DEFAULTS,
   SINK_TYPES,
   secretValuesOf,
 } from './logging/index.js';
