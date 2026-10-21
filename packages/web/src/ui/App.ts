@@ -13,6 +13,7 @@ import { Blocking } from './parts.js';
 import { RunScreen } from './RunScreen.js';
 import { RunsScreen } from './RunsScreen.js';
 import { hrefOf, isPlainClick, type Navigator, useRoute } from './router.js';
+import { SettingsScreen } from './SettingsScreen.js';
 import { StaleContext } from './stale.js';
 import { applyTheme, readTheme, type Store, saveTheme, THEMES, type Theme } from './theme.js';
 
@@ -153,10 +154,18 @@ export function App(props: AppProps): ReactElement {
       navigate({ name: 'runs' });
     }
   };
+  const toSettings = (event: MouseEvent<HTMLAnchorElement>): void => {
+    if (isPlainClick(event)) {
+      event.preventDefault();
+      navigate({ name: 'settings' });
+    }
+  };
 
   let content: ReactElement;
   if (fatal !== undefined || client === undefined) {
     content = blockingOf(fatal ?? { kind: 'unauthorized' }, origin);
+  } else if (route.name === 'settings') {
+    content = h(SettingsScreen, { key: attempt, client, onFatal });
   } else if (route.name === 'run') {
     content = h(RunScreen, {
       key: `${route.runId}:${attempt}`,
@@ -198,9 +207,21 @@ export function App(props: AppProps): ReactElement {
           },
           messages.nav.runs,
         ),
+        h(
+          'a',
+          {
+            href: hrefOf({ name: 'settings' }),
+            onClick: toSettings,
+            'aria-current': route.name === 'settings' ? 'page' : undefined,
+          },
+          messages.nav.settings,
+        ),
       ),
-      h('span', { className: 'badge', title: messages.readOnlyTitle }, messages.readOnly),
-      fatal === undefined
+      // The Settings screen writes indaba.config and follows no stream, so neither badge is true there.
+      route.name === 'settings'
+        ? h('span', { className: 'badge' }, messages.settings.badge)
+        : h('span', { className: 'badge', title: messages.readOnlyTitle }, messages.readOnly),
+      fatal === undefined && route.name !== 'settings'
         ? h('span', { className: 'badge live', 'data-state': live, role: 'status' }, messages.live[live])
         : null,
       h(ThemeSwitch, { theme, onChange: changeTheme }),

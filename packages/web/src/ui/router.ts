@@ -2,11 +2,12 @@ import { useCallback, useEffect, useState } from 'react';
 
 /**
  * Where the person is: the only state the page keeps of its own, and it lives in the address so a reload or a shared
- * link opens the same thing (C-05). Two screens in delivery step 1.
+ * link opens the same thing (C-05). Two screens in delivery step 1, and the Settings screen of logging.
  */
 export type Route =
   | { readonly name: 'runs' }
   | { readonly name: 'run'; readonly runId: string; readonly step: string | undefined }
+  | { readonly name: 'settings' }
   | { readonly name: 'missing' };
 
 const SEGMENT = /^[A-Za-z0-9._-]{1,200}$/;
@@ -25,6 +26,9 @@ export function parseRoute(pathname: string, search: string): Route {
   if (parts.length === 0 || (parts.length === 1 && parts[0] === 'runs')) {
     return { name: 'runs' };
   }
+  if (parts.length === 1 && parts[0] === 'settings') {
+    return { name: 'settings' };
+  }
   if (parts.length === 2 && parts[0] === 'runs') {
     const runId = decode(parts[1] ?? '');
     if (runId === undefined) {
@@ -42,6 +46,8 @@ export function hrefOf(route: Route): string {
     case 'runs':
     case 'missing':
       return '/';
+    case 'settings':
+      return '/settings';
     case 'run':
       return `/runs/${encodeURIComponent(route.runId)}${
         route.step === undefined ? '' : `?step=${encodeURIComponent(route.step)}`

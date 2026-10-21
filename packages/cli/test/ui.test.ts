@@ -49,10 +49,42 @@ async function runUi(args: string[], options: { noPage?: boolean; opens?: boolea
 }
 
 describe('indaba ui', () => {
+  it('gives the server the logging settings of the first root: read, save and test (specs/logging, AC-20)', async () => {
+    const { dir, controller, server, finished } = await runUi([]);
+    await settle(() => server.started.length > 0);
+    const backend = server.started[0]?.loggingSettings;
+    if (backend === undefined) {
+      throw new Error('no settings backend');
+    }
+    const first = await backend.read();
+    expect(first).toMatchObject({ path: join(dir, 'indaba.config'), present: false, variables: {} });
+    const changed = {
+      level: 'debug' as const,
+      sinks: [
+        {
+          type: 'gelf' as const,
+          level: 'warn' as const,
+          address: 'udp://127.0.0.1:9',
+          secretEnv: 'GELF_TOKEN',
+          queueLength: 5,
+          timeoutSeconds: 1,
+          retries: 0,
+        },
+      ],
+    };
+    const after = await backend.save(changed);
+    expect(after).toMatchObject({ present: true, settings: changed, variables: { GELF_TOKEN: false } });
+    expect((await backend.test({ type: 'stderr', level: 'warn' })).ok).toBe(true);
+    controller.abort();
+    expect(await finished).toBe(0);
+  });
+
   it('serves the current folder, prints the address, opens the browser and stops on request', async () => {
     const { dir, controller, captured, server, opened, finished } = await runUi([]);
     await settle(() => server.started.length > 0);
-    expect(server.started).toEqual([{ roots: [dir], staticDir: '/page', logger: expect.anything() }]);
+    expect(server.started).toEqual([
+      { roots: [dir], staticDir: '/page', logger: expect.anything(), loggingSettings: expect.anything() },
+    ]);
     expect(captured.stdout()).toContain(ADDRESS);
     expect(opened).toEqual([ADDRESS]);
     expect(server.closed()).toBe(0);

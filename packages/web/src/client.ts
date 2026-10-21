@@ -2,9 +2,11 @@ import type {
   ApiError,
   ContractResponse,
   DiscussionView,
+  LoggingSettingsResponse,
   RunSnapshot,
   RunSummary,
   ServerStreamEvent,
+  SinkTestResponse,
 } from '@indaba/core';
 import { SseParser } from './sse.js';
 
@@ -71,7 +73,20 @@ export interface Client {
   stepLog(runId: string, stepId: string): Promise<string>;
   /** The kept messages of a debate step, or undefined when the run kept none. */
   discussion(runId: string, stepId: string): Promise<DiscussionView | undefined>;
+  /** The logging settings of the project, or undefined when this server does not offer them (specs/logging, AC-20). */
+  loggingSettings(): Promise<LoggingSettingsResponse | undefined>;
+  /** The problems of a draft `logging:` section, by the server's own rules; nothing is saved. */
+  checkLoggingSettings(logging: unknown): Promise<readonly string[]>;
+  /** Saves a `logging:` section; refused settings come back as their problems. */
+  saveLoggingSettings(logging: unknown): Promise<SettingsAnswer>;
+  /** Sends one test record through a sink entry. */
+  testLogSink(sink: unknown): Promise<SinkTestResponse>;
 }
+
+/** What saving settings gave: the settings now in use, or the problems that kept them from being saved. */
+export type SettingsAnswer =
+  | { readonly saved: true; readonly settings: LoggingSettingsResponse }
+  | { readonly saved: false; readonly message: string; readonly problems: readonly string[] };
 
 const defaultSleep: Sleep = (ms, signal) =>
   new Promise((resolve) => {
@@ -137,6 +152,27 @@ function isRunCost(value: unknown): boolean {
   );
 }
 
+/** Settings the page can show; the server built them, but they crossed a wire. */
+export function isSettingsResponse(value: unknown): value is LoggingSettingsResponse {
+  return (
+    isRecord(value) &&
+    isRecord(value.settings) &&
+    typeof value.settings.level === 'string' &&
+    Array.isArray(value.settings.sinks) &&
+    value.settings.sinks.every((sink: unknown) => isRecord(sink) && typeof sink.type === 'string') &&
+    typeof value.path === 'string' &&
+    typeof value.present === 'boolean' &&
+    isRecord(value.variables) &&
+    Array.isArray(value.descriptions) &&
+    isRecord(value.sinkDefaults)
+  );
+}
+
+function problemsOf(value: unknown): readonly string[] {
+  const list: unknown = isRecord(value) ? value.problems : undefined;
+  return Array.isArray(list) ? list.filter((p): p is string => typeof p === 'string') : [];
+}
+
 function isRunSummary(value: unknown): value is RunSummary {
   return (
     isRecord(value) &&
@@ -185,6 +221,34 @@ export function createClient(options: ClientOptions): Client {
       throw new ApiFailure(await failureOf(response));
     }
     return response;
+  };
+
+  /** A write: JSON in, JSON out. A 422 is an answer (the problems), not a failure. */
+  const send = async (
+    method: 'PUT' | 'POST',
+    path: string,
+    body: unknown,
+  ): Promise<{ readonly status: number; readonly body: unknown }> => {
+    let response: Response;
+    try {
+      response = await options.fetch(`${API}${path}`, {
+        method,
+        headers: headers({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(body),
+      });
+    } catch {
+      throw new ApiFailure({ kind: 'unreachable' });
+    }
+    if (!response.ok && response.status !== 422) {
+      throw new ApiFailure(await failureOf(response));
+    }
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      throw new ApiFailure({ kind: 'server', message: 'The server sent something this page cannot read.' });
+    }
+    return { status: response.status, body: parsed };
   };
 
   const json = async (path: string): Promise<unknown> => {
@@ -353,6 +417,50 @@ export function createClient(options: ClientOptions): Client {
         });
       }
       return found;
+    },
+
+    async loggingSettings() {
+      let body: unknown;
+      try {
+        body = await json('/settings/logging');
+      } catch (error) {
+        if (error instanceof ApiFailure && error.failure.kind === 'not_found') {
+          return undefined;
+        }
+        throw error;
+      }
+      if (!isSettingsResponse(body)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent settings this page cannot read.' });
+      }
+      return body;
+    },
+
+    async checkLoggingSettings(logging) {
+      return problemsOf((await send('POST', '/settings/logging/check', { logging })).body);
+    },
+
+    async saveLoggingSettings(logging) {
+      const answer = await send('PUT', '/settings/logging', { logging });
+      if (answer.status === 422) {
+        const message = isApiError(answer.body) ? answer.body.message : 'The settings were not saved.';
+        return { saved: false, message, problems: problemsOf(answer.body) };
+      }
+      if (!isSettingsResponse(answer.body)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent settings this page cannot read.' });
+      }
+      return { saved: true, settings: answer.body };
+    },
+
+    async testLogSink(sink) {
+      const answer = await send('POST', '/settings/logging/test', { sink });
+      if (answer.status === 422) {
+        const problems = problemsOf(answer.body);
+        return { ok: false, text: problems[0] ?? 'This sink cannot be tested until its problems are fixed.' };
+      }
+      const body = answer.body;
+      return isRecord(body) && typeof body.ok === 'boolean' && typeof body.text === 'string'
+        ? { ok: body.ok, text: body.text }
+        : { ok: false, text: 'The server sent an answer this page cannot read.' };
     },
 
     async stepLog(runId, stepId) {

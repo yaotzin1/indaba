@@ -25,6 +25,7 @@ import {
   type WorkflowParser,
   WorkflowStatus,
   WorkflowValidator,
+  writeLoggingConfig,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
 import { createEngine } from './engine-factory.js';
@@ -46,7 +47,7 @@ import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { runWithDashboard } from './run-tui.js';
-import type { ServerLoad } from './server-loader.js';
+import type { ServerLoad, UiSettingsBackend, UiSettingsState } from './server-loader.js';
 import { settingsCommand } from './settings.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
 import { ui } from './ui.js';
@@ -340,6 +341,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
         return await ui(args, io, {
           logger,
           ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
+          loggingSettings: (root) => settingsBackend(root, io, logOptions),
         });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
@@ -431,6 +433,39 @@ async function watchCommand(args: readonly string[], io: Io, logger: Logger): Pr
     (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
     return EXIT_FAILURE;
   }
+}
+
+/** What the page of `indaba ui` may do with the logging settings of a project: the same reader, writer and test as `indaba settings`. */
+function settingsBackend(root: string, io: Io, logOptions: LogOptions): UiSettingsBackend {
+  const answer = async (): Promise<UiSettingsState> => {
+    const config = await readProjectConfig(root);
+    const variables: Record<string, boolean> = {};
+    for (const sink of config.logging.settings.sinks) {
+      if ((sink.type === 'gelf' || sink.type === 'http-json') && sink.secretEnv !== undefined) {
+        const value = io.env[sink.secretEnv];
+        variables[sink.secretEnv] = value !== undefined && value !== '';
+      }
+    }
+    return { settings: config.logging.settings, path: config.path, present: config.present, variables };
+  };
+  return {
+    read: answer,
+    save: async (settings) => {
+      await writeLoggingConfig(root, settings);
+      return answer();
+    },
+    test: (sink) =>
+      testSink(sink, {
+        root,
+        level: 'debug',
+        dir: logOptions.dir,
+        stderr: io.stderr,
+        environment: io.env,
+        clock: io.clock ?? (() => new Date()),
+        pid: io.pid ?? process.pid,
+        hostname: hostname(),
+      }),
+  };
 }
 
 /** The folders the file sinks of a project write to: those of its indaba.config, or the default, or --log-dir. */

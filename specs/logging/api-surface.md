@@ -35,6 +35,8 @@
 | `PROJECT_CONFIG_FILE`, `PROJECT_CONFIG_SECTIONS`, `ProjectConfig`, `readProjectConfig`, `parseProjectConfig`, `writeLoggingConfig` | `indaba.config` | `@indaba/engine` |
 | the settings description (`LOGGING_SETTINGS`, `LOGGING_DEFAULTS`, `resolveLoggingSettings`, ...) | re-exports of `@indaba/core` | `@indaba/engine` |
 | `LoggingProcessSpawner`, `LoggingStreamingSpawner`, `loggingFetch`, `DefaultRunnerOptions.logger` | the runners' records (T-09) | `@indaba/runners` |
+| `ServerOptions.loggingSettings`, `LoggingSettingsBackend`, `LoggingSettingsState`, `MAX_BODY_BYTES`, `originAllowed`; `GET`/`PUT /api/v1/settings/logging`, `POST .../check`, `POST .../test` | the one resource the server writes (T-12) | `@indaba/server` |
+| `LoggingSettingsResponse`, `LoggingSettingsRequest`, `LoggingSettingsCheckResponse`, `SinkTestRequest`, `SinkTestResponse`, `SINK_DEFAULTS`, `ApiError.problems?` | the shapes of that resource | `@indaba/core` |
 | `CreateEngineOptions.logSinks` | where a plugin's sinks join | `indaba` |
 | `indaba settings [-w dir] [--plain] [--ascii]` | CLI command: print, or open the Settings screen | `indaba` |
 | `editLoggingSettings(options)`, `SettingsOptions`, `SettingsActions`, `SettingsResult`, and the pure state (`reduceSettings`, `initialSettingsUi`, `buildSettingsScreen`, `rowsOf`, `draftOf`, `checkSettingsDraft`, `isDirty`, `selectedSinkSettings`, their types) | the terminal Settings screen (T-13) | `@indaba/tui` |

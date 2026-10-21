@@ -4,10 +4,11 @@
  */
 export const messages = {
   appName: 'Indaba',
-  nav: { label: 'Main', runs: 'Runs' },
+  nav: { label: 'Main', runs: 'Runs', settings: 'Settings' },
   skipToContent: 'Skip to the content',
   readOnly: 'Read-only',
-  readOnlyTitle: 'This page never starts or changes anything',
+  readOnlyTitle:
+    'This page never starts or changes a run; only the Settings screen writes, and only indaba.config',
   live: {
     connecting: 'Connecting',
     live: 'Live',
@@ -175,6 +176,55 @@ export const messages = {
     round: (n: number): string => `Round ${n}`,
     ruling: (verdict: string, by: string): string => `Ruling: ${verdict}, decided by ${by}.`,
     rulingNote: 'Note with the ruling',
+  },
+
+  settings: {
+    title: 'Logging settings',
+    badge: 'Changes indaba.config',
+    lead: 'Where Indaba keeps its log and how much it records, for the project indaba ui was started in.',
+    file: (path: string): string => `Saved in ${path}`,
+    notWritten: (path: string): string => `${path} does not exist yet: every value below is a default.`,
+    unavailable:
+      'This server does not offer the settings. Start it again with a current indaba ui, or change them in a terminal with indaba settings.',
+    loading: 'Loading...',
+    levelLabel: 'Level of the whole log',
+    levelHelp: 'How much is recorded at all: error, warn, info or debug.',
+    sinksTitle: 'Where the records go',
+    sinkNames: {
+      file: 'Log files',
+      stderr: 'Terminal (standard error)',
+      gelf: 'GELF collector (Graylog)',
+      'http-json': 'HTTP JSON collector',
+    },
+    fieldLabels: {
+      level: 'Level',
+      address: 'Address',
+    } as Readonly<Record<string, string>>,
+    addressHelp: {
+      gelf: 'The GELF input: https://host/gelf, tcp://host:port or udp://host:port.',
+      'http-json': 'The URL each record is posted to: https://...',
+    },
+    sinkLevelHelp: 'The least severe records this one receives.',
+    defaultIs: (value: string): string => `default ${value}`,
+    restore: 'Default',
+    restoreLabel: (label: string): string => `Put back the default of ${label}`,
+    variableSet: 'set on the server',
+    variableNotSet: 'not set on the server',
+    variableUnknown: 'checked when saved',
+    add: (name: string): string => `Add: ${name}`,
+    remove: 'Remove',
+    removeLabel: (name: string): string => `Remove ${name}`,
+    test: 'Send a test record',
+    testing: 'Sending...',
+    save: 'Save',
+    saving: 'Saving...',
+    reset: 'Undo changes',
+    unsaved: 'Not saved yet.',
+    saved: 'Saved. The next command uses these settings.',
+    problemsTitle: (n: number): string =>
+      n === 1 ? 'One problem keeps this from being saved' : `${n} problems keep this from being saved`,
+    secretNote:
+      'A collector credential is entered as the name of an environment variable. Its value is never shown, sent or saved.',
   },
 
   reconnecting: 'The connection dropped. Reconnecting; what you see is the last known state.',

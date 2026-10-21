@@ -124,6 +124,10 @@ screen shows whether that variable is set, never what it holds.
 
 Anywhere else, and with `--plain`, it prints the settings in use. `-w <dir>` names another project.
 
+`indaba ui` has the same screen at **Settings**, for the project of its first `--root`: each value with its default,
+checked by the server as you type, a test record per sink, and Save. It is the only thing the page can change; the
+server accepts that one write only with its token and only from its own page.
+
 ## Reporting an issue: `indaba report`
 
 ```bash

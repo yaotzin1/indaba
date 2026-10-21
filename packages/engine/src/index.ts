@@ -25,6 +25,7 @@ export {
   loggingSettingsToConfig,
   noopLogger,
   resolveLoggingSettings,
+  SINK_DEFAULTS,
   SINK_TYPES,
 } from '@indaba/core';
 export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';

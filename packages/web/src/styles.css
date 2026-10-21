@@ -745,6 +745,185 @@ ol.tries li:last-child {
   max-width: 78ch;
 }
 
+/* ---------- Settings (specs/logging, AC-20) ---------- */
+.settings {
+  max-width: 860px;
+}
+.settings .panel + .panel,
+.settings .panel.sink {
+  margin-top: 14px;
+}
+.sinks-title {
+  margin: 28px 0 0;
+  font-size: 1.05rem;
+}
+.sink {
+  border-left: 3px solid var(--line-strong);
+}
+.sink[data-sink="gelf"],
+.sink[data-sink="http-json"] {
+  border-left-color: var(--brand);
+}
+.sink-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 16px;
+  margin-bottom: 6px;
+}
+.sink-head h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+.sink-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.field {
+  display: grid;
+  grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr);
+  gap: 4px 16px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+}
+.sink .sink-head + .field,
+.panel > .field:first-child {
+  border-top: 0;
+}
+.field > label {
+  font-weight: 600;
+}
+.field-control {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  min-width: 0;
+}
+.field-control input,
+.field-control select {
+  font: 0.95rem / 1.3 var(--mono);
+  color: var(--ink);
+  background: var(--well);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-item);
+  padding: 7px 10px;
+  min-width: 0;
+  flex: 1 1 16rem;
+  max-width: 28rem;
+}
+.field-control select {
+  font-family: var(--sans);
+  flex: 0 1 10rem;
+}
+.field.has-problem .field-control input,
+.field.has-problem .field-control select {
+  border-color: var(--fail);
+  background: var(--fail-bg);
+}
+.field-default {
+  display: inline-flex;
+  gap: 8px;
+  align-items: baseline;
+  font-size: 0.88rem;
+  white-space: nowrap;
+}
+.field-help,
+.field-note,
+.field-problem {
+  grid-column: 2;
+  margin: 0;
+  font-size: 0.88rem;
+  max-width: 62ch;
+}
+.field-note {
+  color: var(--run);
+}
+.field-problem {
+  color: var(--fail);
+  font-weight: 600;
+}
+.sink > .field-problem {
+  margin-bottom: 6px;
+}
+.add-sinks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 16px 0 10px;
+}
+button.quiet {
+  border-style: dashed;
+  color: var(--muted);
+}
+button.quiet:hover {
+  color: var(--ink);
+}
+button.primary {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: var(--brand-ink);
+}
+button.primary:hover {
+  background: var(--brand);
+  filter: brightness(1.08);
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+.small {
+  font-size: 0.88rem;
+}
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 14px;
+  margin-top: 18px;
+  padding: 12px 0;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+}
+.save-status,
+.sink-result {
+  margin: 0;
+  font-weight: 600;
+}
+.save-status.ok,
+.sink-result.ok {
+  color: var(--ok);
+}
+.save-status.fail,
+.sink-result.fail {
+  color: var(--fail);
+}
+.save-status.info {
+  color: var(--muted);
+}
+.sink-result {
+  margin-top: 8px;
+}
+@media (max-width: 640px) {
+  .field {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .field-help,
+  .field-note,
+  .field-problem {
+    grid-column: 1;
+  }
+  .field-control input,
+  .field-control select {
+    max-width: none;
+  }
+}
+
 /* ---------- Narrow screens ---------- */
 @media (max-width: 480px) {
   .narrow-hide {

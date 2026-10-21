@@ -62,6 +62,18 @@ function fakeClient(options: {
     async stepLog() {
       return '';
     },
+    async loggingSettings() {
+      return undefined;
+    },
+    async checkLoggingSettings() {
+      return [];
+    },
+    async saveLoggingSettings() {
+      return { saved: false, message: 'not in this test', problems: [] };
+    },
+    async testLogSink() {
+      return { ok: false, text: 'not in this test' };
+    },
     async discussion() {
       if (options.discussion === 'fail') throw new ApiFailure({ kind: 'server', message: 'no' });
       return options.discussion === 'none' || options.discussion === undefined

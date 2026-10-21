@@ -4,11 +4,12 @@ import { parseArgs } from 'node:util';
 import { type Logger, noopLogger } from '@indaba/core';
 import { LOG_OPTIONS_USAGE } from './log.js';
 import type { Io } from './main.js';
-import { loadServer, type ServerLoad } from './server-loader.js';
+import { loadServer, type ServerLoad, type UiSettingsBackend } from './server-loader.js';
 
 export const UI_USAGE = `Usage: indaba ui [options]
 
 Open the web view of the runs on this machine. It reads what runs write under .indaba/traces; it starts nothing.
+Its Settings screen changes the logging section of indaba.config of the first --root (or the current folder).
 
 Options:
       --root <dir>    A project whose runs to show; repeatable (default: the current folder)
@@ -24,6 +25,11 @@ export interface UiDeps {
   readonly loadServer?: () => Promise<ServerLoad>;
   /** The command's logger, handed on to the server. Default: one that records nothing. */
   readonly logger?: Logger;
+  /**
+   * The logging settings of a project, for the page's Settings screen; given the first root, it answers for that
+   * project. Without it the page has no Settings screen and the server stays read-only.
+   */
+  readonly loggingSettings?: (root: string) => UiSettingsBackend;
 }
 
 class UiUsageError extends Error {}
@@ -147,6 +153,9 @@ export async function ui(args: readonly string[], io: Io, deps: UiDeps = {}): Pr
     staticDir,
     ...(options.discussionDirs.length === 0 ? {} : { discussionDirectories: options.discussionDirs }),
     ...(options.port === undefined ? {} : { port: options.port }),
+    ...(deps.loggingSettings === undefined || options.roots[0] === undefined
+      ? {}
+      : { loggingSettings: deps.loggingSettings(options.roots[0]) }),
     logger: log,
   });
   // The server records its own address, without the token; here what the command was asked to serve.
