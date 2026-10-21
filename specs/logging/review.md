@@ -54,9 +54,9 @@ measurements. A log folder that cannot be written is one sentence naming the fol
 
 ## 6. Dependencies and packaging
 
-No dependency added (`node:fs`, `node:path` only). `pnpm audit --audit-level low` reports 6 advisories, all in `vite`
-8.3.0 to 8.3.2 through the dev dependency `@stryker-mutator/vitest-runner`; `main` at `e505fe2` reports the same 6, so
-this branch adds none. Packages publish `dist` only; `pnpm build && pnpm smoke` passes:
+No dependency added (`node:fs`, `node:path` only). `pnpm audit --audit-level low` found 6 advisories in `vite` 8.3.2,
+which only `vitest` brings in (dev only) and which were on `main` too; a `chore` commit moves the lockfile to `vite`
+8.3.5 within `vitest`'s own range, and the audit now prints `No known vulnerabilities found`. Packages publish `dist` only; `pnpm build && pnpm smoke` passes:
 `smoke-pack: 5 packages packed, installed and booted (indaba 0.1.0-alpha.2)`.
 
 ## 7. Verification
@@ -78,8 +78,8 @@ The node gates (skills, pointer sync, agent docs sync, security audit, 72 script
 `check-track --range main..HEAD` reports every commit matching its track. Tests that would catch the absence or a
 regression: `engine/test/file-log-sink.test.ts`, `engine/test/log-events.test.ts`, `cli/test/logging.test.ts` (a real
 run with a plugin that logs through `host.logger`), the logging cases in `tui/test/dashboard.test.ts` and
-`tui/test/watch.test.ts`, and the layers tests. Run on Linux only; Windows and macOS run in CI. The link test uses a
-junction so it needs no privilege on Windows, which has not been seen to pass there yet.
+`tui/test/watch.test.ts`, and the layers tests. Run locally on Linux; CI's Verify jobs on Ubuntu, Windows and macOS pass on this branch (the link test uses a junction,
+so it needs no privilege on Windows).
 
 ## Known gaps
 
