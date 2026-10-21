@@ -88,9 +88,16 @@ checkable. The slice and its limits are in `plan.md`.
   `indaba run` in `packages/cli/test/secret-to-page.test.ts`. **Found:** the server cleaned output and reasons but not
   the workflow's name, the task id, runner names, models, states, tool kinds or a debate's outcome, so an escape in a
   workflow name reached the page; `snapshotOf` and the list now clean every text of a run.
-- [ ] **T-13** Unit coverage for the server (success and failure paths, resume without duplicate or gap, a dropped
+- [x] **T-13** Unit coverage for the server (success and failure paths, resume without duplicate or gap, a dropped
   connection, a run that is still being written) and the page (graph from a fixture run, every state and a loop,
-  unknown events shown generically); coverage stays at or above 85% on all four metrics.
+  unknown events shown generically); coverage stays at or above 85% on all four metrics. **Done 2026-10-21:**
+  `packages/server/test/streams.test.ts` (a half-written line shown once it is finished, a resume after a drop with
+  every id above the last seen and the first snapshot holding all that was written meanwhile, a resume with nothing
+  new, five dropped streams then a prompt close, a 500 that names no path, a 400, a 404 for bad percent-encoding), and
+  in `packages/web/test/ui.test.ts` every state in words including an unknown one, a step that retries itself, the
+  notes of unreadable records, and the cost table with calls still running. Coverage after: all files 97.7 / 93.7 /
+  97.7 / 97.9; `server/src` 97.3 / 92.0 / 100 / 97.2; `web/src` 100 / 96.6 / 100 / 100; `web/src/ui` 97.0 / 91.9 /
+  97.2 / 97.3 (statements, branches, functions, lines).
 - [x] **T-14** `layers.test.ts` for `packages/server` (imports itself, `node:*`, `@indaba/engine`, `@indaba/core`; no UI
   package) and `packages/web` (imports itself, `react`, the UI libraries and `import type` from `@indaba/core`; no `node:`);
   the CLI test keeps the lazy edge; `@indaba/core` architecture test green.
