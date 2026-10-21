@@ -105,6 +105,26 @@ The declarations of `view.ts` and `trace-reader.ts` the page needs are pure data
 - **A wide graph opens readable.** When the graph cannot fit at 0.8 zoom (a phone), it opens at 0.8 from the left
   edge and the reader pans, instead of shrinking every card below reading size.
 
+## Packaging (T-10, 2026-10-21)
+
+- **The page ships inside `@indaba/server`**, in its `page/` folder, not as a package of its own. The server is the only
+  thing that serves it, so one optional install gives a working `indaba ui`, and the page and the server it speaks to
+  come from the same commit and cannot drift apart in a consumer's tree. `@indaba/web` stays private.
+- **Staged at pack time.** The server's `prepack` runs `scripts/stage-page.mjs`, which copies `packages/web/dist` to
+  `packages/server/page` and fails when there is no build, so no tarball of the server ships without its page; its
+  `postpack` removes the copy, so a checkout keeps serving `packages/web/dist` (the second place
+  `defaultPageDirectory()` looks) and never a stale copy. `prepack` runs only where the package is packed, never on a
+  consumer's machine, so it is not an install script.
+- **Licences travel with the page.** The minifier drops the libraries' licence comments, so the staging script writes
+  `page/THIRD-PARTY-LICENSES.txt`: the licence of every library the page bundles and of everything they depend on
+  (28 packages today: MIT, ISC, OFL-1.1 for the fonts, and BSD-3-Clause for `d3-ease`, which the licence check of
+  2026-10-20 had counted among the ISC modules). Every devDependency of `@indaba/web` must be listed as bundled or as
+  a tool, so a library added without that decision stops the pack.
+- **`exports` is unchanged.** The page is files on disk that the server reads, not a module anyone imports.
+- **Not yet in the release.** `.github/workflows/release.yml` stages `core`, `engine`, `runners`, `tui` and `cli` only.
+  Adding `server` there needs its trusted publisher configured on npmjs.com first, which only the maintainer can do;
+  until then `indaba ui` works from a checkout and from the smoke test's tarballs, not from npm.
+
 ## Out of scope for this change
 
 Everything not in "The slice": the registry and its table, health, Run and Stop, single-step run, questions and

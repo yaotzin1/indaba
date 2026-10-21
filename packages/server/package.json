@@ -24,9 +24,14 @@
   },
   "files": [
     "dist",
+    "page",
     "!dist/**/*.tsbuildinfo",
     "!dist/.tsbuildinfo"
   ],
+  "scripts": {
+    "prepack": "node ../../scripts/stage-page.mjs",
+    "postpack": "node ../../scripts/stage-page.mjs --clean"
+  },
   "sideEffects": false,
   "dependencies": {
     "@indaba/core": "workspace:*",
