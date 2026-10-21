@@ -33,12 +33,15 @@ import {
   LogUsageError,
   openCommandLogger,
 } from './log.js';
+import type { BrowserOpener } from './open-browser.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
 import type { RunStarter } from './run-child.js';
 import { runWithDashboard } from './run-tui.js';
+import type { ServerLoad } from './server-loader.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
+import { ui } from './ui.js';
 import { watch } from './watch.js';
 
 export interface Io {
@@ -56,6 +59,10 @@ export interface Io {
   readonly terminal?: { readonly stdin: NodeJS.ReadableStream; readonly stdout: NodeJS.WritableStream };
   /** Loads the optional dashboard package. Defaults to importing `@indaba/tui`; tests replace it. */
   readonly loadTui?: () => Promise<TuiLoad>;
+  /** Loads the optional local server. Defaults to importing `@indaba/server`; tests replace it. */
+  readonly loadServer?: () => Promise<ServerLoad>;
+  /** Opens an address in the browser, for `indaba ui`. Supplied by the binary; tests replace it. */
+  readonly openBrowser?: BrowserOpener;
   /** Starts `indaba run` as a process of its own, for `run --tui`. Supplied by the binary; tests replace it. */
   readonly startRun?: RunStarter;
   /** The clock of the log records. Defaults to the wall clock; tests replace it. */
@@ -79,6 +86,7 @@ Commands:
   plan [file]       Show the execution order of a workflow without running it
   run [file]        Execute a workflow
   watch [run]       Follow or read a run from the files it writes (no run: list them)
+  ui                Open the web view of the runs on this machine
 
 Options:
   -h, --help        Show help
@@ -108,6 +116,8 @@ Options:
       --task-id <id>      Task id (names the worktree and trace)
       --timeout <secs>    Per-step timeout in seconds (default: 900)
       --plugin <spec>     Load a plugin; repeatable
+      --discussion-dir <dir>
+                          Where the messages of each debate are kept for the web view (default: .indaba/discussions)
   -v, --verbose           Print the cost of each span; -vv also streams agent output
       --tui               Run in a process of its own and show it as a dashboard (needs a terminal and @indaba/tui);
                           closing the dashboard asks whether to detach (the run goes on) or cancel it
@@ -118,7 +128,7 @@ function withLogOptions(usage: string): string {
   return `${usage}\n${LOG_OPTIONS_USAGE}`;
 }
 
-const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose', 'tui'] as const;
+const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose', 'tui', 'discussion-dir'] as const;
 
 function processIo(): Io {
   return { stdout: process.stdout, stderr: process.stderr, env: process.env, cwd: process.cwd() };
@@ -198,6 +208,7 @@ interface Parsed {
   readonly timeout: number | undefined;
   readonly verbosity: number;
   readonly tui: boolean;
+  readonly discussionDir: string | undefined;
   readonly help: boolean;
 }
 
@@ -237,6 +248,7 @@ function parseCommand(command: string, args: readonly string[]): Parsed {
     timeout,
     verbosity: values.verbose?.length ?? 0,
     tui: values.tui === true,
+    discussionDir: values['discussion-dir'],
     help: values.help === true,
   };
 }
@@ -254,6 +266,7 @@ function parseWith(args: readonly string[]) {
       timeout: { type: 'string' },
       verbose: { type: 'boolean', short: 'v', multiple: true },
       tui: { type: 'boolean' },
+      'discussion-dir': { type: 'string' },
     },
   });
 }
@@ -290,6 +303,17 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
     throw error;
   }
   const args = logOptions.args;
+  if (command === 'ui') {
+    return logged(command, io.cwd, logOptions, io, async () => {
+      try {
+        return await ui(args, io, io.loadServer === undefined ? {} : { loadServer: io.loadServer });
+      } catch (error) {
+        const message = redact(error instanceof Error ? error.message : String(error), io.env);
+        (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+        return EXIT_FAILURE;
+      }
+    });
+  }
   if (command === 'watch') {
     return logged(command, io.cwd, logOptions, io, (logger) => watchCommand(args, io, logger));
   }
@@ -499,6 +523,9 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: Logger): 
     ...(io.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: io.chooseAuthMethod }),
     ...(io.humanAdjudicator === undefined ? {} : { humanAdjudicator: io.humanAdjudicator }),
     ...(parsed.timeout === undefined ? {} : { stepTimeoutSeconds: parsed.timeout }),
+    ...(parsed.discussionDir === undefined
+      ? {}
+      : { discussionDirectory: resolve(io.cwd, parsed.discussionDir) }),
     onListenerError: (error) => {
       const reason = error instanceof Error ? error.message : String(error);
       io.stderr.write(`Listener failed: ${redact(reason, io.env)}\n`);

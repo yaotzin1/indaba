@@ -120,3 +120,14 @@ attribute or field changes.
 
 Loopback only; token required for every API request; `Host` checked, and `Origin` checked on every request that changes
 anything. Changing any of these later is a major.
+
+## Debate discussion (T-21, added 2026-10-21)
+
+| Name | Kind | Package |
+| :--- | :--- | :--- |
+| `DiscussionView`, `DiscussionMessage`, `DiscussionResponse` | types only | `@indaba/core` `web-contract` |
+| `DiscussionStore` | class: `save(traceId, stepId, view)`, `read(traceId, stepId)` | `@indaba/engine` |
+| `GET /api/v1/runs/{id}/steps/{step}/discussion` | HTTP | `@indaba/server` |
+| `--discussion-dir <dir>` | CLI option on `run` and `ui` | `indaba` |
+
+Additive: a minor. A run without a kept discussion answers `404 discussion_not_found`, which the page words as "no messages were kept".

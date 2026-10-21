@@ -37,14 +37,19 @@
     "@indaba/runners": "workspace:*"
   },
   "peerDependencies": {
-    "@indaba/tui": ">=0.1.0-alpha.2"
+    "@indaba/tui": ">=0.1.0-alpha.2",
+    "@indaba/server": ">=0.1.0-alpha.2"
   },
   "peerDependenciesMeta": {
     "@indaba/tui": {
       "optional": true
+    },
+    "@indaba/server": {
+      "optional": true
     }
   },
   "devDependencies": {
-    "@indaba/tui": "workspace:*"
+    "@indaba/tui": "workspace:*",
+    "@indaba/server": "workspace:*"
   }
 }

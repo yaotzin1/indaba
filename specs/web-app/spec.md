@@ -289,6 +289,11 @@ All recommendations; the maintainer confirms.
   `.indaba/artifacts/<step>.transcript.md`, which the next run overwrites, so it cannot be tied to one run. The full discussion
   (rounds, who said what, `CRITIQUE` or `AGREEMENT`, the arbiter's ruling) needs either the board of `specs/run-blackboard` or the
   transcript recorded under the run (task T-21). Until then the page shows the summary and says the messages are not available.
+  **Decided 2026-10-21 (maintainer, sketch answer 8):** the messages are kept, as one structured JSON file per run and step
+  (`<traceId>.<stepId>.json`) written by the engine when the debate ends, redacted and with control sequences dropped. The
+  person chooses the folder (`indaba run --discussion-dir <dir>`; default `<project>/.indaba/discussions`), and
+  `indaba ui --discussion-dir <dir>` (repeatable) tells the server where else to look. The page shows the summary first and
+  the full thread only when asked. A run that kept none (an older run, or a folder the server was not told) says so plainly.
 - **C-12. Runs end with `indaba ui`.** The recommendation is that the server is the owner of the runs it starts, so
   ending it cancels them through the engine's teardown, as stopping a run from the page does, and the page tells the
   person before the first Run. The alternative, runs that outlive the server in a process of their own, needs a

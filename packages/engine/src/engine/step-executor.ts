@@ -32,6 +32,7 @@ import {
   StepOutput,
   Tracer,
 } from '@indaba/core';
+import { type DiscussionStore, discussionOf } from '../arbiter/discussions.js';
 import type { DecisionLedger, MemoKey } from '../arbiter/ledger.js';
 import { rulingMarkdown, transcriptMarkdown, writeDebateArtifact } from '../arbiter/records.js';
 import type { GuardRegistry } from '../guard/registry.js';
@@ -61,6 +62,8 @@ export interface StepExecutorOptions {
   readonly clock?: Clock;
   /** Applied to a debate's text before it is written to a file. */
   readonly redact?: (text: string) => string;
+  /** Keeps the messages of each debate under its run, for a viewer. Without one, only the transcript artifact is written. */
+  readonly discussions?: DiscussionStore;
 }
 
 export interface StepRunOptions {
@@ -89,6 +92,7 @@ export class StepExecutor {
   private readonly events: EventDispatcher | undefined;
   private readonly adjudicators: AdjudicatorRegistry | undefined;
   private readonly ledger: DecisionLedger | undefined;
+  private readonly discussions: DiscussionStore | undefined;
   private readonly clock: Clock;
   private readonly redact: (text: string) => string;
 
@@ -100,6 +104,7 @@ export class StepExecutor {
     this.arbiter = options.arbiter ?? new ConsensusArbiter();
     this.adjudicators = options.adjudicators;
     this.ledger = options.ledger;
+    this.discussions = options.discussions;
     this.clock = options.clock ?? new SystemClock();
     this.redact = options.redact ?? ((text) => text);
     this.timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
@@ -401,6 +406,7 @@ ${this.prompts.tail(result.failureText())}`,
       'transcript',
       transcriptMarkdown(step.id, result, this.redact),
     );
+    await this.discussions?.save(span.traceId, discussionOf(step.id, result, this.redact));
 
     if (result.reached()) {
       return StepOutcome.ok();
@@ -453,6 +459,14 @@ ${this.prompts.tail(result.failureText())}`,
     const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
     span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
     span.setAttribute('indaba.arbiter.verdict', ruled.verdict);
+    await this.discussions?.save(
+      span.traceId,
+      discussionOf(step.id, result, this.redact, {
+        verdict: ruled.verdict,
+        decidedBy: arbiterName,
+        note: ruled.note,
+      }),
+    );
     await writeDebateArtifact(
       workdir,
       step.id,

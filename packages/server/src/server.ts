@@ -1,7 +1,15 @@
 import { randomBytes } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server, type ServerResponse } from 'node:http';
 import type { AddressInfo } from 'node:net';
-import type { ApiError, ContractResponse, RunListResponse, RunResponse } from '@indaba/core';
+import { join } from 'node:path';
+import type {
+  ApiError,
+  ContractResponse,
+  DiscussionResponse,
+  RunListResponse,
+  RunResponse,
+} from '@indaba/core';
+import { DISCUSSION_DIRECTORY, DiscussionStore } from '@indaba/engine';
 import { bearerOf, hostAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
@@ -17,6 +25,8 @@ const DEFAULT_COALESCE_MS = 50;
 export interface ServerOptions {
   /** Project roots whose `.indaba/traces` the server reads. */
   readonly roots: readonly string[];
+  /** Folders to look in for the kept messages of debates, besides `<root>/.indaba/discussions` of each root. */
+  readonly discussionDirectories?: readonly string[];
   /** The folder of the built page, served without the token. */
   readonly staticDir: string;
   /** Default: a free port. */
@@ -76,6 +86,10 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
   const sleep = options.sleep ?? defaultSleep;
   const coalesceMs = options.coalesceMs ?? DEFAULT_COALESCE_MS;
   const source = new RunSource(options.roots, { sleep, pollMs: Math.max(10, Math.min(pollMs, 100)) });
+  const discussions = [
+    ...options.roots.map((root) => join(root, DISCUSSION_DIRECTORY)),
+    ...(options.discussionDirectories ?? []),
+  ].map((directory) => new DiscussionStore(directory));
   const open = new Set<AbortController>();
   let port = 0;
 
@@ -132,6 +146,21 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       await stream(res, (signal) =>
         streamRun(reader, runId, res, signal, { lastEventId: resume, coalesceMs }),
       );
+      return;
+    }
+    if (tail === 'steps' && stepId !== undefined && parts.length === 5 && parts[4] === 'discussion') {
+      for (const store of discussions) {
+        const discussion = await store.read(runId, stepId);
+        if (discussion !== undefined) {
+          const body: DiscussionResponse = { discussion };
+          sendJson(res, 200, body);
+          return;
+        }
+      }
+      sendError(res, 404, {
+        code: 'discussion_not_found',
+        message: 'No messages were kept for this step of this run.',
+      });
       return;
     }
     if (tail === 'steps' && stepId !== undefined && parts.length === 5 && parts[4] === 'log') {

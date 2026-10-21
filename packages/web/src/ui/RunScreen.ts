@@ -171,7 +171,7 @@ export function RunScreen(props: RunScreenProps): ReactElement {
         ? messages.run.runningFor(formatDuration(ms))
         : messages.run.tookTotal(formatDuration(ms));
   const node = graph.nodes.find((n) => n.id === selected);
-  const stale = stream === 'reconnecting';
+  const stale = stream === 'reconnecting' || stream === 'unavailable';
 
   return h(
     'div',
@@ -183,7 +183,7 @@ export function RunScreen(props: RunScreenProps): ReactElement {
       { className: 'muted' },
       messages.run.meta(formatWhen(run.startedAt, clock), elapsed, shortId(runId)),
     ),
-    stale ? h('p', { className: 'banner', role: 'status' }, messages.reconnecting) : null,
+    stream === 'reconnecting' ? h('p', { className: 'banner', role: 'status' }, messages.reconnecting) : null,
     h(
       'section',
       { className: 'panel graph', 'aria-labelledby': 'graph-title' },
@@ -232,6 +232,7 @@ export function RunScreen(props: RunScreenProps): ReactElement {
               structureKnown: graph.structureKnown,
               retriedBy: retriedBy(graph, node.id),
               now,
+              loadDiscussion: () => client.discussion(runId, node.id),
             }),
         run.notes.length === 0
           ? null

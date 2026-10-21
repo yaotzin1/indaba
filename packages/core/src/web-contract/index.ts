@@ -1,6 +1,10 @@
 export type {
   ApiError,
   ContractResponse,
+  DiscussionMessage,
+  DiscussionResponse,
+  DiscussionRuling,
+  DiscussionView,
   RunListResponse,
   RunResponse,
   RunStreamEvent,

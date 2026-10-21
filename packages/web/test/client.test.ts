@@ -269,6 +269,41 @@ describe('following a run', () => {
     expect(waits).toEqual([500, 1000, 2000, 4000, 5000, 5000]);
   });
 
+  it('stops asking a server that does not answer, and says it is unavailable', async () => {
+    const replies = fakeFetch(Array.from({ length: 10 }, () => new TypeError('refused')));
+    const waits: number[] = [];
+    const seen = recorder<RunSnapshot>();
+    await createClient({
+      token: TOKEN,
+      fetch: replies.fetch,
+      giveUpAfter: 3,
+      sleep: async (ms) => {
+        waits.push(ms);
+      },
+    }).followRun('r', seen.handlers, new AbortController().signal);
+    expect(replies.calls).toHaveLength(3);
+    expect(waits).toHaveLength(2);
+    expect(seen.states.at(-1)).toBe('unavailable');
+    expect(seen.failures).toEqual([]);
+  });
+
+  it('counts only failures in a row: a stream that comes back starts the count again', async () => {
+    const replies = fakeFetch([
+      new TypeError('down'),
+      sse([frame(1, 'snapshot', { id: 1, run: liveRun() })]),
+      new TypeError('down'),
+      sse([frame(2, 'snapshot', { id: 2, run: liveRun() }), 'event: end\ndata: {}\n\n']),
+    ]);
+    const seen = recorder<RunSnapshot>();
+    await createClient({ token: TOKEN, fetch: replies.fetch, giveUpAfter: 3, sleep: noSleep }).followRun(
+      'r',
+      seen.handlers,
+      new AbortController().signal,
+    );
+    expect(seen.states).not.toContain('unavailable');
+    expect(seen.states.at(-1)).toBe('ended');
+  });
+
   it('ends quietly when aborted while a stream is open', async () => {
     const controller = new AbortController();
     const replies = fakeFetch([sse([frame(1, 'snapshot', { id: 1, run: liveRun() })], true)]);
@@ -328,5 +363,39 @@ describe('following the server', () => {
       [5, 'run_ended'],
     ]);
     expect(replies.calls[0]?.url).toBe('/api/v1/events');
+  });
+});
+
+describe('the discussion of a debate step', () => {
+  const view = {
+    stepId: 'debate',
+    outcome: 'stalled',
+    rounds: 1,
+    messages: [{ round: 1, sender: 'a', type: 'CRITIQUE', content: 'x' }],
+  };
+
+  it('asks for the run and the step, with the token only in the header', async () => {
+    const replies = fakeFetch([json({ discussion: view })]);
+    const found = await createClient({ token: TOKEN, fetch: replies.fetch }).discussion('r 1', 'de bate');
+    expect(found).toEqual(view);
+    expect(replies.calls[0]?.url).toBe('/api/v1/runs/r%201/steps/de%20bate/discussion');
+    expect(replies.calls[0]?.url).not.toContain(TOKEN);
+  });
+
+  it('is undefined when the run kept none, and an error for anything else', async () => {
+    const none = fakeFetch([json({ code: 'discussion_not_found', message: 'none' }, 404)]);
+    expect(await createClient({ token: TOKEN, fetch: none.fetch }).discussion('r', 's')).toBeUndefined();
+    const broken = fakeFetch([json({ code: 'x', message: 'boom' }, 500)]);
+    await expect(
+      createClient({ token: TOKEN, fetch: broken.fetch }).discussion('r', 's'),
+    ).rejects.toBeInstanceOf(ApiFailure);
+    const unreadable = fakeFetch([json({ discussion: { outcome: 1 } })]);
+    await expect(
+      createClient({ token: TOKEN, fetch: unreadable.fetch }).discussion('r', 's'),
+    ).rejects.toBeInstanceOf(ApiFailure);
+    const wrong = fakeFetch([json({ nothing: true })]);
+    await expect(
+      createClient({ token: TOKEN, fetch: wrong.fetch }).discussion('r', 's'),
+    ).rejects.toBeInstanceOf(ApiFailure);
   });
 });

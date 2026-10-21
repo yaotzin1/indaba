@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import type { RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
+import type { DiscussionView, RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -19,7 +19,7 @@ interface FakeClient extends Client {
   /** Pushes a snapshot to the open run stream, or a run event to the server stream. */
   push(run: RunSnapshot): void;
   announce(event: ServerStreamEvent): void;
-  state(state: 'live' | 'reconnecting' | 'ended'): void;
+  state(state: 'live' | 'reconnecting' | 'unavailable' | 'ended'): void;
   fail(failure: Failure): void;
   runCalls: number;
 }
@@ -28,6 +28,7 @@ function fakeClient(options: {
   readonly runs?: readonly RunSummary[];
   readonly run?: RunSnapshot | Failure;
   readonly contract?: string | Failure;
+  readonly discussion?: DiscussionView | 'none' | 'fail';
 }): FakeClient {
   let runHandlers: StreamHandlers<RunSnapshot> | undefined;
   let serverHandlers: StreamHandlers<ServerStreamEvent> | undefined;
@@ -59,6 +60,12 @@ function fakeClient(options: {
     },
     async stepLog() {
       return '';
+    },
+    async discussion() {
+      if (options.discussion === 'fail') throw new ApiFailure({ kind: 'server', message: 'no' });
+      return options.discussion === 'none' || options.discussion === undefined
+        ? undefined
+        : options.discussion;
     },
     push: (run) => runHandlers?.onEvent(run),
     announce: (event) => serverHandlers?.onEvent(event),
@@ -223,6 +230,32 @@ describe('the Run screen', () => {
     expect(screen.getByText('Run ended')).toBeTruthy();
   });
 
+  it('stops and offers to check again when the server is not answering, and starts afresh once it is', async () => {
+    const client = fakeClient({});
+    render(h(App, appProps(client, '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    act(() => client.state('unavailable'));
+    const banner = await screen.findByRole('alert');
+    expect(banner.textContent).toContain('The server is not answering');
+    expect(screen.getByText('Server stopped')).toBeTruthy();
+    expect(screen.queryByText(/The connection dropped/)).toBeNull();
+    fireEvent.click(within(banner).getByRole('button', { name: 'Check again' }));
+    await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+    expect(await screen.findByText('Live')).toBeTruthy();
+  });
+
+  it('says so when the server still does not answer', async () => {
+    const client = fakeClient({});
+    render(h(App, appProps(client, '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    act(() => client.state('unavailable'));
+    client.contract = async () => {
+      throw new ApiFailure({ kind: 'server', message: 'no' });
+    };
+    fireEvent.click(await screen.findByRole('button', { name: 'Check again' }));
+    expect(await screen.findByText('Still not answering.')).toBeTruthy();
+  });
+
   it('says a run is not found, from the first read or from the stream', async () => {
     render(
       h(
@@ -348,5 +381,92 @@ describe('a step', () => {
     expect(card?.className).toBe('step-card running selected');
     expect(card?.textContent).toContain('running, 9 s');
     expect(card?.textContent).toContain('try 2, 1 failed');
+  });
+});
+
+describe('the discussion of a debate step', () => {
+  const graph = buildGraph(liveRun());
+  const node = (id: string) => {
+    const found = graph.nodes.find((n) => n.id === id);
+    if (found === undefined) throw new Error(id);
+    return found;
+  };
+  const view: DiscussionView = {
+    stepId: 'code',
+    outcome: 'stalled',
+    rounds: 2,
+    messages: [
+      { round: 1, sender: 'claude', type: 'CRITIQUE', content: '<b>fix the loop</b>' },
+      { round: 1, sender: 'antigravity', type: 'AGREEMENT', content: 'fine' },
+      { round: 2, sender: 'claude', type: 'AGREEMENT', content: 'ok' },
+    ],
+    ruling: { verdict: 'accept', decidedBy: 'human', note: 'ship it' },
+  };
+  const debating = {
+    ...node('code'),
+    step: step('code', { status: 'COMPLETED', consensus: { outcome: 'stalled', rounds: 2 } }),
+  };
+  const panel = (load: () => Promise<DiscussionView | undefined>) =>
+    render(
+      h(StepPanel, { node: debating, structureKnown: true, retriedBy: [], now: NOW, loadDiscussion: load }),
+    );
+
+  it('stays closed until asked, then shows the rounds, who said what and the ruling, as text', async () => {
+    let asked = 0;
+    const { container } = panel(async () => {
+      asked += 1;
+      return view;
+    });
+    expect(asked).toBe(0);
+    fireEvent.click(screen.getByRole('button', { name: 'Show the discussion' }));
+    expect(await screen.findByText('Round 2')).toBeTruthy();
+    expect(screen.getByText('Round 1')).toBeTruthy();
+    expect(screen.getByText(/Where each one ended: claude AGREEMENT, antigravity AGREEMENT/)).toBeTruthy();
+    expect(screen.getByText('Ruling: accept, decided by human.')).toBeTruthy();
+    expect(container.querySelector('b + pre, pre b')).toBeNull();
+    expect(screen.getByText('<b>fix the loop</b>')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: 'Hide the discussion' }));
+    expect(screen.queryByText('Round 1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Show the discussion' }));
+    expect(await screen.findByText('Round 1')).toBeTruthy();
+    expect(asked).toBe(1);
+  });
+
+  it('says plainly when no messages were kept, and when they could not be loaded', async () => {
+    panel(async () => undefined);
+    fireEvent.click(screen.getByRole('button', { name: 'Show the discussion' }));
+    expect(await screen.findByText(/No messages were kept/)).toBeTruthy();
+    cleanup();
+    panel(async () => {
+      throw new Error('x');
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Show the discussion' }));
+    expect((await screen.findByRole('alert')).textContent).toContain('could not be loaded');
+  });
+
+  it('offers nothing for a step that is not a debate or when there is no server to ask', () => {
+    render(
+      h(StepPanel, {
+        node: node('code'),
+        structureKnown: true,
+        retriedBy: [],
+        now: NOW,
+        loadDiscussion: async () => view,
+      }),
+    );
+    expect(screen.queryByRole('button', { name: 'Show the discussion' })).toBeNull();
+    cleanup();
+    render(h(StepPanel, { node: debating, structureKnown: true, retriedBy: [], now: NOW }));
+    expect(screen.queryByRole('button', { name: 'Show the discussion' })).toBeNull();
+  });
+
+  it('loads through the screen: a selected debate step asks the server for its own run and step', async () => {
+    const run = liveRun({
+      steps: [step('rfc', { status: 'COMPLETED', consensus: { outcome: 'reached', rounds: 1 } })],
+    });
+    const client = fakeClient({ run, discussion: view });
+    render(h(App, appProps(client, '/runs/r1', '?step=rfc')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Show the discussion' }));
+    expect(await screen.findByText('Round 1')).toBeTruthy();
   });
 });

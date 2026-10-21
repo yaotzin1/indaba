@@ -1,9 +1,10 @@
-import type { StepFailureRoute, StepView } from '@indaba/core';
+import type { DiscussionView, StepFailureRoute, StepView } from '@indaba/core';
 import { createElement as h, type ReactElement, type ReactNode } from 'react';
 import { between, formatCallCost, formatDuration, formatTokens } from '../format.js';
 import { type GraphNode, retriesUsed } from '../graph-model.js';
 import { messages } from '../messages.js';
 import { stepLook } from '../status.js';
+import { Discussion } from './Discussion.js';
 import { Section, StateChip } from './parts.js';
 import { stepTime } from './RunGraph.js';
 
@@ -211,11 +212,13 @@ export interface StepPanelProps {
   readonly structureKnown: boolean;
   readonly retriedBy: readonly string[];
   readonly now: number;
+  /** Fetches the kept messages of this step's debate; absent where the panel is shown without a server. */
+  readonly loadDiscussion?: () => Promise<DiscussionView | undefined>;
 }
 
 /** A selected step: what happened in it, what happens if it fails, its tries and its output. */
 export function StepPanel(props: StepPanelProps): ReactElement {
-  const { node, structureKnown, retriedBy, now } = props;
+  const { node, structureKnown, retriedBy, now, loadDiscussion } = props;
   const step = node.step;
   const status = step?.status ?? 'PENDING';
   const look = stepLook(status);
@@ -242,6 +245,9 @@ export function StepPanel(props: StepPanelProps): ReactElement {
         : null,
     ),
     h(Section, { title: heading }, ...happened(node)),
+    step?.consensus !== undefined && loadDiscussion !== undefined
+      ? h(Discussion, { key: node.id, load: loadDiscussion })
+      : null,
     h(
       Section,
       { title: messages.step.ifFails },
