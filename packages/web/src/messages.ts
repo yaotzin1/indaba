@@ -131,6 +131,7 @@ export const messages = {
     cancelled: 'cancelled',
     pending: 'pending',
     unknown: 'unknown',
+    lastKnown: 'last known',
   },
 
   time: {

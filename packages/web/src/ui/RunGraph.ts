@@ -11,9 +11,16 @@ import {
 } from '@xyflow/react';
 import { createElement as h, type ReactElement, useMemo, useRef } from 'react';
 import { between, formatDuration } from '../format.js';
-import { type RunGraph as Graph, type GraphNode, NODE_HEIGHT, NODE_WIDTH } from '../graph-model.js';
+import {
+  type Direction,
+  type RunGraph as Graph,
+  type GraphNode,
+  NODE_HEIGHT,
+  NODE_WIDTH,
+} from '../graph-model.js';
 import { messages } from '../messages.js';
 import { isActive, stepLook } from '../status.js';
+import { useStale } from './stale.js';
 
 export interface StepCardData extends Record<string, unknown> {
   readonly node: GraphNode;
@@ -21,6 +28,8 @@ export interface StepCardData extends Record<string, unknown> {
   readonly now: number;
   /** The steps that send the run back here when they fail. */
   readonly retriedBy: readonly string[];
+  /** Which way the graph runs: where a card's edges meet it. */
+  readonly direction?: Direction;
 }
 
 /** What a step's card says under its state: the runner, the try, or that it will run again. */
@@ -82,6 +91,7 @@ export function StepCard(props: { readonly data: StepCardData }): ReactElement {
   const look = stepLook(data.node.step?.status ?? 'PENDING');
   const { runner, note } = cardLines(data);
   const time = elapsed(data);
+  const stale = useStale();
   return h(
     'div',
     { className: `step-card ${look.tone}${data.selected ? ' selected' : ''}` },
@@ -91,7 +101,7 @@ export function StepCard(props: { readonly data: StepCardData }): ReactElement {
       'span',
       { className: 'line' },
       h('span', { className: look.tone, 'aria-hidden': true }, look.symbol),
-      ` ${look.word}${time === undefined ? '' : `, ${time}`}`,
+      ` ${look.word}${time === undefined ? '' : `, ${time}`}${stale ? `, ${messages.state.lastKnown}` : ''}`,
     ),
     h('span', { className: 'sub' }, note ?? ' '),
   );
@@ -99,15 +109,31 @@ export function StepCard(props: { readonly data: StepCardData }): ReactElement {
 
 type StepNode = Node<StepCardData, 'step'>;
 
+/**
+ * Where a card's edges meet it. Left to right, "waits for" enters on the left and leaves on the right, and the failure
+ * route runs under the cards; top to bottom, it enters at the top and leaves at the bottom, and the failure route runs
+ * beside them.
+ */
+export function handlesOf(direction: Direction): {
+  readonly in: Position;
+  readonly out: Position;
+  readonly failure: Position;
+} {
+  return direction === 'LR'
+    ? { in: Position.Left, out: Position.Right, failure: Position.Bottom }
+    : { in: Position.Top, out: Position.Bottom, failure: Position.Right };
+}
+
 function StepNodeView(props: NodeProps<StepNode>): ReactElement {
+  const at = handlesOf(props.data.direction ?? 'LR');
   return h(
     'div',
     null,
-    h(Handle, { type: 'target', position: Position.Left, id: 'in', isConnectable: false }),
+    h(Handle, { type: 'target', position: at.in, id: 'in', isConnectable: false }),
     h(StepCard, { data: props.data }),
-    h(Handle, { type: 'source', position: Position.Right, id: 'out', isConnectable: false }),
-    h(Handle, { type: 'source', position: Position.Bottom, id: 'fail-out', isConnectable: false }),
-    h(Handle, { type: 'target', position: Position.Bottom, id: 'fail-in', isConnectable: false }),
+    h(Handle, { type: 'source', position: at.out, id: 'out', isConnectable: false }),
+    h(Handle, { type: 'source', position: at.failure, id: 'fail-out', isConnectable: false }),
+    h(Handle, { type: 'target', position: at.failure, id: 'fail-in', isConnectable: false }),
   );
 }
 
@@ -130,7 +156,7 @@ export function flowOf(
       position: { x: node.x, y: node.y },
       width: NODE_WIDTH,
       height: NODE_HEIGHT,
-      data: { node, selected: node.id === selected, now, retriedBy },
+      data: { node, selected: node.id === selected, now, retriedBy, direction: graph.direction },
       selected: node.id === selected,
       draggable: false,
       connectable: false,
@@ -205,7 +231,7 @@ export interface RunGraphProps {
 }
 
 /**
- * The run as a graph, left to right. Pan and zoom by dragging and with the controls of the canvas, never by the page's
+ * The run as a graph, left to right (top to bottom on a narrow screen). Pan and zoom by dragging and with the controls of the canvas, never by the page's
  * own scroll. Every step can be reached with Tab and opened with Enter; the step list beside it does the same.
  */
 export function RunGraph(props: RunGraphProps): ReactElement {

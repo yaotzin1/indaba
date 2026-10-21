@@ -77,10 +77,13 @@ checkable. The slice and its limits are in `plan.md`.
 
 ## Tests
 
-- [ ] **T-24** (added 2026-10-21, found while writing T-16) Two answers of 2026-10-21 that are not built: answer 3, a
+- [x] **T-24** (added 2026-10-21, found while writing T-16) Two answers of 2026-10-21 that are not built: answer 3, a
   `last known` label on each state chip when the stream drops (today the chips turn grey and only the banner says it), and
   answer 5, the graph top to bottom below 640 px (today it is left to right everywhere, opening at a readable zoom).
-  `docs/web-view.md` describes what the page does now and lists both under "Not there yet".
+  **Done 2026-10-21:** a `StaleContext` that the app provides from the stream state; `StateChip` and the graph's cards
+  add `, last known` while it is set. `buildGraph(run, direction)` lays out `TB` as well as `LR`, the cards' handles
+  follow (`handlesOf`), and `useMediaQuery(NARROW)` picks the direction, following a resize. Tests in `logic.test.ts`
+  and `ui.test.ts`; `docs/web-view.md` updated.
 - [x] **T-22** (added 2026-10-21, answer 2) The page stops after repeated failed attempts, shows `Server stopped`, and offers `Check again`.
 - [x] **T-12** Hostile-input tests, with strings built from fragments: a run id or step id with `..`, separators, a drive
   letter, an encoded form and a NUL; a `Host` of another name and of a DNS-rebinding name; a missing and a wrong token; a

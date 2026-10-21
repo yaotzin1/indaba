@@ -108,7 +108,7 @@ becomes a card.
 | Part | Shows |
 | :--- | :--- |
 | The heading | The workflow, the run's state, when it started, how long it has run or took, and its id |
-| **Steps** (the graph) | Every step of the workflow, left to right in the order they wait for each other, including steps that have not run yet. A grey arrow is "waits for" (`depends_on`); it turns green when the step it comes from has completed. A red dashed line under the steps is where a failure leads (`on_failure: retry_step`), with how many retries are used |
+| **Steps** (the graph) | Every step of the workflow, left to right in the order they wait for each other (top to bottom below 640 px), including steps that have not run yet. A grey arrow is "waits for" (`depends_on`); it turns green when the step it comes from has completed. A red dashed line under the steps is where a failure leads (`on_failure: retry_step`), with how many retries are used |
 | The step panel | The selected step: what happened in it (its runner, model, tokens and cost, or its commands and exit codes), what happens if it fails, its tries with the reason each one failed, and its output |
 | **Steps** (the list) | The same steps as a table; a step that ran more than once opens to show each try |
 | **Cost** | What the run cost so far, the number of model calls, the budget, and a table of each step that called a model: its calls (and any still running), its tokens in and out, and its cost. The rows add up to the total, which is the same number the Runs screen shows |
@@ -142,8 +142,8 @@ with no budget says **no limit**.
 
 ### When the connection drops
 
-If the server stops answering while you follow a run, a red banner says so and that what you see is the last
-known state, the run's states turn grey, and the page reconnects by itself, resuming where it left off without repeating or skipping
+If the server stops answering while you follow a run, a red banner says so, every state turns grey and says
+`last known` after its word (`✓ completed, last known`), and the page reconnects by itself, resuming where it left off without repeating or skipping
 anything. After 8 failed attempts in a row (about half a minute) it stops asking: the header says **Server stopped**, a
 banner says what to do, and **Check again** asks once and picks up again if the server answers. Nothing on the page
 claims to be live while it is not.
@@ -156,8 +156,9 @@ claims to be live while it is not.
   panel; `Enter` opens a step. "Skip to the content" is the first stop.
 - **Screen readers.** Each step in the graph is announced with its name and state, the tables have headers and names,
   and the page says when the connection drops.
-- **Phone.** It works from 320 px wide. A graph too wide for the screen opens at a size you can read, from the left;
-  drag to see the rest.
+- **Phone.** It works from 320 px wide. Below 640 px the graph runs top to bottom, so a long workflow scrolls with the
+  page; turning the phone or widening the window turns it back. On a wider screen a graph too wide for its box opens at
+  a size you can read, from the left; drag to see the rest.
 
 ## Safety
 
@@ -193,8 +194,6 @@ The page can show your agents' work, so it is built like something that could le
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
 published `@indaba/server`, so `indaba ui` works from npm; the list of workflows with their health (it needs
 `specs/workflow-registry`); Run, Stop and "run this step"; answering an agent's questions; applying or discarding a
-run's changes; the workflow editor. On a phone the graph still runs left to right (opening at a readable size and
-dragged sideways); top to bottom below 640 px is decided and not built yet, and so is a `last known` label on each state
-when the connection drops (today the states turn grey and the banner says it).
+run's changes; the workflow editor.
 
 Working on the page itself: [web-view-development.md](web-view-development.md).

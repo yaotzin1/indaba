@@ -30,7 +30,11 @@ export interface GraphEdge {
   readonly retries?: { readonly used: number; readonly max: number };
 }
 
+/** Which way the steps run: left to right, or top to bottom on a narrow screen (answer 5 of the sketches). */
+export type Direction = 'LR' | 'TB';
+
 export interface RunGraph {
+  readonly direction: Direction;
   readonly nodes: readonly GraphNode[];
   readonly edges: readonly GraphEdge[];
   /** False for a run recorded without its structure: the steps are then a row in the order they ran, with no edges. */
@@ -49,36 +53,45 @@ export function retriesUsed(step: StepView | undefined, route: StepFailureRoute)
 }
 
 /**
- * The graph of a run, laid out left to right. Deterministic: the same run always gives the same picture, so it does
- * not jump between snapshots (C-03). The layout reads only the `depends_on` edges; a failure route is drawn on top,
- * because laying it out would turn the picture around every time a step can be retried.
+ * The graph of a run, laid out left to right, or top to bottom when asked. Deterministic: the same run in the same
+ * direction always gives the same picture, so it does not jump between snapshots (C-03). The layout reads only the
+ * `depends_on` edges; a failure route is drawn on top, because laying it out would turn the picture around every time
+ * a step can be retried.
  */
-export function buildGraph(run: RunSnapshot): RunGraph {
+export function buildGraph(run: RunSnapshot, direction: Direction = 'LR'): RunGraph {
+  const across = direction === 'LR';
   const byId = new Map(run.steps.map((step) => [step.id, step]));
   const structure = run.structure;
 
   if (structure === undefined) {
+    // A row of the steps in the order they ran, or a column on a narrow screen.
     const nodes = run.steps.map(
       (step, index): GraphNode => ({
         id: step.id,
-        x: index * (NODE_WIDTH + GAP_X),
-        y: 0,
+        x: across ? index * (NODE_WIDTH + GAP_X) : 0,
+        y: across ? 0 : index * (NODE_HEIGHT + GAP_Y),
         step,
         onFailure: undefined,
         dependsOn: [],
       }),
     );
+    const count = nodes.length;
     return {
+      direction,
       nodes,
       edges: [],
       structureKnown: false,
-      width: Math.max(0, nodes.length * (NODE_WIDTH + GAP_X) - GAP_X),
-      height: nodes.length === 0 ? 0 : NODE_HEIGHT,
+      width: count === 0 ? 0 : across ? count * (NODE_WIDTH + GAP_X) - GAP_X : NODE_WIDTH,
+      height: count === 0 ? 0 : across ? NODE_HEIGHT : count * (NODE_HEIGHT + GAP_Y) - GAP_Y,
     };
   }
 
   const graph = new Graph();
-  graph.setGraph({ rankdir: 'LR', nodesep: GAP_Y, ranksep: GAP_X, marginx: 0, marginy: 0 });
+  graph.setGraph(
+    across
+      ? { rankdir: 'LR', nodesep: GAP_Y, ranksep: GAP_X, marginx: 0, marginy: 0 }
+      : { rankdir: 'TB', nodesep: GAP_X, ranksep: GAP_Y, marginx: 0, marginy: 0 },
+  );
   graph.setDefaultEdgeLabel(() => ({}));
   for (const step of structure) {
     graph.setNode(step.id, { width: NODE_WIDTH, height: NODE_HEIGHT });
@@ -131,7 +144,7 @@ export function buildGraph(run: RunSnapshot): RunGraph {
       });
     }
   }
-  return { nodes, edges, structureKnown: true, width, height };
+  return { direction, nodes, edges, structureKnown: true, width, height };
 }
 
 /** The steps that send the run back to this one when they fail. */

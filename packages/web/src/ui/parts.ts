@@ -1,14 +1,21 @@
 import { createElement as h, type ReactElement, type ReactNode } from 'react';
+import { messages } from '../messages.js';
 import type { StateLook } from '../status.js';
+import { useStale } from './stale.js';
 
-/** A state as a chip: the symbol and the word, with colour repeating them (AC-07, AC-20). */
+/**
+ * A state as a chip: the symbol and the word, with colour repeating them (AC-07, AC-20). While the stream is down the
+ * chip says `last known` in words as well as turning grey, so a state is never taken for a live one.
+ */
 export function StateChip(props: { readonly look: StateLook }): ReactElement {
   const { look } = props;
+  const stale = useStale();
   return h(
     'span',
     { className: `state ${look.tone}` },
     h('span', { 'aria-hidden': true }, look.symbol),
     look.word,
+    stale ? h('span', { className: 'last-known' }, `, ${messages.state.lastKnown}`) : null,
   );
 }
 
