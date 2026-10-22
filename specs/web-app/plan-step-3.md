@@ -83,13 +83,24 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 - **Skills** (C-18) and **an assistant in the editor over ACP** (C-19): both marked "not decided" in the parent spec. They
   need `ruling-channel` and a conversation spec first. Nothing in 3a to 3d may assume them.
 - Copy for another project, import and remove (AC-06 of the parent): the registry's screens.
+- **Connected workflows** (the maintainer, 2026-10-22: wanted, as a **paid** feature). Workflows that depend on one
+  another (one waits for another, one's outputs feed another's inputs) as a layer above single files: a separate file that
+  names workflows by their registry id, so "one file per workflow" (decision 1) still holds. It needs
+  `workflow-registry` (stable ids) and `workflow-inputs`, and it gets its own spec, which decides where the line between
+  the MIT packages and the paid one runs (a separate package through the plugin contracts, not a fork of the engine).
 
 ## Decisions to take before 3a
 
-1. **One file or many?** `workflow-editor` edits one workflow file. A workflow that includes others does not exist.
-   Keep it that way for step 3.
-2. **Where does a new workflow go?** The registry decides. Until it exists, the only honest answer is "the project's
-   `.indaba/workflow.ai.yml` or a `*.workflow.ai.yml` the person names inside the root", the same files step 2's scan finds.
+1. **One file or many?** Decided by the maintainer, 2026-10-22: **one file per workflow.** `workflow-editor` edits one
+   workflow file; a workflow that includes others does not exist, through step 3 at least.
+2. **Where does a new workflow go?** Decided by the maintainer, 2026-10-22: **inside the project, as a plain file the
+   person can keep in git: `<root>/workflows/<name>.workflow.ai.yml` by default**, with the name and subfolder theirs to
+   change before saving. Never under `.indaba/` (gitignored runtime state) and never in the user's configuration folder
+   (it would not travel with the project). The path is confined to a served root, ends in `.workflow.ai.yml`, and is
+   created exclusively (`wx`): a taken name is the person's to change, never overwritten. With several roots the person
+   picks one, the first by default. Step 2's search finds such a file at once; the registry later indexes it where it
+   is, with origin "created by the editor". 3a only replaces files that exist; this applies from 3d (and to any
+   "save as" before it).
 3. **Is editing part of a paid edition?** C-13 says this is a product decision the spec does not make. It changes nothing
    in 3a, which is a local file write, but it changes how 3d is packaged. Maintainer to decide before 3d.
 
