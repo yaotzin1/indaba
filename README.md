@@ -75,7 +75,7 @@ that makes the outcome trustworthy and inspectable:
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
 | `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
-| `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, read-only. Its package carries the built page | `@indaba/core`, `@indaba/engine` |
+| `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, and starting and stopping runs through what the CLI supplies (it spawns and writes nothing itself). Its package carries the built page | `@indaba/core`, `@indaba/engine` |
 | `@indaba/web` | The web view's page, built into static files that ship inside `@indaba/server`. Private: never published on its own; its libraries are bundled, with their licences in `page/THIRD-PARTY-LICENSES.txt` | none at run time |
 
 All packages are ESM, ship their types, and need Node 22 or newer.
@@ -124,7 +124,8 @@ rules for developing Indaba itself.
 A page on your own machine that lists your runs and follows one live: every step as a graph (including the ones that
 have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
 the cost of each run and of each step, with anything unknown shown as unknown. It has light and dark themes, works with
-a keyboard and on a phone, and only reads: it starts and changes nothing.
+a keyboard and on a phone. It can run a workflow of the project (showing first what its file says it will use) and stop
+a run it started; closing it stops those runs. A run started in a terminal it only shows.
 
 Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
 the optional `@indaba/server` installed next to `indaba`; the page comes inside that package. Neither is in a published

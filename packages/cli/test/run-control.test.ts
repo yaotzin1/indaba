@@ -530,6 +530,37 @@ describe('the run control (T-12)', () => {
     expect(control.isAlive('9'.repeat(32))).toBe(false);
   });
 
+  it('looks again at a trace whose first line was still being written, and ignores what is not a root record', async () => {
+    const root = await project();
+    const { starter } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const { started } = await confirmAndStart(control);
+    const traces = join(root, '.indaba', 'traces');
+    await mkdir(traces, { recursive: true });
+    const half = join(traces, `${'5'.repeat(32)}.events.jsonl`);
+    const record = JSON.stringify({
+      type: 'span_started',
+      at: '2026-10-22T12:00:00.000Z',
+      trace_id: '5'.repeat(32),
+      span_id: 'r'.repeat(16),
+      parent_span_id: null,
+      name: 'indaba.task demo',
+      attributes: { 'indaba.task.id': started.startId },
+    });
+    // Half a line: no newline yet, as when the engine is in the middle of writing it.
+    await writeFile(half, record.slice(0, 40));
+    await writeFile(join(traces, 'not-a-run.events.jsonl'), `${record}\n`);
+    await writeFile(join(traces, `${'6'.repeat(32)}.jsonl`), `${record}\n`);
+    await writeFile(join(traces, `${'7'.repeat(32)}.events.jsonl`), '{"type":"step_status"}\n');
+    control.startStatus(started.startId);
+    await flush();
+    expect(control.startStatus(started.startId)).toEqual({ state: 'starting' });
+    await writeFile(half, `${record}\n`);
+    control.startStatus(started.startId);
+    await flush();
+    expect(control.startStatus(started.startId)).toEqual({ state: 'running', runId: '5'.repeat(32) });
+  });
+
   it('reports a start that ended without a trace as failed, with its first line cleaned (AC-15)', async () => {
     const root = await project();
     const esc = String.fromCharCode(27);

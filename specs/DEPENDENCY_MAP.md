@@ -17,7 +17,7 @@ graph BT
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
     Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
     Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
-    Server["@indaba/server: the local server of indaba ui, read-only HTTP and SSE over the traces (optional)"]
+    Server["@indaba/server: the local server of indaba ui, HTTP and SSE over the traces; starts and stops runs through the CLI (optional)"]
     Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
     Plugin["a third-party plugin"]
 
@@ -90,6 +90,7 @@ gantt
     logging                :done, 2026-10-20, 2026-10-21
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
+    web-app-actions        :active, 2026-10-22, 1d
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
     ruling-channel         :active, 2026-10-10, 2026-10-16
@@ -127,7 +128,8 @@ gantt
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
 | `logging` | Implemented, except the web Settings screen (T-12, `feat/web-app-logging`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
-| `web-app` | In progress: delivery step 1 has the server, the page (Runs and Run, read-only) and the run structure in the trace (T-20); `indaba ui` and its packaging are next | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server` (new), `@indaba/web` (new, private), `indaba` (`ui`, not yet) |
+| `web-app` | In progress: delivery step 1 (the server, the page, Runs and Run, `indaba ui`) and the Settings screen are merged; step 2 has its first slice in `web-app-actions`; step 3 (editing) is planned in `plan-step-3.md` | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server`, `@indaba/web` (private), `indaba` (`ui`) |
+| `web-app-actions` | Implemented on `feat/web-app-run-stop`, except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
 | `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
