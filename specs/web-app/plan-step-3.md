@@ -101,8 +101,14 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
    picks one, the first by default. Step 2's search finds such a file at once; the registry later indexes it where it
    is, with origin "created by the editor". 3a only replaces files that exist; this applies from 3d (and to any
    "save as" before it).
-3. **Is editing part of a paid edition?** C-13 says this is a product decision the spec does not make. It changes nothing
-   in 3a, which is a local file write, but it changes how 3d is packaged. Maintainer to decide before 3d.
+3. **Is editing part of a paid edition?** Decided by the maintainer, 2026-10-22: **editing is free; the wizard is paid.**
+   - Free, in this MIT repository: 3a (source), 3b (forms), 3c (the graph as an editor), and the registry's screens.
+   - Paid, outside it: 3d (the wizard and its templates) and connected workflows (below).
+   - What follows: this repository is public and MIT, so nothing paid is built here, and what is merged here cannot be
+     taken back. The paid features live in a separate private package and reach the engine, the server and the page only
+     through contracts this repository publishes. The page has no way for another package to add a screen yet. That
+     extension point (a page plugin, or a second build that bundles the paid screens) is free work in this repository,
+     specified before 3d. The paid package's spec says what it needs from it.
 
 ## Risks
 
