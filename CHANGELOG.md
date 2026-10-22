@@ -17,6 +17,18 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Edit a workflow's text from `indaba ui`** (minor; track `feature`; spec `specs/web-app-editing-core`, step 3a of
+  `specs/web-app`). **Edit** in the Run a workflow panel opens a workflow file as text, with line numbers, the problems
+  `indaba validate` would report as you type (with line and column for YAML syntax), **Save**, and **Run** once the
+  saved file is valid. A save is against the version read: a file changed on disk since is not overwritten, and the
+  page shows both versions to choose from. A save writes a temporary file beside the target and renames it over, keeping
+  its permission bits. Saving changes the content hash, so the next Run asks for a confirmation again. New in
+  `@indaba/core` (types only): `WorkflowProblem`, `WorkflowSourceResponse`, `SaveWorkflowSourceRequest`,
+  `SaveWorkflowSourceResponse`, `WorkflowChangedOnDisk`, `CheckWorkflowRequest`, `WorkflowCheckResponse`. New in
+  `@indaba/server`: `WorkflowStore`, `WorkflowStoreError`, `MAX_SOURCE_BYTES`, `MAX_SOURCE_BODY_BYTES`,
+  `ServerOptions.workflowStore`, `GET` and `PUT /api/v1/workflows/{id}/source`, `POST /api/v1/workflows/check`;
+  `CONTRACT_VERSION` is `1.2.0`. No dependency added.
+
 - **Run and Stop from `indaba ui`** (minor; track `feature`; spec `specs/web-app-actions`, the first slice of step 2 of
   `specs/web-app`). The Runs screen has **Run a workflow**: a panel with the workflow files of the served projects (a
   bounded search; an invalid file listed with its problems and not runnable). The first run of a workflow's content shows

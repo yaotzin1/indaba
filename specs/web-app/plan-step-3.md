@@ -32,6 +32,9 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 
 ### 3a. Save what is edited: the write path (`specs/web-app-editing-core`)
 
+> Implemented on `feat/web-app-source-edit` (2026-10-22). It lists problems and jumps to a known line instead of
+> underlining them; underlining comes with `workflow-editor`'s positions (its spec, C-02).
+
 - A server resource pair `GET`/`PUT /api/v1/workflows/{id}/source` (text of one workflow file), via a `WorkflowStore`
   backend supplied by the command line (the server stays free of file writes, as in step 2). `PUT` has **its own body cap
   of 1 MiB** (the 64 KiB `MAX_BODY_BYTES` of the settings resource is too small), a starting value, not measured.

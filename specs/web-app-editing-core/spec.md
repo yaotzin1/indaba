@@ -1,6 +1,7 @@
 # Specification: The local web view, step 3a (edit a workflow's source and save it)
 
-> **Status**: Draft, 2026-10-22
+> **Status**: Implemented on `feat/web-app-source-edit` (2026-10-22), except the real-browser check of AC-13 (see
+> `review.md`)
 > **Stage entry**: 1
 > **Semver impact**: minor (below 1.0): additive HTTP resources, additive contract types, one optional option of
 > `startServer`, one optional dependency of `ui`
@@ -32,7 +33,7 @@ as text, checked with the parser a run uses, and written back only if nobody cha
 
 **Reading**
 
-- [ ] AC-01. `GET /api/v1/workflows/{id}/source` answers the text of the workflow the step 2 scan lists under `id`, with
+- [x] AC-01. `GET /api/v1/workflows/{id}/source` answers the text of the workflow the step 2 scan lists under `id`, with
   its path relative to its root, its project, the SHA-256 of its bytes (`contentHash`) and its problems. `{id}` is looked
   up in a fresh scan, never opened as a path; an id the scan does not return is `404 workflow_not_found`. The file is
   read as in step 2: a regular file (no link) inside its root, at most 1 MiB; a larger one is `413 too_large`, with
@@ -40,57 +41,57 @@ as text, checked with the parser a run uses, and written back only if nobody cha
 
 **Checking**
 
-- [ ] AC-02. `POST /api/v1/workflows/check` with `{ text }` answers `{ problems }`: what `indaba validate` would say of that
+- [x] AC-02. `POST /api/v1/workflows/check` with `{ text }` answers `{ problems }`: what `indaba validate` would say of that
   text, by the same parser with the same runners and guards, each problem a sentence with its `line` and `column` when the
   parser gives them (YAML syntax), without them otherwise. It writes nothing and reads no file. The page asks while the
   person types, at most once per pause.
 
 **Saving**
 
-- [ ] AC-03. `PUT /api/v1/workflows/{id}/source` with `{ text, baseHash }` replaces the file the scan lists under `id` and
+- [x] AC-03. `PUT /api/v1/workflows/{id}/source` with `{ text, baseHash }` replaces the file the scan lists under `id` and
   answers `200` with the new `contentHash` and the problems of what was saved. It never creates, renames or deletes a
   file: an id the scan does not return is `404`. A text that has problems is saved (a draft is the person's to keep) and
   the answer lists them; Run refuses it as it refuses any invalid file.
-- [ ] AC-04. **No lost update.** `baseHash` is the `contentHash` the page read. When the file's bytes on disk no longer hash
+- [x] AC-04. **No lost update.** `baseHash` is the `contentHash` the page read. When the file's bytes on disk no longer hash
   to it, the save is `409 changed_on_disk` carrying the current text and hash, and nothing is written. The page shows that
   the file changed, lets the person load the version on disk or keep their own, and keeping their own sends a new `PUT`
   with the disk's hash as `baseHash`.
-- [ ] AC-05. **The write is whole.** The text goes to a new temporary file in the same folder (flag `wx`), keeps the
+- [x] AC-05. **The write is whole.** The text goes to a new temporary file in the same folder (flag `wx`), keeps the
   file's permission bits, and is renamed over the target; a failure leaves the original as it was and removes the
   temporary file. The target is checked again just before the rename: still a regular file, still inside its root, its
   bytes still hashing to `baseHash`.
-- [ ] AC-06. The text is at most 1 MiB in UTF-8 (the scan's limit; a larger file would not be listed). The body of a `PUT`
+- [x] AC-06. The text is at most 1 MiB in UTF-8 (the scan's limit; a larger file would not be listed). The body of a `PUT`
   may be at most 2 MiB (`MAX_SOURCE_BODY_BYTES`, room for JSON escaping), larger is `413`. Both are starting values, not
   measurements. Any field of the body other than `text` and `baseHash` is ignored; a `path` or `id` in it never reaches
   the store.
-- [ ] AC-07. **A save invalidates the confirmation.** The confirmation of step 2 is kept per SHA-256 of the file's bytes,
+- [x] AC-07. **A save invalidates the confirmation.** The confirmation of step 2 is kept per SHA-256 of the file's bytes,
   so changed content is unconfirmed: after a save that changed the text, the next Run answers `409 confirmation_required`
   with the summary of the new content. Tested end to end: confirm, run, edit, save, Run asks again. A save that writes
   the same bytes changes nothing.
-- [ ] AC-08. Saving never runs anything and starts no process.
+- [x] AC-08. Saving never runs anything and starts no process.
 
 **The page**
 
-- [ ] AC-09. Each valid or invalid workflow in the Run a workflow panel has **Edit**, which opens its source view at
+- [x] AC-09. Each valid or invalid workflow in the Run a workflow panel has **Edit**, which opens its source view at
   `/workflows/{id}` (the address names it, so a reload opens it again). The view shows the path and project, the text in a
   monospace editor that keeps the person's indentation (Tab inserts two spaces; Escape then Tab leaves the editor), the
   problems under it, **Save**, and **Run** once the saved file is valid.
-- [ ] AC-10. A problem with a line is a button that puts the caret at that line and column. The editor shows line numbers,
+- [x] AC-10. A problem with a line is a button that puts the caret at that line and column. The editor shows line numbers,
   so a line named in any message can be found.
-- [ ] AC-11. The view says whether the text is saved, being checked, or has unsaved changes. Leaving with unsaved changes
+- [x] AC-11. The view says whether the text is saved, being checked, or has unsaved changes. Leaving with unsaved changes
   (Back, another screen, closing the tab) asks first.
-- [ ] AC-12. A conflict (AC-04) shows the version on disk read-only beside the person's text, with **Use the version on
+- [x] AC-12. A conflict (AC-04) shows the version on disk read-only beside the person's text, with **Use the version on
   disk** and **Keep mine and save**; neither happens without a press.
 - [ ] AC-13. Keyboard, labels, announcements of saved and failed, 320 px, both themes, words from the catalogue, as in the
   parent's AC-20.
 
 **Safety**
 
-- [ ] AC-14. Every new resource needs the token and the `Host` check; `PUT` and the check's `POST` need the page's own
+- [x] AC-14. Every new resource needs the token and the `Host` check; `PUT` and the check's `POST` need the page's own
   `Origin` (AC-16 of step 2). `@indaba/server` still writes no file: reading, checking and saving are the work of a
   `WorkflowStore` the command line supplies, as it supplies the run control. Without it the resources answer
   `404 source_unavailable` and the page offers no Edit.
-- [ ] AC-15. The text is untrusted: shown as text only (no HTML, no link), never logged, never put in an error message.
+- [x] AC-15. The text is untrusted: shown as text only (no HTML, no link), never logged, never put in an error message.
   A log record of a save holds the workflow's relative path, its new hash and the number of problems.
 
 ## 4. Non-goals

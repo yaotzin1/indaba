@@ -231,6 +231,12 @@ Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are t
    (cancel, a grace period, then `kill()` of the process tree). Its tests use a fake `RunStarter`, never a real agent.
 5. **The end-to-end test** (`packages/cli/e2e/ui-run.e2e.test.ts`) runs the built CLI with shell steps only.
 
+Editing a workflow's text ([`specs/web-app-editing-core`](../specs/web-app-editing-core/spec.md)) follows the same
+pattern with `WorkflowStore` (`packages/server/src/workflow-store.ts`) and `packages/cli/src/run-control/source.ts`. A
+save is always against the hash the page read (`baseHash`); the store re-reads the file just before it renames a
+temporary file over it, and a different hash is `changed_on_disk` with the disk's version. The page never builds YAML: it
+edits text, and the forms of step 3b will go through `WorkflowDocument` once `specs/workflow-editor` exists.
+
 ## Tests
 
 ```bash
@@ -243,7 +249,7 @@ pnpm qa                                          # everything, with coverage
 | :--- | :--- |
 | `test/logic.test.ts` | Formatting, states, the token, the stream parser, the graph model, the address, the theme. No DOM |
 | `test/client.test.ts` | The client against a fake `fetch`: headers, failures, resume with `Last-Event-ID`, back-off, abort |
-| `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output, the Run a workflow panel (focus, the confirmation, starting, refusals) and Stop |
+| `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output, the Run a workflow panel (focus, the confirmation, starting, refusals), Stop, and the source view (check, save, conflict, leaving with unsaved changes) |
 | `test/boot.test.ts` | Starting the page: the token leaves the address and travels as a header |
 | `test/layers.test.ts` | What the page may import, no HTML sink, nothing imports the page, the package stays private |
 | `test/fixtures.ts` | `liveRun()`: a run in the middle of a retry, and builders for steps, tries and runners |
