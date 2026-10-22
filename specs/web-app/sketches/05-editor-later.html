@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 5: The same graph as an editor, later</title>
+<link rel="stylesheet" href="sketch.css">
+<style>
+  .studio { display: grid; grid-template-columns: 220px minmax(0, 1fr) 280px; gap: 12px; }
+  @media (max-width: 1000px) { .studio { grid-template-columns: minmax(0, 1fr); } }
+  .brick { display: block; width: 100%; text-align: left; margin: 0 0 6px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--ink); font: inherit; cursor: grab; }
+  .brick small { display: block; color: var(--muted); }
+  .palette h4 { margin: 12px 0 6px; font-size: 0.8rem; color: var(--muted); }
+  .drop { fill: none; stroke: var(--brand); stroke-width: 2; stroke-dasharray: 5 4; }
+  .field { display: block; margin-bottom: 8px; }
+  .field span { display: block; font-size: 0.8rem; color: var(--muted); }
+  .field input, .field select, .field textarea { width: 100%; padding: 6px 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--ink); font: inherit; }
+  .problems { border: 1px solid var(--ok); background: var(--ok-bg); border-radius: 6px; padding: 8px 12px; font-size: 0.9rem; }
+  .graph .node rect { fill: var(--panel); }
+  .graph .edge.fail { stroke: var(--fail); stroke-dasharray: 7 4; stroke-width: 2; }
+  .graph .handle { fill: var(--brand); }
+</style>
+</head>
+<body>
+<header class="app">
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html">Runs</a>
+    <a href="06-workflows.html" aria-current="page">Workflows</a>
+  </nav>
+  <span class="badge">Editing: task-pipeline</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
+</header>
+<main style="max-width:1400px">
+  <h2>Design a workflow by arranging bricks</h2>
+  <div class="note"><b>Sketch 5 of 6. Not part of delivery step 1.</b> This is the graph of sketch 2 in <b>edit mode</b>, shown now so the graph is built as one
+    canvas with a view mode and an edit mode, not twice. It belongs to step 3 of the delivery plan (C-09) and to
+    <code>specs/workflow-editor</code>. The bricks below are the things the workflow file already has (runners, a debate, guards, <code>on_failure</code>);
+    the editor writes that same file and shows the messages of <code>indaba validate</code>. Whether editing is part of a paid edition is a
+    product decision this spec does not make.</div>
+
+  <div class="studio">
+    <aside class="panel palette" aria-label="Bricks">
+      <h3>Bricks</h3>
+      <p class="muted" style="margin:0 0 8px">Drag onto the canvas, or select one and press Enter.</p>
+      <h4>Steps</h4>
+      <button class="brick" type="button">Agent step<small>claude-code, codex, antigravity, acp</small></button>
+      <button class="brick" type="button">API step<small>openrouter, or any OpenAI-compatible endpoint</small></button>
+      <button class="brick" type="button">Shell step<small>commands, first failure stops</small></button>
+      <button class="brick" type="button">Debate<small>two or more roles until they agree</small></button>
+      <h4>Guards</h4>
+      <button class="brick" type="button">git_diff_empty<small>nothing changed under paths</small></button>
+      <button class="brick" type="button">diff_within_scope<small>changes stay inside paths</small></button>
+      <h4>If it fails</h4>
+      <button class="brick" type="button">Retry a step<small>go back to a step, up to n times</small></button>
+      <button class="brick" type="button">Escalate<small>end the run as escalated</small></button>
+      <button class="brick" type="button">Fail<small>end the run as failed</small></button>
+      <h4>Other</h4>
+      <button class="brick" type="button">MCP server<small>tools for agents</small></button>
+    </aside>
+
+    <section class="panel graph" aria-labelledby="canvas-h">
+      <h3 id="canvas-h">Canvas</h3>
+      <svg viewBox="0 0 880 300" role="group" aria-label="Workflow canvas: four steps">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor" class="muted"/></marker>
+          <marker id="arrow-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="currentColor" style="color:var(--fail)"/></marker>
+        </defs>
+        <path class="edge" d="M190 88 H240" marker-end="url(#arrow)"/>
+        <path class="edge" d="M430 88 H480" marker-end="url(#arrow)"/>
+        <path class="edge" d="M670 88 H690" marker-end="url(#arrow)"/>
+        <path class="edge fail" d="M575 136 C575 196 335 196 335 138" marker-end="url(#arrow-fail)"/>
+        <text x="455" y="212" text-anchor="middle" style="fill:var(--fail);font-size:12px">on failure: retry code, up to 3</text>
+        <g class="node pending"><rect x="20" y="40" width="170" height="96" rx="8"/><text x="34" y="66">rfc</text><text class="sub" x="34" y="84">openrouter</text><text class="sub" x="34" y="106">guard: git_diff_empty</text></g>
+        <g class="node pending"><rect x="240" y="40" width="190" height="96" rx="8"/><text x="254" y="66">code</text><text class="sub" x="254" y="84">claude-code</text><text class="sub" x="254" y="106">isolation: git worktree</text></g>
+        <g class="node pending selected"><rect x="480" y="40" width="190" height="96" rx="8" style="stroke:var(--brand)"/><text x="494" y="66">verify</text><text class="sub" x="494" y="84">shell</text><text class="sub" x="494" y="106">2 commands</text>
+          <circle class="handle" cx="670" cy="88" r="6"/><circle class="handle" cx="575" cy="136" r="6"/></g>
+        <g class="node pending"><rect x="690" y="40" width="170" height="96" rx="8"/><text x="704" y="66">debate_review</text><text class="sub" x="704" y="84">debate</text><text class="sub" x="704" y="106">antigravity + claude</text></g>
+        <!-- a brick being dragged from the palette: a new step may land here -->
+        <rect class="drop" x="240" y="215" width="190" height="70" rx="8"/>
+        <text class="sub" x="335" y="255" text-anchor="middle">drop a brick here to add a step</text>
+      </svg>
+      <p class="muted" style="margin:8px 0 0">Drag a step to move it. Drag from a handle to another step to say it waits for it, or from the failure
+        handle to say where a failure leads. Everything is also available from the keyboard through the panel on the right.</p>
+    </section>
+
+    <aside class="panel" aria-label="Step settings">
+      <h3>verify</h3>
+      <label class="field"><span>Name</span><input value="verify"></label>
+      <label class="field"><span>Kind</span><select><option>Shell step</option><option>Agent step</option></select></label>
+      <label class="field"><span>Commands</span><textarea rows="3">pnpm test
+pnpm typecheck</textarea></label>
+      <label class="field"><span>Waits for</span><input value="code"></label>
+      <label class="field"><span>If it fails</span><select><option>Retry a step</option><option>Escalate</option><option>Fail</option></select></label>
+      <label class="field"><span>Retry which step</span><select><option>code</option><option>verify</option></select></label>
+      <label class="field"><span>At most</span><input value="3"></label>
+      <div class="problems" role="status">
+        &#10003; <b>No problems</b> (from <code>indaba validate</code>). Pick a step that comes later, and it says: a retry may only go back to this step or to a step it waits for.
+      </div>
+      <p><button type="button">Save</button> <button type="button">Revert</button></p>
+      <p class="muted">Saving writes the workflow file. A change to a workflow that has run asks you to confirm before it runs again (AC-22).</p>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

@@ -4,6 +4,7 @@ import { describe, expect, it } from 'vitest';
 import {
   parseRecord,
   type RunRecord,
+  reduceAll,
   serializeRecord,
   summariseRun,
   TraceReader,
@@ -444,6 +445,48 @@ describe('TraceReader.listRuns', () => {
     ]);
     expect(runs[0]?.startedAt).toBe(AT);
     expect(runs.map((r) => r.workflow)).toEqual(['t', 't', 't']);
+  });
+
+  it('gives each run the cost its own view adds up: priced calls, calls with no price, and no shell commands', async () => {
+    const dir = await makeTempDir();
+    const priced = '4'.repeat(32);
+    const none = '5'.repeat(32);
+    const call = (trace: string, span: string, name: string, cost: number | undefined): Writable[] => [
+      {
+        type: 'span_started',
+        at: AT,
+        traceId: trace,
+        spanId: span,
+        parentSpanId: STEP,
+        name,
+        attributes: {},
+      },
+      {
+        type: 'span_ended',
+        at: AT,
+        traceId: trace,
+        spanId: span,
+        status: 'ok',
+        statusMessage: undefined,
+        attributes: cost === undefined ? {} : { 'indaba.cost.usd': cost },
+        events: [],
+      },
+    ];
+    const records: Writable[] = [
+      started(priced),
+      started(priced, STEP, ROOT),
+      ...call(priced, '6'.repeat(16), 'invoke_agent openrouter', 0.25),
+      ...call(priced, '7'.repeat(16), 'invoke_agent claude-code', undefined),
+      ...call(priced, '8'.repeat(16), 'execute_tool shell', 3),
+    ];
+    await runFile(dir, priced, records);
+    await runFile(dir, none, [started(none), ended(none, ROOT, 'COMPLETED')]);
+
+    const runs = await new TraceReader(dir).listRuns();
+    const byId = new Map(runs.map((run) => [run.runId, run.cost]));
+    expect(byId.get(priced)).toEqual({ usd: 0.25, unknown: 1, calls: 2 });
+    expect(byId.get(none)).toEqual({ usd: 0, unknown: 0, calls: 0 });
+    expect(byId.get(priced)).toEqual(reduceAll(records).cost);
   });
 
   it('lists a run that has only a trace file, and ignores everything that is not a run', async () => {

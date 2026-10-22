@@ -7,9 +7,11 @@
       "@indaba/core": ["packages/core/src/index.ts"],
       "@indaba/engine": ["packages/engine/src/index.ts"],
       "@indaba/runners": ["packages/runners/src/index.ts"],
-      "@indaba/tui": ["packages/tui/src/index.ts"]
+      "@indaba/tui": ["packages/tui/src/index.ts"],
+      "@indaba/server": ["packages/server/src/index.ts"]
     }
   },
+  "exclude": ["packages/web/**"],
   "include": [
     "packages/*/src/**/*.ts",
     "packages/*/test/**/*.ts",

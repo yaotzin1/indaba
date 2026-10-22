@@ -19,8 +19,8 @@ npx indaba plan workflow.ai.yml
 npx indaba run workflow.ai.yml
 ```
 
-> **Status.** `0.1.0-alpha.0` is published, mainly to reserve the package names: `npx indaba@next` runs it.
-> It is a preview and the API is not stable below 1.0. To work on Indaba, run from a checkout (see
+> **Status.** A preview: `0.1.0-alpha.2` is the newest published version (`npx indaba@next` runs it; `latest` is still
+> `0.1.0-alpha.0`). The API is not stable below 1.0. To work on Indaba, run from a checkout (see
 > [Development](#development)).
 
 - **Deterministic pipelines.** A declarative workflow file is a DAG of steps with quality gates,
@@ -33,6 +33,8 @@ npx indaba run workflow.ai.yml
 - **Observability.** Every task is a trace; steps and LLM or tool calls are spans carrying
   OpenTelemetry GenAI attributes, token counts and USD cost where known, written to
   `.indaba/traces/<traceId>.jsonl`.
+- **A page to watch it in.** A local web view shows your runs and follows one live: the steps as a graph, what each
+  did, where a failure leads, and what it cost ([docs/web-view.md](docs/web-view.md); in progress, from a checkout).
 - **Not only for code.** A step is an agent, an API call or a command, so a workflow can drive any
   tool reachable by `shell` or an MCP server: for example a media pipeline. Indaba ships no integration
   with any particular application.
@@ -68,11 +70,13 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
 | `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
+| `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, read-only. Its package carries the built page | `@indaba/core`, `@indaba/engine` |
+| `@indaba/web` | The web view's page, built into static files that ship inside `@indaba/server`. Private: never published on its own; its libraries are bundled, with their licences in `page/THIRD-PARTY-LICENSES.txt` | none at run time |
 
 All packages are ESM, ship their types, and need Node 22 or newer.
 
@@ -107,6 +111,33 @@ environment of a run into one folder to attach to an issue; it sends nothing. Se
 runner and what a run leaves on disk. [`docs/workflow-format.md`](docs/workflow-format.md) describes
 every field of a workflow file. The repository's own root `workflow.ai.yml` is a different thing: the
 rules for developing Indaba itself.
+
+## The web view
+
+<p align="center">
+  <picture>
+    <source srcset="docs/assets/web-view-run-dark.png" media="(prefers-color-scheme: dark)">
+    <img src="docs/assets/web-view-run-light.png" width="760" alt="A run in the web view: four steps as a graph with the retry route from verify back to code, the selected step's details and the list of steps with their tries.">
+  </picture>
+</p>
+
+A page on your own machine that lists your runs and follows one live: every step as a graph (including the ones that
+have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
+the cost of each run and of each step, with anything unknown shown as unknown. It has light and dark themes, works with
+a keyboard and on a phone, and only reads: it starts and changes nothing.
+
+Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
+the optional `@indaba/server` installed next to `indaba`; the page comes inside that package. Neither is in a published
+version yet, so for now run it from a checkout:
+
+```bash
+pnpm install && pnpm build
+pnpm indaba ui                           # the runs of this folder (--root /path/to/project for yours)
+pnpm try:ui -- --demo                    # a throwaway run with a retry, no agent or key needed
+```
+
+It is the first delivery step of [`specs/web-app`](specs/web-app/spec.md). [docs/web-view.md](docs/web-view.md) explains
+the page and its safety model; [docs/web-view-development.md](docs/web-view-development.md) is for working on it.
 
 ## Runners
 
@@ -156,7 +187,7 @@ See [`docs/extending.md`](docs/extending.md) for a complete example.
 
 Indaba follows [Semantic Versioning 2.0.0](https://semver.org/). The first
 published version is `0.1.0-alpha.0`; prereleases go to the `next` dist-tag. While the major version is `0`, a breaking change bumps the minor version. The
-public surface is the workflow file schema, the command line, the exported API of the five packages,
+public surface is the workflow file schema, the command line, the exported API of the published packages,
 emitted events and span attribute names. See [`CHANGELOG.md`](CHANGELOG.md).
 
 ## Development
@@ -168,6 +199,7 @@ pnpm install
 pnpm qa                                  # biome, tsc strict, vitest
 pnpm build
 node scripts/install-hooks.mjs           # once per clone
+pnpm try:ui -- --demo                    # look at the web view after pnpm build
 ```
 
 Read [`AGENTS.md`](AGENTS.md) and [`workflow.ai.yml`](workflow.ai.yml) first, pick a track, write a

@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 3: Empty and failure states</title>
+<link rel="stylesheet" href="sketch.css">
+</head>
+<body>
+<header class="app">
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html" aria-current="page">Runs</a>
+    <a href="06-workflows.html">Workflows</a>
+  </nav>
+  <span class="badge">Read-only</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
+</header>
+<main>
+  <h2>Empty and failure states</h2>
+  <div class="note"><b>Sketch 3 of 6.</b> What the page says when something is missing, wrong or slow. Each message says what happened
+    and the one thing to do, in plain words, with no secret, path or address in it. Source: section 5 of the spec (behaviour on
+    failure). A message that blocks replaces the screen; it never shows part of a screen.</div>
+
+  <div class="frames">
+
+    <div class="frame"><div class="label">No runs yet <span class="where">Runs screen</span></div><div class="body">
+      <h3>Nothing has run here yet</h3>
+      <p>Runs appear here when you start a workflow with <code>indaba run</code>. This page only shows them.</p>
+      <p class="muted">Looking in: the project folders given with <code>--root</code> (1 folder).</p>
+    </div></div>
+
+    <div class="frame"><div class="label">Server stopped <span class="where">any screen (blocks)</span></div><div class="body" role="alert">
+      <h3>The server has stopped</h3>
+      <p>This page can't reach <code>indaba ui</code> any more. Runs you started in a terminal are not affected.</p>
+      <p><b>Start it again with <code>indaba ui</code>.</b> The address is the one in your terminal.</p>
+      <p class="muted">Last answer received 14:11:08.</p>
+    </div></div>
+
+    <div class="frame"><div class="label">Token missing or wrong <span class="where">any screen (blocks)</span></div><div class="body" role="alert">
+      <h3>This page needs the address <code>indaba ui</code> printed</h3>
+      <p>The address carries a key for this session after the <code>#</code>. This one has none, or one from an earlier start.</p>
+      <p><b>Start it again with <code>indaba ui</code></b> and open the address it prints. Nothing is shown or kept from this page.</p>
+    </div></div>
+
+    <div class="frame"><div class="label">Stream dropped <span class="where">Run screen (banner)</span></div><div class="body">
+      <p role="status" class="state escalated" style="display:block">&#9888; Reconnecting&hellip; showing the run as of 14:11:08. It may have moved on.</p>
+      <p class="muted">The state chips turn grey and say <b>last known</b> while the banner shows; they never look live when
+        they are not (AC-05). When the stream resumes, the banner goes and the page catches up with no repeated or missed step.</p>
+    </div></div>
+
+    <div class="frame"><div class="label">A run still being written <span class="where">Run screen</span></div><div class="body">
+      <p role="status" class="state running" style="display:block">&#9654; The last line of this run's file is not finished yet. Showing what is complete.</p>
+      <p class="muted">The reader ignores a half-written line instead of showing an error.</p>
+    </div></div>
+
+    <div class="frame"><div class="label">Event the page doesn't know <span class="where">Run screen</span></div><div class="body">
+      <p class="muted">A note under the steps, never a crash:</p>
+      <pre>1 line this version can't show:
+  {"type":"span_event","name":"indaba.future.thing", &hellip;}</pre>
+      <p class="muted">At most 20 are kept, newest last (the dashboard keeps the same).</p>
+    </div></div>
+
+    <div class="frame" id="long-output"><div class="label">Very long output <span class="where">Run screen</span></div><div class="body">
+      <pre>&hellip;
+(an earlier part is not shown)
+ ✓ packages/engine/test/trace-view.test.ts
+ ✓ packages/server/test/server.test.ts</pre>
+      <p>Showing the last 500 lines of <code>verify</code>. <a href="#long-output">Open the full log</a> (plain text).</p>
+      <p class="muted">Output stops being stored when a run's allowance runs out; then the page says
+        <b>Output stopped being stored for this run.</b></p>
+    </div></div>
+
+    <div class="frame"><div class="label">Newer server than page <span class="where">any screen (blocks)</span></div><div class="body" role="alert">
+      <h3>This page is older than the server</h3>
+      <p>The server speaks version 2 of its interface; this page speaks version 1.</p>
+      <p><b>Close this tab and open the address <code>indaba ui</code> printed.</b> Nothing is shown in the meantime.</p>
+    </div></div>
+
+    <div class="frame"><div class="label">Run not found <span class="where">Run screen</span></div><div class="body">
+      <h3>No run has this id</h3>
+      <p>It may have been deleted, or it belongs to a folder this server is not looking in.</p>
+      <p><a href="01-runs.html">Back to the runs</a></p>
+    </div></div>
+
+    <div class="frame"><div class="label">Cost cannot be computed <span class="where">Runs and Run</span></div><div class="body">
+      <dl class="facts">
+        <dt>One call, no price</dt><dd><b>unknown</b></dd>
+        <dt>Three calls, one with no price</dt><dd><b>at least $0.42</b> (partial)</dd>
+        <dt>No model call at all</dt><dd><b>$0.00</b> (no model calls)</dd>
+        <dt>Step with no budget</dt><dd><b>no limit</b></dd>
+      </dl>
+    </div></div>
+
+    <div class="frame"><div class="label">Run on a phone, 320 px <span class="where">Run screen</span></div><div class="body">
+      <div class="phone">
+        <h3>task-pipeline <span class="state running">&#9654; running</span></h3>
+        <p class="muted" style="margin:0 0 8px">6 min 12 s, at least $0.42 (partial)</p>
+        <ol class="tasks">
+          <li><span>rfc</span> <span class="state completed">&#10003; completed</span></li>
+          <li><span>code</span> <span class="state completed">&#10003; completed</span></li>
+          <li><span>verify</span> <span class="state running">&#9654; running</span></li>
+          <li><span>debate_review</span> <span class="state pending">&#9675; pending</span></li>
+        </ol>
+        <p class="muted" style="margin:8px 0 0">Below 640 px the step list comes first and the graph scrolls sideways under it;
+          output opens full width. No two-column layout, nothing cut off (AC-20).</p>
+      </div>
+    </div></div>
+
+  </div>
+</main>
+</body>
+</html>

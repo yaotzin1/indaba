@@ -1,0 +1,776 @@
+/* The look of indaba ui: the tokens of specs/web-app/sketches/sketch.css, a light and a dark theme that follow the system
+   unless the person picks one. Atkinson Hyperlegible Next and Mono (SIL Open Font License) are bundled and served by the
+   page itself: no font, script or style comes from a network (AC-16). */
+
+/* ---------- Tokens: light ---------- */
+:root {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --well: #f3f5f8;
+  --ink: #1d2430;
+  --muted: #586374;
+  --line: #dce1e8;
+  --line-strong: #b8c1cd;
+  --brand: #8f4f12;
+  --brand-ink: #ffffff;
+  --brand-wash: #fbf2e7;
+  --table: #f7f8fa;
+  --table-dot: #cdd4de;
+
+  --ok: #17734a;
+  --ok-bg: #e5f3eb;
+  --run: #1f5bc0;
+  --run-bg: #e8effb;
+  --fail: #b3261e;
+  --fail-bg: #fbeae8;
+  --esc: #6b3fb0;
+  --esc-bg: #f1ebfb;
+  --pend: #586374;
+  --pend-bg: #eef1f5;
+
+  --sans:
+    "Atkinson Hyperlegible Next", "Segoe UI Variable Text", "Avenir Next", "Noto Sans", system-ui, sans-serif;
+  --mono: "Atkinson Hyperlegible Mono", "Cascadia Mono", "SF Mono", ui-monospace, Consolas, monospace;
+
+  --r-panel: 12px;
+  --r-item: 8px;
+  --r-chip: 5px;
+
+  color-scheme: light;
+}
+
+/* ---------- Tokens: dark ---------- */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141a24;
+    --panel: #1b2330;
+    --well: #10161f;
+    --ink: #e6eaf0;
+    --muted: #9ba7b9;
+    --line: #2b3546;
+    --line-strong: #435066;
+    --brand: #eab36a;
+    --brand-ink: #1f1406;
+    --brand-wash: #2c2418;
+    --table: #171e2a;
+    --table-dot: #2f3a4c;
+    --ok: #63cf96;
+    --ok-bg: #11301f;
+    --run: #8fb5ff;
+    --run-bg: #172a4b;
+    --fail: #ff8f82;
+    --fail-bg: #3c1a1b;
+    --esc: #c3a6ff;
+    --esc-bg: #2a2142;
+    --pend: #9ba7b9;
+    --pend-bg: #222b39;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #141a24;
+  --panel: #1b2330;
+  --well: #10161f;
+  --ink: #e6eaf0;
+  --muted: #9ba7b9;
+  --line: #2b3546;
+  --line-strong: #435066;
+  --brand: #eab36a;
+  --brand-ink: #1f1406;
+  --brand-wash: #2c2418;
+  --table: #171e2a;
+  --table-dot: #2f3a4c;
+  --ok: #63cf96;
+  --ok-bg: #11301f;
+  --run: #8fb5ff;
+  --run-bg: #172a4b;
+  --fail: #ff8f82;
+  --fail-bg: #3c1a1b;
+  --esc: #c3a6ff;
+  --esc-bg: #2a2142;
+  --pend: #9ba7b9;
+  --pend-bg: #222b39;
+  color-scheme: dark;
+}
+
+/* ---------- Base ---------- */
+* {
+  box-sizing: border-box;
+}
+html {
+  -webkit-text-size-adjust: 100%;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 16px / 1.55 var(--sans);
+}
+a {
+  color: var(--brand);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+a:hover {
+  text-decoration-thickness: 2px;
+}
+:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus {
+  left: 12px;
+  top: 12px;
+  background: var(--panel);
+  padding: 8px 12px;
+  z-index: 50;
+  border: 1px solid var(--line);
+}
+.vh {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+h2 {
+  font-size: 1.75rem;
+  line-height: 1.2;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  margin: 4px 0 6px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  overflow-wrap: anywhere;
+}
+h3 {
+  font-size: 1.05rem;
+  line-height: 1.3;
+  font-weight: 700;
+  margin: 0 0 10px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+h4 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 6px;
+}
+p {
+  margin: 0 0 10px;
+}
+.muted {
+  color: var(--muted);
+}
+code,
+pre,
+kbd {
+  font-family: var(--mono);
+  font-size: 0.875em;
+}
+code {
+  background: var(--well);
+  padding: 1px 5px;
+  border-radius: 4px;
+  overflow-wrap: anywhere;
+}
+pre code {
+  background: none;
+  padding: 0;
+}
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.5;
+  background: var(--well);
+  border-radius: var(--r-item);
+  padding: 12px 14px;
+  max-height: 28rem;
+  overflow: auto;
+}
+button {
+  font: 600 0.92rem / 1.2 var(--sans);
+  color: var(--ink);
+  background: var(--panel);
+  cursor: pointer;
+  padding: 9px 14px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-item);
+}
+button:hover {
+  background: var(--well);
+}
+button.link {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--brand);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 600;
+}
+
+/* ---------- Header ---------- */
+header.app {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+  padding: 0 24px;
+  min-height: 60px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+header.app .brand {
+  margin: 0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+header.app .brand img {
+  display: block;
+}
+header.app nav {
+  display: flex;
+  gap: 4px;
+  margin-right: auto;
+  align-self: stretch;
+}
+header.app nav a {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  color: var(--muted);
+  text-decoration: none;
+  font-weight: 600;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -1px;
+}
+header.app nav a:hover {
+  color: var(--ink);
+}
+header.app nav a[aria-current] {
+  color: var(--ink);
+  border-bottom-color: var(--brand);
+}
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px;
+  border-radius: var(--r-chip);
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--well);
+  white-space: nowrap;
+}
+.badge.live::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--pend);
+}
+.badge.live[data-state="live"]::before {
+  background: var(--ok);
+}
+.badge.live[data-state="reconnecting"]::before,
+.badge.live[data-state="unavailable"]::before {
+  background: var(--fail);
+}
+.theme {
+  display: inline-flex;
+  border: 1px solid var(--line);
+  border-radius: var(--r-item);
+  padding: 2px;
+  margin: 0;
+  gap: 2px;
+}
+.theme legend {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.theme label {
+  position: relative;
+  padding: 3px 10px;
+  border-radius: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: pointer;
+}
+.theme input {
+  position: absolute;
+  opacity: 0;
+  inset: 0;
+  margin: 0;
+  cursor: pointer;
+}
+.theme label:has(input:checked) {
+  background: var(--brand-wash);
+  color: var(--brand);
+}
+.theme label:has(input:focus-visible) {
+  outline: 3px solid var(--brand);
+  outline-offset: 1px;
+}
+
+/* ---------- Page ---------- */
+main {
+  padding: 24px;
+  max-width: 1280px;
+  margin: 0 auto;
+}
+.back {
+  margin-bottom: 4px;
+}
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--r-panel);
+  padding: 16px 20px;
+  min-width: 0;
+}
+.panel + .panel {
+  margin-top: 20px;
+}
+.panel.graph {
+  margin-top: 16px;
+}
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 380px;
+  gap: 20px;
+  align-items: start;
+  margin-top: 20px;
+}
+@media (max-width: 960px) {
+  .layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.banner.unavailable {
+  margin: 12px var(--gutter, 16px);
+}
+.banner.unavailable p {
+  margin: 6px 0;
+}
+.banner {
+  border-left: 3px solid var(--fail);
+  background: var(--fail-bg);
+  color: var(--ink);
+  border-radius: 0 var(--r-item) var(--r-item) 0;
+  padding: 10px 14px;
+  margin: 12px 0;
+  max-width: 78ch;
+}
+.note {
+  border-left: 3px solid var(--line-strong);
+  background: var(--well);
+  border-radius: 0 var(--r-item) var(--r-item) 0;
+  padding: 10px 14px;
+  font-size: 0.92rem;
+  margin: 0 0 12px;
+  max-width: 78ch;
+}
+.blocking {
+  max-width: 40rem;
+  margin: 12vh auto 0;
+}
+.blocking h2 {
+  font-size: 1.5rem;
+}
+.empty {
+  padding: 28px 20px;
+}
+.empty h3 {
+  font-size: 1.2rem;
+}
+
+/* ---------- States ---------- */
+.state {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: var(--r-chip);
+  font-size: 0.85rem;
+  font-weight: 700;
+  white-space: nowrap;
+  line-height: 1.4;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, currentColor 35%, transparent);
+}
+h2 .state {
+  font-size: 0.9rem;
+  letter-spacing: 0;
+}
+.state.completed {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.state.running {
+  color: var(--run);
+  background: var(--run-bg);
+}
+.state.failed {
+  color: var(--fail);
+  background: var(--fail-bg);
+}
+.state.escalated {
+  color: var(--esc);
+  background: var(--esc-bg);
+}
+.state.pending {
+  color: var(--pend);
+  background: var(--pend-bg);
+}
+
+/* ---------- Plain tables (inside the step panel) ---------- */
+table.plain {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.92rem;
+}
+table.plain th,
+table.plain td {
+  text-align: left;
+  padding: 6px 10px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+table.plain thead th {
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-weight: 600;
+  border-bottom-color: var(--line-strong);
+}
+table.plain .num {
+  text-align: right;
+  white-space: nowrap;
+}
+.table-scroll {
+  overflow-x: auto;
+}
+dl.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 6px 16px;
+  margin: 0 0 10px;
+}
+dl.facts dt {
+  color: var(--muted);
+}
+dl.facts dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.inspector section + section {
+  margin-top: 18px;
+}
+.inspector ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+
+/* ---------- Gridwright, themed by the tokens above ---------- */
+body .gw-root.ix-grid {
+  --gw-font-size: 0.95rem;
+  --gw-row-height: 44px;
+  --gw-radius: var(--r-item);
+  --gw-surface: var(--panel);
+  --gw-surface-muted: var(--well);
+  --gw-surface-hover: var(--well);
+  --gw-surface-selected: var(--brand-wash);
+  --gw-text: var(--ink);
+  --gw-text-muted: var(--muted);
+  --gw-border: var(--line);
+  --gw-border-strong: var(--line-strong);
+  --gw-accent: var(--brand);
+  --gw-accent-contrast: var(--brand-ink);
+  --gw-danger: var(--fail);
+  --gw-focus-ring: 0 0 0 2px var(--panel), 0 0 0 4px var(--brand);
+  --gw-cell-padding-x: 10px;
+  font-family: var(--sans);
+}
+.ix-grid .gw-row {
+  cursor: pointer;
+}
+.ix-grid .gw-cell[data-column-id="time"],
+.ix-grid .gw-cell[data-column-id="startedAt"] {
+  white-space: nowrap;
+}
+.ix-grid .gw-cell a.row-link {
+  color: var(--ink);
+  font-weight: 600;
+  text-decoration: none;
+}
+.ix-grid .gw-cell a.row-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.ix-grid .gw-cell button.row-link {
+  all: unset;
+  cursor: pointer;
+  font-weight: 600;
+  color: var(--ink);
+}
+.ix-grid .gw-cell button.row-link:hover {
+  color: var(--brand);
+  text-decoration: underline;
+}
+.ix-grid .gw-cell button.row-link:focus-visible {
+  outline: 3px solid var(--brand);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+.ix-grid .gw-cell [aria-current="true"] {
+  color: var(--brand);
+}
+
+/* ---------- The graph: the steps on a dotted canvas ---------- */
+.panel.graph {
+  background-color: var(--table);
+  background-image: radial-gradient(circle, var(--table-dot) 1px, transparent 1.4px);
+  background-size: 18px 18px;
+  background-position: 9px 9px;
+}
+.graph-canvas {
+  width: 100%;
+  min-height: 220px;
+}
+.graph-canvas .react-flow {
+  --xy-background-color: transparent;
+  background: transparent;
+}
+.graph-canvas .react-flow__attribution {
+  background: transparent;
+  color: var(--muted);
+  font-size: 10px;
+}
+.graph-canvas .react-flow__attribution a {
+  color: var(--muted);
+}
+.graph-canvas .react-flow__handle {
+  opacity: 0;
+  pointer-events: none;
+  width: 1px;
+  height: 1px;
+  min-width: 0;
+  min-height: 0;
+  border: 0;
+}
+.graph-canvas .react-flow__node {
+  cursor: pointer;
+}
+.graph-canvas .react-flow__node:focus-visible {
+  outline: none;
+}
+.graph-canvas .react-flow__edge.failure path.react-flow__edge-path {
+  stroke: var(--fail);
+  stroke-width: 2;
+  stroke-dasharray: 7 4;
+}
+.graph-canvas .react-flow__edge.waits path.react-flow__edge-path {
+  stroke: var(--line-strong);
+  stroke-width: 2;
+}
+.graph-canvas .react-flow__edge.waits.done path.react-flow__edge-path {
+  stroke: var(--ok);
+  stroke-width: 2.5;
+}
+.graph-canvas .react-flow__edge-text {
+  fill: var(--fail);
+  font: 600 12px var(--sans);
+}
+.graph-canvas .react-flow__edge-textbg {
+  fill: var(--table);
+}
+.step-card {
+  width: 200px;
+  height: 104px;
+  padding: 10px 12px;
+  border-radius: var(--r-item);
+  background: var(--panel);
+  border: 1.5px solid var(--line-strong);
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  overflow: hidden;
+}
+.step-card .name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-card .sub {
+  color: var(--muted);
+  font-size: 0.78rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-card .line {
+  font-size: 0.85rem;
+  font-weight: 600;
+  margin-top: auto;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.step-card.completed {
+  border-color: var(--ok);
+}
+.step-card.failed {
+  border-color: var(--fail);
+  border-width: 2.5px;
+}
+.step-card.escalated {
+  border-color: var(--esc);
+  border-width: 2.5px;
+}
+.step-card.running {
+  border: 2.5px dashed var(--run);
+}
+.step-card.pending {
+  border-style: dotted;
+}
+.step-card.selected {
+  box-shadow: 0 0 0 3px var(--brand);
+}
+.graph-canvas .react-flow__node:focus-visible .step-card {
+  outline: 3px solid var(--brand);
+  outline-offset: 3px;
+}
+.step-card .line .completed {
+  color: var(--ok);
+}
+.step-card .line .running {
+  color: var(--run);
+}
+.step-card .line .failed {
+  color: var(--fail);
+}
+.step-card .line .escalated {
+  color: var(--esc);
+}
+.step-card .line .pending {
+  color: var(--pend);
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 18px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 10px 0 0;
+}
+.legend .swatch {
+  display: inline-block;
+  width: 28px;
+  height: 0;
+  border-top: 2px solid var(--line-strong);
+  vertical-align: middle;
+  margin-right: 6px;
+}
+.legend .swatch.failure {
+  border-top: 2px dashed var(--fail);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .step-card.running {
+    animation: pulse 1.6s ease-in-out infinite;
+  }
+  @keyframes pulse {
+    50% {
+      border-color: color-mix(in srgb, var(--run) 45%, transparent);
+    }
+  }
+}
+
+.stale .state,
+.stale .react-flow__node {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+/* The words say it too: grey alone would be colour carrying meaning. */
+.state .last-known {
+  font-weight: 400;
+  font-style: italic;
+}
+
+ol.tries {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+ol.tries li {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+ol.tries li:last-child {
+  border-bottom: 0;
+}
+.try-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+  margin: 0;
+}
+.try-reason {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
+  max-width: 78ch;
+}
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 480px) {
+  .narrow-hide {
+    display: none;
+  }
+}
+@media (max-width: 640px) {
+  header.app {
+    padding: 10px 16px;
+    gap: 10px 16px;
+  }
+  header.app nav {
+    order: 3;
+    width: 100%;
+    margin: 0 -12px;
+  }
+  header.app nav a {
+    padding: 8px 12px;
+  }
+  main {
+    padding: 16px;
+  }
+  h2 {
+    font-size: 1.4rem;
+  }
+  .panel {
+    padding: 14px 16px;
+  }
+}

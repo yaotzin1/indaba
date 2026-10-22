@@ -1,0 +1,40 @@
+{
+  "name": "@indaba/server",
+  "version": "0.1.0-alpha.2",
+  "description": "The local server behind `indaba ui`: a token-protected HTTP and Server-Sent Events view of the runs on this machine. Optional.",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yaotzin1/indaba.git",
+    "directory": "packages/server"
+  },
+  "bugs": {
+    "url": "https://github.com/yaotzin1/indaba/issues"
+  },
+  "homepage": "https://github.com/yaotzin1/indaba#readme",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "page",
+    "!dist/**/*.tsbuildinfo",
+    "!dist/.tsbuildinfo"
+  ],
+  "scripts": {
+    "prepack": "node ../../scripts/stage-page.mjs",
+    "postpack": "node ../../scripts/stage-page.mjs --clean"
+  },
+  "sideEffects": false,
+  "dependencies": {
+    "@indaba/core": "workspace:*",
+    "@indaba/engine": "workspace:*"
+  }
+}

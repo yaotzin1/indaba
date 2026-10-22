@@ -15,7 +15,7 @@
 
 | Span | Parent | Attributes |
 | :--- | :--- | :--- |
-| `indaba.task <workflow name>` | none (trace root) | `indaba.task.id`, `indaba.workflow.name` |
+| `indaba.task <workflow name>` | none (trace root) | `indaba.task.id`, `indaba.workflow.name`, `indaba.workflow.structure` (every step with its `depends_on` and `on_failure`, as one JSON string, written when the run starts) |
 | a workflow step | the task span | step id, attempt number, status (`indaba.*`) |
 | an LLM call | the step span | `gen_ai.*` (system, request model, `gen_ai.usage.input_tokens`, `gen_ai.usage.output_tokens`), cost under `indaba.*` |
 | a tool or shell verification | the step span | command name (not its arguments if they could hold a secret), exit code, duration |

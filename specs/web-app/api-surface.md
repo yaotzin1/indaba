@@ -30,10 +30,14 @@ export interface ServerOptions {
   readonly staticDir: string;              // the folder of the built @indaba/web, resolved by `indaba ui`
   readonly port?: number;                  // default: a free port
   readonly host?: '127.0.0.1';             // the only accepted value in this version
-  readonly open?: boolean;                 // default true
+  readonly token?: string;                 // default: a random token at each start; a test passes its own
+  readonly pollMs?: number;                // how often the streams look for news (default 1000)
+  readonly sleep?: Sleep;                  // replaces the wait between polls; tests inject one
+  readonly coalesceMs?: number;            // events of one run this close together are one snapshot (default 50)
 }
 export interface ServerHandle {
   readonly url: string;                    // includes the token in the fragment
+  readonly port: number;
   close(): Promise<void>;                  // stops every run the server started, then closes the listener
 }
 export const CONTRACT_VERSION = '1.0.0';   // the page's own major is compiled into it at build time (how: plan time)
@@ -104,9 +108,48 @@ All declared in `@indaba/core`, `web-contract`, with no runtime code:
 
 ## Workflow schema, CLI (other commands), events and attributes
 
-No change.
+No change to the workflow schema, the other commands or the events. **One span attribute is added** (task T-20, amended
+2026-10-20 in `tasks.md`): `indaba.workflow.structure` on the run's root span, written when the run starts, a JSON list of
+`{ id, dependsOn, onFailure?: { action, target?, maxRetries } }` in the order the engine runs the steps. With it,
+`RunState` (and so `RunSnapshot`) gains `structure: readonly StepStructure[] | undefined`, and `@indaba/core` gains the
+declarations `StepStructure` and `StepFailureRoute`; `@indaba/engine` gains `describeStructure`, `readStructure`,
+`WORKFLOW_STRUCTURE_ATTRIBUTE` and `MAX_STRUCTURE_STEPS`. Adding an attribute and a field is a minor; no existing
+attribute or field changes.
 
 ## Defaults introduced
 
 Loopback only; token required for every API request; `Host` checked, and `Origin` checked on every request that changes
 anything. Changing any of these later is a major.
+
+## Cost on the run list (T-23, added 2026-10-21, answer 1 of the sketches)
+
+`RunSummary` gains `cost: RunCost`, and `@indaba/core` gains the declaration `RunCost`
+(`{ usd, unknown, calls }`, the shape `RunState.cost` already had, now named and shared by both). `TraceReader.listRuns`
+fills it with the engine's own reducer (`reduceAll(records).cost`), so the Runs screen and a run's screen show the same
+number and a cost the data does not support is never invented (AC-19). `GET /api/v1/runs` and the `run` of the
+server-wide stream carry it. The page shows it as a column of the Runs grid, with what it is made of in a tooltip, and
+the Run screen opens a table of the cost of each step that called a model.
+
+Classification: a **minor**. `RunSummary` is produced by Indaba and read by consumers; a field a reader receives is an
+addition. Code outside Indaba that builds its own `RunSummary` value (a test fixture) must add the field: that is the
+only compile break, it changes no behaviour, and below 1.0 it rides in the next minor. No attribute, event, default or
+CLI option changes; `indaba watch` prints the same columns.
+
+## Logging (T-25, added 2026-10-21)
+
+`ServerOptions` gains `logger?: Logger` (the contract of `@indaba/core`, `specs/logging`); without one the server
+records nothing, as before. `@indaba/server` exports `loggedPath(url)`, the path a record keeps (no query or fragment, at
+most 200 characters). What it records is AC-09 of `specs/logging`: start (address without the token) and stop, a refused
+request at `info`, a stream opening and closing at `info`, a not-found at `debug`, a failed request at `error`. Additive:
+a minor. The record names (`server started`, `request refused`, ...) are not a contract.
+
+## Debate discussion (T-21, added 2026-10-21)
+
+| Name | Kind | Package |
+| :--- | :--- | :--- |
+| `DiscussionView`, `DiscussionMessage`, `DiscussionResponse` | types only | `@indaba/core` `web-contract` |
+| `DiscussionStore` | class: `save(traceId, stepId, view)`, `read(traceId, stepId)` | `@indaba/engine` |
+| `GET /api/v1/runs/{id}/steps/{step}/discussion` | HTTP | `@indaba/server` |
+| `--discussion-dir <dir>` | CLI option on `run` and `ui` | `indaba` |
+
+Additive: a minor. A run without a kept discussion answers `404 discussion_not_found`, which the page words as "no messages were kept".

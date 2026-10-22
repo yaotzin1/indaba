@@ -7,8 +7,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json packages/tui/tsconfig.build.json",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "build": "tsc -b packages/core/tsconfig.build.json packages/engine/tsconfig.build.json packages/runners/tsconfig.build.json packages/cli/tsconfig.build.json packages/tui/tsconfig.build.json packages/server/tsconfig.build.json && pnpm --filter @indaba/web build",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p packages/web/tsconfig.json",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "test": "vitest run",
@@ -18,7 +18,8 @@
     "qa": "pnpm lint && pnpm typecheck && pnpm coverage",
     "smoke": "node scripts/smoke-pack.mjs",
     "indaba": "node packages/cli/dist/bin.js",
-    "try:agent": "node scripts/try-agent.mjs"
+    "try:agent": "node scripts/try-agent.mjs",
+    "try:ui": "node scripts/try-ui.mjs"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

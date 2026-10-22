@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { terminalAdjudicator } from './arbiter-prompt.js';
 import { EarlyExit } from './exit.js';
 import { main } from './main.js';
+import { createBrowserOpener } from './open-browser.js';
 import { terminalAuthChooser } from './prompt.js';
 import { CANCEL_MESSAGE, createRunStarter } from './run-child.js';
 
@@ -39,6 +40,7 @@ const code = await main(process.argv.slice(2), {
   signal: controller.signal,
   exitHooks: earlyExit,
   startRun: createRunStarter(process.execPath, fileURLToPath(import.meta.url)),
+  openBrowser: createBrowserOpener(process.platform),
   // Only a person at a terminal can be asked how an agent should log in, or to rule on a debate.
   ...(process.stdin.isTTY && process.stdout.isTTY
     ? {

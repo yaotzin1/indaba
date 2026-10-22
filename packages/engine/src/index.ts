@@ -27,6 +27,7 @@ export {
   resolveLoggingSettings,
   SINK_TYPES,
 } from '@indaba/core';
+export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
 export type { ProjectConfig } from './config/project-config.js';
