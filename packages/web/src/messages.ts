@@ -9,6 +9,9 @@ export const messages = {
   readOnly: 'Read-only',
   readOnlyTitle:
     'This page never starts or changes a run; only the Settings screen writes, and only indaba.config',
+  canRun: 'Runs and stops',
+  canRunTitle:
+    'This page can start a workflow and stop a run it started; runs started in a terminal are only shown',
   live: {
     connecting: 'Connecting',
     live: 'Live',
@@ -30,7 +33,84 @@ export const messages = {
     unnamed: 'unnamed',
     emptyTitle: 'No runs yet',
     emptyBody: 'Start one in a terminal and it appears here while it runs.',
+    emptyBodyCanRun: 'Run a workflow from here, or start one in a terminal; it appears here while it runs.',
     emptyCommand: 'indaba run workflow.yml',
+    runWorkflow: 'Run a workflow',
+  },
+
+  /** The Run a workflow panel and Stop (specs/web-app-actions). */
+  actions: {
+    panelTitle: 'Run a workflow',
+    close: 'Close',
+    loading: 'Looking for workflows...',
+    listLabel: 'Workflows found in the projects served',
+    lead: 'Each one runs as indaba run would, in a process of its own, against its project.',
+    notice:
+      'Runs started here stop when indaba ui stops: closing it, or Ctrl+C in its terminal, cancels them. To keep a run going on its own, start it in a terminal.',
+    truncated:
+      'Not every file was looked at: the search stopped at its limit. Name a workflow file with indaba run in a terminal to run one not listed.',
+    none: 'No workflow file was found. Indaba lists files named *.workflow.ai.yml (or .yaml) and the project default .indaba/workflow.ai.yml.',
+    run: 'Run',
+    runLabel: (name: string): string => `Run ${name}`,
+    inProject: (path: string, project: string): string => `${path} in ${project}`,
+    invalid: 'Cannot run: it has problems',
+    confirmTitle: (name: string): string => `Before ${name} runs for the first time`,
+    confirmLead:
+      'This is what the workflow file says it will use. Run it only if you expect all of it. You are asked again whenever the file changes.',
+    runners: 'Runners',
+    commands: 'Commands it runs',
+    noCommands: 'No command is named in the file.',
+    permissions: 'What each step may touch',
+    needsPerson: 'Steps that need a person',
+    needsPersonNote:
+      'A run started here has no terminal, so these steps cannot ask you and end as escalated. Run the workflow in a terminal to answer them.',
+    limit:
+      'This covers only what the workflow file declares. It does not cover scripts a command calls, indaba.config, plugins, or what an agent then does with its own tools.',
+    confirmRun: 'Run it',
+    back: 'Back to the list',
+    starting: (name: string): string => `Starting ${name}...`,
+    startingNote: 'The run opens as soon as it has written its first record.',
+    failedTitle: 'The run did not start',
+    failedReason: (reason: string): string => `It said: ${reason}`,
+    tryAgain: 'Try again',
+    problemsTitle: 'Problems',
+    refusals: {
+      workflow_not_found: {
+        message: 'This workflow is no longer in the project.',
+        next: 'Go back to the list, which looks again.',
+      },
+      workflow_invalid: {
+        message: 'This workflow has problems, so it cannot run.',
+        next: 'Fix the problems shown, then try again.',
+      },
+      not_saved: {
+        message: 'Your confirmation could not be saved, so the run did not start.',
+        next: 'Check that your user configuration folder can be written, then try again.',
+      },
+      too_many_runs: {
+        message: 'The most runs started here at once are already going.',
+        next: 'Wait for one to end, or stop one, then try again.',
+      },
+      start_failed: {
+        message: 'The run could not be started.',
+        next: 'Run the workflow with indaba run in a terminal to see why.',
+      },
+      other: {
+        message: 'The server did not start this run.',
+        next: 'Try again, or run the workflow in a terminal.',
+      },
+    } as Readonly<Record<string, { readonly message: string; readonly next: string }>>,
+    stop: 'Stop',
+    stopLabel: (name: string): string => `Stop the run of ${name}`,
+    stopTitle: (name: string): string => `Stop ${name}?`,
+    stopBody:
+      'It stops as Ctrl+C would stop it: the step that is running is cancelled and its worktree is removed. A stopped run cannot be resumed.',
+    stopConfirm: 'Stop the run',
+    keepRunning: 'Keep it running',
+    stopping: 'Stopping...',
+    stopFailed: 'The run could not be stopped from here.',
+    notStartedHere:
+      'This run was not started from this page, so it can only be stopped where it was started.',
   },
 
   run: {

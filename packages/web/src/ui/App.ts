@@ -28,6 +28,8 @@ export interface AppProps {
   readonly store: Store | undefined;
   /** How often running durations move on, in ms. */
   readonly tickMs?: number;
+  /** How often a start is asked about; tests make it short. */
+  readonly pollMs?: number;
 }
 
 function blockingOf(failure: Failure, origin: string): ReactElement {
@@ -97,6 +99,11 @@ export function App(props: AppProps): ReactElement {
   // Bumped when the server answers again, so the screens (and their streams) start afresh.
   const [attempt, setAttempt] = useState(0);
   const [checking, setChecking] = useState<'idle' | 'checking' | 'down'>('idle');
+  // Whether this server starts runs; asked once. Until it answers the page offers no Run button.
+  const [canRun, setCanRun] = useState(false);
+  // The notice that closing indaba ui stops its runs is shown until the first run of this session (AC-11).
+  const [noticeSeen, setNoticeSeen] = useState(false);
+  const onNoticeSeen = useCallback(() => setNoticeSeen(true), []);
 
   useEffect(() => applyTheme(root, theme), [root, theme]);
 
@@ -110,11 +117,24 @@ export function App(props: AppProps): ReactElement {
       return;
     }
     let current = true;
-    client.contract().catch((error: unknown) => {
-      if (current && error instanceof ApiFailure) {
-        setFatal(error.failure);
-      }
-    });
+    client.contract().then(
+      () =>
+        // Only a question of whether to show the Run button: an answer it cannot use means no button, not a broken
+        // page. The screens report a missing token or a stopped server on their own.
+        client.workflows().then(
+          (list) => {
+            if (current) {
+              setCanRun(list !== undefined);
+            }
+          },
+          () => undefined,
+        ),
+      (error: unknown) => {
+        if (current && error instanceof ApiFailure) {
+          setFatal(error.failure);
+        }
+      },
+    );
     return () => {
       current = false;
     };
@@ -179,7 +199,18 @@ export function App(props: AppProps): ReactElement {
       onLive,
     });
   } else {
-    content = h(RunsScreen, { key: attempt, client, clock, navigate, onFatal, onLive });
+    content = h(RunsScreen, {
+      key: attempt,
+      client,
+      clock,
+      navigate,
+      onFatal,
+      onLive,
+      canRun,
+      noticeSeen,
+      onNoticeSeen,
+      ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
+    });
   }
 
   return h(
@@ -217,10 +248,13 @@ export function App(props: AppProps): ReactElement {
           messages.nav.settings,
         ),
       ),
-      // The Settings screen writes indaba.config and follows no stream, so neither badge is true there.
+      // The Settings screen writes indaba.config and follows no stream, so neither badge is true there. A server that
+      // starts runs is not read-only, so the page does not say it is.
       route.name === 'settings'
         ? h('span', { className: 'badge' }, messages.settings.badge)
-        : h('span', { className: 'badge', title: messages.readOnlyTitle }, messages.readOnly),
+        : canRun
+          ? h('span', { className: 'badge', title: messages.canRunTitle }, messages.canRun)
+          : h('span', { className: 'badge', title: messages.readOnlyTitle }, messages.readOnly),
       fatal === undefined && route.name !== 'settings'
         ? h('span', { className: 'badge live', 'data-state': live, role: 'status' }, messages.live[live])
         : null,

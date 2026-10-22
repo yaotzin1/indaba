@@ -5,8 +5,12 @@ import type {
   LoggingSettingsResponse,
   RunSnapshot,
   RunSummary,
+  RunSummaryOfUse,
   ServerStreamEvent,
   SinkTestResponse,
+  StartStatusResponse,
+  WorkflowListResponse,
+  WorkflowSummary,
 } from '@indaba/core';
 import { SseParser } from './sse.js';
 
@@ -61,10 +65,36 @@ export const MAX_RETRY_MS = 5000;
  */
 export const MAX_FAILED_ATTEMPTS = 8;
 
+/** A run as the page opens it: its snapshot, and whether this server may stop it (contract 1.1). */
+export interface RunView {
+  readonly run: RunSnapshot;
+  readonly canStop: boolean;
+}
+
+/** What asking to start a run gave: started, a confirmation to show first, or a refusal by its code. */
+export type StartAnswer =
+  | { readonly kind: 'started'; readonly startId: string }
+  | { readonly kind: 'confirm'; readonly contentHash: string; readonly use: RunSummaryOfUse }
+  | { readonly kind: 'refused'; readonly code: string; readonly problems: readonly string[] };
+
+/** What asking to stop a run gave. */
+export type StopAnswer =
+  | { readonly kind: 'stopping' }
+  | { readonly kind: 'ended' }
+  | { readonly kind: 'refused'; readonly code: string };
+
 export interface Client {
   contract(): Promise<ContractResponse>;
   runs(): Promise<readonly RunSummary[]>;
-  run(id: string): Promise<RunSnapshot>;
+  run(id: string): Promise<RunView>;
+  /** The workflows the server can start, or undefined when it does not start runs (specs/web-app-actions). */
+  workflows(): Promise<WorkflowListResponse | undefined>;
+  /** Asks to start a workflow by its id; with the hash of a confirmation the person gave, confirms that content. */
+  startRun(workflowId: string, confirmedHash?: string): Promise<StartAnswer>;
+  /** Where a start is: starting, running with its trace id, or failed with its reason. */
+  startStatus(startId: string): Promise<StartStatusResponse>;
+  /** Asks a run this server started to stop, as Ctrl+C would. */
+  stopRun(runId: string): Promise<StopAnswer>;
   /** Follows one run until it ends or `signal` aborts, resuming after a drop with the last event id. */
   followRun(id: string, handlers: StreamHandlers<RunSnapshot>, signal: AbortSignal): Promise<void>;
   /** Follows the server-wide stream: a run started or ended. */
@@ -182,6 +212,40 @@ function isRunSummary(value: unknown): value is RunSummary {
   );
 }
 
+const isStrings = (value: unknown): value is readonly string[] =>
+  Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+function isWorkflowSummary(value: unknown): value is WorkflowSummary {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.name === 'string' &&
+    typeof value.path === 'string' &&
+    typeof value.project === 'string' &&
+    typeof value.valid === 'boolean' &&
+    isStrings(value.problems)
+  );
+}
+
+function isSummaryOfUse(value: unknown): value is RunSummaryOfUse {
+  return (
+    isRecord(value) &&
+    isStrings(value.runners) &&
+    isStrings(value.commands) &&
+    isStrings(value.permissions) &&
+    isStrings(value.needsPerson)
+  );
+}
+
+function isStartStatus(value: unknown): value is StartStatusResponse {
+  return (
+    isRecord(value) &&
+    (value.state === 'starting' || value.state === 'running' || value.state === 'failed') &&
+    (value.runId === undefined || typeof value.runId === 'string') &&
+    (value.failure === undefined || typeof value.failure === 'string')
+  );
+}
+
 /** The major of a version such as `1.2.0`; NaN when it has none. */
 export function majorOf(version: string): number {
   return Number.parseInt(version.split('.')[0] ?? '', 10);
@@ -247,6 +311,36 @@ export function createClient(options: ClientOptions): Client {
       parsed = await response.json();
     } catch {
       throw new ApiFailure({ kind: 'server', message: 'The server sent something this page cannot read.' });
+    }
+    return { status: response.status, body: parsed };
+  };
+
+  /**
+   * A write whose every answer is one the page shows (a refusal has a code, never a status): only a missing token and an
+   * unreachable server are failures.
+   */
+  const post = async (
+    path: string,
+    body?: unknown,
+  ): Promise<{ readonly status: number; readonly body: unknown }> => {
+    let response: Response;
+    try {
+      response = await options.fetch(`${API}${path}`, {
+        method: 'POST',
+        headers: headers(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+      });
+    } catch {
+      throw new ApiFailure({ kind: 'unreachable' });
+    }
+    if (response.status === 401) {
+      throw new ApiFailure({ kind: 'unauthorized' });
+    }
+    let parsed: unknown;
+    try {
+      parsed = await response.json();
+    } catch {
+      parsed = undefined;
     }
     return { status: response.status, body: parsed };
   };
@@ -365,7 +459,68 @@ export function createClient(options: ClientOptions): Client {
       if (!isRunSnapshot(run)) {
         throw new ApiFailure({ kind: 'server', message: 'The server sent a run this page cannot read.' });
       }
-      return run;
+      // A server of contract 1.0 does not say; it cannot stop runs either.
+      return { run, canStop: isRecord(body) && body.canStop === true };
+    },
+
+    async workflows() {
+      let body: unknown;
+      try {
+        body = await json('/workflows');
+      } catch (error) {
+        if (error instanceof ApiFailure && error.failure.kind === 'not_found') {
+          return undefined;
+        }
+        throw error;
+      }
+      const list: unknown = isRecord(body) ? body.workflows : undefined;
+      if (!Array.isArray(list)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent a list this page cannot read.' });
+      }
+      return {
+        workflows: list.filter(isWorkflowSummary),
+        truncated: isRecord(body) && body.truncated === true,
+      };
+    },
+
+    async startRun(workflowId, confirmedHash) {
+      const answer = await post(
+        '/runs',
+        confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash },
+      );
+      const body = answer.body;
+      if (answer.status === 202 && isRecord(body) && typeof body.startId === 'string') {
+        return { kind: 'started', startId: body.startId };
+      }
+      if (
+        isRecord(body) &&
+        body.code === 'confirmation_required' &&
+        typeof body.contentHash === 'string' &&
+        isSummaryOfUse(body.use)
+      ) {
+        return { kind: 'confirm', contentHash: body.contentHash, use: body.use };
+      }
+      return { kind: 'refused', code: isApiError(body) ? body.code : 'other', problems: problemsOf(body) };
+    },
+
+    async startStatus(startId) {
+      const body = await json(`/starts/${encodeURIComponent(startId)}`);
+      if (!isStartStatus(body)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent a start this page cannot read.' });
+      }
+      return body;
+    },
+
+    async stopRun(runId) {
+      const answer = await post(`/runs/${encodeURIComponent(runId)}/stop`);
+      const state = isRecord(answer.body) ? answer.body.state : undefined;
+      if (answer.status === 202 && state === 'stopping') {
+        return { kind: 'stopping' };
+      }
+      if (answer.status === 200 && state === 'ended') {
+        return { kind: 'ended' };
+      }
+      return { kind: 'refused', code: isApiError(answer.body) ? answer.body.code : 'other' };
     },
 
     followRun(id, handlers, signal) {
