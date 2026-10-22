@@ -4,13 +4,20 @@ import { parseArgs } from 'node:util';
 import { type Logger, noopLogger } from '@indaba/core';
 import { LOG_OPTIONS_USAGE } from './log.js';
 import type { Io } from './main.js';
-import { loadServer, type ServerLoad, type UiRunControl, type UiSettingsBackend } from './server-loader.js';
+import {
+  loadServer,
+  type ServerLoad,
+  type UiRunControl,
+  type UiSettingsBackend,
+  type UiWorkflowStore,
+} from './server-loader.js';
 
 export const UI_USAGE = `Usage: indaba ui [options]
 
 Open the web view of the runs on this machine. It reads what runs write under .indaba/traces, and it can start a
 workflow of a --root and stop a run it started; each run is an indaba run of its own. Closing indaba ui stops the runs
-it started. Its Settings screen changes the logging section of indaba.config of the first --root (or the current folder).
+it started, and it can edit the text of a workflow file of a --root. Its Settings screen changes the logging section of
+indaba.config of the first --root (or the current folder).
 
 Options:
       --root <dir>    A project whose runs to show; repeatable (default: the current folder)
@@ -36,6 +43,8 @@ export interface UiDeps {
    * Run button and the server starts nothing.
    */
   readonly runControl?: (roots: readonly string[]) => UiRunControl;
+  /** Reading, checking and saving a workflow's text from the page (specs/web-app-editing-core). Without it, no Edit. */
+  readonly workflowStore?: (roots: readonly string[]) => UiWorkflowStore;
 }
 
 class UiUsageError extends Error {}
@@ -163,6 +172,7 @@ export async function ui(args: readonly string[], io: Io, deps: UiDeps = {}): Pr
       ? {}
       : { loggingSettings: deps.loggingSettings(options.roots[0]) }),
     ...(deps.runControl === undefined ? {} : { runs: deps.runControl(options.roots) }),
+    ...(deps.workflowStore === undefined ? {} : { workflowStore: deps.workflowStore(options.roots) }),
     logger: log,
   });
   // The server records its own address, without the token; here what the command was asked to serve.

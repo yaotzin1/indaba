@@ -90,7 +90,13 @@ describe('indaba ui', () => {
     const { dir, controller, captured, server, opened, finished } = await runUi([]);
     await settle(() => server.started.length > 0);
     expect(server.started).toEqual([
-      { roots: [dir], staticDir: '/page', logger: expect.anything(), loggingSettings: expect.anything() },
+      {
+        roots: [dir],
+        staticDir: '/page',
+        logger: expect.anything(),
+        loggingSettings: expect.anything(),
+        workflowStore: expect.anything(),
+      },
     ]);
     expect(captured.stdout()).toContain(ADDRESS);
     expect(opened).toEqual([ADDRESS]);
