@@ -20,6 +20,7 @@ import {
 } from '@indaba/core';
 import { parseAllDocuments } from 'yaml';
 import { GuardRegistry } from '../guard/registry.js';
+import { LineCounter, type Problem, place } from './diagnose.js';
 import { ErrorBag } from './error-bag.js';
 import { Interpolator } from './interpolator.js';
 import { isYamlMap, Node } from './node.js';
@@ -35,6 +36,9 @@ function lookup<T extends string>(values: Readonly<Record<string, T>>, name: str
 }
 
 /** Parses and validates a workflow file. Every problem found is reported at once. */
+/** The options every read of a workflow uses, so `parse` and `diagnose` see the same document. */
+const YAML_OPTIONS = { schema: 'core', uniqueKeys: true, strict: true, logLevel: 'silent' } as const;
+
 /** Top-level keys of a repository's development workflow, a different format that shares the file name. */
 const DEVELOPMENT_WORKFLOW_KEYS = ['governance', 'tracks', 'stages', 'quality_gates'];
 
@@ -147,14 +151,51 @@ export class WorkflowParser {
     return workflow;
   }
 
+  /**
+   * The problems of a text, each placed in it (specs/workflow-editor, AC-05): the errors `parse` would throw, or, when
+   * there are none, the warnings `indaba validate` prints. The sentences are those exactly; only the place is added.
+   */
+  diagnose(source: string): Problem[] {
+    const lines = new LineCounter();
+    const docs = Array.from(parseAllDocuments(source, { ...YAML_OPTIONS, lineCounter: lines }));
+    const [doc, second] = docs;
+    let workflow: WorkflowDefinition;
+    try {
+      workflow = this.parse(source);
+    } catch (error) {
+      if (!(error instanceof WorkflowValidationError)) {
+        throw error;
+      }
+      if (doc === undefined) {
+        return error.problems.map((message) => ({ path: '$', message, severity: 'error' }));
+      }
+      const syntax = doc.errors[0] ?? doc.warnings[0];
+      return error.problems.map((message): Problem => {
+        if (syntax !== undefined && message === `invalid YAML: ${syntax.message}`) {
+          const at = syntax.linePos?.[0];
+          return at === undefined
+            ? { path: '$', message, severity: 'error' }
+            : { path: '$', message, severity: 'error', line: at.line, column: at.col };
+        }
+        if (
+          second !== undefined &&
+          message.startsWith('invalid YAML: a workflow file holds exactly one document')
+        ) {
+          const { line, col } = lines.linePos(second.range[0]);
+          return { path: '$', message, severity: 'error', line, column: col };
+        }
+        return place(doc, lines, message, 'error');
+      });
+    }
+    // A text that parses has a first document.
+    return doc === undefined
+      ? []
+      : this.validator.warnings(workflow).map((m) => place(doc, lines, m, 'warning'));
+  }
+
   /** Core schema, one document, unique keys; a warning (an unknown tag, say) is as fatal as an error. */
   private decode(source: string): unknown {
-    const docs = parseAllDocuments(source, {
-      schema: 'core',
-      uniqueKeys: true,
-      strict: true,
-      logLevel: 'silent',
-    });
+    const docs = parseAllDocuments(source, YAML_OPTIONS);
     const [doc, ...rest] = Array.from(docs);
     if (doc === undefined) {
       return undefined;
