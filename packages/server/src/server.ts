@@ -223,8 +223,26 @@ function lastEventId(req: IncomingMessage): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+interface Refusal {
+  readonly code: string;
+  readonly detail?: Readonly<Record<string, unknown>> | undefined;
+}
+
+/**
+ * A refusal of a run control. Recognised by its name and `code`, not only by class: the command line, which supplies
+ * the control, does not import this package (it is optional), and two installed copies would defeat `instanceof`.
+ */
+function isRunControlError(error: unknown): error is Refusal {
+  return (
+    error instanceof RunControlError ||
+    (error instanceof Error &&
+      error.name === 'RunControlError' &&
+      typeof (error as { code?: unknown }).code === 'string')
+  );
+}
+
 /** The status and plain words of each refusal a run control may give; undefined for a code it should not give. */
-function startRefusal(error: RunControlError): { status: number; error: ApiError } | undefined {
+function startRefusal(error: Refusal): { status: number; error: ApiError } | undefined {
   const problems = error.detail?.problems;
   switch (error.code) {
     case 'workflow_not_found':
@@ -511,7 +529,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       const started = await runs.start(request);
       sendJson(res, 202, started);
     } catch (error) {
-      if (!(error instanceof RunControlError)) {
+      if (!isRunControlError(error)) {
         throw error;
       }
       const answer = startRefusal(error);

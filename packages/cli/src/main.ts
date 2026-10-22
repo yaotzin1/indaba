@@ -1,7 +1,8 @@
+import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
-import { hostname } from 'node:os';
-import { resolve } from 'node:path';
+import { homedir, hostname } from 'node:os';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
   type Adjudicator,
@@ -28,6 +29,7 @@ import {
   writeLoggingConfig,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
+import { userConfigFolder } from './config-folder.js';
 import { createEngine } from './engine-factory.js';
 import type { ExitHooks } from './exit.js';
 import {
@@ -46,8 +48,10 @@ import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
+import { CONFIRMATION_FILE } from './run-control/confirm.js';
+import { createRunControl } from './run-control/index.js';
 import { runWithDashboard } from './run-tui.js';
-import type { ServerLoad, UiSettingsBackend, UiSettingsState } from './server-loader.js';
+import type { ServerLoad, UiRunControl, UiSettingsBackend, UiSettingsState } from './server-loader.js';
 import { settingsCommand } from './settings.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
 import { ui } from './ui.js';
@@ -338,10 +342,12 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === 'ui') {
     return logged(command, io.cwd, logOptions, io, async (logger) => {
       try {
+        const runControl = await runControlFor(io, logger);
         return await ui(args, io, {
           logger,
           ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
           loggingSettings: (root) => settingsBackend(root, io, logOptions),
+          ...(runControl === undefined ? {} : { runControl }),
         });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
@@ -433,6 +439,39 @@ async function watchCommand(args: readonly string[], io: Io, logger: Logger): Pr
     (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
     return EXIT_FAILURE;
   }
+}
+
+/**
+ * How the page of `indaba ui` starts and stops runs (specs/web-app-actions): a child `indaba run` per run through the
+ * same starter as `run --tui`, its workflow checked by the parser `indaba validate` uses. Without a starter (a test that
+ * gives none) the page cannot start runs.
+ */
+async function runControlFor(
+  io: Io,
+  logger: Logger,
+): Promise<((roots: readonly string[]) => UiRunControl) | undefined> {
+  const starter = io.startRun;
+  if (starter === undefined) {
+    return undefined;
+  }
+  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, logger });
+  const folder = userConfigFolder(
+    process.platform,
+    { appData: io.env.APPDATA, xdgConfigHome: io.env.XDG_CONFIG_HOME },
+    homedir(),
+  );
+  const confirmationFile = join(folder, CONFIRMATION_FILE);
+  return (roots) =>
+    createRunControl({
+      roots,
+      starter,
+      environment: io.env,
+      confirmationFile,
+      pid: io.pid ?? process.pid,
+      ids: () => randomBytes(12).toString('hex'),
+      parse: (source) => parser.parse(source),
+      logger,
+    });
 }
 
 /** What the page of `indaba ui` may do with the logging settings of a project: the same reader, writer and test as `indaba settings`. */

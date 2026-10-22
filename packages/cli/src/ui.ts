@@ -4,12 +4,13 @@ import { parseArgs } from 'node:util';
 import { type Logger, noopLogger } from '@indaba/core';
 import { LOG_OPTIONS_USAGE } from './log.js';
 import type { Io } from './main.js';
-import { loadServer, type ServerLoad, type UiSettingsBackend } from './server-loader.js';
+import { loadServer, type ServerLoad, type UiRunControl, type UiSettingsBackend } from './server-loader.js';
 
 export const UI_USAGE = `Usage: indaba ui [options]
 
-Open the web view of the runs on this machine. It reads what runs write under .indaba/traces; it starts nothing.
-Its Settings screen changes the logging section of indaba.config of the first --root (or the current folder).
+Open the web view of the runs on this machine. It reads what runs write under .indaba/traces, and it can start a
+workflow of a --root and stop a run it started; each run is an indaba run of its own. Closing indaba ui stops the runs
+it started. Its Settings screen changes the logging section of indaba.config of the first --root (or the current folder).
 
 Options:
       --root <dir>    A project whose runs to show; repeatable (default: the current folder)
@@ -30,6 +31,11 @@ export interface UiDeps {
    * project. Without it the page has no Settings screen and the server stays read-only.
    */
   readonly loggingSettings?: (root: string) => UiSettingsBackend;
+  /**
+   * Starting and stopping runs from the page, over the served roots (specs/web-app-actions). Without it the page has no
+   * Run button and the server starts nothing.
+   */
+  readonly runControl?: (roots: readonly string[]) => UiRunControl;
 }
 
 class UiUsageError extends Error {}
@@ -156,6 +162,7 @@ export async function ui(args: readonly string[], io: Io, deps: UiDeps = {}): Pr
     ...(deps.loggingSettings === undefined || options.roots[0] === undefined
       ? {}
       : { loggingSettings: deps.loggingSettings(options.roots[0]) }),
+    ...(deps.runControl === undefined ? {} : { runs: deps.runControl(options.roots) }),
     logger: log,
   });
   // The server records its own address, without the token; here what the command was asked to serve.
@@ -174,9 +181,14 @@ export async function ui(args: readonly string[], io: Io, deps: UiDeps = {}): Pr
       opened ? 'Opening it in your browser.\n' : 'Your browser could not be opened; use the address above.\n',
     );
   }
-  io.stdout.write('Stop with Ctrl+C. Runs started in a terminal are not affected.\n');
+  io.stdout.write(
+    deps.runControl === undefined
+      ? 'Stop with Ctrl+C. Runs started in a terminal are not affected.\n'
+      : 'Stop with Ctrl+C; that also stops the runs started from the page. Runs started in a terminal are not affected.\n',
+  );
 
   await untilStopped(io.signal);
+  // The server's close stops the runs it started first: cancel, a bounded wait, then the trees still alive (AC-11).
   await handle.close();
   io.stdout.write('Stopped.\n');
   return 0;

@@ -59,6 +59,9 @@ function fakeChild(project: string, writes: boolean, stderr = ''): FakeChild {
       calls.push('cancel');
       finish(130);
     },
+    kill: () => {
+      calls.push('kill');
+    },
     release: () => {
       calls.push('release');
     },

@@ -1,8 +1,11 @@
 import { EventEmitter } from 'node:events';
+import { writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { userConfigFolder } from '../src/config-folder.js';
 import { main } from '../src/index.js';
 import { createBrowserOpener, openerCommand, type Starter } from '../src/open-browser.js';
+import type { RunStarter } from '../src/run-child.js';
 import { loadServer, type ServerLoad, type UiServerOptions } from '../src/server-loader.js';
 import { captureIo, makeTempDir } from './support.js';
 
@@ -30,7 +33,10 @@ function fakeServer(page: string | null = '/page') {
   return { load, started, closed: () => closed };
 }
 
-async function runUi(args: string[], options: { noPage?: boolean; opens?: boolean } = {}) {
+async function runUi(
+  args: string[],
+  options: { noPage?: boolean; opens?: boolean; startRun?: RunStarter } = {},
+) {
   const dir = await makeTempDir();
   const controller = new AbortController();
   const captured = captureIo(dir, {}, controller.signal);
@@ -43,6 +49,7 @@ async function runUi(args: string[], options: { noPage?: boolean; opens?: boolea
       opened.push(url);
       return Promise.resolve(options.opens ?? true);
     },
+    ...(options.startRun === undefined ? {} : { startRun: options.startRun }),
   };
   const finished = main(['ui', ...args], io);
   return { dir, controller, captured, server, opened, finished };
@@ -92,6 +99,47 @@ describe('indaba ui', () => {
     expect(await finished).toBe(0);
     expect(server.closed()).toBe(1);
     expect(captured.stdout()).toContain('Stopped.');
+  });
+
+  it('gives the server a run control over the roots when it can start runs, and says closing stops them', async () => {
+    const started: (readonly string[])[] = [];
+    const { dir, controller, captured, server, finished } = await runUi([], {
+      startRun: (args) => {
+        started.push(args);
+        return {
+          exited: new Promise<number>(() => undefined),
+          stderr: () => '',
+          cancel: () => undefined,
+          kill: () => undefined,
+          release: () => undefined,
+        };
+      },
+    });
+    await settle(() => server.started.length > 0);
+    const runs = server.started[0]?.runs;
+    if (runs === undefined) {
+      throw new Error('no run control');
+    }
+    await writeFile(
+      join(dir, 'demo.workflow.ai.yml'),
+      'version: "1.0"\nname: demo\nsteps:\n  - id: a\n    runner: shell\n    commands: [echo hi]\n',
+    );
+    expect((await runs.list()).workflows).toMatchObject([
+      { name: 'demo', path: 'demo.workflow.ai.yml', valid: true },
+    ]);
+    expect(captured.stdout()).toContain('that also stops the runs started from the page');
+    controller.abort();
+    expect(await finished).toBe(0);
+    expect(started).toEqual([]);
+  });
+
+  it('says in its help that it can start runs and that closing it stops them', async () => {
+    const dir = await makeTempDir();
+    const captured = captureIo(dir);
+    expect(await main(['ui', '--help'], captured.io)).toBe(0);
+    expect(captured.stdout()).toContain('it can start a');
+    expect(captured.stdout()).toContain('Closing indaba ui stops the runs');
+    expect(captured.stdout()).not.toContain('it starts nothing');
   });
 
   it('takes several roots and a port, and does not open the browser with --no-open', async () => {
@@ -271,5 +319,28 @@ describe('the folder of kept debate messages on run', () => {
     const help = captureIo(dir);
     await main(['run', '--help'], help.io);
     expect(help.stdout()).toContain('--discussion-dir');
+  });
+});
+
+describe('userConfigFolder', () => {
+  const none = { appData: undefined, xdgConfigHome: undefined };
+  it('is the platform’s own place, outside every project', () => {
+    expect(
+      userConfigFolder('win32', { ...none, appData: 'C:\\Users\\a\\AppData\\Roaming' }, 'C:\\Users\\a'),
+    ).toBe('C:\\Users\\a\\AppData\\Roaming');
+    expect(userConfigFolder('darwin', none, '/Users/a')).toBe(
+      join('/Users/a', 'Library', 'Application Support'),
+    );
+    expect(userConfigFolder('linux', { ...none, xdgConfigHome: '/xdg' }, '/home/a')).toBe('/xdg');
+    expect(userConfigFolder('linux', none, '/home/a')).toBe('/home/a/.config');
+  });
+
+  it('ignores a variable that is not an absolute path', () => {
+    expect(userConfigFolder('linux', { ...none, xdgConfigHome: 'relative' }, '/home/a')).toBe(
+      join('/home/a', '.config'),
+    );
+    expect(userConfigFolder('win32', { ...none, appData: 'rel' }, 'C:\\Users\\a')).toBe(
+      'C:\\Users\\a\\AppData\\Roaming',
+    );
   });
 });

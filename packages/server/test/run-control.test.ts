@@ -257,6 +257,15 @@ describe('the run resources over HTTP', () => {
     );
   });
 
+  it('recognises a refusal by its name and code, so a control from another package copy works', async () => {
+    await start();
+    const foreign = Object.assign(new Error('x'), { name: 'RunControlError', code: 'too_many_runs' });
+    refusal = foreign;
+    expect((await post('/api/v1/runs', json({ workflowId: 'w1' }))).status).toBe(429);
+    refusal = Object.assign(new Error('x'), { name: 'RunControlError', code: 7 });
+    expect((await post('/api/v1/runs', json({ workflowId: 'w1' }))).status).toBe(500);
+  });
+
   it('asks for a confirmation with the hash and the summary of use (AC-04)', async () => {
     await start();
     const use = { runners: ['shell'], commands: ['npm test'], permissions: ['build: x'], needsPerson: [] };
