@@ -9,6 +9,22 @@ export function hostAllowed(host: string | undefined, port: number): boolean {
   return value === `localhost:${port}` || value === `127.0.0.1:${port}` || value === `[::1]:${port}`;
 }
 
+/**
+ * The `Origin` a write may carry: none (a client that is not a browser, which still needs the token), or this
+ * server's own page under one of its loopback names.
+ */
+export function originAllowed(origin: string | undefined, port: number): boolean {
+  if (origin === undefined) {
+    return true;
+  }
+  const value = origin.toLowerCase();
+  return (
+    value === `http://localhost:${port}` ||
+    value === `http://127.0.0.1:${port}` ||
+    value === `http://[::1]:${port}`
+  );
+}
+
 /** The token of an `Authorization: Bearer <token>` header; undefined for anything else. */
 export function bearerOf(header: string | undefined): string | undefined {
   if (header === undefined) {

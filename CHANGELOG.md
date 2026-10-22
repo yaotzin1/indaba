@@ -127,6 +127,12 @@ port". The PHP prototype that preceded them was never published.
   A collector's credential is entered as a variable's name; the screen shows whether it is set, never its value. New
   in `@indaba/tui`: `editLoggingSettings` and the pure state behind it (`reduceSettings`, `buildSettingsScreen`, ...);
   the engine re-exports the settings description so the dashboard takes it from there.
+- **A Settings screen in `indaba ui`** (minor; track `feature`; spec `specs/logging`). `/settings` shows the same
+  settings with their defaults, checked by the server as they are typed, a test record per sink, and Save. It is the
+  one thing the server writes: `GET`/`PUT /api/v1/settings/logging`, `POST .../check` and `POST .../test`, only when
+  the command line supplies `ServerOptions.loggingSettings` (it does, for the first `--root`), with the token, the
+  `Host` check, a same-origin check, JSON bodies of at most 64 KiB; every other address still answers `GET` only.
+  New in `@indaba/core`: `SINK_DEFAULTS`, the response shapes and `ApiError.problems`.
 - **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
   with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
   first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it

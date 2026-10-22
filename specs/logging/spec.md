@@ -1,6 +1,6 @@
 # Specification: Logging
 
-> **Status**: Implemented except AC-09 and the web half of AC-20 (the server and its Settings screen, with `specs/web-app`).
+> **Status**: Implemented. AC-09 and the web half of AC-20 live on the web-app branch (the server and its page).
 > Section 8, item 7 (`indaba.config`, `indaba report`) was confirmed by the maintainer on 2026-10-21; the other items are
 > as recommended.
 > **Stage entry**: 1
@@ -80,7 +80,7 @@ there, and a person with nothing must still get usable files with no setup.
   setting its key, type, default, allowed range or values, a plain-words label and help text, and whether it is secret.
   The configuration parser, the command-line help, the web page and the terminal dashboard are all built from it, so a
   setting is added in one place and a UI never carries a second, drifting copy of a default or a limit.
-- [ ] AC-20. **Editable from the UI and the TUI.** The web page (`indaba ui`) and the terminal dashboard each have a
+- [x] AC-20. **Editable from the UI and the TUI.** The web page (`indaba ui`) and the terminal dashboard each have a
   Settings screen for logging: the values in use, the default beside each, validation as the person types, a test of a
   sink ("send one test record"), and Save. Save writes the `logging:` section of `indaba.config` through the same parser
   and validation as a hand-edited file, keeping comments and unrelated keys. This is the first thing the read-only server
@@ -98,7 +98,7 @@ there, and a person with nothing must still get usable files with no setup.
   the engine factory read the environment (the existing layers rule).
 - [x] AC-08. `warn` and `error` records are also written to standard error in plain text (`level: message`, then
   `key=value` fields); `info` and `debug` go to the file only, so the output of a command does not change.
-- [ ] AC-09. `indaba ui` logs through the same logger: the server starting and stopping, the address (never the token),
+- [x] AC-09. `indaba ui` logs through the same logger: the server starting and stopping, the address (never the token),
   each refused request (method, path without any query or fragment, status, reason), and each stream opening and closing.
   It logs no request body and no `Authorization` header.
 - [x] AC-10. A sink is an extension contract: `Plugin` and `PluginHost` accept a `LogSink`; a failing sink is isolated (it

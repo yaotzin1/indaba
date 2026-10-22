@@ -41,7 +41,10 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 
 ## Settings screens (with the actions step of `specs/web-app`)
 
-- [ ] **T-12** `GET`/`PUT /api/v1/settings/logging` and the Settings screen of the web page (AC-20, AC-21).
+- [x] **T-12** `GET`/`PUT /api/v1/settings/logging` and the Settings screen of the web page (AC-20, AC-21), with
+  `POST .../check` (the draft checked by the server as it is typed) and `POST .../test` (one test record). The server
+  writes only through `ServerOptions.loggingSettings`, which `indaba ui` gives it for the first root; the token, the
+  `Host` check, a same-origin check, JSON only and a 64 KiB body limit guard every write; everything else stays `GET`.
 - [x] **T-13** The Settings screen of the terminal dashboard: `editLoggingSettings` in `@indaba/tui`, opened by
   `indaba settings` (which prints the settings without a terminal).
 
