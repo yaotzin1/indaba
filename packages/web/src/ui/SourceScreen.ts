@@ -124,6 +124,8 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
   const gutter = useRef<HTMLDivElement | null>(null);
   const escaped = useRef(false);
   const checks = useRef(0);
+  // The pending check of a draft; Save cancels it, so a check never lands after the save's own answer.
+  const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const dirty = loaded !== undefined && text !== loaded.savedText;
   // Stable, because the Run panel asks about a start again whenever this changes.
@@ -189,6 +191,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       return;
     }
     const timer = setTimeout(() => {
+      checkTimer.current = undefined;
       checks.current += 1;
       const mine = checks.current;
       setStatus((s) => (s === 'saving' ? s : 'checking'));
@@ -208,6 +211,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
         },
       );
     }, checkDelayMs);
+    checkTimer.current = timer;
     return () => clearTimeout(timer);
   }, [client, text, loaded, checkDelayMs, onFatal]);
 
@@ -216,6 +220,12 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       if (loaded === undefined) {
         return;
       }
+      // The save answers with the problems of what it saved: no check of an older draft may come after it.
+      if (checkTimer.current !== undefined) {
+        clearTimeout(checkTimer.current);
+        checkTimer.current = undefined;
+      }
+      checks.current += 1;
       setStatus('saving');
       setSaveRefusal(undefined);
       client.saveWorkflowSource(workflowId, toSave, baseHash).then(

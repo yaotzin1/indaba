@@ -1205,6 +1205,32 @@ describe('the source view (T-10, T-11, AC-09 to AC-13)', () => {
     expect(screen.getByText('steps is missing')).toBeTruthy();
   });
 
+  it('lets no check of an older draft replace what the save answered', async () => {
+    let answerCheck: (problems: readonly WorkflowProblem[]) => void = () => undefined;
+    const client = editable({
+      save: () => ({
+        kind: 'saved',
+        contentHash: 'e'.repeat(64),
+        problems: [{ message: 'steps is missing' }],
+      }),
+    });
+    client.checkWorkflow = async (text) => {
+      client.checks.push(text);
+      return new Promise((resolve) => {
+        answerCheck = resolve;
+      });
+    };
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: 'name: x\n' } });
+    // The check of the draft starts, and has not answered when Save is pressed.
+    await waitFor(() => expect(client.checks).toHaveLength(1));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('steps is missing')).toBeTruthy();
+    await act(async () => answerCheck([]));
+    expect(screen.getByText('steps is missing')).toBeTruthy();
+  });
+
   it('shows a conflict with the disk’s version and lets the person choose (AC-04, AC-12)', async () => {
     const DISK = 'version: "1.0"\nname: theirs\nsteps: []\n';
     const client = editable({
