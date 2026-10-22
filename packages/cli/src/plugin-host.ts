@@ -3,6 +3,8 @@ import type {
   AdjudicatorRegistry,
   Guard,
   Logger,
+  LogSink,
+  LogSinkRegistry,
   PluginHost,
   Runner,
   SimpleEventDispatcher,
@@ -21,7 +23,17 @@ export class RegistryPluginHost implements PluginHost {
     private readonly events: SimpleEventDispatcher,
     private readonly adjudicators: AdjudicatorRegistry,
     readonly logger: Logger,
+    private readonly sinks?: LogSinkRegistry,
   ) {}
+
+  /** The sink joins the command's logger through the same door the built-ins' records go out of (AC-10). */
+  registerLogSink(sink: LogSink): void {
+    if (this.sinks === undefined) {
+      this.logger.debug('cli.plugin', 'a log sink was offered and this front end takes none');
+      return;
+    }
+    this.sinks.addSink(sink);
+  }
 
   registerRunner(runner: Runner): void {
     this.runners.register(runner);

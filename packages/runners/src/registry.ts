@@ -1,4 +1,4 @@
-import type { Runner } from '@indaba/core';
+import type { Logger, Runner } from '@indaba/core';
 import { RunnerUnavailableError } from '@indaba/core';
 import { AcpRunner, type AuthChooser } from './acp-runner.js';
 import { AntigravityRunner } from './antigravity-runner.js';
@@ -6,11 +6,12 @@ import { ClaudeRunner } from './claude-runner.js';
 import { CodexRunner } from './codex-runner.js';
 import { CommandRunner } from './command-runner.js';
 import { CursorRunner } from './cursor-runner.js';
+import { LoggingProcessSpawner, LoggingStreamingSpawner, loggingFetch } from './logging.js';
 import { OpenCodeRunner } from './opencode-runner.js';
 import { type FetchFunction, OpenRouterRunner } from './openrouter-runner.js';
-import type { ProcessSpawner } from './process.js';
+import { NodeProcessSpawner, type ProcessSpawner } from './process.js';
 import { ShellRunner } from './shell-runner.js';
-import type { StreamingProcessSpawner } from './streaming-process.js';
+import { NodeStreamingProcessSpawner, type StreamingProcessSpawner } from './streaming-process.js';
 
 export interface DefaultRunnerOptions {
   readonly fetch?: FetchFunction;
@@ -24,6 +25,11 @@ export interface DefaultRunnerOptions {
   readonly hostEnv?: Readonly<Record<string, string | undefined>>;
   /** Lets a person pick how an `acp` agent logs in; only a terminal front end supplies one. */
   readonly chooseAuthMethod?: AuthChooser;
+  /**
+   * Where the built-in runners record the processes they start and the requests they send (specs/logging, T-09).
+   * Without one nothing is recorded and the runners behave exactly as before.
+   */
+  readonly logger?: Logger;
 }
 
 /**
@@ -70,7 +76,20 @@ export class RunnerRegistry {
     env: Readonly<Record<string, string | undefined>> = {},
     options: DefaultRunnerOptions = {},
   ): RunnerRegistry {
-    const cli = options.spawner === undefined ? {} : { spawner: options.spawner };
+    const logger = options.logger;
+    const spawner =
+      logger === undefined
+        ? options.spawner
+        : new LoggingProcessSpawner(options.spawner ?? new NodeProcessSpawner(), logger);
+    const streamingSpawner =
+      logger === undefined
+        ? options.streamingSpawner
+        : new LoggingStreamingSpawner(options.streamingSpawner ?? new NodeStreamingProcessSpawner(), logger);
+    const fetchFn =
+      logger === undefined
+        ? options.fetch
+        : loggingFetch(options.fetch ?? ((input, init) => fetch(input, init)), logger);
+    const cli = spawner === undefined ? {} : { spawner };
     const registry = new RunnerRegistry();
     return registry
       .register(new ShellRunner(cli))
@@ -82,7 +101,7 @@ export class RunnerRegistry {
       .register(
         new OpenRouterRunner({
           apiKey: env.OPENROUTER_API_KEY ?? '',
-          ...(options.fetch === undefined ? {} : { fetch: options.fetch }),
+          ...(fetchFn === undefined ? {} : { fetch: fetchFn }),
         }),
       )
       .register(
@@ -93,7 +112,7 @@ export class RunnerRegistry {
             .split(',')
             .map((name) => name.trim())
             .filter((name) => name !== ''),
-          ...(options.streamingSpawner === undefined ? {} : { spawner: options.streamingSpawner }),
+          ...(streamingSpawner === undefined ? {} : { spawner: streamingSpawner }),
         }),
       );
   }

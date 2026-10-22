@@ -24,6 +24,8 @@ export type {
   LogLevel,
   LogRecord,
   LogSink,
+  LogSinkRegistry,
+  RedactorOptions,
   RemoteDelivery,
   ResolvedLogging,
   SettingDescription,
@@ -33,15 +35,20 @@ export type {
 } from './logging/index.js';
 export {
   createLogger,
+  createRedactor,
+  defaultLoggingSettings,
   isLogLevel,
   LOG_LEVELS,
   LOGGING_DEFAULTS,
   LOGGING_SETTINGS,
   levelEnabled,
+  loggingSettingsToConfig,
   MAX_FIELD_LENGTH,
   noopLogger,
+  REDACTED,
   resolveLoggingSettings,
   SINK_TYPES,
+  secretValuesOf,
 } from './logging/index.js';
 export type { Adjudicator, RulingRequest } from './mesh/adjudicator.js';
 export { AdjudicatorRegistry, Ruling, RulingSource, Verdict } from './mesh/adjudicator.js';

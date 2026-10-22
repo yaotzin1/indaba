@@ -166,6 +166,10 @@ It is optional in the type so a host written before it existed still type-checks
 provides one. To log what a run does, listen to an event (`StepStatusChanged`, `SpanEnded`) with `host.addListener`
 rather than logging the same thing twice: the command line already records those.
 
+A plugin can also add a sink, a place records go, with `logSinks` on the plugin or `host.registerLogSink(sink)`; it
+receives the same redacted records as the built-in file and terminal sinks, and one that throws is dropped after one
+warning. See [logging.md](logging.md#for-plugin-authors).
+
 ## Running with a plugin
 
 Pass `--plugin` to `validate`, `plan` and `run`. The option repeats, and the value is a file path

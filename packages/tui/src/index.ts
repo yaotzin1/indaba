@@ -16,6 +16,20 @@ export { clip, computeLayout, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from '
 export { MAX_REPLAY_WAIT_MS, replay } from './replay.js';
 export type { Row, Screen, ScreenOptions, Tone } from './screen.js';
 export { buildScreen, stepLine, stepTone, tooSmallRows } from './screen.js';
+export type { SettingsActions, SettingsOptions, SettingsResult } from './settings.js';
+export { editLoggingSettings } from './settings.js';
+export type { SettingsScreenOptions } from './settings-screen.js';
+export { buildSettingsScreen } from './settings-screen.js';
+export type { Checked, Draft, DraftSink, SettingsKey, SettingsRow, SettingsUi } from './settings-state.js';
+export {
+  check as checkSettingsDraft,
+  draftOf,
+  initialSettingsUi,
+  isDirty,
+  reduceSettings,
+  rowsOf,
+  selectedSinkSettings,
+} from './settings-state.js';
 export type { KeyName, UiContext, UiState } from './ui-state.js';
 export { clampUi, initialUi, reduceUi } from './ui-state.js';
 

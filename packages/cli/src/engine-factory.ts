@@ -4,6 +4,7 @@ import {
   AdjudicatorRegistry,
   IndabaError,
   type Logger,
+  type LogSinkRegistry,
   noopLogger,
   type Plugin,
   PricingTable,
@@ -30,7 +31,7 @@ import {
   WorkflowEngine,
   WorkflowParser,
 } from '@indaba/engine';
-import { type AuthChooser, openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
+import { type AuthChooser, loggingFetch, openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
 import { RegistryPluginHost } from './plugin-host.js';
 import { redact } from './redact.js';
 
@@ -80,6 +81,11 @@ export interface CreateEngineOptions {
    * `host.logger`. Without one nothing is logged.
    */
   readonly logger?: Logger;
+  /**
+   * Where a plugin's log sinks join (`Plugin.logSinks`, `PluginHost.registerLogSink`): the command's logger. Without
+   * one a plugin's sink is not added.
+   */
+  readonly logSinks?: LogSinkRegistry;
 }
 
 export interface EngineBundle {
@@ -129,26 +135,38 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   const runners = RunnerRegistry.withDefaults(env, {
     ...(options.env === undefined ? {} : { hostEnv: options.env }),
     ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
+    ...(options.logger === undefined ? {} : { logger }),
   });
   const guards = GuardRegistry.withDefaults();
 
   const adjudicators = new AdjudicatorRegistry();
-  const host = new RegistryPluginHost(runners, guards, events, adjudicators, logger);
+  const host = new RegistryPluginHost(runners, guards, events, adjudicators, logger, options.logSinks);
   if (options.humanAdjudicator !== undefined) {
     host.registerAdjudicator('human', options.humanAdjudicator);
   }
   // Endpoints from the environment join through the same door a plugin's runners use.
   const endpoints = openAiCompatibleFromEnv(compatibleEndpointEnv(options.env ?? {}), {
     reserved: runners.names(),
+    ...(options.logger === undefined
+      ? {}
+      : { fetch: loggingFetch((input, init) => fetch(input, init), logger) }),
   });
   for (const endpoint of endpoints) {
     host.registerRunner(endpoint);
   }
   for (const plugin of options.plugins ?? []) {
     try {
+      for (const sink of plugin.logSinks ?? []) {
+        host.registerLogSink(sink);
+      }
       await plugin.register(host);
+      logger.info('cli.plugin', 'a plugin registered', {
+        plugin: plugin.name,
+        logSinks: plugin.logSinks?.length ?? 0,
+      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : String(error);
+      logger.info('cli.plugin', 'a plugin failed to register', { plugin: plugin.name, reason });
       throw new IndabaError(`Plugin "${plugin.name}" failed to register: ${reason}`, { cause: error });
     }
   }

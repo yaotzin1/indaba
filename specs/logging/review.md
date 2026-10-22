@@ -1,92 +1,80 @@
 # Self-review: Logging
 
-> **Status**: self-reviewed for the slice on `feat/logging` (T-01, T-02, T-04, T-07 in part, T-08, T-09 in part, T-14,
-> T-15, T-18, T-21, T-22). The rest of `tasks.md` is open and named under Known gaps.
+> **Status**: self-reviewed for the second slice on `feat/logging-sinks-config` (T-03, T-05, T-06, T-07, T-09 for the
+> runners, T-11, T-13, T-16, T-17, T-19, T-20), on top of the first (#53). T-10 (the server's logging) was done on
+> `feat/web-app`; T-12 (the web Settings screen) is on `feat/web-app-logging`, the web-app branch rebased on this one.
 
-See [`.agents/rules/review.md`](../../.agents/rules/review.md).
+See [`.agents/rules/review.md`](../../.agents/rules/review.md). Stages run: implement, verify, review. Specify, clarify
+and plan were done in the first slice; this one followed them, recording the maintainer's confirmation of section 8,
+item 7 (`indaba.config`, `indaba report`) and one decision of its own (the terminal Settings screen is a command,
+`indaba settings`, not a pane of the run dashboard).
 
 ## 1. Boundary and layering
 
-`packages/core/src/logging` imports only itself; `architecture.test.ts` checks it. `FileLogSink` and `logEngineEvents`
-are in `@indaba/engine` and import only `node:` modules and `@indaba/core`. The engine re-exports the logging contract
-so `@indaba/tui`, which may only import the engine, uses the same `Logger`; its layers test is unchanged. Only the
-command line builds a logger; every other package receives one. The layers tests of core, engine, runners and tui now
-fail on `console.*` and on a direct `process.stdout`/`process.stderr` write. A plugin receives the same logger as the
-built-ins through `host.logger`, but **it cannot add a sink yet** (T-03): until then the built-in file and standard-error
-sinks have a door a plugin lacks, which AC-10 does not allow once the feature is complete.
+The redaction and the settings serializer are pure and live in `@indaba/core`; the environment arrives as a value.
+The remote sinks and `indaba.config` are in `@indaba/engine` (`node:http`, `node:https`, `node:net`, `node:dgram`,
+`node:fs`, `yaml`). The runners log through wrappers of the seams they already had (`ProcessSpawner`,
+`StreamingProcessSpawner`, `fetch`), so no runner class changed. The Settings screen is in `@indaba/tui`, importing
+only the engine, which now re-exports the settings description. Only `main.ts` reads the environment and the
+process; `report.ts` and `settings.ts` receive what they need. A plugin adds a sink through `Plugin.logSinks` or
+`PluginHost.registerLogSink`, the same `addSink` the composition root has: AC-10 is met.
 
 ## 2. Determinism and failure isolation
 
-The clock, the process id and the redaction are injected into `createLogger`; the command line passes `new Date()` and
-`process.pid` from `main.ts`, the one module allowed to read the process. The file sink takes the date of a file from the
-record, never from the wall clock. `logEngineEvents` gives the same records in the same order for the same events and
-clock (a test, AC-12). A sink that throws is dropped after one warning to the others; a file sink that cannot write
-stops after one warning and never throws; a bridge whose every sink throws does not fail the dispatch (a test). No
-process or worktree is started by this change. AC-11 for a whole run with every sink failing (T-16) is not tested yet.
+No clock or randomness in the engine's new files: a GELF chunk id is the process id and a counter, a GELF timestamp
+the record's own time. Timers bound attempts and `flush`. A remote sink only queues in `write`; it sends one record at
+a time, drops the oldest `debug` record when full, tries once while the collector is down, reports trouble once per
+outage, and never rejects. T-16 runs a workflow with an unwritable file sink and a throwing plugin sink and compares
+states, output, plugin effects and trace files with a normal run. A second Ctrl+C waits at most 2 s for the flush.
 
 ## 3. Public surface and semver
 
-Minor, additive (below 1.0), recorded in `api-surface.md` and `CHANGELOG.md`. Added: in `@indaba/core` the logging
-contract, `LOGGING_DEFAULTS`, `LOGGING_SETTINGS`, `resolveLoggingSettings` and the optional `PluginHost.logger`; in
-`@indaba/engine` `FileLogSink`, `FileLogSinkOptions`, `logEngineEvents`, `EventSource` and the re-exported contract; in
-`indaba` `--log-level`, `--log-dir`, `INDABA_LOG_LEVEL` and `CreateEngineOptions.logger`; in `@indaba/tui`
-`WatchOptions.logger`. No existing signature, default, workflow field, event or span attribute changed, and standard
-output of every command is byte-for-byte the same (the existing CLI tests are unchanged). **One behaviour a person will
-notice:** `validate`, `plan` and `watch` now write `.indaba/logs/` in the directory they run in, where they wrote nothing
-before. `PluginHost.logger` is optional so a host someone else implemented still type-checks; making it required later
-is a breaking change.
+Minor, additive (below 1.0), listed in `api-surface.md` and `CHANGELOG.md`. `createLogger` returns a subtype of what
+it returned. `PluginHost.registerLogSink` is optional so a host written elsewhere still type-checks. New commands
+`report` and `settings`, a new file `indaba.config`; no existing option, default, event or span attribute changed.
+Behaviour a person will notice: errors and traces are redacted by the wider rule (more is replaced, never less), and
+a broken `indaba.config` makes every command a usage error, as AC-13 asks.
 
 ## 4. Security
 
-The log folder is resolved and confined to the project when relative (also through a link, checked with `realpath`);
-an absolute one is accepted only from the person's own `--log-dir`. File names come from the record's time, never from
-input. The values of environment variables named like a key, token, secret, password or credential are redacted in
-`createLogger`, before any sink. **Not yet:** bearer tokens, API-key shapes and the `#token=` fragment (T-06). Until
-then a secret that is not in the environment but appears in a step's failure reason or a span's status message (both
-logged at `info` by the bridge) reaches the file; both are printable-filtered, put on one line and cut at 1000
-characters. Agent output is logged only at `debug`. Arguments are never logged, only the command name. No HTTP.
+The redaction covers the environment's secret values, collectors' credentials, `Authorization` and bearer values,
+key and token shapes, URL query and fragment credentials and URL passwords, with hostile-input tests built from
+fragments. A collector address comes only from `indaba.config`, must be http, https, tcp or udp, may not hold userinfo,
+and a redirect is never followed. A credential is read from the variable `secretEnv` names and is never in a file or
+a record. The runners' records hold the program name and the host and path only. `indaba.config` is refused when it is
+a link out of the project and is replaced in one rename. `indaba report` redacts every file again, confines a
+relative `--out`, and sends nothing. TLS over TCP is not offered (section 8, item 8).
 
 ## 5. Observability and honest numbers
 
-No span, attribute or event is added or changed; the bridge reads events and writes nothing back. The numbers
-(10 MiB a file, 10 files, 1000 characters a field) are named as starting values in one module and in the docs, not as
-measurements. A log folder that cannot be written is one sentence naming the folder, and the command goes on.
+No span, attribute or event changed. The numbers (queue 1000, 5 s, 3 retries, 250 ms between retries, 2 s for an
+early exit, 20 000 report lines) are named starting values in one place each and in `docs/logging.md`.
 
 ## 6. Dependencies and packaging
 
-No dependency added (`node:fs`, `node:path` only). `pnpm audit --audit-level low` found 6 advisories in `vite` 8.3.2,
-which only `vitest` brings in (dev only) and which were on `main` too; a `chore` commit moves the lockfile to `vite`
-8.3.5 within `vitest`'s own range, and the audit now prints `No known vulnerabilities found`. Packages publish `dist` only; `pnpm build && pnpm smoke` passes:
+No dependency added. `pnpm audit --audit-level low`: `No known vulnerabilities found`. `pnpm build && pnpm smoke`:
 `smoke-pack: 5 packages packed, installed and booted (indaba 0.1.0-alpha.2)`.
 
 ## 7. Verification
 
 ```
-pnpm qa (Linux 6.18, Node v22.22.0, pnpm 9.15.1)
-Biome: Found 1 warning. Found 1 info.   (both on main already: an unused variable in arbiter-flow.test.ts,
-                                         the deprecated "recommended" field in biome.json)
+pnpm qa (Linux, Node v22.22.0, pnpm 9.15.1)
+Biome: Found 1 warning. Found 1 info.   (both on main already)
 tsc: no errors
- Test Files  69 passed (69)
-      Tests  1319 passed | 1 skipped (1320)
-All files          |   97.63 |    93.59 |   97.32 |   97.88 |
-
-node scripts/check-workflow.mjs
-workflow.ai.yml matches the repository
+      Tests  1424 passed | 1 skipped
+All files          |   97.3 |    93.1 |   96.8 |   97.5 |
+pnpm e2e: Test Files 8 passed, Tests 31 passed
+node scripts/check-workflow.mjs: workflow.ai.yml matches the repository
+security audit: no findings; 72 script self-tests pass
 ```
 
-The node gates (skills, pointer sync, agent docs sync, security audit, 72 script self-tests) pass, and
-`check-track --range main..HEAD` reports every commit matching its track. Tests that would catch the absence or a
-regression: `engine/test/file-log-sink.test.ts`, `engine/test/log-events.test.ts`, `cli/test/logging.test.ts` (a real
-run with a plugin that logs through `host.logger`), the logging cases in `tui/test/dashboard.test.ts` and
-`tui/test/watch.test.ts`, and the layers tests. Run locally on Linux; CI's Verify jobs on Ubuntu, Windows and macOS pass on this branch (the link test uses a junction,
-so it needs no privilege on Windows).
+Tests that would catch a regression: `core/test/redaction.test.ts`, `engine/test/remote-log-sink.test.ts` (real HTTP,
+TCP and UDP listeners), `engine/test/project-config.test.ts`, `runners/test/logging.test.ts`,
+`cli/test/logging-config.test.ts` (config, collectors, plugin sinks, T-16, the early exit), `cli/test/report.test.ts`,
+`cli/test/settings.test.ts`, `tui/test/settings.test.ts`. Run on Linux only; CI runs Windows and macOS.
 
 ## Known gaps
 
-- `indaba.config` (`logging:`) waits for section 8, item 7 to be confirmed; until then only the options and the
-  variable configure logging.
-- T-03 plugin sinks, T-05 remote sinks, T-06 the full redaction, T-16 the all-sinks-failing run, T-10 and T-12/T-13
-  (the server and the settings screens), T-17 a docs page of its own, T-20 the rule in `workflow.ai.yml`.
-- The runners do not receive the logger; the server gets it when `feat/web-app` is rebased on this.
-- A second Ctrl+C exits before the sinks are flushed, so the last records can be lost.
 - Two processes writing the same day's file each keep their own byte count, so the size cap is approximate then.
+- The early exit is tested through `EarlyExit` and `main`, not by sending a real second SIGINT to the built binary.
+- The web Settings screen (T-12) is on `feat/web-app-logging`; it merges after this branch and `feat/web-app`.

@@ -1,4 +1,4 @@
-import type { Logger } from '@indaba/core';
+import type { Logger, LoggingSettings, SinkSettings } from '@indaba/core';
 
 /** What the command line needs of `@indaba/tui`. The package is optional, so its types are not imported. */
 export interface TuiWatchOptions {
@@ -20,8 +20,25 @@ export interface TuiWatchResult {
   readonly code: number;
 }
 
+export interface TuiSettingsOptions {
+  readonly settings: LoggingSettings;
+  readonly path: string;
+  readonly actions: {
+    save(settings: LoggingSettings): Promise<string>;
+    test(sink: SinkSettings): Promise<{ readonly ok: boolean; readonly text: string }>;
+    isVariableSet(name: string): boolean;
+  };
+  readonly ascii: boolean;
+  readonly color: boolean;
+  readonly stdout: NodeJS.WritableStream;
+  readonly stdin: NodeJS.ReadableStream;
+  readonly logger?: Logger;
+}
+
 export interface TuiModule {
   watch(options: TuiWatchOptions): Promise<TuiWatchResult>;
+  /** The Settings screen of logging; absent in a version of @indaba/tui older than it. */
+  editLoggingSettings?(options: TuiSettingsOptions): Promise<{ readonly saved: boolean }>;
 }
 
 export type TuiLoad = { readonly tui: TuiModule } | { readonly missing: string };

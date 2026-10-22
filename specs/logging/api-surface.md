@@ -1,6 +1,7 @@
 # API surface: Logging
 
-> **Status**: Draft. **Semver impact**: minor (below 1.0). Additive: no existing type, option or default changes.
+> **Status**: Implemented, except the server rows (with `specs/web-app`). **Semver impact**: minor (below 1.0). Additive:
+> no existing type, option or default changes; `createLogger` returns a subtype of what it returned (`Logger & LogSinkRegistry`).
 
 ## Public symbols added
 
@@ -25,7 +26,18 @@
 | `PluginHost.logger?` | the command's logger, for plugins (optional so an existing host still type-checks) | `@indaba/core` |
 | `CreateEngineOptions.logger?` | wires the logger to the events and the plugin host | `indaba` |
 | `WatchOptions.logger?` | the dashboard's log | `@indaba/tui` |
-| `Plugin.logSinks?` | extension point | `@indaba/core` |
+| `Plugin.logSinks?`, `PluginHost.registerLogSink?(sink)` | extension point (optional so an existing host type-checks) | `@indaba/core` |
+| `LogSinkRegistry` (`addSink`), returned with the logger by `createLogger` | interface | `@indaba/core` |
+| `createRedactor(options)`, `RedactorOptions`, `secretValuesOf`, `REDACTED` | the redaction (T-06) | `@indaba/core` |
+| `defaultLoggingSettings()`, `loggingSettingsToConfig(settings)` | the defaults; settings to the `logging:` mapping, defaults left out | `@indaba/core` |
+| `RemoteLogSink`, `RemoteLogSinkOptions`, `RemoteLogTrouble`, `RemoteLogDelivery`, `DEFAULT_RETRY_DELAY_MS` | the queue every remote sink shares | `@indaba/engine` |
+| `GelfLogSinkOptions`, `HttpJsonLogSinkOptions`, `toGelf`, `gelfDatagrams`, `parseCollectorAddress`, `CollectorAddress`, `authorizationOf` | remote sinks | `@indaba/engine` |
+| `PROJECT_CONFIG_FILE`, `PROJECT_CONFIG_SECTIONS`, `ProjectConfig`, `readProjectConfig`, `parseProjectConfig`, `writeLoggingConfig` | `indaba.config` | `@indaba/engine` |
+| the settings description (`LOGGING_SETTINGS`, `LOGGING_DEFAULTS`, `resolveLoggingSettings`, ...) | re-exports of `@indaba/core` | `@indaba/engine` |
+| `LoggingProcessSpawner`, `LoggingStreamingSpawner`, `loggingFetch`, `DefaultRunnerOptions.logger` | the runners' records (T-09) | `@indaba/runners` |
+| `CreateEngineOptions.logSinks` | where a plugin's sinks join | `indaba` |
+| `indaba settings [-w dir] [--plain] [--ascii]` | CLI command: print, or open the Settings screen | `indaba` |
+| `editLoggingSettings(options)`, `SettingsOptions`, `SettingsActions`, `SettingsResult`, and the pure state (`reduceSettings`, `initialSettingsUi`, `buildSettingsScreen`, `rowsOf`, `draftOf`, `checkSettingsDraft`, `isDirty`, `selectedSinkSettings`, their types) | the terminal Settings screen (T-13) | `@indaba/tui` |
 
 ```ts
 // @indaba/core

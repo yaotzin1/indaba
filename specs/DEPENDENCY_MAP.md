@@ -13,9 +13,9 @@ graph BT
         Obs["Tracer, Span, TokenUsage, PricingTable, EventDispatcher, Clock, IdGenerator"]
     end
 
-    Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter"]
+    Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter, log sinks, indaba.config"]
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
-    Cli["indaba: run, plan, validate, watch, plugin loading, composition root"]
+    Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
     Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
     Server["@indaba/server: the local server of indaba ui, read-only HTTP and SSE over the traces (optional)"]
     Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
@@ -87,6 +87,7 @@ gantt
     opencode               :done, 2026-10-10, 1d
     attempt-history        :done, 2026-10-14, 1d
     watch-workflow-name    :done, 2026-10-14, 1d
+    logging                :done, 2026-10-20, 2026-10-21
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
     acp-agent-install      :active, 2026-10-05, 2026-10-16
@@ -125,6 +126,7 @@ gantt
 | `opencode` | Implemented | `@indaba/runners` (`OpenCodeRunner`, the `opencode` ACP preset) |
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
+| `logging` | Implemented, except the web Settings screen (T-12, `feat/web-app-logging`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
 | `web-app` | In progress: delivery step 1 has the server, the page (Runs and Run, read-only) and the run structure in the trace (T-20); `indaba ui` and its packaging are next | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server` (new), `@indaba/web` (new, private), `indaba` (`ui`, not yet) |
 | `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
@@ -148,6 +150,9 @@ gantt
   and every plugin's runner: a major.
 - Changing `Guard`, `Plugin`, `PluginHost`, `Adjudicator` (including its `RulingRequest`) or `McpCapable`
   breaks every plugin: a major.
+- Changing `Logger`, `LogRecord` or `LogSink`, or what the redaction removes, changes every plugin sink and every
+  log a person sends: the record shape is a major; a redaction that removes more is a minor, one that removes less
+  is a major.
 - Changing what goes into the decision ledger's key changes which rulings are reused: a major.
 - Changing a workflow model type or the schema breaks the parser, the engine and every workflow file
   in the wild: a major.

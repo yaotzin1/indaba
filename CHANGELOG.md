@@ -95,6 +95,38 @@ port". The PHP prototype that preceded them was never published.
   span that ends with an error is a record with its task, step or trace id; at `debug`, what a step streams) and the
   logging contract re-exported. New options: `logger` on `createEngine` of `indaba` and on `watch` of `@indaba/tui`.
   A plugin logs through `host.logger`.
+- **Logging is configured in `indaba.config`, reaches Graylog and any JSON collector, and a plugin can add a sink**
+  (minor; track `feature`; spec `specs/logging`). A YAML file `indaba.config` in the project root may hold a `logging:`
+  section: `level` and a list of `sinks`, each `file` (`folder`, `maxFileBytes`, `maxFiles`), `stderr`, `gelf` (GELF
+  1.1 over `http(s)://`, `tcp://` or `udp://`, for Graylog) or `http-json` (one JSON record per POST), each with its
+  own `level`. A missing file means the defaults; an unknown key, a wrong type or an unknown section is a usage error
+  naming the key, exit code 2. `--log-level`, then `INDABA_LOG_LEVEL`, then the file decide the level; `--log-dir`
+  replaces the folder of every file sink. A remote sink never holds up a command: it queues (1000 records; the oldest
+  `debug` ones go first when full), gives an attempt 5 seconds, retries 3 times while the collector is up and once
+  while it is down, costs one warning per outage, and `flush` waits at most one timeout; all of them are settings and
+  starting values, not measurements. A collector's credential is the NAME of a variable (`secretEnv`), sent as the
+  `Authorization` header and redacted from every record; an address with a user name or password is refused. The
+  redaction of every record now also removes bearer tokens, `Authorization` values, API-key and token shapes (OpenAI
+  style, GitHub, GitLab, Slack, AWS, Google, JWT, private key blocks), a credential in a URL query or fragment
+  (`#token=`) and a URL's password; the same rule now redacts the errors, traces and events the command line already
+  redacted. The built-in runners record every process they start and end (the program's name, never its arguments)
+  and every HTTP request (host and path, never the query or headers). A second Ctrl+C now writes the last records
+  (for at most 2 seconds) before leaving; a third leaves at once. New in `@indaba/core`: `createRedactor`,
+  `secretValuesOf`, `REDACTED`, `LogSinkRegistry` (`createLogger` now also returns `addSink`),
+  `loggingSettingsToConfig`, `defaultLoggingSettings`, `Plugin.logSinks` and the optional
+  `PluginHost.registerLogSink`. New in `@indaba/engine`: `GelfLogSink`, `HttpJsonLogSink`, `RemoteLogSink`,
+  `parseCollectorAddress`, `readProjectConfig`, `parseProjectConfig`, `writeLoggingConfig` and `PROJECT_CONFIG_FILE`.
+  New in `@indaba/runners`: `LoggingProcessSpawner`, `LoggingStreamingSpawner`, `loggingFetch` and the `logger`
+  option of `RunnerRegistry.withDefaults`. New in `indaba`: `CreateEngineOptions.logSinks`.
+- **`indaba report [run]` and `indaba settings`** (minor; track `feature`; spec `specs/logging`). `report` writes one
+  redacted folder under `.indaba/reports/` (or `--out`) with the log lines of the commands that ran the run, its trace
+  and events, the workflow file, `indaba.config` and the environment, says what it could not include, and sends
+  nothing. `settings` prints the logging settings in use (`--plain`, or without a terminal) or, with `@indaba/tui`,
+  opens a Settings screen: each value with its default beside it, checked as it is typed by the same rules as the
+  file, a test record through one sink, and Save, which writes `indaba.config` keeping its comments and other keys.
+  A collector's credential is entered as a variable's name; the screen shows whether it is set, never its value. New
+  in `@indaba/tui`: `editLoggingSettings` and the pure state behind it (`reduceSettings`, `buildSettingsScreen`, ...);
+  the engine re-exports the settings description so the dashboard takes it from there.
 - **The list of runs names the workflow** (minor; track `feature`; spec `specs/watch-workflow-name`). `indaba watch`
   with no run id prints `<id>  <status>  <started>  <workflow>`; the workflow comes last so a script that reads the
   first three columns keeps working, and a run whose name is unknown shows `-`. The name is read from a file, so it

@@ -12,6 +12,7 @@ export type { CommandRunnerOptions } from './command-runner.js';
 export { CommandRunner } from './command-runner.js';
 export type { CursorRunnerOptions } from './cursor-runner.js';
 export { CursorRunner } from './cursor-runner.js';
+export { LoggingProcessSpawner, LoggingStreamingSpawner, loggingFetch } from './logging.js';
 export type { McpConfigFile } from './mcp.js';
 export { McpConfigWriter } from './mcp.js';
 export type { OpenAiCompatibleEnvOptions } from './openai-compatible-env.js';

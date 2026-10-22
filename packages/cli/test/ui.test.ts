@@ -7,7 +7,12 @@ import { loadServer, type ServerLoad, type UiServerOptions } from '../src/server
 import { captureIo, makeTempDir } from './support.js';
 
 const ADDRESS = 'http://127.0.0.1:4321/#token=abc';
-const settle = () => new Promise((resolve) => setTimeout(resolve, 20));
+/** Waits until the command has done what the test looks at; the command reads indaba.config first, so a fixed pause races it. */
+async function settle(until: () => boolean): Promise<void> {
+  for (let waited = 0; waited < 5000 && !until(); waited += 10) {
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
 
 function fakeServer(page: string | null = '/page') {
   const started: UiServerOptions[] = [];
@@ -46,7 +51,7 @@ async function runUi(args: string[], options: { noPage?: boolean; opens?: boolea
 describe('indaba ui', () => {
   it('serves the current folder, prints the address, opens the browser and stops on request', async () => {
     const { dir, controller, captured, server, opened, finished } = await runUi([]);
-    await settle();
+    await settle(() => server.started.length > 0);
     expect(server.started).toEqual([{ roots: [dir], staticDir: '/page', logger: expect.anything() }]);
     expect(captured.stdout()).toContain(ADDRESS);
     expect(opened).toEqual([ADDRESS]);
@@ -68,7 +73,7 @@ describe('indaba ui', () => {
       '4000',
       '--no-open',
     ]);
-    await settle();
+    await settle(() => server.started.length > 0);
     expect(server.started[0]).toMatchObject({ roots: [other, dir], port: 4000 });
     expect(opened).toEqual([]);
     controller.abort();
@@ -83,7 +88,7 @@ describe('indaba ui', () => {
       '..',
       '--no-open',
     ]);
-    await settle();
+    await settle(() => server.started.length > 0);
     expect(server.started[0]?.discussionDirectories).toEqual([join(dir, 'kept'), resolve(dir, '..')]);
     controller.abort();
     await finished;
@@ -91,7 +96,7 @@ describe('indaba ui', () => {
 
   it('says so when the browser could not be opened', async () => {
     const { controller, captured, finished } = await runUi([], { opens: false });
-    await settle();
+    await settle(() => captured.stdout().includes('could not be opened'));
     expect(captured.stdout()).toContain('could not be opened');
     controller.abort();
     await finished;

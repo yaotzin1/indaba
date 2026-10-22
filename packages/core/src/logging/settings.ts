@@ -319,3 +319,74 @@ export function resolveLoggingSettings(raw: unknown): ResolvedLogging {
   });
   return { settings: { level, sinks }, problems };
 }
+
+/** The default sinks, as `resolveLoggingSettings` gives them when the section is missing. */
+export function defaultLoggingSettings(): LoggingSettings {
+  return resolveLoggingSettings(undefined).settings;
+}
+
+type ConfigValue = string | number | boolean | readonly ConfigMapping[];
+interface ConfigMapping {
+  readonly [key: string]: ConfigValue;
+}
+
+/** A sink's level when its entry does not name one, as `resolveLoggingSettings` reads it. */
+function defaultLevelOf(type: SinkType): LogLevel {
+  if (type === 'file') {
+    return 'debug';
+  }
+  return type === 'stderr' ? LOGGING_DEFAULTS.stderr.level : 'info';
+}
+
+function sinkToConfig(sink: SinkSettings): ConfigMapping {
+  const out: Record<string, ConfigValue> = { type: sink.type };
+  if (sink.level !== defaultLevelOf(sink.type)) {
+    out.level = sink.level;
+  }
+  if (sink.type === 'file') {
+    const d = LOGGING_DEFAULTS.file;
+    if (sink.folder !== d.folder) {
+      out.folder = sink.folder;
+    }
+    if (sink.maxFileBytes !== d.maxFileBytes) {
+      out.maxFileBytes = sink.maxFileBytes;
+    }
+    if (sink.maxFiles !== d.maxFiles) {
+      out.maxFiles = sink.maxFiles;
+    }
+  } else if (sink.type === 'gelf' || sink.type === 'http-json') {
+    const d = LOGGING_DEFAULTS.remote;
+    out.address = sink.address;
+    if (sink.secretEnv !== undefined) {
+      out.secretEnv = sink.secretEnv;
+    }
+    if (sink.queueLength !== d.queueLength) {
+      out.queueLength = sink.queueLength;
+    }
+    if (sink.timeoutSeconds !== d.timeoutSeconds) {
+      out.timeoutSeconds = sink.timeoutSeconds;
+    }
+    if (sink.retries !== d.retries) {
+      out.retries = sink.retries;
+    }
+  }
+  return out;
+}
+
+/**
+ * The `logging:` section that `resolveLoggingSettings` reads back as `settings`, with every value equal to its default
+ * left out, so a saved file says only what the person changed (AC-18, AC-20). `resolveLoggingSettings` of the result
+ * gives the same settings and no problem.
+ */
+export function loggingSettingsToConfig(settings: LoggingSettings): Readonly<Record<string, ConfigValue>> {
+  const out: Record<string, ConfigValue> = {};
+  if (settings.level !== LOGGING_DEFAULTS.level) {
+    out.level = settings.level;
+  }
+  const sinks = settings.sinks.map(sinkToConfig);
+  const defaults = defaultLoggingSettings().sinks.map(sinkToConfig);
+  if (JSON.stringify(sinks) !== JSON.stringify(defaults)) {
+    out.sinks = sinks;
+  }
+  return out;
+}

@@ -259,6 +259,7 @@ describe('the logger reaches the engine and the plugins', () => {
     expect(written.map((x) => x.message)).toEqual([
       'process.start',
       'the plugin registered',
+      'a plugin registered',
       'a step changed state',
       'a step changed state',
       'a step changed state',
@@ -269,7 +270,7 @@ describe('the logger reaches the engine and the plugins', () => {
       fields: { name: 'fake-plugin' },
       pid: 4242,
     });
-    expect(written.slice(2, 5).map((x) => [x.fields?.to, x.context])).toEqual([
+    expect(written.slice(3, 6).map((x) => [x.fields?.to, x.context])).toEqual([
       ['RUNNING', { taskId: 'logged', stepId: 'work' }],
       ['VALIDATING', { taskId: 'logged', stepId: 'work' }],
       ['COMPLETED', { taskId: 'logged', stepId: 'work' }],

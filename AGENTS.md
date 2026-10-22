@@ -161,6 +161,7 @@ One line each. The reason and what enforces it are in `.agents/rules/workflow_ru
 - Retry-loop isolation.
 - One runner contract.
 - Secrets are never logged.
+- Logging is a must for the whole project.
 - No shell string interpolation of untrusted data.
 - Paths are confined.
 - Observability follows the OpenTelemetry GenAI semantic conventions.
