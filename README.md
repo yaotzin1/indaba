@@ -125,7 +125,8 @@ A page on your own machine that lists your runs and follows one live: every step
 have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
 the cost of each run and of each step, with anything unknown shown as unknown. It has light and dark themes, works with
 a keyboard and on a phone. It can run a workflow of the project (showing first what its file says it will use) and stop
-a run it started; closing it stops those runs. A run started in a terminal it only shows.
+a run it started; closing it stops those runs. It opens a workflow file as text to fix and save it, checked as you
+type. A run started in a terminal it only shows.
 
 Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
 the optional `@indaba/server` installed next to `indaba`; the page comes inside that package. Neither is in a published

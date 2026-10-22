@@ -90,7 +90,8 @@ gantt
     logging                :done, 2026-10-20, 2026-10-21
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
-    web-app-actions        :active, 2026-10-22, 1d
+    web-app-actions        :done, 2026-10-22, 1d
+    web-app-editing-core   :active, 2026-10-22, 1d
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
     ruling-channel         :active, 2026-10-10, 2026-10-16
@@ -129,7 +130,8 @@ gantt
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
 | `logging` | Implemented, except the web Settings screen (T-12, `feat/web-app-logging`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
 | `web-app` | In progress: delivery step 1 (the server, the page, Runs and Run, `indaba ui`) and the Settings screen are merged; step 2 has its first slice in `web-app-actions`; step 3 (editing) is planned in `plan-step-3.md` | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server`, `@indaba/web` (private), `indaba` (`ui`) |
-| `web-app-actions` | Implemented on `feat/web-app-run-stop`, except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
+| `web-app-actions` | Implemented (merged, #59), except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
+| `web-app-editing-core` | Implemented on `feat/web-app-source-edit`, except the real-browser check (see its `review.md`) | `@indaba/core` (source types), `@indaba/server` (`WorkflowStore`, three resources), `@indaba/web` (the source view), `indaba` (`run-control/source.ts`). No dependency added |
 | `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |

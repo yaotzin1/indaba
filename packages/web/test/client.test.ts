@@ -527,3 +527,86 @@ describe('the client: Run and Stop (T-15)', () => {
     expect((await client.run('a')).canStop).toBe(false);
   });
 });
+
+describe('the client: the source of a workflow (T-09)', () => {
+  const WF = {
+    id: 'w1',
+    name: 'demo',
+    path: 'demo.workflow.ai.yml',
+    project: 'p',
+    valid: true,
+    problems: [],
+  };
+
+  it('reads a source, keeping only the problems it can read', async () => {
+    const replies = fakeFetch([
+      json({
+        workflow: WF,
+        text: 'x',
+        contentHash: 'h',
+        problems: [{ message: 'a', line: 1, column: 2 }, { line: 1 }, { message: 'b', line: -1 }],
+      }),
+      json({ workflow: { id: 'w1' }, text: 'x' }),
+      json({ code: 'workflow_not_found', message: 'This workflow is no longer in the project.' }, 404),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.workflowSource('w1')).toEqual({
+      workflow: WF,
+      text: 'x',
+      contentHash: 'h',
+      problems: [{ message: 'a', line: 1, column: 2 }],
+    });
+    await expect(client.workflowSource('w1')).rejects.toMatchObject({ failure: { kind: 'server' } });
+    await expect(client.workflowSource('w1')).rejects.toMatchObject({
+      failure: { kind: 'not_found', message: 'This workflow is no longer in the project.' },
+    });
+    expect(replies.calls[0]?.url).toBe('/api/v1/workflows/w1/source');
+  });
+
+  it('saves: saved, a conflict with the disk’s version, or a refusal by its code', async () => {
+    const replies = fakeFetch([
+      json({ contentHash: 'n', problems: [] }),
+      json({ code: 'changed_on_disk', message: 'm', current: { text: 'disk', contentHash: 'd' } }, 409),
+      json({ code: 'changed_on_disk', message: 'm', current: { text: 3 } }, 409),
+      json({ code: 'not_saved', message: 'm' }, 409),
+      new Response('nope', { status: 500 }),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.saveWorkflowSource('w1', 'text', 'base')).toEqual({
+      kind: 'saved',
+      contentHash: 'n',
+      problems: [],
+    });
+    expect(await client.saveWorkflowSource('w1', 'text', 'base')).toEqual({
+      kind: 'changed',
+      current: { text: 'disk', contentHash: 'd' },
+    });
+    expect(await client.saveWorkflowSource('w1', 'text', 'base')).toEqual({
+      kind: 'refused',
+      code: 'changed_on_disk',
+    });
+    expect(await client.saveWorkflowSource('w1', 'text', 'base')).toEqual({
+      kind: 'refused',
+      code: 'not_saved',
+    });
+    expect(await client.saveWorkflowSource('w1', 'text', 'base')).toEqual({ kind: 'refused', code: 'other' });
+    expect(replies.calls[0]?.headers).toEqual({
+      Authorization: `Bearer ${TOKEN}`,
+      'Content-Type': 'application/json',
+    });
+  });
+
+  it('checks a draft, and says when the server does not open files', async () => {
+    const replies = fakeFetch([
+      json({ problems: [{ message: 'p', line: 3, column: 1 }] }),
+      json({ code: 'source_unavailable', message: 'm' }, 404),
+      json({ code: 'method_not_allowed', message: 'm' }, 405),
+      json({ nope: true }),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.checkWorkflow('x')).toEqual([{ message: 'p', line: 3, column: 1 }]);
+    expect(await client.checkWorkflow('x')).toBeUndefined();
+    expect(await client.checkWorkflow('x')).toBeUndefined();
+    expect(await client.checkWorkflow('x')).toEqual([]);
+  });
+});

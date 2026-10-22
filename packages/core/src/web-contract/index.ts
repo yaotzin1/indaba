@@ -1,5 +1,6 @@
 export type {
   ApiError,
+  CheckWorkflowRequest,
   ConfirmationRequired,
   ContractResponse,
   DiscussionMessage,
@@ -10,12 +11,18 @@ export type {
   RunResponse,
   RunStreamEvent,
   RunSummaryOfUse,
+  SaveWorkflowSourceRequest,
+  SaveWorkflowSourceResponse,
   ServerStreamEvent,
   StartRunRequest,
   StartRunResponse,
   StartStatusResponse,
   StopRunResponse,
+  WorkflowChangedOnDisk,
+  WorkflowCheckResponse,
   WorkflowListResponse,
+  WorkflowProblem,
+  WorkflowSourceResponse,
   WorkflowSummary,
 } from './api.js';
 export type {

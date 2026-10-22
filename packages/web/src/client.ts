@@ -10,6 +10,8 @@ import type {
   SinkTestResponse,
   StartStatusResponse,
   WorkflowListResponse,
+  WorkflowProblem,
+  WorkflowSourceResponse,
   WorkflowSummary,
 } from '@indaba/core';
 import { SseParser } from './sse.js';
@@ -77,6 +79,12 @@ export type StartAnswer =
   | { readonly kind: 'confirm'; readonly contentHash: string; readonly use: RunSummaryOfUse }
   | { readonly kind: 'refused'; readonly code: string; readonly problems: readonly string[] };
 
+/** What saving a workflow's text gave: saved, a conflict with the version on disk, or a refusal by its code. */
+export type SaveSourceAnswer =
+  | { readonly kind: 'saved'; readonly contentHash: string; readonly problems: readonly WorkflowProblem[] }
+  | { readonly kind: 'changed'; readonly current: { readonly text: string; readonly contentHash: string } }
+  | { readonly kind: 'refused'; readonly code: string };
+
 /** What asking to stop a run gave. */
 export type StopAnswer =
   | { readonly kind: 'stopping' }
@@ -95,6 +103,12 @@ export interface Client {
   startStatus(startId: string): Promise<StartStatusResponse>;
   /** Asks a run this server started to stop, as Ctrl+C would. */
   stopRun(runId: string): Promise<StopAnswer>;
+  /** The text of a workflow file (specs/web-app-editing-core). A refusal is an `ApiFailure` with the server's words. */
+  workflowSource(workflowId: string): Promise<WorkflowSourceResponse>;
+  /** Saves the text against the hash it was read with. */
+  saveWorkflowSource(workflowId: string, text: string, baseHash: string): Promise<SaveSourceAnswer>;
+  /** The problems of a draft, or undefined when this server does not open workflow files. Nothing is saved. */
+  checkWorkflow(text: string): Promise<readonly WorkflowProblem[] | undefined>;
   /** Follows one run until it ends or `signal` aborts, resuming after a drop with the last event id. */
   followRun(id: string, handlers: StreamHandlers<RunSnapshot>, signal: AbortSignal): Promise<void>;
   /** Follows the server-wide stream: a run started or ended. */
@@ -237,6 +251,28 @@ function isSummaryOfUse(value: unknown): value is RunSummaryOfUse {
   );
 }
 
+function isProblem(value: unknown): value is WorkflowProblem {
+  return (
+    isRecord(value) &&
+    typeof value.message === 'string' &&
+    (value.line === undefined || isCount(value.line)) &&
+    (value.column === undefined || isCount(value.column))
+  );
+}
+
+const problemsIn = (value: unknown): readonly WorkflowProblem[] =>
+  Array.isArray(value) ? value.filter(isProblem) : [];
+
+function isSource(value: unknown): value is WorkflowSourceResponse {
+  return (
+    isRecord(value) &&
+    isWorkflowSummary(value.workflow) &&
+    typeof value.text === 'string' &&
+    typeof value.contentHash === 'string' &&
+    Array.isArray(value.problems)
+  );
+}
+
 function isStartStatus(value: unknown): value is StartStatusResponse {
   return (
     isRecord(value) &&
@@ -322,11 +358,12 @@ export function createClient(options: ClientOptions): Client {
   const post = async (
     path: string,
     body?: unknown,
+    method: 'POST' | 'PUT' = 'POST',
   ): Promise<{ readonly status: number; readonly body: unknown }> => {
     let response: Response;
     try {
       response = await options.fetch(`${API}${path}`, {
-        method: 'POST',
+        method,
         headers: headers(body === undefined ? {} : { 'Content-Type': 'application/json' }),
         ...(body === undefined ? {} : { body: JSON.stringify(body) }),
       });
@@ -509,6 +546,45 @@ export function createClient(options: ClientOptions): Client {
         throw new ApiFailure({ kind: 'server', message: 'The server sent a start this page cannot read.' });
       }
       return body;
+    },
+
+    async workflowSource(workflowId) {
+      const body = await json(`/workflows/${encodeURIComponent(workflowId)}/source`);
+      if (!isSource(body)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent a file this page cannot read.' });
+      }
+      return { ...body, problems: problemsIn(body.problems) };
+    },
+
+    async saveWorkflowSource(workflowId, text, baseHash) {
+      const answer = await post(
+        `/workflows/${encodeURIComponent(workflowId)}/source`,
+        { text, baseHash },
+        'PUT',
+      );
+      const body = answer.body;
+      if (answer.status === 200 && isRecord(body) && typeof body.contentHash === 'string') {
+        return { kind: 'saved', contentHash: body.contentHash, problems: problemsIn(body.problems) };
+      }
+      const current: unknown = isRecord(body) ? body.current : undefined;
+      if (
+        isRecord(body) &&
+        body.code === 'changed_on_disk' &&
+        isRecord(current) &&
+        typeof current.text === 'string' &&
+        typeof current.contentHash === 'string'
+      ) {
+        return { kind: 'changed', current: { text: current.text, contentHash: current.contentHash } };
+      }
+      return { kind: 'refused', code: isApiError(body) ? body.code : 'other' };
+    },
+
+    async checkWorkflow(text) {
+      const answer = await post('/workflows/check', { text });
+      if (answer.status === 404 || answer.status === 405) {
+        return undefined;
+      }
+      return problemsIn(isRecord(answer.body) ? answer.body.problems : undefined);
     },
 
     async stopRun(runId) {

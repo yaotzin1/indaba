@@ -50,8 +50,15 @@ import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { CONFIRMATION_FILE } from './run-control/confirm.js';
 import { createRunControl } from './run-control/index.js';
+import { createWorkflowStore } from './run-control/source.js';
 import { runWithDashboard } from './run-tui.js';
-import type { ServerLoad, UiRunControl, UiSettingsBackend, UiSettingsState } from './server-loader.js';
+import type {
+  ServerLoad,
+  UiRunControl,
+  UiSettingsBackend,
+  UiSettingsState,
+  UiWorkflowStore,
+} from './server-loader.js';
 import { settingsCommand } from './settings.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
 import { ui } from './ui.js';
@@ -342,12 +349,13 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === 'ui') {
     return logged(command, io.cwd, logOptions, io, async (logger) => {
       try {
-        const runControl = await runControlFor(io, logger);
+        const { runControl, workflowStore } = await uiBackendsFor(io, logger);
         return await ui(args, io, {
           logger,
           ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
           loggingSettings: (root) => settingsBackend(root, io, logOptions),
           ...(runControl === undefined ? {} : { runControl }),
+          workflowStore,
         });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
@@ -441,37 +449,46 @@ async function watchCommand(args: readonly string[], io: Io, logger: Logger): Pr
   }
 }
 
+interface UiBackends {
+  readonly runControl?: (roots: readonly string[]) => UiRunControl;
+  readonly workflowStore: (roots: readonly string[]) => UiWorkflowStore;
+}
+
 /**
- * How the page of `indaba ui` starts and stops runs (specs/web-app-actions): a child `indaba run` per run through the
- * same starter as `run --tui`, its workflow checked by the parser `indaba validate` uses. Without a starter (a test that
- * gives none) the page cannot start runs.
+ * What the page of `indaba ui` may do besides reading runs, each with the parser `indaba validate` uses: start and stop
+ * runs (specs/web-app-actions), a child `indaba run` per run through the same starter as `run --tui`, and read, check
+ * and save a workflow's text (specs/web-app-editing-core). Without a starter (a test that gives none) the page cannot
+ * start runs.
  */
-async function runControlFor(
-  io: Io,
-  logger: Logger,
-): Promise<((roots: readonly string[]) => UiRunControl) | undefined> {
+async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
+  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, logger });
+  const parse = (source: string) => parser.parse(source);
+  const pid = io.pid ?? process.pid;
+  const workflowStore = (roots: readonly string[]) => createWorkflowStore({ roots, parse, pid, logger });
   const starter = io.startRun;
   if (starter === undefined) {
-    return undefined;
+    return { workflowStore };
   }
-  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, logger });
   const folder = userConfigFolder(
     process.platform,
     { appData: io.env.APPDATA, xdgConfigHome: io.env.XDG_CONFIG_HOME },
     homedir(),
   );
   const confirmationFile = join(folder, CONFIRMATION_FILE);
-  return (roots) =>
-    createRunControl({
-      roots,
-      starter,
-      environment: io.env,
-      confirmationFile,
-      pid: io.pid ?? process.pid,
-      ids: () => randomBytes(12).toString('hex'),
-      parse: (source) => parser.parse(source),
-      logger,
-    });
+  return {
+    workflowStore,
+    runControl: (roots) =>
+      createRunControl({
+        roots,
+        starter,
+        environment: io.env,
+        confirmationFile,
+        pid,
+        ids: () => randomBytes(12).toString('hex'),
+        parse,
+        logger,
+      }),
+  };
 }
 
 /** What the page of `indaba ui` may do with the logging settings of a project: the same reader, writer and test as `indaba settings`. */

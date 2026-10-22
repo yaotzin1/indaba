@@ -4,6 +4,7 @@ import {
   type ReactElement,
   useCallback,
   useEffect,
+  useRef,
   useState,
 } from 'react';
 import { ApiFailure, type Client, type Failure, type StreamState } from '../client.js';
@@ -14,6 +15,7 @@ import { RunScreen } from './RunScreen.js';
 import { RunsScreen } from './RunsScreen.js';
 import { hrefOf, isPlainClick, type Navigator, useRoute } from './router.js';
 import { SettingsScreen } from './SettingsScreen.js';
+import { type LeaveGuard, SourceScreen } from './SourceScreen.js';
 import { StaleContext } from './stale.js';
 import { applyTheme, readTheme, type Store, saveTheme, THEMES, type Theme } from './theme.js';
 
@@ -30,6 +32,8 @@ export interface AppProps {
   readonly tickMs?: number;
   /** How often a start is asked about; tests make it short. */
   readonly pollMs?: number;
+  /** How long a pause in typing is before a draft is checked; tests make it short. */
+  readonly checkDelayMs?: number;
 }
 
 function blockingOf(failure: Failure, origin: string): ReactElement {
@@ -89,7 +93,22 @@ function ThemeSwitch(props: {
 /** The page: a header, and the one screen the address names, or a message that blocks it. */
 export function App(props: AppProps): ReactElement {
   const { client, clock, win, origin, root, store } = props;
-  const [route, navigate] = useRoute(win);
+  const [route, go] = useRoute(win);
+  // The source view sets this while it holds unsaved changes; every way out of it in the page asks first (AC-11).
+  const leaveGuard: LeaveGuard = useRef<(() => boolean) | undefined>(undefined);
+  const confirmLeave = useCallback(
+    (message: string): boolean => (win.confirm === undefined ? true : win.confirm(message)),
+    [win],
+  );
+  const navigate = useCallback<typeof go>(
+    (next, options) => {
+      if (leaveGuard.current?.() === true && !confirmLeave(messages.editor.leave)) {
+        return;
+      }
+      go(next, options);
+    },
+    [go, confirmLeave],
+  );
   const [fatal, setFatal] = useState<Failure | undefined>(
     client === undefined ? { kind: 'unauthorized' } : undefined,
   );
@@ -101,6 +120,8 @@ export function App(props: AppProps): ReactElement {
   const [checking, setChecking] = useState<'idle' | 'checking' | 'down'>('idle');
   // Whether this server starts runs; asked once. Until it answers the page offers no Run button.
   const [canRun, setCanRun] = useState(false);
+  // Whether this server opens workflow files for editing; asked once, like canRun.
+  const [canEdit, setCanEdit] = useState(false);
   // The notice that closing indaba ui stops its runs is shown until the first run of this session (AC-11).
   const [noticeSeen, setNoticeSeen] = useState(false);
   const onNoticeSeen = useCallback(() => setNoticeSeen(true), []);
@@ -121,14 +142,25 @@ export function App(props: AppProps): ReactElement {
       () =>
         // Only a question of whether to show the Run button: an answer it cannot use means no button, not a broken
         // page. The screens report a missing token or a stopped server on their own.
-        client.workflows().then(
-          (list) => {
-            if (current) {
-              setCanRun(list !== undefined);
-            }
-          },
-          () => undefined,
-        ),
+        Promise.all([
+          client.workflows().then(
+            (list) => {
+              if (current) {
+                setCanRun(list !== undefined);
+              }
+            },
+            () => undefined,
+          ),
+          // An empty draft is checked and nothing is saved; a server without the store answers 404.
+          client.checkWorkflow('').then(
+            (problems) => {
+              if (current) {
+                setCanEdit(problems !== undefined);
+              }
+            },
+            () => undefined,
+          ),
+        ]),
       (error: unknown) => {
         if (current && error instanceof ApiFailure) {
           setFatal(error.failure);
@@ -186,6 +218,21 @@ export function App(props: AppProps): ReactElement {
     content = blockingOf(fatal ?? { kind: 'unauthorized' }, origin);
   } else if (route.name === 'settings') {
     content = h(SettingsScreen, { key: attempt, client, onFatal });
+  } else if (route.name === 'workflow') {
+    content = h(SourceScreen, {
+      key: `${route.workflowId}:${attempt}`,
+      client,
+      workflowId: route.workflowId,
+      navigate: go,
+      onFatal,
+      leaveGuard,
+      confirm: confirmLeave,
+      canRun,
+      noticeSeen,
+      onNoticeSeen,
+      ...(props.checkDelayMs === undefined ? {} : { checkDelayMs: props.checkDelayMs }),
+      ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
+    });
   } else if (route.name === 'run') {
     content = h(RunScreen, {
       key: `${route.runId}:${attempt}`,
@@ -209,6 +256,7 @@ export function App(props: AppProps): ReactElement {
       canRun,
       noticeSeen,
       onNoticeSeen,
+      ...(canEdit ? { onEdit: (workflowId: string) => navigate({ name: 'workflow', workflowId }) } : {}),
       ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
     });
   }

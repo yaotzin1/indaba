@@ -2,13 +2,17 @@ import type {
   Logger,
   LoggingSettings,
   LoggingSettingsResponse,
+  SaveWorkflowSourceRequest,
+  SaveWorkflowSourceResponse,
   SinkSettings,
   SinkTestResponse,
   StartRunRequest,
   StartRunResponse,
   StartStatusResponse,
   StopRunResponse,
+  WorkflowCheckResponse,
   WorkflowListResponse,
+  WorkflowSourceResponse,
 } from '@indaba/core';
 
 /** What the command line needs of `@indaba/server`. The package is optional, so its types are not imported. */
@@ -23,6 +27,15 @@ export interface UiServerOptions {
   readonly loggingSettings?: UiSettingsBackend;
   /** Starting and stopping runs from the page (specs/web-app-actions); the server's `RunControl`. */
   readonly runs?: UiRunControl;
+  /** Reading, checking and saving a workflow's text from the page (specs/web-app-editing-core). */
+  readonly workflowStore?: UiWorkflowStore;
+}
+
+/** The shape of `WorkflowStore` of `@indaba/server`. A refusal is an `Error` named `WorkflowStoreError` with a `code`. */
+export interface UiWorkflowStore {
+  read(id: string): Promise<WorkflowSourceResponse>;
+  save(id: string, request: SaveWorkflowSourceRequest): Promise<SaveWorkflowSourceResponse>;
+  check(text: string): WorkflowCheckResponse;
 }
 
 /**

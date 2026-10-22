@@ -32,6 +32,8 @@ export interface RunsScreenProps {
   readonly onNoticeSeen?: () => void;
   /** How often a start is asked about; tests make it short. */
   readonly pollMs?: number;
+  /** Opens a workflow's source view; without it the panel offers no Edit. */
+  readonly onEdit?: (workflowId: string) => void;
 }
 
 function runColumns(clock: Clock, navigate: Navigate): GridwrightColumn<RunSummary>[] {
@@ -165,6 +167,7 @@ export function RunsScreen(props: RunsScreenProps): ReactElement {
           onFatal,
           noticeSeen: props.noticeSeen === true,
           onNoticeSeen,
+          ...(props.onEdit === undefined ? {} : { onEdit: props.onEdit }),
           ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
         })
       : null,

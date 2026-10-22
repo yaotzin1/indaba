@@ -3,7 +3,7 @@
 A page in your browser that shows the runs on your machine and follows one of them live: its steps as a graph,
 what each step did, what happens if it fails, its output and what it cost. It reads the same files as
 `indaba watch` and the terminal dashboard, so the three always agree. It can also start a workflow of the project and stop
-a run it started; a run started in a terminal it only shows.
+a run it started, and open a workflow file to read, change and save it; a run started in a terminal it only shows.
 
 <p align="center">
   <picture>
@@ -186,6 +186,26 @@ seconds, then ends any that did not stop, with everything they started. The page
 `indaba ui` itself crashes, or is killed, its runs keep going without it; the next `indaba ui` in that project removes the
 copies they left under `.indaba/run-inputs/`.
 
+## Edit a workflow
+
+**Edit** next to a workflow in the Run a workflow panel opens its file as text, at an address of its own
+(`/workflows/<id>`), so a reload opens it again. It works for a workflow with problems too: that is where they get fixed.
+
+- **As you type**, after a short pause, the page checks the text with the same parser as `indaba validate` and lists the
+  problems under it. A YAML syntax problem names its line and column; press it to put the cursor there. Other problems
+  (a step with no runner, say) name the step, not a line, for now.
+- **Tab** indents by two spaces. To leave the editor with the keyboard, press **Escape**, then **Tab**.
+- **Save** writes the file. A text with problems is saved too, so you never lose a draft; it cannot run until they are
+  fixed. **Run** is there once the saved file has none.
+- **Saving changes what you confirmed.** The next Run shows you again what the workflow will use, because its content
+  changed.
+- **Nothing is overwritten by surprise.** If the file changed on disk after you opened it (another editor, `git pull`),
+  saving stops and shows that version beside yours: **Use the version on disk**, or **Keep mine and save**.
+- Leaving with unsaved changes (Back, another screen, closing the tab) asks first.
+
+The page edits files that already exist; it does not create, rename or delete one. A file over 1 MiB, or one that is not
+UTF-8 text, opens only in your own editor.
+
 ## Themes, keyboard and phone
 
 - **Theme.** The page follows your system's light or dark setting. **System**, **Light** and **Dark** in the header
@@ -209,10 +229,12 @@ The page can show your agents' work, so it is built like something that could le
   bar and keeps it in memory, and sends it as a header. Reloading the page therefore asks for the address again. Do not
   share the address while the server runs.
 - **What it may change.** The server itself starts nothing and writes nothing. `indaba ui` gives it two things to do:
-  write the logging settings (the Settings screen) and start and stop runs (above). Every change needs the token and
+  write the logging settings (the Settings screen), start and stop runs, and save a workflow file it lists (above). Every change needs the token and
   must come from the page itself: a request without the page's own `Origin`, which a browser always sends on a write, is
   refused even with the token. The page sends an id from the list, never a path; the server looks the id up in a fresh
-  search, and builds the command from its own values only.
+  search, and builds the command from its own values only. A save replaces only the file that id names, inside its
+  project, through a temporary file and a rename, so the file is always one whole version; the text of a workflow is
+  never written to the log.
 - **Text stays text.** Everything a run produced (agent output, commands, messages) is shown as plain text: no HTML, no
   links, and terminal escape sequences are removed by the server first. The page loads nothing from the internet (no
   fonts, scripts or analytics), and a Content-Security-Policy forbids it.
@@ -250,6 +272,7 @@ Messages in the Run a workflow panel:
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
 published `@indaba/server`, so `indaba ui` works from npm; the list of workflows with their health (it needs
 `specs/workflow-registry`; the search above is a stopgap); "run this step" and a form for a workflow's inputs; answering
-an agent's questions; applying or discarding a run's changes; the workflow editor.
+an agent's questions; applying or discarding a run's changes; forms and the graph as an editor (positions for every
+problem come with them).
 
 Working on the page itself: [web-view-development.md](web-view-development.md).

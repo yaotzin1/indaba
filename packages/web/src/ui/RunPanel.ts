@@ -25,6 +25,13 @@ export interface RunPanelProps {
   readonly noticeSeen: boolean;
   readonly onNoticeSeen: () => void;
   readonly pollMs?: number;
+  /** Opens a workflow's source view; without it the list offers no Edit (the server does not open files). */
+  readonly onEdit?: (workflowId: string) => void;
+  /**
+   * Starts this workflow as soon as the panel opens, as if its Run were pressed: for the Run button of the source view,
+   * which is that press.
+   */
+  readonly startWith?: WorkflowSummary;
 }
 
 type View =
@@ -80,8 +87,9 @@ function WorkflowItem(props: {
   readonly workflow: WorkflowSummary;
   readonly busy: boolean;
   readonly onRun: (workflow: WorkflowSummary) => void;
+  readonly onEdit: ((workflowId: string) => void) | undefined;
 }): ReactElement {
-  const { workflow, busy, onRun } = props;
+  const { workflow, busy, onRun, onEdit } = props;
   const problemsId = `problems-${workflow.id}`;
   return h(
     'li',
@@ -112,6 +120,18 @@ function WorkflowItem(props: {
       },
       messages.actions.run,
     ),
+    // An invalid workflow can be edited too: that is where it gets fixed.
+    onEdit === undefined
+      ? null
+      : h(
+          'button',
+          {
+            type: 'button',
+            'aria-label': messages.actions.editLabel(workflow.name),
+            onClick: () => onEdit(workflow.id),
+          },
+          messages.actions.edit,
+        ),
   );
 }
 
@@ -231,6 +251,17 @@ export function RunPanel(props: RunPanelProps): ReactElement {
       },
     );
   };
+
+  // The source view's Run is the press that names the workflow; it happens once, when the panel opens.
+  const started = useRef(false);
+  const startWith = props.startWith;
+  // No dependency list: `start` is a new function each render, and the ref makes this happen once.
+  useEffect(() => {
+    if (startWith !== undefined && !started.current) {
+      started.current = true;
+      start(startWith);
+    }
+  });
 
   const backToList = (): void => {
     setView({ name: 'list' });
@@ -369,7 +400,13 @@ export function RunPanel(props: RunPanelProps): ReactElement {
               'ul',
               { className: 'workflows', 'aria-label': messages.actions.listLabel },
               ...listing.workflows.map((workflow) =>
-                h(WorkflowItem, { key: workflow.id, workflow, busy, onRun: (w) => start(w) }),
+                h(WorkflowItem, {
+                  key: workflow.id,
+                  workflow,
+                  busy,
+                  onRun: (w) => start(w),
+                  onEdit: props.onEdit,
+                }),
               ),
             ),
       listing?.truncated === true ? h('p', { className: 'note' }, messages.actions.truncated) : null,
