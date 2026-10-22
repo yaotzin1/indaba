@@ -26,9 +26,9 @@
     "@stryker-mutator/core": "^10.0.0",
     "@stryker-mutator/vitest-runner": "^10.0.0",
     "@types/node": "^22.20.5",
-    "@vitest/coverage-v8": "4.1.11",
+    "@vitest/coverage-v8": "4.1.12",
     "typescript": "^5.9.3",
-    "vitest": "4.1.11"
+    "vitest": "4.1.12"
   },
   "pnpm": {
     "overrides": {
