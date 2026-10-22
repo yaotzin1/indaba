@@ -7,6 +7,8 @@ import type {
   StartRunRequest,
   StartStatusResponse,
   WorkflowListResponse,
+  WorkflowProblem,
+  WorkflowSourceResponse,
 } from '@indaba/core';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { createElement as h } from 'react';
@@ -15,6 +17,7 @@ import {
   ApiFailure,
   type Client,
   type Failure,
+  type SaveSourceAnswer,
   type StartAnswer,
   type StopAnswer,
   type StreamHandlers,
@@ -41,6 +44,8 @@ interface FakeClient extends Client {
   starts: StartRunRequest[];
   statuses: string[];
   stops: string[];
+  saves: { text: string; baseHash: string }[];
+  checks: string[];
 }
 
 function fakeClient(options: {
@@ -53,6 +58,9 @@ function fakeClient(options: {
   readonly startRun?: (workflowId: string, confirmedHash: string | undefined) => StartAnswer | undefined;
   readonly startStatus?: (call: number) => StartStatusResponse;
   readonly stopRun?: StopAnswer;
+  readonly source?: WorkflowSourceResponse | Failure;
+  readonly save?: (text: string, baseHash: string) => SaveSourceAnswer;
+  readonly check?: (text: string) => readonly WorkflowProblem[];
 }): FakeClient {
   let runHandlers: StreamHandlers<RunSnapshot> | undefined;
   let serverHandlers: StreamHandlers<ServerStreamEvent> | undefined;
@@ -61,6 +69,8 @@ function fakeClient(options: {
     starts: [],
     statuses: [],
     stops: [],
+    saves: [],
+    checks: [],
     async contract() {
       const c = options.contract ?? '1.0.0';
       if (typeof c !== 'string') throw new ApiFailure(c);
@@ -89,6 +99,21 @@ function fakeClient(options: {
     async stopRun(runId) {
       client.stops.push(runId);
       return options.stopRun ?? { kind: 'stopping' };
+    },
+    async workflowSource(id) {
+      const source = options.source;
+      if (source === undefined)
+        throw new ApiFailure({ kind: 'not_found', message: 'This workflow is no longer in the project.' });
+      if ('kind' in source) throw new ApiFailure(source);
+      return { ...source, workflow: { ...source.workflow, id } };
+    },
+    async saveWorkflowSource(_id, text, baseHash) {
+      client.saves.push({ text, baseHash });
+      return options.save?.(text, baseHash) ?? { kind: 'saved', contentHash: 'd'.repeat(64), problems: [] };
+    },
+    async checkWorkflow(text) {
+      client.checks.push(text);
+      return options.check === undefined ? undefined : options.check(text);
     },
     followRun(_id, handlers, signal) {
       runHandlers = handlers;
@@ -1020,5 +1045,256 @@ describe('Stop (T-17, AC-09, AC-10, AC-13)', () => {
     expect((await screen.findByRole('alert')).textContent).toContain(
       'can only be stopped where it was started',
     );
+  });
+});
+
+describe('the source view (T-10, T-11, AC-09 to AC-13)', () => {
+  const TEXT = 'version: "1.0"\nname: demo\nsteps:\n  - id: a\n';
+  const HASH = 'a'.repeat(64);
+  const WF = {
+    id: 'w1',
+    name: 'demo',
+    path: 'demo.workflow.ai.yml',
+    project: 'shop',
+    valid: true,
+    problems: [],
+  };
+  const SOURCE: WorkflowSourceResponse = { workflow: WF, text: TEXT, contentHash: HASH, problems: [] };
+
+  function editable(extra: Parameters<typeof fakeClient>[0] = {}) {
+    return fakeClient({
+      runs: RUNS,
+      workflows: { workflows: [WF], truncated: false },
+      source: SOURCE,
+      check: () => [],
+      ...extra,
+    });
+  }
+
+  function open(client: FakeClient, confirm: (m: string) => boolean = () => true) {
+    const props = appProps(client, `/workflows/${WF.id}`);
+    const win = Object.assign(Object.create(window) as typeof window, {
+      confirm,
+      location: window.location,
+      history: window.history,
+      addEventListener: window.addEventListener.bind(window),
+      removeEventListener: window.removeEventListener.bind(window),
+    });
+    render(h(App, { ...props, win, checkDelayMs: 5, pollMs: 5 }));
+  }
+
+  const editor = async () => (await screen.findByLabelText('The workflow file')) as HTMLTextAreaElement;
+
+  it('opens from Edit in the Run panel, by an address of its own', async () => {
+    const client = editable();
+    render(h(App, appProps(client)));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Edit demo' }));
+    expect(window.location.pathname).toBe('/workflows/w1');
+    expect(await screen.findByRole('heading', { name: 'Edit demo' })).toBeTruthy();
+    expect((await editor()).value).toBe(TEXT);
+  });
+
+  it('offers no Edit when the server does not open files', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS, workflows: { workflows: [WF], truncated: false } }))));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: 'Run demo' });
+    expect(within(dialog).queryByRole('button', { name: 'Edit demo' })).toBeNull();
+  });
+
+  it('shows the text with line numbers and the file it is', async () => {
+    open(editable());
+    await editor();
+    expect(screen.getByText('demo.workflow.ai.yml in shop')).toBeTruthy();
+    const gutter = document.querySelector('.source-gutter');
+    expect(gutter?.textContent).toBe('12345');
+    expect(screen.getByText('No problems: indaba validate would accept this.')).toBeTruthy();
+  });
+
+  it('checks a draft after a pause and shows only the latest answer', async () => {
+    const client = editable({
+      check: (text) =>
+        text.includes('[') ? [{ message: 'invalid YAML: at line 2, column 3', line: 2, column: 3 }] : [],
+    });
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: `${TEXT}x: [` } });
+    expect(await screen.findByText('Not saved yet.')).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'One problem' })).toBeTruthy();
+    expect(client.checks.at(-1)).toBe(`${TEXT}x: [`);
+  });
+
+  it('puts the caret at a problem’s line and column', async () => {
+    const client = editable({
+      source: { ...SOURCE, problems: [{ message: 'invalid YAML: here', line: 2, column: 3 }] },
+    });
+    open(client);
+    const area = await editor();
+    fireEvent.click(await screen.findByRole('button', { name: 'Go to line 2: invalid YAML: here' }));
+    expect(document.activeElement).toBe(area);
+    expect(area.selectionStart).toBe(TEXT.indexOf('name') + 2);
+  });
+
+  it('indents with Tab, and lets Tab leave after Escape, so the keyboard is never trapped', async () => {
+    open(editable());
+    const area = await editor();
+    area.focus();
+    area.setSelectionRange(0, 0);
+    expect(fireEvent.keyDown(area, { key: 'Tab' })).toBe(false);
+    expect(area.value.startsWith('  version')).toBe(true);
+    fireEvent.keyDown(area, { key: 'Escape' });
+    expect(fireEvent.keyDown(area, { key: 'Tab' })).toBe(true);
+  });
+
+  it('saves against the hash it read, says so, and offers Run once the saved file is valid (AC-03, AC-09)', async () => {
+    const client = editable();
+    open(client);
+    const area = await editor();
+    const save = screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement;
+    const run = screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement;
+    expect(save.disabled).toBe(true);
+    fireEvent.change(area, { target: { value: `${TEXT}# note\n` } });
+    expect(run.disabled).toBe(true);
+    fireEvent.click(save);
+    await waitFor(() => expect(client.saves).toEqual([{ text: `${TEXT}# note\n`, baseHash: HASH }]));
+    expect(await screen.findByText('Saved.')).toBeTruthy();
+    await waitFor(() => expect(run.disabled).toBe(false));
+    // The next save starts from the new hash.
+    fireEvent.change(area, { target: { value: `${TEXT}# again\n` } });
+    fireEvent.click(save);
+    await waitFor(() => expect(client.saves.at(-1)?.baseHash).toBe('d'.repeat(64)));
+  });
+
+  it('runs the saved workflow from its own Run, through the confirmation (AC-07)', async () => {
+    const client = editable({
+      startRun: (_id, hash) =>
+        hash === undefined
+          ? {
+              kind: 'confirm',
+              contentHash: HASH,
+              use: { runners: ['shell'], commands: [], permissions: [], needsPerson: [] },
+            }
+          : undefined,
+    });
+    open(client);
+    await editor();
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(
+      await within(dialog).findByRole('heading', { name: 'Before demo runs for the first time' }),
+    ).toBeTruthy();
+    expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+  });
+
+  it('says a text saved with problems cannot run until they are fixed (C-01)', async () => {
+    const client = editable({
+      save: () => ({
+        kind: 'saved',
+        contentHash: 'e'.repeat(64),
+        problems: [{ message: 'steps is missing' }],
+      }),
+    });
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: 'name: x\n' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findByText('Saved, with problems: it cannot run until they are fixed.')).toBeTruthy();
+    expect((screen.getByRole('button', { name: 'Run' }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText('steps is missing')).toBeTruthy();
+  });
+
+  it('shows a conflict with the disk’s version and lets the person choose (AC-04, AC-12)', async () => {
+    const DISK = 'version: "1.0"\nname: theirs\nsteps: []\n';
+    const client = editable({
+      save: (_t, base) =>
+        base === HASH
+          ? { kind: 'changed', current: { text: DISK, contentHash: 'f'.repeat(64) } }
+          : { kind: 'saved', contentHash: 'd'.repeat(64), problems: [] },
+    });
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: `${TEXT}# mine\n` } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('The file changed on disk after you opened it');
+    expect((within(alert).getByLabelText('The version on disk') as HTMLTextAreaElement).value).toBe(DISK);
+    expect(area.value).toBe(`${TEXT}# mine\n`);
+    fireEvent.click(within(alert).getByRole('button', { name: 'Keep mine and save' }));
+    await waitFor(() =>
+      expect(client.saves.at(-1)).toEqual({ text: `${TEXT}# mine\n`, baseHash: 'f'.repeat(64) }),
+    );
+    await waitFor(() =>
+      expect(screen.queryByText('The file changed on disk after you opened it')).toBeNull(),
+    );
+  });
+
+  it('takes the disk’s version when the person chooses it', async () => {
+    const DISK = 'version: "1.0"\nname: theirs\nsteps: []\n';
+    const client = editable({
+      save: () => ({ kind: 'changed', current: { text: DISK, contentHash: 'f'.repeat(64) } }),
+    });
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: 'mine' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Use the version on disk' }));
+    await waitFor(() => expect(area.value).toBe(DISK));
+    expect(screen.getByText('Saved.')).toBeTruthy();
+  });
+
+  it('says plainly when a save was refused, and keeps the person’s text', async () => {
+    const client = editable({ save: () => ({ kind: 'refused', code: 'not_saved' }) });
+    open(client);
+    const area = await editor();
+    fireEvent.change(area, { target: { value: 'mine' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'The file could not be saved; it is as it was.',
+    );
+    expect(area.value).toBe('mine');
+  });
+
+  it('asks before leaving with unsaved changes, by Back or the header (AC-11)', async () => {
+    const asked: string[] = [];
+    let answer = false;
+    open(editable(), (message) => {
+      asked.push(message);
+      return answer;
+    });
+    const area = await editor();
+    fireEvent.click(screen.getByRole('link', { name: '← Runs' }));
+    expect(asked).toEqual([]);
+    expect(window.location.pathname).toBe('/');
+    cleanup();
+    open(editable(), (message) => {
+      asked.push(message);
+      return answer;
+    });
+    fireEvent.change(await editor(), { target: { value: 'changed' } });
+    fireEvent.click(screen.getByRole('link', { name: '← Runs' }));
+    expect(asked).toHaveLength(1);
+    expect(window.location.pathname).toBe('/workflows/w1');
+    fireEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    expect(asked).toHaveLength(2);
+    expect(window.location.pathname).toBe('/workflows/w1');
+    answer = true;
+    fireEvent.click(screen.getByRole('link', { name: 'Settings' }));
+    expect(window.location.pathname).toBe('/settings');
+    expect(area).toBeTruthy();
+  });
+
+  it('says why a file cannot be opened', async () => {
+    open(
+      editable({
+        source: {
+          kind: 'server',
+          message: 'This workflow file is larger than 1 MiB, so the page does not open or save it.',
+        },
+      }),
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('larger than 1 MiB');
+    expect(screen.queryByLabelText('The workflow file')).toBeNull();
   });
 });

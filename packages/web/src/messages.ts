@@ -38,6 +38,46 @@ export const messages = {
     runWorkflow: 'Run a workflow',
   },
 
+  /** The source view of a workflow (specs/web-app-editing-core). */
+  editor: {
+    back: 'Runs',
+    title: (name: string): string => `Edit ${name}`,
+    file: (path: string, project: string): string => `${path} in ${project}`,
+    loading: 'Opening the file...',
+    textLabel: 'The workflow file',
+    keysHelp: 'Tab indents. To leave the editor with Tab, press Escape first.',
+    problemsTitle: (n: number): string => (n === 1 ? 'One problem' : `${n} problems`),
+    noProblems: 'No problems: indaba validate would accept this.',
+    atLine: (line: number, column: number): string => `line ${line}, column ${column}`,
+    goTo: (line: number): string => `Go to line ${line}`,
+    save: 'Save',
+    saving: 'Saving...',
+    run: 'Run',
+    runNeedsSave: 'Save the file, with no problems left, to run it.',
+    status: {
+      saved: 'Saved.',
+      unsaved: 'Not saved yet.',
+      checking: 'Checking...',
+      savedWithProblems: 'Saved, with problems: it cannot run until they are fixed.',
+    },
+    leave: 'Your changes to this workflow are not saved. Leave anyway?',
+    conflictTitle: 'The file changed on disk after you opened it',
+    conflictBody:
+      'Someone or something (another editor, git) saved it meanwhile, so yours was not saved. Compare the two and choose.',
+    diskLabel: 'The version on disk',
+    useDisk: 'Use the version on disk',
+    keepMine: 'Keep mine and save',
+    refusals: {
+      workflow_not_found: 'This workflow is no longer in the project.',
+      too_large:
+        'This file is larger than 1 MiB, so the page does not open or save it. Edit it in your own editor.',
+      not_text: 'This file is not text in UTF-8, so the page does not open it. Edit it in your own editor.',
+      not_saved:
+        'The file could not be saved; it is as it was. Check that its folder can be written, then save again.',
+      other: 'The server did not save the file.',
+    } as Readonly<Record<string, string>>,
+  },
+
   /** The Run a workflow panel and Stop (specs/web-app-actions). */
   actions: {
     panelTitle: 'Run a workflow',
@@ -52,6 +92,8 @@ export const messages = {
     none: 'No workflow file was found. Indaba lists files named *.workflow.ai.yml (or .yaml) and the project default .indaba/workflow.ai.yml.',
     run: 'Run',
     runLabel: (name: string): string => `Run ${name}`,
+    edit: 'Edit',
+    editLabel: (name: string): string => `Edit ${name}`,
     inProject: (path: string, project: string): string => `${path} in ${project}`,
     invalid: 'Cannot run: it has problems',
     confirmTitle: (name: string): string => `Before ${name} runs for the first time`,

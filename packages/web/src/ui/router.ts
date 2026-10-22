@@ -8,6 +8,7 @@ export type Route =
   | { readonly name: 'runs' }
   | { readonly name: 'run'; readonly runId: string; readonly step: string | undefined }
   | { readonly name: 'settings' }
+  | { readonly name: 'workflow'; readonly workflowId: string }
   | { readonly name: 'missing' };
 
 const SEGMENT = /^[A-Za-z0-9._-]{1,200}$/;
@@ -29,6 +30,10 @@ export function parseRoute(pathname: string, search: string): Route {
   if (parts.length === 1 && parts[0] === 'settings') {
     return { name: 'settings' };
   }
+  if (parts.length === 2 && parts[0] === 'workflows') {
+    const workflowId = decode(parts[1] ?? '');
+    return workflowId === undefined ? { name: 'missing' } : { name: 'workflow', workflowId };
+  }
   if (parts.length === 2 && parts[0] === 'runs') {
     const runId = decode(parts[1] ?? '');
     if (runId === undefined) {
@@ -48,6 +53,8 @@ export function hrefOf(route: Route): string {
       return '/';
     case 'settings':
       return '/settings';
+    case 'workflow':
+      return `/workflows/${encodeURIComponent(route.workflowId)}`;
     case 'run':
       return `/runs/${encodeURIComponent(route.runId)}${
         route.step === undefined ? '' : `?step=${encodeURIComponent(route.step)}`
@@ -64,6 +71,8 @@ export interface Place {
 
 export interface Navigator {
   readonly location: Place;
+  /** Asks the person a yes-or-no question; a browser's `window.confirm`. */
+  confirm?(message: string): boolean;
   readonly history: Pick<History, 'pushState' | 'replaceState'>;
   addEventListener(type: 'popstate', listener: () => void): void;
   removeEventListener(type: 'popstate', listener: () => void): void;

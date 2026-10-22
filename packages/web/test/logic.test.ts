@@ -384,3 +384,26 @@ describe('the theme', () => {
     expect(root.dataset.theme).toBeUndefined();
   });
 });
+
+describe('the source view helpers', () => {
+  it('finds the offset of a line and column, clamped to the text', async () => {
+    const { offsetOf, lineCount } = await import('../src/ui/SourceScreen.js');
+    const text = 'ab\ncdef\n\ng';
+    expect(offsetOf(text, 1, 1)).toBe(0);
+    expect(offsetOf(text, 2, 3)).toBe(5);
+    expect(offsetOf(text, 2, 99)).toBe(7);
+    expect(offsetOf(text, 3, 1)).toBe(8);
+    expect(offsetOf(text, 4, 1)).toBe(9);
+    expect(offsetOf(text, 9, 1)).toBe(text.length);
+    expect(offsetOf(text, 1, 0)).toBe(0);
+    expect(lineCount(text)).toBe(4);
+    expect(lineCount('')).toBe(1);
+  });
+
+  it('routes /workflows/{id} and back', async () => {
+    const { parseRoute, hrefOf } = await import('../src/ui/router.js');
+    expect(parseRoute('/workflows/abc123', '')).toEqual({ name: 'workflow', workflowId: 'abc123' });
+    expect(parseRoute('/workflows/a%2Fb', '')).toEqual({ name: 'missing' });
+    expect(hrefOf({ name: 'workflow', workflowId: 'abc' })).toBe('/workflows/abc');
+  });
+});

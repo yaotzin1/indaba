@@ -1092,6 +1092,109 @@ ul.workflows > li.invalid {
   }
 }
 
+/* ---------- The source view (specs/web-app-editing-core) ---------- */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.source-file {
+  font-family: var(--mono);
+  font-size: 0.88rem;
+  overflow-wrap: anywhere;
+}
+.source-label {
+  display: block;
+  margin: 18px 0 2px;
+  font-weight: 600;
+}
+.source-editor {
+  display: flex;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-item);
+  background: var(--well);
+  overflow: hidden;
+}
+.source-editor:focus-within {
+  outline: 2px solid var(--brand);
+  outline-offset: 1px;
+}
+.source-gutter {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  min-width: 3.2em;
+  padding: 10px 8px 10px 0;
+  overflow: hidden;
+  text-align: right;
+  color: var(--muted);
+  background: var(--table);
+  border-right: 1px solid var(--line);
+  font: 400 0.88rem / 1.55 var(--mono);
+  user-select: none;
+}
+.source-text {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 10px 12px;
+  border: 0;
+  resize: vertical;
+  color: var(--ink);
+  background: var(--well);
+  font: 400 0.88rem / 1.55 var(--mono);
+  tab-size: 2;
+  white-space: pre;
+  overflow: auto;
+}
+.source-text:focus {
+  outline: none;
+}
+.source-text.disk {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: var(--r-item);
+  background: var(--table);
+}
+.source-problems {
+  margin-top: 14px;
+  padding: 10px 14px;
+  border-left: 4px solid var(--fail);
+  border-radius: var(--r-item);
+  background: var(--fail-bg);
+}
+.source-problems h3 {
+  margin: 0 0 6px;
+  font-size: 1rem;
+  color: var(--fail);
+}
+.source-problems ul {
+  margin: 0;
+  padding-left: 1.2em;
+}
+.source-problems button.link {
+  text-align: left;
+  color: var(--ink);
+  font-weight: 400;
+}
+.source-at {
+  font-family: var(--mono);
+  font-weight: 600;
+  color: var(--fail);
+}
+.source-ok {
+  margin-top: 14px;
+  color: var(--ok);
+  font-weight: 600;
+}
+.conflict {
+  border-color: var(--esc);
+  border-left-width: 4px;
+}
+
 /* ---------- Narrow screens ---------- */
 @media (max-width: 480px) {
   .narrow-hide {
