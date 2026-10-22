@@ -24,11 +24,17 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 - [x] **T-08** `warn` and above on standard error (AC-08) without changing standard output.
 - [ ] **T-09** Pass the logger to the engine, the runners, the server and the plugins; `runId`, `taskId`, `stepId`, `traceId` through `child`.
   Done: the plugins (`host.logger`) and the engine's events through the bridge (T-21), with `taskId`, `stepId` and
-  `traceId`. Open: the runners, and the server (on `feat/web-app`, once this branch is on `main`).
+  `traceId`. The server: done 2026-10-21 on `feat/web-app` after its rebase onto this change (`ServerOptions.logger`,
+  `indaba ui` hands it the command's logger). Open: the runners.
 - [x] **T-21** `logEngineEvents` (AC-22) in `@indaba/engine`, connected by `createEngine`; the logging contract
   re-exported by the engine (AC-23).
 - [x] **T-22** `@indaba/tui` takes `logger` in `watch`: opened, closed, a failing source (AC-23).
-- [ ] **T-10** `indaba ui` logs through it from its first line (specs/web-app, T-11).
+- [x] **T-10** `indaba ui` logs through it from its first line (specs/web-app, T-11). **Done 2026-10-21:** `process.start`
+  and `process.end` as every command, the server's start (its address, never the token) and stop, each refused request
+  (method, path without query or fragment, status, reason) at `info`, each stream opening and closing, a not-found at
+  `debug`, a failed request at `error`; no body and no `Authorization` header. `--log-level` and `--log-dir` in its help.
+  Tests: `packages/server/test/logging.test.ts`, `packages/cli/e2e/ui.e2e.test.ts` (reads the file the built command
+  leaves).
 - [ ] **T-11** `indaba report [run]` (AC-17), a second step.
 
 ## Settings screens (with the actions step of `specs/web-app`)
@@ -40,7 +46,8 @@ Ordered by dependency. Domain first, infrastructure second, console and document
 
 - [x] **T-14** Unit coverage of the core: success and failure paths, determinism, redaction, settings problems. `packages/core/test/logging.test.ts`.
 - [x] **T-15** Layers test in each package: no `console.*` or direct stdout outside the output module (AC-03). Core,
-  engine, runners and tui; the cli rule already existed. The server gets its own when the package exists.
+  engine, runners and tui; the cli rule already existed. The server's: `packages/server/test/layers.test.ts`
+  (2026-10-21).
 - [ ] **T-16** A run with every sink failing ends with the same states, events and traces (AC-11).
 
 ## Documentation

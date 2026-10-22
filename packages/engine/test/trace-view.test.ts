@@ -1,3 +1,4 @@
+import type { RunState as CoreRunState, RunSummary as CoreRunSummary } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import {
   emptyRun,
@@ -7,6 +8,7 @@ import {
   MAX_OUTPUT_LINES,
   type RunRecord,
   type RunState,
+  type RunSummary,
   reduceAll,
   reduceRun,
 } from '../src/index.js';
@@ -627,5 +629,22 @@ describe('reduceRun: properties', () => {
     });
     expect(state.cost).toEqual({ usd: 0.2, unknown: 0, calls: 1 });
     expect(state.notes).toEqual(['???']);
+  });
+});
+
+describe('the run view types, now declared in @indaba/core', () => {
+  it('stay importable from the engine and are the same types', () => {
+    const state: CoreRunState = emptyRun();
+    const engineState: RunState = state;
+    const summary: RunSummary = {
+      runId: 'a1',
+      startedAt: undefined,
+      status: 'running',
+      workflow: undefined,
+      cost: { usd: 0, unknown: 0, calls: 0 },
+    };
+    const coreSummary: CoreRunSummary = summary;
+    expect(engineState.steps).toEqual([]);
+    expect(coreSummary.runId).toBe('a1');
   });
 });

@@ -64,7 +64,8 @@ agent; who makes each decision is still the person's choice.
 | Folders that are not git repositories | Specified: `workspace-without-git` |
 | Talk to the models, choose who decides, shared skills and prompts, workflow inputs | Specified: `agent-conversation`, `workflow-inputs` |
 | Workflow editor, schema and catalog for a wizard; ruling channel for other front ends; voter arbiter | Specified: `workflow-editor`, `ruling-channel`, `voter-arbiter` |
-| Local web view (`indaba ui`): workflow list, graph, inspector, run, health; workflow registry; running one step | Specified: `web-app`, `workflow-registry`, `single-step-run` |
+| Local web view: the runs, and one run live as a graph with each step's details, tries, output and cost | Built, read-only, on the `feat/web-app` branch; opened with `indaba ui`, or `pnpm try:ui` for a demo ([web-view.md](web-view.md)) |
+| The rest of the web view (`indaba ui`): workflow list, inspector, health, actions; workflow registry; running one step | Specified: `web-app`, `workflow-registry`, `single-step-run` |
 | Running agents in a container or a virtual machine, set up by Indaba itself | Specified: `agent-sandbox` |
 | A hosted service that works on a connected repository | Not planned; what it would need is in [hosted-service.md](hosted-service.md). There is no desktop application |
 

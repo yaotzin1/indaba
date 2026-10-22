@@ -233,11 +233,16 @@ All recommendations; the maintainer confirms.
   all of them, and for `apsw-gridwright-mui` and `apsw-gridwright` at the top level); the dependency trees are checked
   when each dependency is added, under the repository's open-source rule. `elkjs` was a candidate and is dropped: its
   licence is `EPL-2.0 OR GPL-3.0-or-later`.
+  *Amended 2026-10-20 for delivery step 1 (plan, "Decisions taken while building the page"): no MUI, no router or query
+  library yet; `@dagrejs/dagre` (the maintained `dagre`); the libraries are bundled, not installed.*
 - **C-02. The table component is the maintainer's own.** `apsw-gridwright-mui` is published under the maintainer's
   account, MIT, with peers on React, `@mui/material` and `apsw-gridwright`. The page is a first consumer, so a gap in
   the component is fixed in that project rather than worked around here, and the dependency is pinned to an exact
-  version in the lockfile. If it cannot meet AC-06 and AC-20 (keyboard and screen reader), the fallback is MUI's
-  community data grid, decided at plan time.
+  version in the lockfile. **Every table of the page is an `apsw-gridwright` grid** (decided by the maintainer on 2026-10-17): the
+  Runs table, the steps of a run with their tries as child rows, and later the Workflows table. Sorting, selection and paging are
+  the grid's defaults; search, column filters, column layout and density are its add-ons. Its limits (no range selection of
+  cells, fixed row height under virtualization) are acceptable here. MUI's community data grid stays only as the fallback if the
+  grid cannot meet AC-20 (keyboard and screen reader), decided at plan time.
 - **C-03. Graph.** React Flow gives pan, zoom, selection and a node per step with state classes; the layout library is
   deterministic for a given workflow so the picture does not jump between runs. A loop (debate, review) is a badge and a
   self-edge on the node because adding nodes would make the picture disagree with the file.
@@ -269,6 +274,26 @@ All recommendations; the maintainer confirms.
   `AuthProvider`, a run API the page does not know is remote) are in `docs/hosted-service.md`; none of them changes
   this spec's acceptance criteria.
 - **C-11. Browsers.** The evergreen releases of the last two years.
+- **C-13. One graph, a view now and an editor later.** The graph of AC-07 is one component with a view mode and an edit mode, so
+  designing a workflow by moving bricks from a palette onto the canvas (`specs/workflow-editor`, step 3 of C-09) is the same
+  picture, not a second one. In view mode every step can be selected: its panel says what happened (runners, models, tokens,
+  cost, tools, permissions, guards, output, tries), and what happens if it fails (retry which step, how many times, then
+  escalated or failed). The edit mode writes the workflow file and shows the messages of `indaba validate`. Whether editing is
+  part of a paid edition is a product decision this spec does not make. React Flow (C-01) supports both modes.
+- **C-14. The graph needs the workflow's structure.** A run's trace records, for a step, only its id and attempt number. Which
+  step waits for which (`depends_on`) and where a failure leads (`on_failure`) are in the workflow file, not in the trace, and the
+  trace names the workflow but not the file. Recommendation: the engine records both when the run starts
+  (task T-20), on the run's root span because a step's span exists only once it runs, so a run describes itself, an old run is still readable, and the page and the dashboard agree. A run recorded
+  before the change shows its steps in order, with a note that its structure was not recorded.
+- **C-15. The discussion of a debate.** The trace holds a debate's outcome and number of rounds. The messages are in
+  `.indaba/artifacts/<step>.transcript.md`, which the next run overwrites, so it cannot be tied to one run. The full discussion
+  (rounds, who said what, `CRITIQUE` or `AGREEMENT`, the arbiter's ruling) needs either the board of `specs/run-blackboard` or the
+  transcript recorded under the run (task T-21). Until then the page shows the summary and says the messages are not available.
+  **Decided 2026-10-21 (maintainer, sketch answer 8):** the messages are kept, as one structured JSON file per run and step
+  (`<traceId>.<stepId>.json`) written by the engine when the debate ends, redacted and with control sequences dropped. The
+  person chooses the folder (`indaba run --discussion-dir <dir>`; default `<project>/.indaba/discussions`), and
+  `indaba ui --discussion-dir <dir>` (repeatable) tells the server where else to look. The page shows the summary first and
+  the full thread only when asked. A run that kept none (an older run, or a folder the server was not told) says so plainly.
 - **C-12. Runs end with `indaba ui`.** The recommendation is that the server is the owner of the runs it starts, so
   ending it cancels them through the engine's teardown, as stopping a run from the page does, and the page tells the
   person before the first Run. The alternative, runs that outlive the server in a process of their own, needs a
@@ -276,10 +301,36 @@ All recommendations; the maintainer confirms.
   content, so an edit asks again; which hash, and where the answer is kept, is decided at plan time (the digest of
   `specs/workflow-inputs` covers resolved inputs, not the file). Both choices are for the maintainer to confirm.
 
+- **C-16. Rules per step, shown and editable (maintainer, 2026-10-17).** A person can say, for a step, what the agent may read,
+  what it may change (nothing, by default) and whether it may run commands, as `permissions` in the workflow file defines them
+  (`docs/workflow-format.md`). The page shows the rule on the graph (a badge such as `read-only` or `writes src/**`), in the step's
+  panel (with how many requests were refused), and in the editor (presets: read-only, edit only these folders, full access).
+  A sentence in a goal ("do not edit files") is a request, not a rule, and the page never presents it as one. The rule is
+  enforced where the runner allows (over ACP as the agent asks; for every runner by the `diff_within_scope` guard after the
+  step) and the page says which of the two applies.
+- **C-17. Where a prompt goes (maintainer, 2026-10-17).** A step's instruction is its `goal`, edited in the step's settings. A
+  value that changes from run to run, such as the spec to execute or review, is an input (`specs/workflow-inputs`) that the
+  page asks for before Run (AC-10). "Execute a spec" and "Review a spec" are workflows (a code step, a verify step, a debate)
+  that take the spec as an input; a quick start that fills one in from a template is a later option for people who do not
+  write workflow files.
+- **C-18. Skills (maintainer, 2026-10-17; not decided, needs its own spec).** A person can bring a skill, a reusable pack of
+  instructions for an agent, from a source they choose, read it, edit it in the editor, and use it in a step. Open: what a skill
+  is for Indaba (the `SKILL.md` format agents already use, or a smaller one), where they come from (a folder, a repository
+  address, a shared catalogue), and whether a skill may carry rules. Constraints that hold whatever is chosen: downloaded text is
+  untrusted data and can steer an agent, so it is shown in full and accepted by the person before first use, pinned by a hash
+  so a change asks again, never run on download, and never able to widen a step's permissions (C-16 stays in the workflow);
+  its licence is shown, and what Indaba itself depends on stays open source and MIT-compatible. The download model of
+  `specs/acp-agent-install` (consent, checksum, per-user store, no silent install) is the one to reuse.
+- **C-19. An assistant in the editor, over ACP, by choice (maintainer, 2026-10-17; not decided, needs its own spec).** While
+  editing a workflow, a skill or a spec, a person may open an assistant panel and talk to an AI agent they already have, through
+  ACP, the way Indaba drives agents today (the presets for claude, codex, gemini and opencode, or a command of their own). It is
+  an option: off by default, and the person chooses the agent or none. The assistant only proposes: it can write to the draft and
+  nothing else, runs no command, and the person sees the difference and accepts or discards it; saving and running stay the
+  person's actions (AC-13, AC-22). It needs the conversation capability that C-07 says has no specification yet, so it comes
+  after `specs/ruling-channel` and a spec for talking to an agent.
+
 ## Artifacts not written
 
-- `plan.md`: planning waits for the clarifications above and for the specifications it builds on.
-- `tasks.md`: nothing to schedule until the plan exists.
 - `research.md`: the graph and layout libraries are compared at plan time against a real workflow.
 - `data-model.md`: the page keeps no model of its own (C-05); the view types are in `api-surface.md`.
 - `events.md`: the page consumes events and emits none; the vocabulary belongs to `specs/observability`.

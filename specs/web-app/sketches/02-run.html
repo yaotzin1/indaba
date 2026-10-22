@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sketch 2: Run</title>
+<link rel="stylesheet" href="sketch.css">
+<style>
+  /* Selecting a step is a link to its panel, shown with :target, so this sketch needs no script. The real page keeps the
+     step in the address (C-05) and uses one component for the graph and the list. */
+  .insp { display: none; }
+  .insp:target { display: block; }
+  main:not(:has(.insp:target)) #insp-verify { display: block; }
+  main:has(#insp-rfc:target) a[href="#insp-rfc"] rect,
+  main:has(#insp-code:target) a[href="#insp-code"] rect,
+  main:has(#insp-debate_review:target) a[href="#insp-debate_review"] rect,
+  main:not(:has(.insp:target)) a[href="#insp-verify"] rect,
+  main:has(#insp-verify:target) a[href="#insp-verify"] rect { stroke-width: 5; }
+  .graph a { cursor: pointer; }
+  .graph a:hover rect { stroke-width: 4; }
+  .graph a:focus-visible { outline: none; }
+  .graph a:focus-visible rect { outline: 3px solid var(--brand); outline-offset: 3px; }
+  .graph .edge.fail { stroke: var(--fail); stroke-dasharray: 7 4; stroke-width: 2; }
+  .graph .fail-label { fill: var(--fail); font-size: 12px; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 0.85rem; color: var(--muted); margin: 8px 0 0; }
+  .legend svg { vertical-align: middle; }
+  .insp h3 { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .insp section + section { margin-top: 14px; }
+  .flow { margin: 0; padding-left: 1.2em; }
+  .flow li + li { margin-top: 4px; }
+  table.small th, table.small td { padding: 4px 8px; font-size: 0.9rem; }
+  .grid-chrome { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; font-size: 0.85rem; }
+  .chev { color: var(--muted); }
+  tr.child td, tr.child th { background: var(--bg); font-size: 0.85rem; }
+</style>
+</head>
+<body>
+<a class="skip" href="#graph">Skip to the graph</a>
+<header class="app">
+  <h1><img src="../../../docs/assets/indaba-mark.svg" width="30" height="30" alt=""> Indaba</h1>
+  <nav aria-label="Main">
+    <a href="01-runs.html" aria-current="page">Runs</a>
+    <a href="06-workflows.html">Workflows</a>
+  </nav>
+  <span class="badge">Read-only</span>
+  <span class="badge">Live: connected</span>
+  <fieldset class="theme">
+    <legend>Theme</legend>
+    <label><input type="radio" name="theme" id="theme-system" checked>System</label>
+    <label><input type="radio" name="theme" id="theme-light">Light</label>
+    <label><input type="radio" name="theme" id="theme-dark">Dark</label>
+  </fieldset>
+</header>
+<main>
+  <p class="muted"><a href="01-runs.html">&larr; Runs</a></p>
+  <h2>task-pipeline <span class="state running">&#9654; running</span></h2>
+  <p class="muted">Started today 14:02, running for 6 min 12 s, run <code>4dd7a436&hellip;</code></p>
+  <div class="note"><b>Sketch 2 of 6, sample data. Click a step</b> (in the graph or in the list) to see what happened in it and what happens
+    if it fails. The graph is drawn from the workflow's structure: which step waits for which, and where a failure leads.
+    <b>A run's trace does not record that structure today</b>, so this needs a small change in the engine (task T-20, question 7
+    in the README). The same graph is meant to become the editor later (<a href="05-editor-later.html">sketch 5</a>). Nothing here
+    starts, stops or edits a run.</div>
+
+  <div class="layout">
+    <div>
+      <section class="panel graph" id="graph" aria-labelledby="graph-h">
+        <h3 id="graph-h">Steps <span class="muted">(select one for details)</span></h3>
+        <svg viewBox="0 0 880 228" role="group" aria-labelledby="graph-d">
+          <desc id="graph-d">Four steps from left to right: rfc, code, verify, debate_review. If verify fails, the run goes back to code
+            and runs code, verify and debate_review again, up to three times; after that the run is escalated.</desc>
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="currentColor" class="muted"/>
+            </marker>
+            <marker id="arrow-fail" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+              <path d="M0 0 L10 5 L0 10 z" fill="currentColor" style="color:var(--fail)"/>
+            </marker>
+          </defs>
+          <path class="edge done" d="M190 88 H240" marker-end="url(#arrow)"/>
+          <path class="edge done" d="M430 88 H480" marker-end="url(#arrow)"/>
+          <path class="edge" d="M670 88 H690" marker-end="url(#arrow)"/>
+          <path class="edge fail" d="M575 136 C575 196 335 196 335 138" marker-end="url(#arrow-fail)"/>
+          <text class="fail-label" x="455" y="214" text-anchor="middle">if verify fails: run code again (then verify, debate_review), 1 of 3 used</text>
+
+          <a href="#insp-rfc" aria-label="rfc, completed. Show details.">
+            <g class="node completed">
+              <rect x="20" y="40" width="170" height="96" rx="8"/>
+              <text x="34" y="66">rfc</text>
+              <text class="sub" x="34" y="84">openrouter</text>
+              <text x="34" y="106">&#10003; completed, 41 s</text>
+            </g>
+          </a>
+          <a href="#insp-code" aria-label="code, completed. Show details.">
+            <g class="node completed">
+              <rect x="240" y="40" width="190" height="96" rx="8"/>
+              <text x="254" y="66">code</text>
+              <text class="sub" x="254" y="84">claude-code</text>
+              <text x="254" y="106">&#10003; completed, 3 min 2 s</text>
+              <text class="sub" x="254" y="124">will run again if verify fails</text>
+            </g>
+          </a>
+          <a href="#insp-verify" aria-label="verify, running, try 2. Show details.">
+            <g class="node running">
+              <rect x="480" y="40" width="190" height="96" rx="8"/>
+              <text x="494" y="66">verify</text>
+              <text class="sub" x="494" y="84">shell</text>
+              <text x="494" y="106">&#9654; running, 12 s</text>
+              <text class="sub" x="494" y="124">&#8635; try 2, 1 failed</text>
+            </g>
+          </a>
+          <a href="#insp-debate_review" aria-label="debate_review, pending. Show details.">
+            <g class="node pending">
+              <rect x="690" y="40" width="170" height="96" rx="8"/>
+              <text x="704" y="66">debate_review</text>
+              <text class="sub" x="704" y="84">debate: antigravity + claude</text>
+              <text x="704" y="106">&#9675; pending</text>
+            </g>
+          </a>
+        </svg>
+        <p class="legend">
+          <span><svg width="34" height="10" aria-hidden="true"><path d="M0 5 H28" stroke="currentColor" stroke-width="2"/></svg> waits for (<code>depends_on</code>)</span>
+          <span><svg width="34" height="10" aria-hidden="true"><path d="M0 5 H28" stroke="var(--fail)" stroke-width="2" stroke-dasharray="6 3"/></svg> where a failure leads (<code>on_failure</code>)</span>
+          <span>Click, or Tab to a step and press Enter.</span>
+        </p>
+      </section>
+
+      <div class="panel" style="margin-top:16px" aria-live="polite">
+
+        <article class="insp" id="insp-rfc" aria-labelledby="h-rfc">
+          <h3 id="h-rfc">rfc <span class="state completed">&#10003; completed</span> <span class="muted">41 s</span></h3>
+          <section>
+            <h4>What happened</h4>
+            <table class="small"><thead><tr><th scope="col">Runner</th><th scope="col">Model</th><th scope="col" class="num">Tokens in / out</th><th scope="col" class="num">Cost</th></tr></thead>
+              <tbody><tr><td>openrouter</td><td>anthropic/claude-3.7-sonnet:thinking</td><td class="num">8.1k / 2.4k</td><td class="num">$0.21</td></tr></tbody></table>
+            <p class="muted">Guard <code>git_diff_empty</code> on <code>packages/</code>: passed.</p>
+          </section>
+          <section>
+            <h4>If this step fails</h4>
+            <p>No <code>on_failure</code> is set: <b>the run ends as failed</b> and nothing runs again.</p>
+          </section>
+          <section><h4>Output</h4><pre>Specification written to .indaba/artifacts/spec.md (212 lines).</pre></section>
+        </article>
+
+        <article class="insp" id="insp-code" aria-labelledby="h-code">
+          <h3 id="h-code">code <span class="state completed">&#10003; completed</span> <span class="muted">3 min 2 s, ran 1 time</span></h3>
+          <section>
+            <h4>What happened</h4>
+            <table class="small"><thead><tr><th scope="col">Runner</th><th scope="col">Model</th><th scope="col" class="num">Tokens in / out</th><th scope="col" class="num">Cost</th></tr></thead>
+              <tbody><tr><td>claude-code</td><td>not reported</td><td class="num">unknown</td><td class="num">unknown</td></tr></tbody></table>
+            <p class="muted">Tools used: edit 5, run command 3. Permissions: 8 allowed, 0 refused. Isolation: git worktree.</p>
+          </section>
+          <section>
+            <h4>If this step fails</h4>
+            <p>No <code>on_failure</code> is set on this step: <b>the run ends as failed</b>.</p>
+            <p class="muted">But <code>code</code> is also the <b>target</b> of <code>verify</code>: if <code>verify</code> fails, <code>code</code> runs again
+              and is told only what failed last time (the last 4000 characters).</p>
+          </section>
+          <section><h4>Output</h4><pre>Implemented the change described in the specification.
+Changed 4 files.</pre></section>
+        </article>
+
+        <article class="insp" id="insp-verify" aria-labelledby="h-verify">
+          <h3 id="h-verify">verify <span class="state running">&#9654; running</span> <span class="muted">12 s, try 2</span></h3>
+          <section>
+            <h4>What is happening</h4>
+            <p>Running <code>pnpm test</code>, the first of two commands (<code>pnpm test</code>, <code>pnpm typecheck</code>). The first command that
+              exits with anything but 0 fails the step.</p>
+          </section>
+          <section>
+            <h4>If this step fails</h4>
+            <ol class="flow">
+              <li><b>Go back to <code>code</code>.</b> <code>on_failure: retry_step</code> with target <code>code</code>.</li>
+              <li><code>code</code> and every step after it (<code>verify</code>, <code>debate_review</code>) are reset and run again.</li>
+              <li><code>code</code> is told only the last failure, never the history.</li>
+              <li>Up to <b>3 retries</b>; <b>1 used</b>. After the third the run ends as <b>escalated</b>, not failed.</li>
+            </ol>
+            <p class="muted">Other settings would read: <code>escalate</code> ends the run as escalated at once; <code>fail</code>, or nothing, ends it as failed.</p>
+          </section>
+          <section>
+            <h4>Tries</h4>
+            <table class="small"><thead><tr><th scope="col">Try</th><th scope="col">Result</th><th scope="col" class="num">Time</th><th scope="col">Why</th></tr></thead>
+              <tbody>
+                <tr><td>1</td><td><span class="state failed">&#10007; failed</span></td><td class="num">18 s</td><td><code>pnpm typecheck</code> exited with 2</td></tr>
+                <tr><td>2</td><td><span class="state running">&#9654; running</span></td><td class="num">12 s</td><td class="muted">&ndash;</td></tr>
+              </tbody></table>
+          </section>
+          <section>
+            <h4>Output <span class="muted">(try 2, live)</span></h4>
+            <div class="note" style="margin-top:0">Shown as plain text. Escape sequences, control characters and links are dropped by the server first (AC-16).</div>
+            <pre aria-live="off">&gt; pnpm test
+ RUN  v4.1.11
+ ✓ packages/core/test/web-contract.test.ts (7 tests)
+ ✓ packages/server/test/server.test.ts (26 tests)
+ …
+<span class="muted">(waiting for more output)</span></pre>
+            <p class="muted" style="margin:8px 0 0"><a href="03-states.html#long-output">Open the full log</a> when the shown part is cut.</p>
+          </section>
+        </article>
+
+        <article class="insp" id="insp-debate_review" aria-labelledby="h-debate">
+          <h3 id="h-debate">debate_review <span class="state pending">&#9675; pending</span></h3>
+          <section>
+            <h4>What will happen</h4>
+            <p>Waits for <code>verify</code>. Then <b>antigravity</b> and <b>claude</b> debate on a shared board for up to <b>4 rounds</b>
+              until both answer <code>AGREEMENT</code>.</p>
+            <p><a href="04-discussion.html">See what a finished discussion looks like &rarr;</a></p>
+          </section>
+          <section>
+            <h4>If this step fails</h4>
+            <p>If they do not agree within 4 rounds, the step is <b>escalated, not retried</b>, and the run ends as escalated.
+              No <code>arbiter</code> is set, so nobody is asked to rule.</p>
+          </section>
+          <section><h4>Output</h4><p class="muted">Nothing yet.</p></section>
+        </article>
+
+      </div>
+    </div>
+
+    <aside aria-label="About this run">
+      <section class="panel">
+        <h3>Steps</h3>
+        <div class="note" style="margin-top:0">A <b>apsw-gridwright</b> grid: a row per step, a row can open to show its tries. Sorting,
+          keyboard and screen-reader support come with the grid.</div>
+        <table>
+          <caption class="muted" style="text-align:left">Steps of this run. Select a row to open it.</caption>
+          <thead><tr><th scope="col">Step</th><th scope="col">State</th><th scope="col" class="num">Time</th></tr></thead>
+          <tbody>
+            <tr><th scope="row"><a href="#insp-rfc">rfc</a></th><td><span class="state completed">&#10003; completed</span></td><td class="num">41 s</td></tr>
+            <tr><th scope="row"><a href="#insp-code">code</a></th><td><span class="state completed">&#10003; completed</span></td><td class="num">3 min 2 s</td></tr>
+            <tr><th scope="row"><span class="chev" aria-hidden="true">&#9662;</span> <a href="#insp-verify">verify</a></th><td><span class="state running">&#9654; running</span></td><td class="num">12 s</td></tr>
+            <tr class="child"><th scope="row">&nbsp;&nbsp;&nbsp; try 1</th><td><span class="state failed">&#10007; failed</span></td><td class="num">18 s</td></tr>
+            <tr class="child"><th scope="row">&nbsp;&nbsp;&nbsp; try 2</th><td><span class="state running">&#9654; running</span></td><td class="num">12 s</td></tr>
+            <tr><th scope="row"><a href="#insp-debate_review">debate_review</a></th><td><span class="state pending">&#9675; pending</span></td><td class="num">&ndash;</td></tr>
+          </tbody>
+        </table>
+      </section>
+      <section class="panel" style="margin-top:16px">
+        <h3>Cost</h3>
+        <dl class="facts">
+          <dt>So far</dt><dd><b>at least $0.42</b> <span class="muted">(partial)</span></dd>
+          <dt>Model calls</dt><dd>3 <span class="muted">(1 with no price)</span></dd>
+          <dt>Budget</dt><dd>no limit</dd>
+        </dl>
+        <p class="muted" style="margin:8px 0 0">A total that includes a call with no price says so. A step with no budget says
+          <b>no limit</b>, never zero (AC-19).</p>
+      </section>
+    </aside>
+  </div>
+</main>
+</body>
+</html>

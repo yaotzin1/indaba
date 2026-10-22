@@ -11,8 +11,11 @@ in each tarball and the runtime dependencies without the dev toolchain.
 
 ## What the artifact is
 
-Four npm tarballs (`indaba`, `@indaba/core`, `@indaba/engine`, `@indaba/runners`) produced by
-`pnpm pack`, which rewrites `workspace:` ranges to real versions.
+Six npm tarballs (`indaba`, `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `@indaba/tui`,
+`@indaba/server`) produced by `pnpm pack`, which rewrites `workspace:` ranges to real versions. The
+private `@indaba/web` is never packed: its build ships inside `@indaba/server`, in `page/`, staged by
+the server's `prepack` (`scripts/stage-page.mjs`, which also writes the licences of every bundled
+library to `page/THIRD-PARTY-LICENSES.txt`) and removed again by its `postpack`.
 
 ## The smoke test
 
@@ -21,8 +24,11 @@ pnpm build
 pnpm smoke
 ```
 
-`scripts/smoke-pack.mjs` packs every package under `packages/`, installs the tarballs into an empty
-temporary project and boots the `indaba` binary (`indaba --version`). It must be started through
+`scripts/smoke-pack.mjs` packs every published package under `packages/`, audits each tarball's
+files, and installs the tarballs twice into empty temporary projects. With `indaba` alone, the
+optional `@indaba/tui` and `@indaba/server` must be absent, and `indaba --version`, `indaba validate`
+on an example and `indaba ui` (which must say what to install) must behave. With everything, the
+installed `@indaba/server` must find the page in its own package. It must be started through
 pnpm so `npm_execpath` names pnpm's own script: Node refuses to start a `.cmd` shim without a shell,
 and this repository never uses a shell for that. CI runs it on Linux, Windows and macOS as a step of
 the verify job.
@@ -33,7 +39,11 @@ with a tiny workflow run through `ShellRunner` when that adds coverage.
 
 ## The published-files audit
 
-Each package's `files` is `["dist"]`. After a change to packaging, read what would ship:
+The smoke test runs it on every tarball (`auditFiles` in `scripts/smoke-pack.mjs`, with its own
+tests): anything but `dist/**/*.js`, `*.d.ts`, their maps, `package.json`, `README.md` and `LICENSE`
+fails, except `page/**` in `@indaba/server`, which must also hold `page/index.html`, a script under
+`page/assets/` and `page/THIRD-PARTY-LICENSES.txt`. Each package's `files` is `["dist"]`
+(`@indaba/server` adds `"page"`). To read what would ship by hand:
 
 ```bash
 pnpm --filter @indaba/core pack --pack-destination <tmp>

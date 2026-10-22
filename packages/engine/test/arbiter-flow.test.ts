@@ -16,7 +16,13 @@ import {
   type WorkflowDefinition,
 } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
-import { DecisionLedger, GuardRegistry, LEDGER_DIRECTORY, StepExecutor } from '../src/index.js';
+import {
+  DecisionLedger,
+  DiscussionStore,
+  GuardRegistry,
+  LEDGER_DIRECTORY,
+  StepExecutor,
+} from '../src/index.js';
 import { FakeRegistry, FakeRunner, FixedClock, makeGitRepo, SequenceIds } from './support.js';
 
 const SECRET = ['sk', 'live', '0123456789'].join('-');
@@ -70,7 +76,9 @@ class Scripted implements Adjudicator {
   }
 }
 
-async function fixture(options: { human?: Adjudicator; agent?: FakeRunner; repo?: string } = {}) {
+async function fixture(
+  options: { human?: Adjudicator; agent?: FakeRunner; repo?: string; discussions?: DiscussionStore } = {},
+) {
   const repo = options.repo ?? (await makeGitRepo());
   const agent = options.agent ?? critic();
   const adjudicators = new AdjudicatorRegistry();
@@ -87,6 +95,7 @@ async function fixture(options: { human?: Adjudicator; agent?: FakeRunner; repo?
     ledger,
     clock: new FixedClock(),
     redact,
+    ...(options.discussions === undefined ? {} : { discussions: options.discussions }),
   });
   const span = await tracer.startTrace('root');
   const run = (step = debate(), signal?: AbortSignal) =>
@@ -381,5 +390,32 @@ describe('remembering a ruling', () => {
     expect(outcome.ok).toBe(true);
     expect(human.requests).toHaveLength(1);
     await expect(readFile(join(repo, LEDGER_DIRECTORY, 'review.jsonl'), 'utf8')).rejects.toThrow();
+  });
+});
+
+describe('the kept discussion of a debate', () => {
+  it('is written under the run, redacted, and carries the ruling once there is one', async () => {
+    const repo = await makeGitRepo();
+    const store = new DiscussionStore(join(repo, 'kept'));
+    const { run, span } = await fixture({ human: accept(`ship it ${SECRET}`), repo, discussions: store });
+
+    await run();
+
+    const kept = await store.read(span.traceId, 'debate');
+    expect(kept?.messages.length).toBeGreaterThan(0);
+    expect(kept?.messages[0]?.content).toContain('fix the loop [redacted]');
+    expect(JSON.stringify(kept)).not.toContain(SECRET);
+    expect(kept?.ruling).toEqual({ verdict: 'accept', decidedBy: 'human', note: 'ship it [redacted]' });
+  });
+
+  it('is written for a debate that no arbiter was asked about', async () => {
+    const repo = await makeGitRepo();
+    const store = new DiscussionStore(join(repo, 'kept'));
+    const { run, span } = await fixture({ repo, discussions: store });
+
+    await run(withoutArbiter());
+
+    expect((await store.read(span.traceId, 'debate'))?.ruling).toBeUndefined();
+    expect((await store.read(span.traceId, 'debate'))?.outcome).toBeDefined();
   });
 });

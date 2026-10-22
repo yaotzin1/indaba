@@ -11,6 +11,8 @@
 # Node
 node_modules/
 /packages/*/dist/
+# The page staged into @indaba/server while it is packed (scripts/stage-page.mjs)
+/packages/server/page/
 *.tsbuildinfo
 .stryker/
 coverage/
