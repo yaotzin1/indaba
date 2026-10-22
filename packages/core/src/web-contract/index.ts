@@ -1,5 +1,6 @@
 export type {
   ApiError,
+  ConfirmationRequired,
   ContractResponse,
   DiscussionMessage,
   DiscussionResponse,
@@ -8,7 +9,14 @@ export type {
   RunListResponse,
   RunResponse,
   RunStreamEvent,
+  RunSummaryOfUse,
   ServerStreamEvent,
+  StartRunRequest,
+  StartRunResponse,
+  StartStatusResponse,
+  StopRunResponse,
+  WorkflowListResponse,
+  WorkflowSummary,
 } from './api.js';
 export type {
   AttemptView,

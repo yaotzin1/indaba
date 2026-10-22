@@ -10,12 +10,13 @@ export function hostAllowed(host: string | undefined, port: number): boolean {
 }
 
 /**
- * The `Origin` a write may carry: none (a client that is not a browser, which still needs the token), or this
- * server's own page under one of its loopback names.
+ * The `Origin` a write may carry: this server's own page under one of its loopback names. A write with none is
+ * refused (specs/web-app-actions, AC-16): a browser always sends one on `POST` and `PUT`, so only a client that is not
+ * the page would leave it out. Called only for methods other than `GET`, so reads are unchanged.
  */
 export function originAllowed(origin: string | undefined, port: number): boolean {
   if (origin === undefined) {
-    return true;
+    return false;
   }
   const value = origin.toLowerCase();
   return (

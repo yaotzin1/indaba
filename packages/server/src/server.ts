@@ -18,27 +18,40 @@ import {
   SINK_DEFAULTS,
   type SinkSettings,
   type SinkTestResponse,
+  type StartRunRequest,
+  type StopRunResponse,
 } from '@indaba/core';
-import { DISCUSSION_DIRECTORY, DiscussionStore } from '@indaba/engine';
+import { DISCUSSION_DIRECTORY, DiscussionStore, isRunId } from '@indaba/engine';
 import { bearerOf, hostAllowed, originAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
+import { MAX_CONCURRENT_RUNS, type RunControl, RunControlError } from './run-control.js';
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
 import { readStatic } from './static.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.0.0';
+export const CONTRACT_VERSION = '1.1.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
 const SINK_TEST_PATH = `${SETTINGS_PATH}/test`;
 const SETTINGS_CHECK_PATH = `${SETTINGS_PATH}/check`;
+const RUNS_PATH = `${API}/runs`;
+/** `/api/v1/runs/{id}/stop`; the id is checked for shape when the request is handled, not here. */
+const STOP_PATH = /^\/api\/v1\/runs\/[^/]+\/stop$/;
+
+/** The longest workflow id a request may name. A scan's id is far shorter; this bounds what is compared. */
+const MAX_WORKFLOW_ID = 256;
+/** A content hash as the server hands it out: SHA-256, lowercase hexadecimal. */
+const CONTENT_HASH = /^[0-9a-f]{64}$/;
+/** A start id as the run control hands it out; anything else is not looked up. */
+const START_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
 function described(state: LoggingSettingsState): LoggingSettingsResponse {
   return { ...state, descriptions: LOGGING_SETTINGS, sinkDefaults: SINK_DEFAULTS };
 }
 
 /**
- * The largest body the server reads, for the one resource it writes. The logging section of a project is a few hundred
+ * The largest body the server reads, for the resources that write. The logging section of a project is a few hundred
  * bytes; this keeps a hostile body from filling memory. A starting value, not a measurement.
  */
 export const MAX_BODY_BYTES = 64 * 1024;
@@ -92,13 +105,19 @@ export interface ServerOptions {
    * `Host` check and the same-origin check; every other request is still read-only.
    */
   readonly loggingSettings?: LoggingSettingsBackend;
+  /**
+   * Starting and stopping runs from the page (specs/web-app-actions). The command line supplies it, so the server itself
+   * spawns nothing and writes nothing; without it the workflow and start resources answer 404 and the server only reads
+   * runs.
+   */
+  readonly runs?: RunControl;
 }
 
 export interface ServerHandle {
   /** The address to open, with the token in the fragment (a fragment is never sent to a server). */
   readonly url: string;
   readonly port: number;
-  /** Closes the listener and every open stream. */
+  /** Stops the runs this server started (when it has a run control), then closes the listener and every stream. */
   close(): Promise<void>;
 }
 
@@ -152,7 +171,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
     ?.trim()
     .toLowerCase();
   if (type !== 'application/json') {
-    throw new BodyProblem(415, { code: 'unsupported_media_type', message: 'Send the settings as JSON.' });
+    throw new BodyProblem(415, { code: 'unsupported_media_type', message: 'Send the request as JSON.' });
   }
   const chunks: Buffer[] = [];
   let size = 0;
@@ -160,14 +179,14 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
     size += buffer.length;
     if (size > MAX_BODY_BYTES) {
-      throw new BodyProblem(413, { code: 'too_large', message: 'The settings sent are too large.' });
+      throw new BodyProblem(413, { code: 'too_large', message: 'The request is too large.' });
     }
     chunks.push(buffer);
   }
   try {
     return JSON.parse(Buffer.concat(chunks).toString('utf8'));
   } catch {
-    throw new BodyProblem(400, { code: 'bad_request', message: 'The settings sent are not valid JSON.' });
+    throw new BodyProblem(400, { code: 'bad_request', message: 'The request is not valid JSON.' });
   }
 }
 
@@ -177,8 +196,17 @@ function fieldOf(body: unknown, key: string): unknown {
     : undefined;
 }
 
-/** The methods a path accepts. Everything is read-only but the logging settings, and only when the backend exists. */
-function methodsOf(path: string, settings: boolean): readonly string[] {
+/**
+ * The methods a path accepts. Everything is read-only but the logging settings and the runs, each only when the command
+ * line supplied what does the work.
+ */
+function methodsOf(path: string, settings: boolean, runs: boolean): readonly string[] {
+  if (runs && path === RUNS_PATH) {
+    return ['GET', 'POST'];
+  }
+  if (runs && STOP_PATH.test(path)) {
+    return ['POST'];
+  }
   if (settings && path === SETTINGS_PATH) {
     return ['GET', 'PUT'];
   }
@@ -195,11 +223,83 @@ function lastEventId(req: IncomingMessage): number {
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
 }
 
+/** The status and plain words of each refusal a run control may give; undefined for a code it should not give. */
+function startRefusal(error: RunControlError): { status: number; error: ApiError } | undefined {
+  const problems = error.detail?.problems;
+  switch (error.code) {
+    case 'workflow_not_found':
+      return {
+        status: 404,
+        error: {
+          code: error.code,
+          message: 'This workflow is no longer in the project.',
+          nextAction: 'Open the list of workflows again.',
+        },
+      };
+    case 'workflow_invalid':
+      return {
+        status: 422,
+        error: {
+          code: error.code,
+          message: 'This workflow has problems, so it cannot run.',
+          nextAction: 'Fix the problems shown, then try again.',
+          problems: Array.isArray(problems) ? problems.filter((p): p is string => typeof p === 'string') : [],
+        },
+      };
+    case 'confirmation_required': {
+      const contentHash = error.detail?.contentHash;
+      const use = error.detail?.use;
+      if (typeof contentHash !== 'string' || typeof use !== 'object' || use === null) {
+        return undefined;
+      }
+      return {
+        status: 409,
+        error: {
+          code: error.code,
+          message: 'Confirm what this workflow will use before it runs.',
+          contentHash,
+          use,
+        } as ApiError,
+      };
+    }
+    case 'not_saved':
+      return {
+        status: 409,
+        error: {
+          code: error.code,
+          message: 'Your confirmation could not be saved, so the run did not start.',
+          nextAction: 'Check that your user configuration folder can be written, then try again.',
+        },
+      };
+    case 'too_many_runs':
+      return {
+        status: 429,
+        error: {
+          code: error.code,
+          message: `${MAX_CONCURRENT_RUNS} runs started here are still going, which is the most at once.`,
+          nextAction: 'Wait for one to end, or stop one, then try again.',
+        },
+      };
+    case 'start_failed':
+      return {
+        status: 500,
+        error: {
+          code: error.code,
+          message: 'The run could not be started.',
+          nextAction: 'Run the workflow with indaba run in a terminal to see why.',
+        },
+      };
+    default:
+      return undefined;
+  }
+}
+
 /**
- * Starts the local server on 127.0.0.1. It reads files and serves them: it starts nothing and writes nothing. Every
+ * Starts the local server on 127.0.0.1. It reads files and serves them; it writes and starts nothing itself. Every
  * `/api/v1` request needs the token; the files of the page do not, because a browser navigation cannot send a
- * header. Every request must carry a `Host` the server owns (DNS rebinding) and only `GET` is served, except for the
- * logging settings when `loggingSettings` is given: `PUT` of that one resource and `POST` of its test.
+ * header. Every request must carry a `Host` the server owns (DNS rebinding), and every write the `Origin` of its own
+ * page. Only `GET` is served, except what the command line supplied a backend for: the logging settings
+ * (`loggingSettings`) and starting and stopping runs (`runs`).
  */
 export async function startServer(options: ServerOptions): Promise<ServerHandle> {
   const token = options.token ?? randomBytes(32).toString('base64url');
@@ -263,6 +363,18 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       await handleSettings(req, res, path);
       return;
     }
+    if ((head === 'workflows' && parts.length === 1) || (head === 'starts' && parts.length === 2)) {
+      await handleRunControl(req, res, head, runId);
+      return;
+    }
+    if (head === 'runs' && runId === undefined && req.method === 'POST') {
+      await handleStart(req, res);
+      return;
+    }
+    if (head === 'runs' && runId !== undefined && tail === 'stop' && parts.length === 3) {
+      await handleStop(req, res, runId);
+      return;
+    }
     if (head === 'events' && parts.length === 1) {
       await stream(res, { stream: 'server' }, (signal) => streamServer(source, res, signal, pollMs, sleep));
       return;
@@ -287,7 +399,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
         missing(req, res, { code: 'run_not_found', message: 'No run has this id.' });
         return;
       }
-      const body: RunResponse = { run };
+      const body: RunResponse = { run, canStop: options.runs?.isAlive(runId) ?? false };
       sendJson(res, 200, body);
       return;
     }
@@ -330,6 +442,109 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       return;
     }
     missing(req, res, NOT_FOUND);
+  };
+
+  const RUNS_UNAVAILABLE: ApiError = {
+    code: 'runs_unavailable',
+    message: 'This server does not start runs.',
+  };
+
+  const handleRunControl = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    head: string,
+    startId: string | undefined,
+  ): Promise<void> => {
+    const runs = options.runs;
+    if (runs === undefined) {
+      missing(req, res, RUNS_UNAVAILABLE);
+      return;
+    }
+    if (head === 'workflows') {
+      sendJson(res, 200, await runs.list());
+      return;
+    }
+    const status = startId !== undefined && START_ID.test(startId) ? runs.startStatus(startId) : undefined;
+    if (status === undefined) {
+      missing(req, res, { code: 'start_not_found', message: 'No run was started here with this id.' });
+      return;
+    }
+    sendJson(res, 200, status);
+  };
+
+  const handleStart = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const runs = options.runs;
+    if (runs === undefined) {
+      missing(req, res, RUNS_UNAVAILABLE);
+      return;
+    }
+    let body: unknown;
+    try {
+      body = await readJson(req);
+    } catch (error) {
+      if (error instanceof BodyProblem) {
+        refuse(req, res, error.status, error.error);
+        return;
+      }
+      throw error;
+    }
+    // Only these two fields are read; anything else in the body (a task id, a path) is ignored (AC-03).
+    const workflowId = fieldOf(body, 'workflowId');
+    const confirmedHash = fieldOf(body, 'confirmedHash');
+    if (typeof workflowId !== 'string' || workflowId === '' || workflowId.length > MAX_WORKFLOW_ID) {
+      refuse(req, res, 400, { code: 'bad_request', message: 'The request does not name a workflow.' });
+      return;
+    }
+    if (
+      confirmedHash !== undefined &&
+      (typeof confirmedHash !== 'string' || !CONTENT_HASH.test(confirmedHash))
+    ) {
+      refuse(req, res, 400, {
+        code: 'bad_request',
+        message: 'The confirmation sent is not one this server gave.',
+      });
+      return;
+    }
+    const request: StartRunRequest =
+      confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash };
+    try {
+      const started = await runs.start(request);
+      sendJson(res, 202, started);
+    } catch (error) {
+      if (!(error instanceof RunControlError)) {
+        throw error;
+      }
+      const answer = startRefusal(error);
+      if (answer === undefined) {
+        throw error;
+      }
+      log.info('server.runs', 'start refused', { code: error.code });
+      sendError(res, answer.status, answer.error);
+    }
+  };
+
+  const handleStop = async (req: IncomingMessage, res: ServerResponse, runId: string): Promise<void> => {
+    const runs = options.runs;
+    if (runs === undefined || !isRunId(runId)) {
+      missing(req, res, { code: 'run_not_found', message: 'No run has this id.' });
+      return;
+    }
+    const stopped: StopRunResponse | undefined = runs.stop(runId);
+    if (stopped === undefined) {
+      if ((await source.find(runId)) === undefined) {
+        missing(req, res, { code: 'run_not_found', message: 'No run has this id.' });
+        return;
+      }
+      // The server never signals a process it does not own (AC-09).
+      refuse(req, res, 409, {
+        code: 'not_started_here',
+        message: 'This run was not started from this page, so it cannot be stopped here.',
+        nextAction: 'Stop it where it was started, with Ctrl+C.',
+      });
+      return;
+    }
+    log.info('server.runs', 'run stop requested', { runId, state: stopped.state });
+    sendJson(res, stopped.state === 'stopping' ? 202 : 200, stopped);
   };
 
   const handleSettings = async (req: IncomingMessage, res: ServerResponse, path: string): Promise<void> => {
@@ -440,7 +655,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       refuse(req, res, 400, { code: 'bad_request', message: 'The address is not valid.' });
       return;
     }
-    const allowed = methodsOf(path, options.loggingSettings !== undefined);
+    const allowed = methodsOf(path, options.loggingSettings !== undefined, options.runs !== undefined);
     if (!allowed.includes(req.method ?? '')) {
       res.setHeader('Allow', allowed.join(', '));
       refuse(req, res, 405, {
@@ -457,7 +672,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     if (req.method !== 'GET' && !originAllowed(req.headers.origin, port)) {
       refuse(req, res, 403, {
         code: 'origin_not_allowed',
-        message: 'Only the page of this server can change settings.',
+        message: 'Only the page of this server can make changes.',
       });
       return;
     }
@@ -513,8 +728,18 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
   return {
     url: `http://127.0.0.1:${port}/#token=${token}`,
     port,
-    close: () =>
-      new Promise<void>((resolve) => {
+    close: async () => {
+      // The runs first, while the page can still be told nothing new: cancel, a bounded wait, then the trees (AC-11).
+      if (options.runs !== undefined) {
+        try {
+          await options.runs.stopAll();
+        } catch (error) {
+          log.error('server.runs', 'the runs could not all be stopped', {
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      await new Promise<void>((resolve) => {
         for (const controller of open) {
           controller.abort();
         }
@@ -523,6 +748,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
           resolve();
         });
         server.closeAllConnections();
-      }),
+      });
+    },
   };
 }
