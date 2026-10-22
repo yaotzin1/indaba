@@ -89,6 +89,7 @@ export { SimpleEventDispatcher } from './support/index.js';
 export type {
   ApiError,
   AttemptView,
+  ConfirmationRequired,
   ContractResponse,
   DiscussionMessage,
   DiscussionResponse,
@@ -103,12 +104,19 @@ export type {
   RunStatus,
   RunStreamEvent,
   RunSummary,
+  RunSummaryOfUse,
   ServerStreamEvent,
   SkippedRunnerView,
   SpanOwner,
+  StartRunRequest,
+  StartRunResponse,
+  StartStatusResponse,
   StepFailureRoute,
   StepStructure,
   StepView,
+  StopRunResponse,
+  WorkflowListResponse,
+  WorkflowSummary,
 } from './web-contract/index.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {

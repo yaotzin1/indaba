@@ -212,6 +212,25 @@ a row of steps with a note.
 6. **The documents**: [web-view.md](web-view.md) for what a person sees, `specs/web-app/api-surface.md` for a contract
    change, and `CHANGELOG.md`.
 
+## Something the page does: a write
+
+Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are the pattern for anything the page changes.
+
+1. **The server does no work itself.** It defines an interface (`RunControl` in `packages/server/src/run-control.ts`,
+   like `LoggingSettingsBackend`) and the command line supplies it; `packages/server/test/layers.test.ts` keeps the server
+   from spawning a process or writing a file. Without the backend, the resource answers 404 and the page offers nothing.
+2. **The checks of every write** are in `server.ts`: the token, the `Host`, the page's own `Origin` (a write without one
+   is refused), a JSON body of at most `MAX_BODY_BYTES`, and only the fields the contract names are read. Ids from the
+   path are checked for shape before anything is looked up.
+3. **A refusal has a code.** The backend throws an error named `RunControlError` with a `code`; the server maps each code
+   to a status and plain words, and the page maps the code (never the status) to a message from `messages.actions`.
+   The server recognises the error by name and code, not class, because the command line does not import the optional
+   `@indaba/server`.
+4. **The command line does the work** in `packages/cli/src/run-control/`: the bounded scan, the confirmation store in
+   the user's configuration folder, the run copy, one `indaba run` child per run through `createRunStarter`, and stop
+   (cancel, a grace period, then `kill()` of the process tree). Its tests use a fake `RunStarter`, never a real agent.
+5. **The end-to-end test** (`packages/cli/e2e/ui-run.e2e.test.ts`) runs the built CLI with shell steps only.
+
 ## Tests
 
 ```bash
@@ -224,7 +243,7 @@ pnpm qa                                          # everything, with coverage
 | :--- | :--- |
 | `test/logic.test.ts` | Formatting, states, the token, the stream parser, the graph model, the address, the theme. No DOM |
 | `test/client.test.ts` | The client against a fake `fetch`: headers, failures, resume with `Last-Event-ID`, back-off, abort |
-| `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output |
+| `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output, the Run a workflow panel (focus, the confirmation, starting, refusals) and Stop |
 | `test/boot.test.ts` | Starting the page: the token leaves the address and travels as a header |
 | `test/layers.test.ts` | What the page may import, no HTML sink, nothing imports the page, the package stays private |
 | `test/fixtures.ts` | `liveRun()`: a run in the middle of a retry, and builders for steps, tries and runners |

@@ -159,7 +159,7 @@ describe('the client', () => {
     const client = createClient({ token: TOKEN, fetch: replies.fetch });
     expect(await client.runs()).toEqual([{ runId: 'a', status: 'running', cost: COST }]);
     expect(await client.runs()).toEqual([]);
-    expect(await client.run('id with space')).toEqual(run);
+    expect(await client.run('id with space')).toEqual({ run, canStop: false });
     expect(replies.calls[2]?.url).toBe('/api/v1/runs/id%20with%20space');
     expect((await failureOf(client.run('x'))).kind).toBe('server');
     expect(isRunSnapshot(null)).toBe(false);
@@ -410,5 +410,120 @@ describe('the discussion of a debate step', () => {
     await expect(
       createClient({ token: TOKEN, fetch: wrong.fetch }).discussion('r', 's'),
     ).rejects.toBeInstanceOf(ApiFailure);
+  });
+});
+
+describe('the client: Run and Stop (T-15)', () => {
+  const USE = {
+    runners: ['shell'],
+    commands: ['build: npm test'],
+    permissions: ['build: x'],
+    needsPerson: [],
+  };
+  const WORKFLOW = {
+    id: 'w1',
+    name: 'demo',
+    path: 'demo.workflow.ai.yml',
+    project: 'p',
+    valid: true,
+    problems: [],
+  };
+
+  it('reads the workflows, keeps only those it can read, and says when the server starts none', async () => {
+    const replies = fakeFetch([
+      json({ workflows: [WORKFLOW, { id: 'w2' }, 'x', { ...WORKFLOW, problems: [1] }], truncated: true }),
+      json({ code: 'runs_unavailable', message: 'no' }, 404),
+      json({ nope: true }),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.workflows()).toEqual({ workflows: [WORKFLOW], truncated: true });
+    expect(await client.workflows()).toBeUndefined();
+    await expect(client.workflows()).rejects.toBeInstanceOf(ApiFailure);
+    expect(replies.calls[0]?.url).toBe('/api/v1/workflows');
+  });
+
+  it('starts a run, asks for a confirmation, or names a refusal by its code', async () => {
+    const replies = fakeFetch([
+      json({ code: 'confirmation_required', message: 'm', contentHash: 'h'.repeat(64), use: USE }, 409),
+      json({ startId: 'web-1' }, 202),
+      json({ code: 'workflow_invalid', message: 'm', problems: ['steps is missing', 3] }, 422),
+      json({ code: 'too_many_runs', message: 'm' }, 429),
+      json({ code: 'confirmation_required', message: 'm', contentHash: 'h', use: { runners: 'x' } }, 409),
+      new Response('not json', { status: 500 }),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.startRun('w1')).toEqual({ kind: 'confirm', contentHash: 'h'.repeat(64), use: USE });
+    expect(await client.startRun('w1', 'h'.repeat(64))).toEqual({ kind: 'started', startId: 'web-1' });
+    expect(await client.startRun('w1')).toEqual({
+      kind: 'refused',
+      code: 'workflow_invalid',
+      problems: ['steps is missing'],
+    });
+    expect(await client.startRun('w1')).toEqual({ kind: 'refused', code: 'too_many_runs', problems: [] });
+    expect(await client.startRun('w1')).toEqual({
+      kind: 'refused',
+      code: 'confirmation_required',
+      problems: [],
+    });
+    expect(await client.startRun('w1')).toEqual({ kind: 'refused', code: 'other', problems: [] });
+    expect(replies.calls[0]).toEqual({
+      url: '/api/v1/runs',
+      headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
+    });
+  });
+
+  it('treats a missing token as fatal and a dead server as unreachable, on every write', async () => {
+    const replies = fakeFetch([
+      json({ code: 'unauthorized', message: 'm' }, 401),
+      new TypeError('network'),
+      json({ code: 'unauthorized', message: 'm' }, 401),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    await expect(client.startRun('w1')).rejects.toMatchObject({ failure: { kind: 'unauthorized' } });
+    await expect(client.startRun('w1')).rejects.toMatchObject({ failure: { kind: 'unreachable' } });
+    await expect(client.stopRun('a')).rejects.toMatchObject({ failure: { kind: 'unauthorized' } });
+  });
+
+  it('reads where a start is, and refuses an answer of the wrong shape', async () => {
+    const replies = fakeFetch([
+      json({ state: 'starting' }),
+      json({ state: 'running', runId: 'abc' }),
+      json({ state: 'failed', failure: 'bad key' }),
+      json({ state: 'gone' }),
+      json({ code: 'start_not_found', message: 'm' }, 404),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.startStatus('web-1')).toEqual({ state: 'starting' });
+    expect(await client.startStatus('web-1')).toEqual({ state: 'running', runId: 'abc' });
+    expect(await client.startStatus('web-1')).toEqual({ state: 'failed', failure: 'bad key' });
+    await expect(client.startStatus('web-1')).rejects.toMatchObject({ failure: { kind: 'server' } });
+    await expect(client.startStatus('web-1')).rejects.toMatchObject({ failure: { kind: 'not_found' } });
+    expect(replies.calls[0]?.url).toBe('/api/v1/starts/web-1');
+  });
+
+  it('stops a run: stopping, ended, or a refusal by its code', async () => {
+    const replies = fakeFetch([
+      json({ state: 'stopping' }, 202),
+      json({ state: 'ended' }, 200),
+      json({ code: 'not_started_here', message: 'm' }, 409),
+      json({ state: 'stopping' }, 200),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.stopRun('a b')).toEqual({ kind: 'stopping' });
+    expect(await client.stopRun('a')).toEqual({ kind: 'ended' });
+    expect(await client.stopRun('a')).toEqual({ kind: 'refused', code: 'not_started_here' });
+    expect(await client.stopRun('a')).toEqual({ kind: 'refused', code: 'other' });
+    expect(replies.calls[0]).toEqual({
+      url: '/api/v1/runs/a%20b/stop',
+      headers: { Authorization: `Bearer ${TOKEN}` },
+    });
+  });
+
+  it('says a run can be stopped only when the server says so', async () => {
+    const run = liveRun();
+    const replies = fakeFetch([json({ run, canStop: true }), json({ run, canStop: 'yes' })]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect((await client.run('a')).canStop).toBe(true);
+    expect((await client.run('a')).canStop).toBe(false);
   });
 });

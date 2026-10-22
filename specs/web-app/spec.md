@@ -269,7 +269,9 @@ All recommendations; the maintainer confirms.
   a person learns about it beforehand.
 - **C-09. Delivery in three steps.** (1) Read-only: Workflows, Workflow with the graph and inspector, Run with the live
   graph, health. (2) Actions: Run, Stop, Run this step, answer questions, apply or discard a change. (3) Editing: the
-  wizard and editor of `specs/workflow-editor`. Each step is a pull request that leaves the page useful.
+  wizard and editor of `specs/workflow-editor`. Each step is a pull request that leaves the page useful. Step 2 is
+  delivered in slices, each with its own spec: the first, Run and Stop, is `specs/web-app-actions` (2026-10-22); Run this
+  step, answering questions and applying a change wait for the specs they need.
 - **C-10. Remote and hosted.** Everything in this spec is local. The seams for a hosted service (`WorkflowRegistry`,
   `AuthProvider`, a run API the page does not know is remote) are in `docs/hosted-service.md`; none of them changes
   this spec's acceptance criteria.

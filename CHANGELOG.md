@@ -17,6 +17,20 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Run and Stop from `indaba ui`** (minor; track `feature`; spec `specs/web-app-actions`, the first slice of step 2 of
+  `specs/web-app`). The Runs screen has **Run a workflow**: a panel with the workflow files of the served projects (a
+  bounded search; an invalid file listed with its problems and not runnable). The first run of a workflow's content shows
+  what its file says it will use (runners, commands, permissions, steps that need a person) and runs on confirmation;
+  the confirmation is kept per SHA-256 of the file in the user's configuration folder, outside every project. Each run
+  is an `indaba run` of its own, from a copy of the confirmed bytes under `.indaba/run-inputs/`. The Run screen has
+  **Stop** for a run the page started, which stops it as Ctrl+C does; closing `indaba ui` stops the runs it started
+  (cancel, five seconds, then the process tree). New in `@indaba/core` (types only): `WorkflowSummary`,
+  `WorkflowListResponse`, `RunSummaryOfUse`, `StartRunRequest`, `StartRunResponse`, `ConfirmationRequired`,
+  `StartStatusResponse`, `StopRunResponse`, and `canStop` on `RunResponse`. New in `@indaba/server`: `RunControl`,
+  `RunControlError`, `MAX_CONCURRENT_RUNS`, `ServerOptions.runs`, `GET /api/v1/workflows`, `POST /api/v1/runs`,
+  `GET /api/v1/starts/{id}`, `POST /api/v1/runs/{id}/stop`; `CONTRACT_VERSION` is `1.1.0`. Without `runs` the server
+  is the read-only one. No dependency added.
+
 - **The cost of a run in the list of runs** (minor; track `feature`; spec `specs/web-app`, task T-23, answer 1 of the
   sketches). `RunSummary` gains `cost` (`RunCost` in `@indaba/core`: `usd`, `unknown`, `calls`, the shape
   `RunState.cost` already had), filled by `TraceReader.listRuns` with the reducer a run's own view uses, so the two never
@@ -204,6 +218,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Changed
 
+- **A write to `indaba ui`'s server needs the page's own `Origin`** (minor below 1.0, a tightened check; spec
+  `specs/web-app-actions`, AC-16). A request without an `Origin` header was accepted with the token; it is now
+  `403 origin_not_allowed`. A browser always sends one on `POST` and `PUT`, so the page is unaffected; a script that
+  wrote the logging settings with only the token must send `Origin: http://127.0.0.1:<port>`. The 400, 403, 413 and
+  415 answers no longer mention settings. `indaba ui`'s help no longer says it starts nothing.
+- **The page of `indaba ui` uses `apsw-gridwright` 0.22.0** (track `chore`; bundled at build time, nothing enters a
+  consumer's tree).
 - A run now leaves two files in `.indaba/traces/` instead of one. The trace file `<traceId>.jsonl` is
   byte-for-byte what it was; the new `<traceId>.events.jsonl` has its own record format. A script that reads
   every `*.jsonl` there and expects span lines should skip names ending in `.events.jsonl`.

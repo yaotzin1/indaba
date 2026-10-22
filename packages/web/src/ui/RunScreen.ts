@@ -1,11 +1,13 @@
 import type { RunSnapshot } from '@indaba/core';
 import {
   createElement as h,
+  type KeyboardEvent,
   type MouseEvent,
   type ReactElement,
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import { ApiFailure, type Client, type Failure, type StreamState } from '../client.js';
@@ -75,21 +77,128 @@ function CostPanel(props: { readonly run: RunSnapshot; readonly nodes: readonly 
   );
 }
 
-/** One run, live: its graph, the selected step, the step list and the cost. Reads only; starts and stops nothing. */
+type StopState =
+  | { readonly name: 'idle' }
+  | { readonly name: 'asking' }
+  | { readonly name: 'sending' }
+  | { readonly name: 'stopping' }
+  | { readonly name: 'refused'; readonly code: string };
+
+/**
+ * Stop, for a run this server started and that is alive (AC-09, AC-13): it names the run and asks before it acts, then
+ * says it is stopping until the run's own state moves on.
+ */
+function StopControl(props: {
+  readonly client: Client;
+  readonly runId: string;
+  readonly name: string;
+  readonly onFatal: (failure: Failure) => void;
+  readonly state: StopState;
+  readonly setState: (state: StopState) => void;
+}): ReactElement | null {
+  const { client, runId, name, onFatal, state, setState } = props;
+  const askHeading = useRef<HTMLHeadingElement | null>(null);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  // Set when the question closes without stopping: the Stop button is back only after the next render.
+  const returnFocus = useRef(false);
+
+  useEffect(() => {
+    if (state.name === 'asking') {
+      askHeading.current?.focus();
+    } else if (state.name === 'idle' && returnFocus.current) {
+      returnFocus.current = false;
+      opener.current?.focus();
+    }
+  }, [state.name]);
+
+  const keep = (): void => {
+    returnFocus.current = true;
+    setState({ name: 'idle' });
+  };
+  const confirm = (): void => {
+    setState({ name: 'sending' });
+    client.stopRun(runId).then(
+      (answer) => {
+        setState(answer.kind === 'refused' ? { name: 'refused', code: answer.code } : { name: 'stopping' });
+      },
+      (error: unknown) => {
+        setState({ name: 'idle' });
+        if (error instanceof ApiFailure) {
+          onFatal(error.failure);
+        }
+      },
+    );
+  };
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>): void => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      keep();
+    }
+  };
+
+  if (state.name === 'stopping' || state.name === 'sending') {
+    return h('p', { className: 'stop-state', role: 'status' }, messages.actions.stopping);
+  }
+  if (state.name === 'refused') {
+    return h(
+      'p',
+      { className: 'stop-state fail', role: 'alert' },
+      state.code === 'not_started_here' ? messages.actions.notStartedHere : messages.actions.stopFailed,
+    );
+  }
+  if (state.name === 'asking') {
+    return h(
+      'section',
+      {
+        className: 'panel stop-ask',
+        role: 'alertdialog',
+        'aria-labelledby': 'stop-title',
+        'aria-describedby': 'stop-body',
+        onKeyDown,
+      },
+      h('h3', { id: 'stop-title', ref: askHeading, tabIndex: -1 }, messages.actions.stopTitle(name)),
+      h('p', { id: 'stop-body' }, messages.actions.stopBody),
+      h(
+        'div',
+        { className: 'dialog-actions' },
+        h('button', { type: 'button', className: 'danger', onClick: confirm }, messages.actions.stopConfirm),
+        h('button', { type: 'button', onClick: keep }, messages.actions.keepRunning),
+      ),
+    );
+  }
+  return h(
+    'button',
+    {
+      ref: opener,
+      type: 'button',
+      className: 'danger',
+      'aria-label': messages.actions.stopLabel(name),
+      onClick: () => setState({ name: 'asking' }),
+    },
+    messages.actions.stop,
+  );
+}
+
+/** One run, live: its graph, the selected step, the step list and the cost, and Stop for a run this server started. */
 export function RunScreen(props: RunScreenProps): ReactElement {
   const { client, clock, now, runId, step, navigate, onFatal, onLive } = props;
   const [run, setRun] = useState<RunSnapshot | undefined>(undefined);
+  const [canStop, setCanStop] = useState(false);
+  const [stop, setStop] = useState<StopState>({ name: 'idle' });
   const [missing, setMissing] = useState(false);
   const [stream, setStream] = useState<StreamState>('connecting');
 
   useEffect(() => {
     let current = true;
     setRun(undefined);
+    setCanStop(false);
+    setStop({ name: 'idle' });
     setMissing(false);
     client.run(runId).then(
-      (snapshot) => {
+      (view) => {
         if (current) {
-          setRun(snapshot);
+          setRun(view.run);
+          setCanStop(view.canStop);
         }
       },
       (error: unknown) => {
@@ -178,12 +287,22 @@ export function RunScreen(props: RunScreenProps): ReactElement {
         : messages.run.tookTotal(formatDuration(ms));
   const node = graph.nodes.find((n) => n.id === selected);
   const stale = stream === 'reconnecting' || stream === 'unavailable';
+  // A run that has ended cannot be stopped, whatever was known when the screen opened.
+  const stoppable = canStop && run.status === 'running';
+  const name = run.workflow ?? messages.runs.unnamed;
 
   return h(
     'div',
     { className: stale ? 'stale' : undefined },
     backLink,
-    h('h2', { id: 'page-title' }, run.workflow ?? messages.runs.unnamed, h(StateChip, { look })),
+    h(
+      'div',
+      { className: 'title-row' },
+      h('h2', { id: 'page-title' }, name, h(StateChip, { look })),
+      stoppable || stop.name === 'refused'
+        ? h(StopControl, { client, runId, name, onFatal, state: stop, setState: setStop })
+        : null,
+    ),
     h(
       'p',
       { className: 'muted' },

@@ -44,9 +44,27 @@ Before applying anything, the three claims everything else rests on were checked
 - `--expect-hash` (finding 6): rejected by both reviewers.
 - Putting the `Origin` rule on reads: no, `originAllowed` is only called for methods other than `GET`.
 
-## Still open
+## Closed by the implementation (2026-10-22)
 
-- The correlation by `indaba.task.id` has been read, not run. T-12 proves it against a real trace file first.
-- Whether running a copy under `.indaba/run-inputs/` changes anything a workflow does is checked in T-12, not assumed.
-- `taskkill` and `process.kill(-pid, ...)` against the security audit: T-10 opens with that check.
+- `taskkill` and `process.kill(-pid, ...)`: a probe file with both passed `scripts/security-audit.mjs --source` with no
+  findings, so T-10 kept its design.
+- The correlation by `indaba.task.id` works against traces the engine writes: the unit test writes them with
+  `RunEventWriter` in the opposite order of the starts, and the e2e test's traces come from the built `indaba run`. A
+  first line still being written is looked at again, not cached as someone else's.
+- Running the copy under `.indaba/run-inputs/` changes nothing a workflow resolves: the same workflow run from the
+  original and from the copy saw the same working directory and resolved an input artifact the same way.
+
+## Found while implementing
+
+| # | Finding | Handled |
+| :--- | :--- | :--- |
+| 15 | The CLI cannot throw the server's `RunControlError` (the package is optional and not imported) | The server also recognises an `Error` named `RunControlError` with a string `code`; tested |
+| 16 | An empty `fs.read` means unrestricted (`docs/workflow-format.md`); a first draft summarised it as "read nothing" | Says "read anything" now; tested |
+| 17 | "runner default (unrestricted)" overstates the `acp` runner, whose own default refuses edits | Kept, as the spec words it: the safe direction for a confirmation |
+| 18 | `run started` is listed under `server.runs`, but only the command line knows the path | Written by the command line under `cli.ui`; the server writes `start refused` and `run stop requested` |
+| 19 | A failure of the page's "can this server start runs?" question blocked the whole page in a first draft | It only decides whether the Run button shows; a test (the boot test with a 503) caught it |
+| 20 | A second `indaba ui` on the same project sweeps the first one's live copies | Recorded as a known gap in `review.md` |
+| 21 | `AGENTS.md` was one character under the 12000 that antigravity reads, so its server row could not grow | Reworded within its old length |
+
+## Still open
 - Product decisions for step 3 (one file or many, where a new workflow goes, whether editing is paid) are the maintainer's.

@@ -96,20 +96,28 @@ interface Answer {
 
 function send(
   path: string,
-  options: { method?: string; body?: string; type?: string; origin?: string; auth?: boolean } = {},
+  options: { method?: string; body?: string; type?: string; origin?: string | null; auth?: boolean } = {},
 ): Promise<Answer> {
+  // A browser names the page on every write; `null` leaves the header out, as a client that is not the page would.
+  const method = options.method ?? 'GET';
+  const origin =
+    options.origin === undefined
+      ? method === 'GET'
+        ? undefined
+        : `http://127.0.0.1:${server?.port}`
+      : options.origin;
   return new Promise((resolve, reject) => {
     const req = request(
       {
         host: '127.0.0.1',
         port: server?.port,
-        method: options.method ?? 'GET',
+        method,
         path,
         headers: {
           Host: `127.0.0.1:${server?.port}`,
           ...(options.auth === false ? {} : { Authorization: `Bearer ${TOKEN}` }),
           ...(options.type === undefined ? {} : { 'Content-Type': options.type }),
-          ...(options.origin === undefined ? {} : { Origin: options.origin }),
+          ...(origin === undefined || origin === null ? {} : { Origin: origin }),
         },
       },
       (res) => {
@@ -181,6 +189,15 @@ describe('the logging settings over HTTP', () => {
     const put = (extra: Parameters<typeof send>[1]) =>
       send('/api/v1/settings/logging', { method: 'PUT', ...extra });
     expect((await put({ origin: 'https://evil.test', ...json({ logging: {} }) })).status).toBe(403);
+    // No Origin at all is refused too, even with the token (specs/web-app-actions, AC-16).
+    const bare = await put({ origin: null, ...json({ logging: {} }) });
+    expect(bare.status).toBe(403);
+    expect(bare.body).toMatchObject({
+      code: 'origin_not_allowed',
+      message: 'Only the page of this server can make changes.',
+    });
+    // A read is unchanged without one.
+    expect((await send('/api/v1/settings/logging', { origin: null })).status).toBe(200);
     expect((await put({ body: 'level=debug', type: 'application/x-www-form-urlencoded' })).status).toBe(415);
     expect((await put({ body: 'x'.repeat(MAX_BODY_BYTES + 1), type: 'application/json' })).status).toBe(413);
     expect((await put({ body: '{"logging":', type: 'application/json; charset=utf-8' })).status).toBe(400);

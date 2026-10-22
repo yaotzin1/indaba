@@ -4,6 +4,11 @@ import type {
   LoggingSettingsResponse,
   SinkSettings,
   SinkTestResponse,
+  StartRunRequest,
+  StartRunResponse,
+  StartStatusResponse,
+  StopRunResponse,
+  WorkflowListResponse,
 } from '@indaba/core';
 
 /** What the command line needs of `@indaba/server`. The package is optional, so its types are not imported. */
@@ -16,6 +21,21 @@ export interface UiServerOptions {
   readonly logger?: Logger;
   /** The logging settings of the project, for the page's Settings screen (specs/logging, AC-20). */
   readonly loggingSettings?: UiSettingsBackend;
+  /** Starting and stopping runs from the page (specs/web-app-actions); the server's `RunControl`. */
+  readonly runs?: UiRunControl;
+}
+
+/**
+ * What the command line gives the server to start and stop runs: the shape of `RunControl` of `@indaba/server`,
+ * declared here because the package is optional. A refusal is an `Error` named `RunControlError` with a `code`.
+ */
+export interface UiRunControl {
+  list(): Promise<WorkflowListResponse>;
+  start(request: StartRunRequest): Promise<StartRunResponse>;
+  startStatus(startId: string): StartStatusResponse | undefined;
+  stop(runId: string): StopRunResponse | undefined;
+  isAlive(runId: string): boolean;
+  stopAll(): Promise<void>;
 }
 
 /** What the command line knows of a project's settings; the server adds their description. */

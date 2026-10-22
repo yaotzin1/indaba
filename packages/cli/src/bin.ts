@@ -1,11 +1,12 @@
 #!/usr/bin/env node
+import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { terminalAdjudicator } from './arbiter-prompt.js';
 import { EarlyExit } from './exit.js';
 import { main } from './main.js';
 import { createBrowserOpener } from './open-browser.js';
 import { terminalAuthChooser } from './prompt.js';
-import { CANCEL_MESSAGE, createRunStarter } from './run-child.js';
+import { CANCEL_MESSAGE, createRunStarter, treeKiller } from './run-child.js';
 
 const controller = new AbortController();
 const earlyExit = new EarlyExit();
@@ -39,7 +40,14 @@ const code = await main(process.argv.slice(2), {
   cwd: process.cwd(),
   signal: controller.signal,
   exitHooks: earlyExit,
-  startRun: createRunStarter(process.execPath, fileURLToPath(import.meta.url)),
+  startRun: createRunStarter(
+    process.execPath,
+    fileURLToPath(import.meta.url),
+    treeKiller(process.platform, {
+      spawn: (command, args, options) => spawn(command, [...args], options),
+      kill: (pid, signal) => process.kill(pid, signal),
+    }),
+  ),
   openBrowser: createBrowserOpener(process.platform),
   // Only a person at a terminal can be asked how an agent should log in, or to rule on a debate.
   ...(process.stdin.isTTY && process.stdout.isTTY

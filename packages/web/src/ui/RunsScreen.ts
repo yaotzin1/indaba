@@ -1,12 +1,22 @@
 import type { RunSummary } from '@indaba/core';
 import { Gridwright, type GridwrightColumn, responsive } from 'apsw-gridwright/react';
-import { createElement as h, type MouseEvent, type ReactElement, useEffect, useMemo, useState } from 'react';
+import {
+  createElement as h,
+  type MouseEvent,
+  type ReactElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { ApiFailure, type Client, type Failure, type StreamState } from '../client.js';
 import { costTip } from '../cost.js';
 import { type Clock, formatRunCost, formatWhen, shortId } from '../format.js';
 import { messages } from '../messages.js';
 import { runLook } from '../status.js';
 import { StateChip } from './parts.js';
+import { RunPanel } from './RunPanel.js';
 import { hrefOf, isPlainClick, type Navigate } from './router.js';
 
 export interface RunsScreenProps {
@@ -15,6 +25,13 @@ export interface RunsScreenProps {
   readonly navigate: Navigate;
   readonly onFatal: (failure: Failure) => void;
   readonly onLive: (state: StreamState) => void;
+  /** Whether this server starts runs; without it there is no Run button (specs/web-app-actions). */
+  readonly canRun?: boolean;
+  /** Whether the person was told this session that closing indaba ui stops its runs. */
+  readonly noticeSeen?: boolean;
+  readonly onNoticeSeen?: () => void;
+  /** How often a start is asked about; tests make it short. */
+  readonly pollMs?: number;
 }
 
 function runColumns(clock: Clock, navigate: Navigate): GridwrightColumn<RunSummary>[] {
@@ -75,6 +92,21 @@ const RUNS_QUERY = { sort: [{ columnId: 'startedAt', direction: 'desc' as const 
 export function RunsScreen(props: RunsScreenProps): ReactElement {
   const { client, clock, navigate, onFatal, onLive } = props;
   const [runs, setRuns] = useState<readonly RunSummary[] | undefined>(undefined);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const opener = useRef<HTMLButtonElement | null>(null);
+  const closePanel = useCallback(() => {
+    setPanelOpen(false);
+    // Focus goes back where it was before the dialog opened.
+    opener.current?.focus();
+  }, []);
+  const openRun = useCallback(
+    (runId: string) => {
+      setPanelOpen(false);
+      navigate({ name: 'run', runId, step: undefined });
+    },
+    [navigate],
+  );
+  const onNoticeSeen = props.onNoticeSeen ?? (() => undefined);
   useEffect(() => {
     let current = true;
     const load = (): void => {
@@ -106,8 +138,36 @@ export function RunsScreen(props: RunsScreenProps): ReactElement {
   return h(
     'div',
     null,
-    h('h2', { id: 'page-title' }, messages.runs.title),
+    h(
+      'div',
+      { className: 'title-row' },
+      h('h2', { id: 'page-title' }, messages.runs.title),
+      props.canRun === true
+        ? h(
+            'button',
+            {
+              ref: opener,
+              type: 'button',
+              className: 'primary',
+              'aria-haspopup': 'dialog',
+              onClick: () => setPanelOpen(true),
+            },
+            messages.runs.runWorkflow,
+          )
+        : null,
+    ),
     h('p', { className: 'muted' }, messages.runs.lead),
+    panelOpen
+      ? h(RunPanel, {
+          client,
+          onClose: closePanel,
+          onOpenRun: openRun,
+          onFatal,
+          noticeSeen: props.noticeSeen === true,
+          onNoticeSeen,
+          ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
+        })
+      : null,
     runs === undefined
       ? null
       : runs.length === 0
@@ -115,7 +175,7 @@ export function RunsScreen(props: RunsScreenProps): ReactElement {
             'section',
             { className: 'panel empty' },
             h('h3', null, messages.runs.emptyTitle),
-            h('p', null, messages.runs.emptyBody),
+            h('p', null, props.canRun === true ? messages.runs.emptyBodyCanRun : messages.runs.emptyBody),
             h('pre', null, h('code', null, messages.runs.emptyCommand)),
           )
         : h(

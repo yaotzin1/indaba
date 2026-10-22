@@ -103,6 +103,10 @@ function settingsClient(options: {
     followServer: never,
     stepLog: never,
     discussion: never,
+    workflows: async () => undefined,
+    startRun: never,
+    startStatus: never,
+    stopRun: never,
     async loggingSettings() {
       const s = 'settings' in options ? options.settings : answer();
       if (s !== undefined && 'kind' in s) throw new ApiFailure(s);

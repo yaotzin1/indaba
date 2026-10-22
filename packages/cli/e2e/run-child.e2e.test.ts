@@ -1,8 +1,16 @@
+import { spawn } from 'node:child_process';
 import { readdir, readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { TraceReader } from '@indaba/engine';
 import { describe, expect, it } from 'vitest';
-import { createRunStarter } from '../src/run-child.js';
+import { createRunStarter, treeKiller } from '../src/run-child.js';
+
+/** What the binary passes on this platform. */
+const killTree = treeKiller(process.platform, {
+  spawn: (command, args, options) => spawn(command, [...args], options),
+  kill: (pid, signal) => process.kill(pid, signal),
+});
+
 import { binPath, childEnv, makeGitRepo, requireBuild, waitFor, writeFileIn } from './support.js';
 
 requireBuild();
@@ -31,7 +39,11 @@ describe('a run started the way run --tui starts it', () => {
   it('stops gracefully when asked through the channel, and the process ends', async () => {
     const dir = await makeGitRepo();
     await writeFileIn(dir, 'sleep.workflow.ai.yml', SLEEPER);
-    const child = createRunStarter(process.execPath, binPath)(['run', 'sleep.workflow.ai.yml'], {
+    const child = createRunStarter(
+      process.execPath,
+      binPath,
+      killTree,
+    )(['run', 'sleep.workflow.ai.yml'], {
       cwd: dir,
       environment: childEnv(),
     });
@@ -52,7 +64,11 @@ describe('a run started the way run --tui starts it', () => {
   it('ends by itself when the run finishes, with the channel closed and its files complete', async () => {
     const dir = await makeGitRepo();
     await writeFileIn(dir, 'quick.workflow.ai.yml', QUICK);
-    const child = createRunStarter(process.execPath, binPath)(['run', 'quick.workflow.ai.yml'], {
+    const child = createRunStarter(
+      process.execPath,
+      binPath,
+      killTree,
+    )(['run', 'quick.workflow.ai.yml'], {
       cwd: dir,
       environment: childEnv(),
     });
@@ -63,7 +79,11 @@ describe('a run started the way run --tui starts it', () => {
 
   it('reports a workflow that does not exist as a failure with its reason', async () => {
     const dir = await makeGitRepo();
-    const child = createRunStarter(process.execPath, binPath)(['run', 'missing.yml'], {
+    const child = createRunStarter(
+      process.execPath,
+      binPath,
+      killTree,
+    )(['run', 'missing.yml'], {
       cwd: dir,
       environment: childEnv(),
     });

@@ -1,9 +1,24 @@
 // @vitest-environment happy-dom
-import type { DiscussionView, RunSnapshot, RunSummary, ServerStreamEvent } from '@indaba/core';
+import type {
+  DiscussionView,
+  RunSnapshot,
+  RunSummary,
+  ServerStreamEvent,
+  StartRunRequest,
+  StartStatusResponse,
+  WorkflowListResponse,
+} from '@indaba/core';
 import { act, cleanup, fireEvent, render, renderHook, screen, waitFor, within } from '@testing-library/react';
 import { createElement as h } from 'react';
 import { afterEach, describe, expect, it } from 'vitest';
-import { ApiFailure, type Client, type Failure, type StreamHandlers } from '../src/client.js';
+import {
+  ApiFailure,
+  type Client,
+  type Failure,
+  type StartAnswer,
+  type StopAnswer,
+  type StreamHandlers,
+} from '../src/client.js';
 import { buildGraph } from '../src/graph-model.js';
 import { App, type AppProps } from '../src/ui/App.js';
 import { NARROW, useMediaQuery } from '../src/ui/media.js';
@@ -23,6 +38,9 @@ interface FakeClient extends Client {
   state(state: 'live' | 'reconnecting' | 'unavailable' | 'ended'): void;
   fail(failure: Failure): void;
   runCalls: number;
+  starts: StartRunRequest[];
+  statuses: string[];
+  stops: string[];
 }
 
 function fakeClient(options: {
@@ -30,11 +48,19 @@ function fakeClient(options: {
   readonly run?: RunSnapshot | Failure;
   readonly contract?: string | Failure;
   readonly discussion?: DiscussionView | 'none' | 'fail';
+  readonly canStop?: boolean;
+  readonly workflows?: WorkflowListResponse;
+  readonly startRun?: (workflowId: string, confirmedHash: string | undefined) => StartAnswer | undefined;
+  readonly startStatus?: (call: number) => StartStatusResponse;
+  readonly stopRun?: StopAnswer;
 }): FakeClient {
   let runHandlers: StreamHandlers<RunSnapshot> | undefined;
   let serverHandlers: StreamHandlers<ServerStreamEvent> | undefined;
   const client: FakeClient = {
     runCalls: 0,
+    starts: [],
+    statuses: [],
+    stops: [],
     async contract() {
       const c = options.contract ?? '1.0.0';
       if (typeof c !== 'string') throw new ApiFailure(c);
@@ -47,7 +73,22 @@ function fakeClient(options: {
     async run() {
       const r = options.run ?? liveRun();
       if ('kind' in r) throw new ApiFailure(r);
-      return r;
+      return { run: r, canStop: options.canStop === true };
+    },
+    async workflows() {
+      return options.workflows;
+    },
+    async startRun(workflowId, confirmedHash) {
+      client.starts.push(confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash });
+      return options.startRun?.(workflowId, confirmedHash) ?? { kind: 'started', startId: 'web-1' };
+    },
+    async startStatus(startId) {
+      client.statuses.push(startId);
+      return options.startStatus?.(client.statuses.length) ?? { state: 'running', runId: 'newer0000000000' };
+    },
+    async stopRun(runId) {
+      client.stops.push(runId);
+      return options.stopRun ?? { kind: 'stopping' };
     },
     followRun(_id, handlers, signal) {
       runHandlers = handlers;
@@ -747,5 +788,237 @@ describe('the graph on a phone (answer 5)', () => {
     } finally {
       window.matchMedia = original;
     }
+  });
+});
+
+describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
+  const VALID = {
+    id: 'w1',
+    name: 'demo',
+    path: 'demo.workflow.ai.yml',
+    project: 'shop',
+    valid: true,
+    problems: [],
+  };
+  const BROKEN = {
+    id: 'w2',
+    name: 'broken',
+    path: 'ci/broken.workflow.ai.yml',
+    project: 'shop',
+    valid: false,
+    problems: ['step "x" has no runner'],
+  };
+  const USE = {
+    runners: ['shell', 'acp'],
+    commands: ['build: npm test', 'role coder: my-agent --serve'],
+    permissions: ['build: runner default (unrestricted)'],
+    needsPerson: ['argue'],
+  };
+  const HASH = 'f'.repeat(64);
+
+  function runnable(extra: Parameters<typeof fakeClient>[0] = {}) {
+    return fakeClient({ runs: RUNS, workflows: { workflows: [VALID, BROKEN], truncated: false }, ...extra });
+  }
+
+  async function openPanel(client: FakeClient) {
+    render(h(App, { ...appProps(client), pollMs: 5 }));
+    const button = await screen.findByRole('button', { name: 'Run a workflow' });
+    fireEvent.click(button);
+    return { button, dialog: await screen.findByRole('dialog', { name: 'Run a workflow' }) };
+  }
+
+  it('offers no Run button and says read-only when the server starts no runs', async () => {
+    render(h(App, appProps(fakeClient({ runs: RUNS }))));
+    await screen.findByText('task-pipeline');
+    expect(screen.queryByRole('button', { name: 'Run a workflow' })).toBeNull();
+    expect(screen.getByText('Read-only')).toBeTruthy();
+  });
+
+  it('lists the workflows; one with problems cannot be run and says why', async () => {
+    const client = runnable();
+    const { dialog } = await openPanel(client);
+    expect(screen.queryByText('Read-only')).toBeNull();
+    expect(screen.getByText('Runs and stops')).toBeTruthy();
+    const list = await within(dialog).findByRole('list', { name: 'Workflows found in the projects served' });
+    expect(within(list).getByText('demo.workflow.ai.yml in shop')).toBeTruthy();
+    const broken = within(dialog).getByRole('button', { name: 'Run broken' }) as HTMLButtonElement;
+    expect(broken.disabled).toBe(true);
+    const described = document.getElementById(broken.getAttribute('aria-describedby') ?? '');
+    expect(described?.textContent).toContain('step "x" has no runner');
+    expect(within(dialog).getByText(/closing it, or Ctrl\+C in its terminal, cancels them/)).toBeTruthy();
+  });
+
+  it('closes on Escape and gives focus back to the button that opened it', async () => {
+    const { button, dialog } = await openPanel(runnable());
+    await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(button);
+  });
+
+  it('keeps focus inside the dialog', async () => {
+    const { dialog } = await openPanel(runnable());
+    await within(dialog).findByRole('button', { name: 'Run demo' });
+    const focusable = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled])')];
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    last?.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab' });
+    expect(document.activeElement).toBe(first);
+    first?.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    expect(document.activeElement).toBe(last);
+  });
+
+  it('shows what a first run will use, runs it on confirmation, and opens its run (AC-04, AC-08)', async () => {
+    let call = 0;
+    const client = runnable({
+      startRun: (_id, hash) =>
+        hash === undefined ? { kind: 'confirm', contentHash: HASH, use: USE } : undefined,
+      startStatus: () =>
+        ++call < 3 ? { state: 'starting' } : { state: 'running', runId: 'newer0000000000' },
+    });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    const title = await within(dialog).findByRole('heading', { name: 'Before demo runs for the first time' });
+    await waitFor(() => expect(document.activeElement).toBe(title));
+    expect(within(dialog).getByText('build: npm test').tagName).toBe('CODE');
+    expect(within(dialog).getByText('build: runner default (unrestricted)')).toBeTruthy();
+    expect(within(dialog).getByText('argue')).toBeTruthy();
+    expect(within(dialog).getByText(/cannot ask you and end as escalated/)).toBeTruthy();
+    expect(within(dialog).getByText(/does not cover scripts a command calls/)).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run it' }));
+    await within(dialog).findByRole('status');
+    expect(within(dialog).getByText('Starting demo...')).toBeTruthy();
+    await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(client.starts).toEqual([{ workflowId: 'w1' }, { workflowId: 'w1', confirmedHash: HASH }]);
+    expect(client.statuses.length).toBe(3);
+  });
+
+  it('sends one start for a double click (AC-07)', async () => {
+    let release: (answer: StartAnswer) => void = () => undefined;
+    const client = runnable();
+    client.startRun = async (workflowId) => {
+      client.starts.push({ workflowId });
+      return new Promise<StartAnswer>((resolve) => {
+        release = resolve;
+      });
+    };
+    const { dialog } = await openPanel(client);
+    const run = await within(dialog).findByRole('button', { name: 'Run demo' });
+    fireEvent.click(run);
+    fireEvent.click(run);
+    expect(client.starts).toHaveLength(1);
+    await act(async () => release({ kind: 'refused', code: 'too_many_runs', problems: [] }));
+  });
+
+  it('says a refusal in plain words with the next action, never a status (AC-14)', async () => {
+    const client = runnable({
+      startRun: () => ({ kind: 'refused', code: 'workflow_invalid', problems: ['steps is missing'] }),
+    });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toContain('This workflow has problems, so it cannot run.');
+    expect(alert.textContent).toContain('steps is missing');
+    expect(alert.textContent).toContain('Fix the problems shown, then try again.');
+    expect(alert.textContent).not.toMatch(/\b4\d\d\b/);
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Back to the list' }));
+    await within(dialog).findByRole('button', { name: 'Run demo' });
+
+    client.startRun = async () => ({ kind: 'refused', code: 'something_new', problems: [] });
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run demo' }));
+    expect((await within(dialog).findByRole('alert')).textContent).toContain(
+      'The server did not start this run.',
+    );
+  });
+
+  it('shows why a run that never started failed, and offers to try again (AC-15)', async () => {
+    const client = runnable({
+      startStatus: () => ({ state: 'failed', failure: 'OPENROUTER_API_KEY is not set' }),
+    });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    const alert = await within(dialog).findByRole('alert');
+    expect(alert.textContent).toContain('The run did not start');
+    expect(alert.textContent).toContain('OPENROUTER_API_KEY is not set');
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(client.starts).toHaveLength(2));
+  });
+
+  it('tells the person once a session that closing indaba ui stops the runs (AC-11)', async () => {
+    const client = runnable({ startStatus: () => ({ state: 'starting' }) });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    await within(dialog).findByText('Starting demo...');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    fireEvent.click(screen.getByRole('button', { name: 'Run a workflow' }));
+    const again = await screen.findByRole('dialog');
+    await within(again).findByRole('button', { name: 'Run demo' });
+    expect(within(again).queryByText(/cancels them/)).toBeNull();
+  });
+
+  it('says so when no workflow was found, or the search stopped at its limit', async () => {
+    const client = fakeClient({ runs: [], workflows: { workflows: [], truncated: true } });
+    render(h(App, appProps(client)));
+    expect(await screen.findByText(/Run a workflow from here, or start one in a terminal/)).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    const dialog = await screen.findByRole('dialog');
+    expect(await within(dialog).findByText(/No workflow file was found/)).toBeTruthy();
+    expect(within(dialog).getByText(/the search stopped at its limit/)).toBeTruthy();
+  });
+});
+
+describe('Stop (T-17, AC-09, AC-10, AC-13)', () => {
+  it('offers Stop only for a live run this server started', async () => {
+    render(h(App, appProps(fakeClient({ canStop: false }), '/runs/r1')));
+    await screen.findByRole('heading', { name: /task-pipeline/ });
+    expect(screen.queryByRole('button', { name: /Stop/ })).toBeNull();
+    cleanup();
+    render(
+      h(App, appProps(fakeClient({ canStop: true, run: liveRun({ status: 'completed' }) }), '/runs/r1')),
+    );
+    await screen.findByRole('heading', { name: /task-pipeline/ });
+    expect(screen.queryByRole('button', { name: /Stop/ })).toBeNull();
+  });
+
+  it('names the run and asks first; keeping it running sends nothing', async () => {
+    const client = fakeClient({ canStop: true });
+    render(h(App, appProps(client, '/runs/r1')));
+    const stop = await screen.findByRole('button', { name: 'Stop the run of task-pipeline' });
+    fireEvent.click(stop);
+    const ask = await screen.findByRole('alertdialog', { name: 'Stop task-pipeline?' });
+    await waitFor(() => expect(document.activeElement?.textContent).toBe('Stop task-pipeline?'));
+    expect(ask.textContent).toContain('its worktree is removed');
+    fireEvent.keyDown(ask, { key: 'Escape' });
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(document.activeElement).toBe(
+      screen.getByRole('button', { name: 'Stop the run of task-pipeline' }),
+    );
+    expect(client.stops).toEqual([]);
+  });
+
+  it('stops on confirmation, says it is stopping, and goes when the run has ended', async () => {
+    const client = fakeClient({ canStop: true });
+    render(h(App, appProps(client, '/runs/r1')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the run of task-pipeline' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the run' }));
+    expect(await screen.findByText('Stopping...')).toBeTruthy();
+    expect(client.stops).toEqual(['r1']);
+    act(() => client.push(liveRun({ status: 'cancelled', endedAt: T(31) })));
+    await waitFor(() => expect(screen.queryByText('Stopping...')).toBeNull());
+    expect(screen.queryByRole('button', { name: /Stop/ })).toBeNull();
+  });
+
+  it('says plainly when the run cannot be stopped from here', async () => {
+    const client = fakeClient({ canStop: true, stopRun: { kind: 'refused', code: 'not_started_here' } });
+    render(h(App, appProps(client, '/runs/r1')));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the run of task-pipeline' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Stop the run' }));
+    expect((await screen.findByRole('alert')).textContent).toContain(
+      'can only be stopped where it was started',
+    );
   });
 });
