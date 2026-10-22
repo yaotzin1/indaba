@@ -172,7 +172,7 @@ describe('plugin sinks (AC-10)', () => {
       DEMO_API_KEY: 'demo-key-value',
     });
     expect(r.code).toBe(0);
-    const lines = (await readFile(out, 'utf8')).trimEnd().split('\n');
+    const lines = (await readFile(out, 'utf8')).trimEnd().split(/\r?\n/);
     expect(lines[0]).toBe('declared the key is [redacted]');
     expect(lines).toContain('registered a plugin registered');
     expect(lines).toContain('declared process.end');
