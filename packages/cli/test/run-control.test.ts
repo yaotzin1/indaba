@@ -333,6 +333,26 @@ async function confirmAndStart(control: Awaited<ReturnType<typeof controlFor>>['
 
 const flush = () => new Promise((resolve) => setTimeout(resolve, 10));
 
+/**
+ * Asks for a start's status until it is the one expected: each call starts a lookup of the traces in the background,
+ * which a slow file system (Windows) may not finish in one short pause.
+ */
+async function statusUntil(
+  control: { startStatus(startId: string): unknown },
+  startId: string,
+  expected: unknown,
+): Promise<unknown> {
+  let last: unknown;
+  for (let i = 0; i < 200; i += 1) {
+    last = control.startStatus(startId);
+    if (JSON.stringify(last) === JSON.stringify(expected)) {
+      return last;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+  return last;
+}
+
 describe('the run control (T-12)', () => {
   it('lists valid and invalid workflows with their problems', async () => {
     const root = await project({
@@ -390,8 +410,12 @@ describe('the run control (T-12)', () => {
     // The copy goes when the child exits.
     run?.finish(0);
     runs[1]?.finish(0);
-    await flush();
-    expect(await readdir(join(root, RUN_INPUTS))).toEqual([]);
+    let left = await readdir(join(root, RUN_INPUTS));
+    for (let i = 0; i < 200 && left.length > 0; i += 1) {
+      await flush();
+      left = await readdir(join(root, RUN_INPUTS));
+    }
+    expect(left).toEqual([]);
   });
 
   it('asks again when the content changed, even with the old hash', async () => {
@@ -520,11 +544,10 @@ describe('the run control (T-12)', () => {
     // Written in the opposite order of the starts: a folder diff would give each the other's trace.
     await runs[1]?.trace('2'.repeat(32));
     await runs[0]?.trace('1'.repeat(32));
-    control.startStatus(first.started.startId);
-    control.startStatus(second.startId);
-    await flush();
-    expect(control.startStatus(first.started.startId)).toEqual({ state: 'running', runId: '1'.repeat(32) });
-    expect(control.startStatus(second.startId)).toEqual({ state: 'running', runId: '2'.repeat(32) });
+    const one = { state: 'running', runId: '1'.repeat(32) };
+    const two = { state: 'running', runId: '2'.repeat(32) };
+    expect(await statusUntil(control, first.started.startId, one)).toEqual(one);
+    expect(await statusUntil(control, second.startId, two)).toEqual(two);
     expect(control.startStatus('web-nothing')).toBeUndefined();
     expect(control.isAlive('1'.repeat(32))).toBe(true);
     expect(control.isAlive('9'.repeat(32))).toBe(false);
@@ -556,9 +579,8 @@ describe('the run control (T-12)', () => {
     await flush();
     expect(control.startStatus(started.startId)).toEqual({ state: 'starting' });
     await writeFile(half, `${record}\n`);
-    control.startStatus(started.startId);
-    await flush();
-    expect(control.startStatus(started.startId)).toEqual({ state: 'running', runId: '5'.repeat(32) });
+    const running = { state: 'running', runId: '5'.repeat(32) };
+    expect(await statusUntil(control, started.startId, running)).toEqual(running);
   });
 
   it('reports a start that ended without a trace as failed, with its first line cleaned (AC-15)', async () => {
@@ -570,8 +592,11 @@ describe('the run control (T-12)', () => {
     const { control } = await controlFor([root], starter);
     const { started } = await confirmAndStart(control);
     runs[0]?.finish(1);
-    await flush();
-    const status = control.startStatus(started.startId);
+    let status = control.startStatus(started.startId);
+    for (let k = 0; k < 200 && status?.state === 'starting'; k += 1) {
+      await flush();
+      status = control.startStatus(started.startId);
+    }
     expect(status?.state).toBe('failed');
     expect(status?.failure).toContain('bad key');
     expect(status?.failure).not.toContain('sk-or-v1');
@@ -585,8 +610,8 @@ describe('the run control (T-12)', () => {
     const { control } = await controlFor([root], starter);
     await confirmAndStart(control);
     await runs[0]?.trace('1'.repeat(32));
-    control.startStatus(`web-${'1'.padStart(24, '0')}`);
-    await flush();
+    const running = { state: 'running', runId: '1'.repeat(32) };
+    expect(await statusUntil(control, `web-${'1'.padStart(24, '0')}`, running)).toEqual(running);
     expect(control.stop('1'.repeat(32))).toEqual({ state: 'stopping' });
     expect(control.stop('1'.repeat(32))).toEqual({ state: 'stopping' });
     expect(runs[0]?.calls).toEqual(['cancel', 'cancel']);

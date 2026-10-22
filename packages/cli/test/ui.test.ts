@@ -328,16 +328,14 @@ describe('userConfigFolder', () => {
     expect(
       userConfigFolder('win32', { ...none, appData: 'C:\\Users\\a\\AppData\\Roaming' }, 'C:\\Users\\a'),
     ).toBe('C:\\Users\\a\\AppData\\Roaming');
-    expect(userConfigFolder('darwin', none, '/Users/a')).toBe(
-      join('/Users/a', 'Library', 'Application Support'),
-    );
+    expect(userConfigFolder('darwin', none, '/Users/a')).toBe('/Users/a/Library/Application Support');
     expect(userConfigFolder('linux', { ...none, xdgConfigHome: '/xdg' }, '/home/a')).toBe('/xdg');
     expect(userConfigFolder('linux', none, '/home/a')).toBe('/home/a/.config');
   });
 
   it('ignores a variable that is not an absolute path', () => {
     expect(userConfigFolder('linux', { ...none, xdgConfigHome: 'relative' }, '/home/a')).toBe(
-      join('/home/a', '.config'),
+      '/home/a/.config',
     );
     expect(userConfigFolder('win32', { ...none, appData: 'rel' }, 'C:\\Users\\a')).toBe(
       'C:\\Users\\a\\AppData\\Roaming',
