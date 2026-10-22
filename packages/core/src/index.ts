@@ -89,6 +89,7 @@ export { SimpleEventDispatcher } from './support/index.js';
 export type {
   ApiError,
   AttemptView,
+  CheckWorkflowRequest,
   ConfirmationRequired,
   ContractResponse,
   DiscussionMessage,
@@ -105,6 +106,8 @@ export type {
   RunStreamEvent,
   RunSummary,
   RunSummaryOfUse,
+  SaveWorkflowSourceRequest,
+  SaveWorkflowSourceResponse,
   ServerStreamEvent,
   SkippedRunnerView,
   SpanOwner,
@@ -115,7 +118,11 @@ export type {
   StepStructure,
   StepView,
   StopRunResponse,
+  WorkflowChangedOnDisk,
+  WorkflowCheckResponse,
   WorkflowListResponse,
+  WorkflowProblem,
+  WorkflowSourceResponse,
   WorkflowSummary,
 } from './web-contract/index.js';
 export { DagBuilder } from './workflow/dag-builder.js';

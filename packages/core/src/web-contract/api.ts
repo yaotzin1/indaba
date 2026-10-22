@@ -130,3 +130,42 @@ export interface ServerStreamEvent {
   readonly kind: 'run_started' | 'run_ended';
   readonly run: RunSummary;
 }
+
+/** One problem of a workflow text, as `indaba validate` words it (contract 1.2). */
+export interface WorkflowProblem {
+  readonly message: string;
+  /** 1-based, when the parser gives a position (YAML syntax); absent otherwise. */
+  readonly line?: number;
+  readonly column?: number;
+}
+
+export interface WorkflowSourceResponse {
+  readonly workflow: WorkflowSummary;
+  readonly text: string;
+  /** SHA-256 of the file's bytes, lowercase hex: the `baseHash` of a later save. */
+  readonly contentHash: string;
+  readonly problems: readonly WorkflowProblem[];
+}
+
+export interface SaveWorkflowSourceRequest {
+  readonly text: string;
+  readonly baseHash: string;
+}
+
+export interface SaveWorkflowSourceResponse {
+  readonly contentHash: string;
+  readonly problems: readonly WorkflowProblem[];
+}
+
+export interface WorkflowChangedOnDisk extends ApiError {
+  readonly code: 'changed_on_disk';
+  readonly current: { readonly text: string; readonly contentHash: string };
+}
+
+export interface CheckWorkflowRequest {
+  readonly text: string;
+}
+
+export interface WorkflowCheckResponse {
+  readonly problems: readonly WorkflowProblem[];
+}

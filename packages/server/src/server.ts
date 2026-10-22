@@ -27,9 +27,15 @@ import { MAX_CONCURRENT_RUNS, type RunControl, RunControlError } from './run-con
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
 import { readStatic } from './static.js';
+import {
+  MAX_SOURCE_BODY_BYTES,
+  MAX_SOURCE_BYTES,
+  type WorkflowStore,
+  WorkflowStoreError,
+} from './workflow-store.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.1.0';
+export const CONTRACT_VERSION = '1.2.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
@@ -43,6 +49,11 @@ const STOP_PATH = /^\/api\/v1\/runs\/[^/]+\/stop$/;
 const MAX_WORKFLOW_ID = 256;
 /** A content hash as the server hands it out: SHA-256, lowercase hexadecimal. */
 const CONTENT_HASH = /^[0-9a-f]{64}$/;
+/** `/api/v1/workflows/{id}/source`, and the check of a draft. */
+const SOURCE_PATH = /^\/api\/v1\/workflows\/[^/]+\/source$/;
+const CHECK_PATH = `${API}/workflows/check`;
+/** A workflow id as the scan hands it out; anything else is not looked up. */
+const WORKFLOW_ID = /^[0-9a-f]{32}$/;
 /** A start id as the run control hands it out; anything else is not looked up. */
 const START_ID = /^[A-Za-z0-9_-]{1,64}$/;
 
@@ -111,6 +122,11 @@ export interface ServerOptions {
    * runs.
    */
   readonly runs?: RunControl;
+  /**
+   * Reading, checking and saving a workflow's text from the page (specs/web-app-editing-core). The command line supplies
+   * it; without it the source resources answer 404.
+   */
+  readonly workflowStore?: WorkflowStore;
 }
 
 export interface ServerHandle {
@@ -164,8 +180,8 @@ class BodyProblem extends Error {
   }
 }
 
-/** Reads a JSON body of at most {@link MAX_BODY_BYTES}; anything else is a problem with its own status. */
-async function readJson(req: IncomingMessage): Promise<unknown> {
+/** Reads a JSON body of at most `limit` bytes; anything else is a problem with its own status. */
+async function readJson(req: IncomingMessage, limit: number = MAX_BODY_BYTES): Promise<unknown> {
   const type = String(req.headers['content-type'] ?? '')
     .split(';')[0]
     ?.trim()
@@ -178,7 +194,7 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   for await (const chunk of req) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(String(chunk));
     size += buffer.length;
-    if (size > MAX_BODY_BYTES) {
+    if (size > limit) {
       throw new BodyProblem(413, { code: 'too_large', message: 'The request is too large.' });
     }
     chunks.push(buffer);
@@ -200,7 +216,13 @@ function fieldOf(body: unknown, key: string): unknown {
  * The methods a path accepts. Everything is read-only but the logging settings and the runs, each only when the command
  * line supplied what does the work.
  */
-function methodsOf(path: string, settings: boolean, runs: boolean): readonly string[] {
+function methodsOf(path: string, settings: boolean, runs: boolean, store: boolean): readonly string[] {
+  if (store && path === CHECK_PATH) {
+    return ['POST'];
+  }
+  if (store && SOURCE_PATH.test(path)) {
+    return ['GET', 'PUT'];
+  }
   if (runs && path === RUNS_PATH) {
     return ['GET', 'POST'];
   }
@@ -221,6 +243,81 @@ function lastEventId(req: IncomingMessage): number {
   const value = Array.isArray(header) ? header[0] : header;
   const parsed = value === undefined ? 0 : Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+/** A refusal of a workflow store, by name and `code` as well as class, for the reason {@link isRunControlError} gives. */
+function isStoreError(error: unknown): error is Refusal {
+  return (
+    error instanceof WorkflowStoreError ||
+    (error instanceof Error &&
+      error.name === 'WorkflowStoreError' &&
+      typeof (error as { code?: unknown }).code === 'string')
+  );
+}
+
+/** The status and plain words of each refusal a workflow store may give; undefined for a code it should not give. */
+function storeRefusal(error: Refusal): { status: number; error: ApiError } | undefined {
+  switch (error.code) {
+    case 'workflow_not_found':
+      return {
+        status: 404,
+        error: {
+          code: error.code,
+          message: 'This workflow is no longer in the project.',
+          nextAction: 'Open the list of workflows again.',
+        },
+      };
+    case 'too_large':
+      return {
+        status: 413,
+        error: {
+          code: error.code,
+          message: 'This workflow file is larger than 1 MiB, so the page does not open or save it.',
+          nextAction: 'Edit it in your own editor.',
+        },
+      };
+    case 'not_text':
+      return {
+        status: 422,
+        error: {
+          code: error.code,
+          message: 'This file is not text in UTF-8, so the page does not open it.',
+          nextAction: 'Edit it in your own editor.',
+        },
+      };
+    case 'changed_on_disk': {
+      const current = error.detail?.current;
+      const text =
+        typeof current === 'object' && current !== null ? (current as { text?: unknown }).text : undefined;
+      const hash =
+        typeof current === 'object' && current !== null
+          ? (current as { contentHash?: unknown }).contentHash
+          : undefined;
+      if (typeof text !== 'string' || typeof hash !== 'string') {
+        return undefined;
+      }
+      return {
+        status: 409,
+        error: {
+          code: error.code,
+          message: 'The file changed on disk after you opened it, so it was not saved.',
+          nextAction: 'Use the version on disk, or keep yours and save again.',
+          current: { text, contentHash: hash },
+        } as ApiError,
+      };
+    }
+    case 'not_saved':
+      return {
+        status: 409,
+        error: {
+          code: error.code,
+          message: 'The file could not be saved; it is as it was.',
+          nextAction: 'Check that its folder can be written, then save again.',
+        },
+      };
+    default:
+      return undefined;
+  }
 }
 
 interface Refusal {
@@ -381,6 +478,14 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       await handleSettings(req, res, path);
       return;
     }
+    if (head === 'workflows' && parts.length === 2 && runId === 'check') {
+      await handleCheck(req, res);
+      return;
+    }
+    if (head === 'workflows' && parts.length === 3 && tail === 'source' && runId !== undefined) {
+      await handleSource(req, res, runId);
+      return;
+    }
     if ((head === 'workflows' && parts.length === 1) || (head === 'starts' && parts.length === 2)) {
       await handleRunControl(req, res, head, runId);
       return;
@@ -460,6 +565,104 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       return;
     }
     missing(req, res, NOT_FOUND);
+  };
+
+  const SOURCE_UNAVAILABLE: ApiError = {
+    code: 'source_unavailable',
+    message: 'This server does not open workflow files.',
+  };
+
+  /** A JSON body of a source request, or undefined once the refusal has been sent. */
+  const sourceBody = async (req: IncomingMessage, res: ServerResponse): Promise<unknown> => {
+    try {
+      return await readJson(req, MAX_SOURCE_BODY_BYTES);
+    } catch (error) {
+      if (error instanceof BodyProblem) {
+        refuse(req, res, error.status, error.error);
+        return undefined;
+      }
+      throw error;
+    }
+  };
+
+  /** The text of a body, checked for type and size; undefined once the refusal has been sent. */
+  const sourceText = (req: IncomingMessage, res: ServerResponse, body: unknown): string | undefined => {
+    const text = fieldOf(body, 'text');
+    if (typeof text !== 'string') {
+      refuse(req, res, 400, { code: 'bad_request', message: 'The request carries no workflow text.' });
+      return undefined;
+    }
+    if (Buffer.byteLength(text, 'utf8') > MAX_SOURCE_BYTES) {
+      refuse(req, res, 413, storeRefusal({ code: 'too_large' })?.error ?? NOT_FOUND);
+      return undefined;
+    }
+    return text;
+  };
+
+  const handleCheck = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const store = options.workflowStore;
+    if (store === undefined) {
+      missing(req, res, SOURCE_UNAVAILABLE);
+      return;
+    }
+    const body = await sourceBody(req, res);
+    if (body === undefined) {
+      return;
+    }
+    const text = sourceText(req, res, body);
+    if (text === undefined) {
+      return;
+    }
+    sendJson(res, 200, store.check(text));
+  };
+
+  const handleSource = async (req: IncomingMessage, res: ServerResponse, id: string): Promise<void> => {
+    const store = options.workflowStore;
+    if (store === undefined) {
+      missing(req, res, SOURCE_UNAVAILABLE);
+      return;
+    }
+    const notFound = (): void =>
+      missing(req, res, storeRefusal({ code: 'workflow_not_found' })?.error ?? NOT_FOUND);
+    if (!WORKFLOW_ID.test(id)) {
+      notFound();
+      return;
+    }
+    try {
+      if (req.method === 'GET') {
+        sendJson(res, 200, await store.read(id));
+        return;
+      }
+      const body = await sourceBody(req, res);
+      if (body === undefined) {
+        return;
+      }
+      const text = sourceText(req, res, body);
+      if (text === undefined) {
+        return;
+      }
+      const baseHash = fieldOf(body, 'baseHash');
+      if (typeof baseHash !== 'string' || !CONTENT_HASH.test(baseHash)) {
+        refuse(req, res, 400, {
+          code: 'bad_request',
+          message: 'The request does not say which version of the file it started from.',
+        });
+        return;
+      }
+      // Only these two fields are read; a path or an id in the body never reaches the store (AC-06).
+      const saved = await store.save(id, { text, baseHash });
+      sendJson(res, 200, saved);
+    } catch (error) {
+      if (!isStoreError(error)) {
+        throw error;
+      }
+      const answer = storeRefusal(error);
+      if (answer === undefined) {
+        throw error;
+      }
+      log.info('server.workflows', 'save refused', { code: error.code, method: req.method ?? '?' });
+      sendError(res, answer.status, answer.error);
+    }
   };
 
   const RUNS_UNAVAILABLE: ApiError = {
@@ -673,7 +876,12 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       refuse(req, res, 400, { code: 'bad_request', message: 'The address is not valid.' });
       return;
     }
-    const allowed = methodsOf(path, options.loggingSettings !== undefined, options.runs !== undefined);
+    const allowed = methodsOf(
+      path,
+      options.loggingSettings !== undefined,
+      options.runs !== undefined,
+      options.workflowStore !== undefined,
+    );
     if (!allowed.includes(req.method ?? '')) {
       res.setHeader('Allow', allowed.join(', '));
       refuse(req, res, 405, {

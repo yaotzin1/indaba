@@ -197,10 +197,10 @@ const json = (value: unknown) => ({ body: JSON.stringify(value), type: 'applicat
 const post = (path: string, extra: SendOptions = {}) => send(path, { method: 'POST', ...extra });
 
 describe('the run resources over HTTP', () => {
-  it('says contract 1.1.0', async () => {
+  it('says the contract version', async () => {
     await start();
-    expect(CONTRACT_VERSION).toBe('1.1.0');
-    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.1.0' });
+    expect(CONTRACT_VERSION).toBe('1.2.0');
+    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.2.0' });
   });
 
   it('lists the workflows the control found (AC-01)', async () => {
