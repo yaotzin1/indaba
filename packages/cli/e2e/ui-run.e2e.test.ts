@@ -210,6 +210,12 @@ describe('indaba ui: Run and Stop', () => {
       const second = await runWorkflow(client, idOf('long.workflow.ai.yml'));
       await waitFor(() => existsSync(secondPid), 'the second long step to start');
       expect((await statusOf(client, second)).canStop).toBe(true);
+      if (process.platform === 'win32') {
+        // A signal ends indaba ui at once on Windows, so closing cannot stop this run there (the documented cost of a
+        // crash). Stop it from the page instead, or it outlives the test and keeps its folders in use.
+        expect((await client.post(`/api/v1/runs/${second}/stop`)).status).toBe(202);
+        await waitFor(async () => !(await statusOf(client, second)).canStop, 'the second run to exit');
+      }
     } finally {
       ui.child.kill('SIGINT');
     }
