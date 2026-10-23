@@ -1,5 +1,5 @@
 import type { SpanAttributes, TokenUsage } from '../observability/index.js';
-import type { AgentSpec, McpServerDefinition, StepPermissions } from '../workflow/model.js';
+import type { AgentSpec, McpServerDefinition, PermissionLevel, StepPermissions } from '../workflow/model.js';
 
 export interface RunRequest {
   readonly prompt: string;
@@ -14,6 +14,11 @@ export interface RunRequest {
   readonly mcpServers?: readonly McpServerDefinition[];
   /** What the step may touch. Runners that cannot enforce it ignore it; the scope guard still applies. */
   readonly permissions?: StepPermissions;
+  /**
+   * The level the step wrote, or the one a run bound gave it (specs/agent-permissions, AC-07). Absent for a step with no
+   * level, which keeps its runner's behaviour. Runners that do not implement `PermissionCapable` ignore it.
+   */
+  readonly permissionLevel?: PermissionLevel;
   /** Which agent an agent-protocol runner should start; other runners ignore it. */
   readonly agent?: AgentSpec;
   /**

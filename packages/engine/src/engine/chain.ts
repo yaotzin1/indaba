@@ -1,5 +1,5 @@
 import type { AgentSpec, GuardDefinition, StepDefinition, WorkflowDefinition } from '@indaba/core';
-import { GuardType, IndabaError, roleOf, runnerChain } from '@indaba/core';
+import { GuardType, IndabaError, PermissionLevel, roleOf, runnerChain } from '@indaba/core';
 
 /** Which runners a speaker may use, in order, and what goes with them. */
 export interface RunnerPlan {
@@ -37,13 +37,20 @@ export function planForStep(step: StepDefinition, workflow: WorkflowDefinition):
 }
 
 /**
- * The guards that will run: the declared ones, plus a scope guard implied by a `permissions` block
- * (an empty `fs.write` list means the step may change nothing).
+ * The guards that will run: the declared ones, plus a scope guard implied by a `permissions` block (an empty
+ * `fs.write` list means the step may change nothing). For a block that writes a level the implied guard is added **in
+ * addition to** a declared one at `read` and `edit`, so a loose declared guard cannot weaken the author's
+ * `fs.write`; at `full` none is added. A block with no level keeps today's rule: a declared guard replaces the
+ * implied one (specs/agent-permissions, AC-04, AC-14).
  */
 export function effectiveGuards(step: StepDefinition): readonly GuardDefinition[] {
-  const implied: GuardDefinition[] =
-    step.permissions === undefined || step.guards.some((g) => g.type === GuardType.DiffWithinScope)
-      ? []
-      : [{ type: GuardType.DiffWithinScope, paths: step.permissions.fsWrite }];
-  return [...step.guards, ...implied];
+  const permissions = step.permissions;
+  if (permissions === undefined || permissions.level === PermissionLevel.Full) {
+    return step.guards;
+  }
+  const declared = step.guards.some((g) => g.type === GuardType.DiffWithinScope);
+  if (declared && permissions.level === undefined) {
+    return step.guards;
+  }
+  return [...step.guards, { type: GuardType.DiffWithinScope, paths: permissions.fsWrite }];
 }

@@ -92,8 +92,8 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - [ ] AC-07. A runner declares, per level, its mode and the scope it can hold, through the contract `PermissionCapable` (`api-surface.md`); the built-in table is in C-03. A step that
   writes a level is checked against **every runner in its chain** (the list of fallbacks): a level that any of them cannot honour (`unsupported`) is an error naming the runner, the level
   and, in plain words, why. The check needs the registry of runners, so it is made by `validate`, `plan` and at the start of a run, and by the editor's check when it has the catalog
-  (AC-16); the parser, which has no runners, does not make it. The runner turns a written level into its own arguments, which come **last**: `[...extraArgs, ...levelArgs]`, so that an embedder's `extraArgs` can never widen a written level (the CLIs take the last
-  occurrence of a flag). Today `extraArgs` replaces a runner's legacy default; with a written level it is kept and the level wins. The two legacy defaults (C-01) apply only to a step that writes no level and are replaced, not added to, by a written one.
+  (AC-16); the parser, which has no runners, does not make it. The runner turns a written level into its own arguments, which come **last**: `[...extraArgs, ...levelArgs]`, and when a level is written the permission flags of the agent are removed from `extraArgs`
+  (`--permission-mode`, `--mode`, `--sandbox`, `--auto`, the skip-permissions flags), because a later flag does not cancel a bare one such as `--dangerously-skip-permissions`; so an embedder's `extraArgs` can never widen a written level. Today `extraArgs` replaces a runner's legacy default; with a written level it is kept and the level wins. The two legacy defaults (C-01) apply only to a step that writes no level and are replaced, not added to, by a written one.
   **What the guard holds.** The scope guard reads the tracked and the untracked, not-ignored paths of the step's working tree after the step (`git status`). It does not see a command that ran, a path git ignores
   (`dist/`, `node_modules/`) or a write outside the working tree, so it holds the `fs.write` globs only for paths git shows and does not hold `terminal` at all. A level whose meaning depends on holding `terminal` or on stopping
   the agent while it works is offered only by a runner whose own mode does so (C-03): otherwise it is `unsupported`; and `edit` on a runner whose commands are not limited carries the note id `commands_not_limited` (AC-17).
@@ -118,7 +118,7 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 **Run options, compatibility and guards**
 
 - [ ] AC-12. `indaba run --permissions <level>` (optionally `<step>=<level>`, repeatable) sets an upper bound for this run: for a step that **writes** a level, the effective level is the lower
-  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. Lowering `edit` to `read` drops its `fs.write` and the implied guard then allows no change at all.
+  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. Lowering `edit` to `read` drops its `fs.write` and the implied guard then allows no change at all. Every bound that applies to a step is applied and the lowest wins; a bound of `edit` over a step at `full` gives `read`, because `full` names no folders for `edit` to allow (AC-03).
   A step with no level (the runner's default) is affected only by a bound of `read`, which gives it the `read` arguments; any other bound over it changes nothing, and `plan` says so for the step. A bound applies to agent
   steps only. A usage error names the step and why when: the named step does not exist or is not an agent step; or a runner of the step's chain cannot honour the resulting level (`--permissions read` is the dry-run switch
   where every runner offers `read`).
@@ -228,8 +228,8 @@ All of these are **recommended; the maintainer confirms**.
 
   | Runner | `read` | `edit` | `ask` | `full` |
   | :--- | :--- | :--- | :--- | :--- |
-  | `claude-code` | native, `--permission-mode plan` (the mode exists; *confirm* that it refuses writes) | native, `--permission-mode acceptEdits` (as today) | unsupported (`--permission-prompts host` is a later piece) | native, `--permission-mode bypassPermissions` (exists) |
-  | `antigravity` | native, `--mode plan` (the flag exists; *confirm* the meaning) | native, `--mode accept-edits` (the flag exists; a write headless was observed to depend on it; *confirm* by a run) | unsupported | native, `--dangerously-skip-permissions` (exists) |
+  | `claude-code` | native, `--permission-mode plan` (confirmed 2026-10-24: a run asked to create a file did not, and wrote its plan to its own folder outside the workspace) | native, `--permission-mode acceptEdits` (as today) | unsupported (`--permission-prompts host` is a later piece) | native, `--permission-mode bypassPermissions` (exists) |
+  | `antigravity` | native, `--mode plan` (confirmed 2026-10-24: a run asked to create a file did not, and wrote its plan to its own folder outside the workspace) | native, `--mode accept-edits` (confirmed 2026-10-23: a headless write needs it) | unsupported | native, `--dangerously-skip-permissions` (exists) |
   | `codex` | native, `--sandbox read-only` (*confirm*) | native, `--sandbox workspace-write` (as today) | unsupported | native, `--sandbox danger-full-access` (*confirm*) |
   | `opencode` | unsupported (no read-only argument; the guard cannot stop a command) | after, note `commands_not_limited` | unsupported | native, `--auto` (exists) |
   | `cursor` | unsupported | after, note `commands_not_limited` | unsupported | unsupported until an argument is confirmed |

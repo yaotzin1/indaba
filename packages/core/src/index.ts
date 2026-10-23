@@ -13,6 +13,28 @@ export { GuardResult } from './extension/index.js';
 export type { McpCapable } from './extension/mcp.js';
 export { isMcpCapable, McpCapability, mcpCapabilityOf } from './extension/mcp.js';
 export type {
+  BoundResult,
+  ChainEntry,
+  EffectiveLevel,
+  EnforcementDescription,
+  PermissionCapability,
+  PermissionCapable,
+} from './extension/permissions.js';
+export {
+  applyBound,
+  describeEnforcement,
+  EnforcementMode,
+  EnforcementScope,
+  effectiveLevel,
+  isPermissionCapable,
+  lowerLevel,
+  MAX_DENIAL_WINDOW,
+  PERMISSION_ORDER,
+  permissionCapabilitiesOf,
+  resolvePermissions,
+  unsupportedBy,
+} from './extension/permissions.js';
+export type {
   FileSinkSettings,
   GelfSinkSettings,
   HttpJsonSinkSettings,
@@ -167,6 +189,7 @@ export {
   isConsensusStep,
   isShellStep,
   McpPolicy,
+  PermissionLevel,
   PermissionMode,
   roleOf,
   SHELL_RUNNER,

@@ -1,4 +1,11 @@
-import { DecisionType, FailureAction, Isolation, McpPolicy, PermissionMode } from '@indaba/core';
+import {
+  DecisionType,
+  FailureAction,
+  Isolation,
+  McpPolicy,
+  PermissionLevel,
+  PermissionMode,
+} from '@indaba/core';
 import { WorkflowParser } from '../parser/parser.js';
 
 /**
@@ -55,29 +62,16 @@ const AGENT: Schema = {
   ],
 };
 
-const ROLE: Schema = {
-  type: 'object',
-  description: 'A role: who runs a step and with which model.',
-  required: ['runner'],
-  properties: {
-    runner: {
-      ...RUNNER_CHAIN,
-      description:
-        'The runner that executes the role, or a list of runners in priority order: an API runner such as openrouter, acp, claude-code, codex, antigravity, cursor, opencode, or the name of a runner a plugin registers.',
-    },
-    agent: orNull(AGENT),
-    model: orNull({
-      type: 'string',
-      description: 'Passed to the runner as its model. API runners require one.',
-    }),
-    mcp: orNull({ ...STRING_LIST, description: 'mcp_servers names that every step of the role may use.' }),
-  },
-};
-
 const PERMISSIONS: Schema = {
   type: 'object',
-  description: 'What the step’s agent may touch.',
+  description:
+    'What the step’s agent may do. A step’s block, else its role’s, else defaults’, whole (never merged); a block with no level behaves as before.',
   properties: {
+    level: orNull({
+      enum: values(PermissionLevel),
+      description:
+        'read (look only), edit (change the files fs.write names) or full (no limit and nobody asked). ask is not available yet.',
+    }),
     fs: orNull({
       type: 'object',
       properties: {
@@ -94,6 +88,29 @@ const PERMISSIONS: Schema = {
     terminal: orNull({
       enum: values(PermissionMode),
       description: 'Whether the agent may run commands: allow or deny (default deny).',
+    }),
+  },
+};
+
+const ROLE: Schema = {
+  type: 'object',
+  description: 'A role: who runs a step and with which model.',
+  required: ['runner'],
+  properties: {
+    runner: {
+      ...RUNNER_CHAIN,
+      description:
+        'The runner that executes the role, or a list of runners in priority order: an API runner such as openrouter, acp, claude-code, codex, antigravity, cursor, opencode, or the name of a runner a plugin registers.',
+    },
+    agent: orNull(AGENT),
+    model: orNull({
+      type: 'string',
+      description: 'Passed to the runner as its model. API runners require one.',
+    }),
+    mcp: orNull({ ...STRING_LIST, description: 'mcp_servers names that every step of the role may use.' }),
+    permissions: orNull({
+      ...PERMISSIONS,
+      description: 'Used by an agent step of this role that has no permissions of its own.',
     }),
   },
 };
@@ -237,9 +254,13 @@ export function workflowJsonSchema(): Readonly<Record<string, unknown>> {
       }),
       defaults: orNull({
         type: 'object',
-        description: 'Only defaults.mcp_policy is read.',
+        description: 'defaults.mcp_policy and defaults.permissions are read.',
         properties: {
           mcp_policy: orNull({ ...MCP_POLICY, description: 'required (the default) or optional.' }),
+          permissions: orNull({
+            ...PERMISSIONS,
+            description: 'Used by an agent step whose step and role have no permissions.',
+          }),
         },
       }),
     },

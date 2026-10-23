@@ -17,10 +17,16 @@ import {
   ConsensusArbiter,
   DEFAULT_TIMEOUT_SECONDS,
   DecisionType,
+  EnforcementMode,
+  EnforcementScope,
+  GuardType,
   IndabaError,
   isConsensusStep,
+  isPermissionCapable,
   isShellStep,
   McpUnavailableError,
+  PermissionLevel,
+  permissionCapabilitiesOf,
   Ruling,
   RulingSource,
   RunnerChainExhaustedError,
@@ -43,6 +49,7 @@ import { effectiveGuards, planForRole, planForStep } from './chain.js';
 import type { McpIssue, McpResolution, RunnerLookup } from './mcp.js';
 import { McpPlanner } from './mcp.js';
 import { StepOutcome } from './outcome.js';
+import { checkPermissions, type PermissionFinding } from './permissions.js';
 import { PromptBuilder } from './prompt-builder.js';
 
 export interface StepExecutorOptions {
@@ -237,6 +244,7 @@ export class StepExecutor {
     options: StepRunOptions,
   ): Promise<StepOutcome> {
     const plan = planForStep(step, workflow);
+    let ran: Runner | undefined;
     const chain = this.chainRunner(
       plan,
       workflow,
@@ -245,6 +253,9 @@ export class StepExecutor {
       span,
       plan.names[0] ?? '',
       options.signal,
+      (runner) => {
+        ran = runner;
+      },
     );
     const request: RunRequest = {
       prompt: this.prompts.build(step, options.feedback),
@@ -252,10 +263,28 @@ export class StepExecutor {
       ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: this.timeoutSeconds,
       ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
-      ...(step.permissions !== undefined ? { permissions: step.permissions } : {}),
+      // At `full` the runner is sent no fs or terminal limits (specs/agent-permissions, AC-04); a block with no level is sent as before.
+      ...(step.permissions !== undefined && step.permissions.level !== PermissionLevel.Full
+        ? { permissions: step.permissions }
+        : {}),
+      ...(step.permissions?.level !== undefined ? { permissionLevel: step.permissions.level } : {}),
       ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
     };
     const result = await chain.run(request, options.signal);
+
+    if (
+      result.succeeded() &&
+      ran !== undefined &&
+      (await this.refusedAndDidNothing(step, ran, result.output, workdir))
+    ) {
+      return StepOutcome.failed(
+        `The agent was refused a permission it needed. It ran ${
+          step.permissions?.level === undefined
+            ? `under the built-in default of the ${ran.name} runner`
+            : `at the level "${step.permissions.level}"`
+        } and did nothing it was asked to. Change the step's permissions block (for example level: edit with fs.write).`,
+      );
+    }
 
     return result.succeeded()
       ? StepOutcome.ok()
@@ -279,6 +308,7 @@ ${this.prompts.tail(result.failureText())}`,
     span: Span,
     label: string,
     signal: AbortSignal | undefined,
+    onRan?: (runner: Runner) => void,
   ): Runner {
     return {
       name: plan.names[0] ?? '',
@@ -311,6 +341,8 @@ ${this.prompts.tail(result.failureText())}`,
             continue;
           }
           this.recordMcp(span, mcp);
+          this.recordPermissions(span, runner, step.permissions?.level);
+          onRan?.(runner);
           try {
             return await this.invoke(
               runner,
@@ -331,6 +363,66 @@ ${this.prompts.tail(result.failureText())}`,
         throw new RunnerChainExhaustedError(skipped);
       },
     };
+  }
+
+  /**
+   * AC-11: a command-line agent refused a permission in headless mode can exit 0. Only when the runner recognises the
+   * refusal (its text is never copied), and a declared output is missing or, with none declared, the working tree is
+   * unchanged, is the step failed with a fixed reason. A reviewer that merely quotes the message, and did its work, passes.
+   */
+  private async refusedAndDidNothing(
+    step: StepDefinition,
+    runner: Runner,
+    output: string,
+    workdir: string,
+  ): Promise<boolean> {
+    if (step.permissions?.level === PermissionLevel.Full) {
+      return false;
+    }
+    if (!isPermissionCapable(runner) || !runner.permissionDenied(output)) {
+      return false;
+    }
+    if (step.outputs.length > 0) {
+      for (const declared of step.outputs) {
+        const path = await this.resolvePath(workdir, declared);
+        if (path === undefined || !(await isFile(path))) {
+          return true;
+        }
+      }
+      return false;
+    }
+    const unchanged = await this.guards.check({ type: GuardType.GitDiffEmpty, paths: [] }, workdir);
+    return unchanged.passed;
+  }
+
+  /**
+   * What the permissions of this workflow mean for the runners registered here (specs/agent-permissions, AC-07): the
+   * engine refuses to start on an error, whoever calls it.
+   */
+  permissionFindings(workflow: WorkflowDefinition): PermissionFinding[] {
+    return checkPermissions(workflow, {
+      has: (name) => {
+        try {
+          this.runners.get(name);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      get: (name) => this.runners.get(name),
+    });
+  }
+
+  /** AC-15: the level, mode and scope that applied to this step on this runner. Words only: no path, command or message. */
+  private recordPermissions(span: Span, runner: Runner, level: PermissionLevel | undefined): void {
+    if (level === undefined) {
+      span.setAttribute('indaba.permissions.level', 'default');
+      return;
+    }
+    const capability = permissionCapabilitiesOf(runner).find((c) => c.level === level);
+    span.setAttribute('indaba.permissions.level', level);
+    span.setAttribute('indaba.permissions.mode', capability?.mode ?? EnforcementMode.Unsupported);
+    span.setAttribute('indaba.permissions.scope', capability?.scope ?? EnforcementScope.None);
   }
 
   private async runConsensus(

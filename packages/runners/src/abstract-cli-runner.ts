@@ -1,5 +1,11 @@
 import { rm } from 'node:fs/promises';
-import type { Runner, RunRequest } from '@indaba/core';
+import type {
+  PermissionCapability,
+  PermissionCapable,
+  PermissionLevel,
+  Runner,
+  RunRequest,
+} from '@indaba/core';
 import { NodeProcessSpawner, type ProcessSpawner } from './process.js';
 import { executeProcess, type ProcessRunResult, stripAnsi } from './process-runner.js';
 
@@ -34,7 +40,7 @@ export interface CliRunnerOptions {
  * argument vector goes to the process directly, never through a shell. The result is a
  * ProcessRunResult whose `mode` says which of the two ran.
  */
-export abstract class AbstractCliRunner implements Runner {
+export abstract class AbstractCliRunner implements Runner, PermissionCapable {
   abstract readonly name: string;
   private readonly usePty: boolean;
   private readonly spawner: ProcessSpawner;
@@ -45,6 +51,25 @@ export abstract class AbstractCliRunner implements Runner {
   }
 
   protected abstract command(request: RunRequest): readonly string[];
+
+  /** What each level means for this runner (specs/agent-permissions, C-03). A subclass that declares nothing supports no level. */
+  permissionCapabilities(): readonly PermissionCapability[] {
+    return [];
+  }
+
+  /** Whether the output says a permission was refused in headless mode (AC-11). The default cannot tell. */
+  permissionDenied(_output: string): boolean {
+    return false;
+  }
+
+  get canRecogniseDenial(): boolean {
+    return false;
+  }
+
+  /** The command-line arguments that make a written level true for this runner; empty when it needs none. */
+  protected levelArguments(_level: PermissionLevel): readonly string[] {
+    return [];
+  }
 
   /**
    * Override when the command needs temporary files (e.g. an MCP configuration). The runner

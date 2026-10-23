@@ -1,6 +1,6 @@
 import { lstat, mkdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import { dirname, isAbsolute, relative, resolve } from 'node:path';
-import { matchesAny, PermissionMode, type StepPermissions } from '@indaba/core';
+import { matchesAny, PermissionLevel, PermissionMode, type StepPermissions } from '@indaba/core';
 import { AcpRpcError, INVALID_PARAMS } from './acp-connection.js';
 
 export type PermissionDecision = 'allowed' | 'rejected';
@@ -47,13 +47,19 @@ function allInside(
  * Whether the agent may do what it asks. Without a `permissions` block anything that changes
  * something (edit, delete, move, execute) is refused; reads, searches, fetches and thinking are not.
  * An empty `fs.read` list leaves reads unrestricted: scope is about what the step may change.
+ * At the level `full` every request is allowed (once, never "always": see `selectOption`); the author chose it
+ * and the engine acknowledged it (specs/agent-permissions, AC-04, AC-05).
  */
 export function decidePermission(
   kind: string,
   locations: readonly string[] | undefined,
   permissions: StepPermissions | undefined,
   workdir: string,
+  level?: PermissionLevel,
 ): PermissionDecision {
+  if (level === PermissionLevel.Full) {
+    return 'allowed';
+  }
   switch (kind) {
     case 'edit':
     case 'delete':

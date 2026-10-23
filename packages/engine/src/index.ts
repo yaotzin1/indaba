@@ -53,6 +53,19 @@ export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';
 export type { RunnerLookup, Speaker } from './engine/mcp.js';
 export { McpIssue, McpPlanner, McpResolution } from './engine/mcp.js';
 export { StepOutcome, WorkflowResult, WorkflowStatus } from './engine/outcome.js';
+export type {
+  BoundedWorkflow,
+  PermissionFinding,
+  PermissionRunners,
+  RunBound,
+} from './engine/permissions.js';
+export {
+  applyRunBounds,
+  checkPermissions,
+  fullAccessSteps,
+  isAgentStep,
+  parseRunBound,
+} from './engine/permissions.js';
 export { PromptBuilder } from './engine/prompt-builder.js';
 export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor.js';
 export { StepExecutor } from './engine/step-executor.js';

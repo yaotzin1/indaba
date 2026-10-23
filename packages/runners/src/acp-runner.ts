@@ -1,8 +1,19 @@
 import { resolve } from 'node:path';
-import type { AgentSpec, McpCapable, McpServerDefinition, Runner, SpanAttributes } from '@indaba/core';
+import type {
+  AgentSpec,
+  McpCapable,
+  McpServerDefinition,
+  PermissionCapability,
+  PermissionCapable,
+  Runner,
+  SpanAttributes,
+} from '@indaba/core';
 import {
   DEFAULT_TIMEOUT_SECONDS,
+  EnforcementMode,
+  EnforcementScope,
   McpCapability,
+  PermissionLevel,
   RunnerUnavailableError,
   type RunRequest,
   RunResult,
@@ -144,7 +155,7 @@ type Trip = 'timeout' | 'abort';
  * Throws RunnerUnavailableError only before the prompt has been written to the agent (it did not
  * start, speaks another protocol version, or needs a login). From then on every outcome is a result.
  */
-export class AcpRunner implements Runner, McpCapable {
+export class AcpRunner implements Runner, McpCapable, PermissionCapable {
   readonly name = 'acp';
   readonly description =
     'An agent over the Agent Client Protocol (claude, codex, gemini, opencode or your own): structured events and a permission gate.';
@@ -154,6 +165,26 @@ export class AcpRunner implements Runner, McpCapable {
   private readonly passEnv: readonly string[];
   private readonly cancelGraceMs: number;
   private readonly chooseAuthMethod: AuthChooser | undefined;
+
+  /** Indaba's gate answers every request, so each level is held while the agent works (specs/agent-permissions, C-03). */
+  permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      { level: PermissionLevel.Read, mode: EnforcementMode.Acp, scope: EnforcementScope.Acp, note: 'gate' },
+      { level: PermissionLevel.Edit, mode: EnforcementMode.Acp, scope: EnforcementScope.Acp, note: 'gate' },
+      {
+        level: PermissionLevel.Full,
+        mode: EnforcementMode.Acp,
+        scope: EnforcementScope.None,
+        note: 'gate_allows_all',
+      },
+    ];
+  }
+
+  permissionDenied(_output: string): boolean {
+    return false;
+  }
+
+  readonly canRecogniseDenial = false;
 
   constructor(options: AcpRunnerOptions = {}) {
     this.chooseAuthMethod = options.chooseAuthMethod;
@@ -256,7 +287,7 @@ export class AcpRunner implements Runner, McpCapable {
       request: async (method, params) => {
         switch (method) {
           case 'session/request_permission':
-            return this.permissionAnswer(params, permissions, workdir, emit);
+            return this.permissionAnswer(params, permissions, request.permissionLevel, workdir, emit);
           case 'fs/read_text_file':
             if (files === undefined) {
               throw new AcpRpcError(METHOD_NOT_FOUND, 'File access was not offered.');
@@ -435,6 +466,7 @@ export class AcpRunner implements Runner, McpCapable {
   private permissionAnswer(
     params: unknown,
     permissions: RunRequest['permissions'],
+    level: RunRequest['permissionLevel'],
     workdir: string,
     emit: (name: string, attributes?: SpanAttributes) => void,
   ): unknown {
@@ -449,7 +481,7 @@ export class AcpRunner implements Runner, McpCapable {
         )
       : undefined;
 
-    const decision = decidePermission(kind, locations, permissions, workdir);
+    const decision = decidePermission(kind, locations, permissions, workdir, level);
     const optionId = selectOption(parseOptions(params.options), decision);
     emit('indaba.acp.permission', {
       'acp.tool.kind': kind,

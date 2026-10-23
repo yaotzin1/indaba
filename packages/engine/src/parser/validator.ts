@@ -20,7 +20,9 @@ export class WorkflowValidator {
     const warnings: string[] = [];
     for (const step of workflow.steps) {
       const at = `step "${step.id}"`;
-      if (step.permissions !== undefined && step.isolation === Isolation.None) {
+      // At the level `full` no scope guard is added, so the isolation advice does not apply (specs/agent-permissions, AC-04).
+      const scoped = step.permissions !== undefined && step.permissions.level !== 'full';
+      if (scoped && step.isolation === Isolation.None) {
         warnings.push(
           `${at} declares permissions but has no isolation: the scope guard then sees every change in the working tree, not only the step's. Use isolation: git_worktree.`,
         );
@@ -35,7 +37,7 @@ export class WorkflowValidator {
           );
         }
       }
-      if (step.permissions !== undefined) {
+      if (scoped) {
         const names =
           step.runner !== undefined || role === undefined
             ? [step.runner, ...(step.fallbackRunners ?? [])]

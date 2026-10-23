@@ -29,8 +29,23 @@ export const PermissionMode = {
 } as const;
 export type PermissionMode = (typeof PermissionMode)[keyof typeof PermissionMode];
 
-/** What a step's agent may touch. Absent on a step means the runner's own defaults. */
+/**
+ * How much a step's agent may do (specs/agent-permissions, AC-02). `ask` is reserved and is not a member: the parser
+ * rejects it with a message that says so.
+ */
+export const PermissionLevel = {
+  Read: 'read',
+  Edit: 'edit',
+  Full: 'full',
+} as const;
+export type PermissionLevel = (typeof PermissionLevel)[keyof typeof PermissionLevel];
+
+/**
+ * What a step's agent may touch. Absent on a step means the runner's own defaults. `level` is written by the author;
+ * a block with no `level` behaves as it always did (AC-13).
+ */
 export interface StepPermissions {
+  readonly level?: PermissionLevel;
   readonly fsRead: readonly string[];
   readonly fsWrite: readonly string[];
   readonly terminal: PermissionMode;
@@ -91,6 +106,8 @@ export interface RoleDefinition {
   readonly model?: string;
   /** Names of MCP servers every step of this role may use. */
   readonly mcp: readonly string[];
+  /** The block of this role, used by an agent step that has none of its own (AC-01). */
+  readonly permissions?: StepPermissions;
 }
 
 export const SHELL_RUNNER = 'shell';
@@ -128,6 +145,8 @@ export interface WorkflowDefinition {
   readonly steps: readonly StepDefinition[];
   readonly mcpServers: Readonly<Record<string, McpServerDefinition>>;
   readonly defaultMcpPolicy: McpPolicy;
+  /** `defaults.permissions`: used by an agent step whose step and role have no block (AC-01). */
+  readonly defaultPermissions?: StepPermissions;
 }
 
 /** Fills every collection and scalar default so callers only state what differs. */

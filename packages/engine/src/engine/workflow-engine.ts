@@ -11,6 +11,7 @@ import type {
 import {
   DagBuilder,
   FailureAction,
+  IndabaError,
   Isolation,
   McpUnavailableError,
   SpanStatus,
@@ -40,6 +41,8 @@ export interface RunOptions {
   readonly taskId?: string;
   /** Live output of the running step. */
   readonly onOutput?: (chunk: string) => void;
+  /** How the person acknowledged the steps at the level `full`, recorded on the task span (specs/agent-permissions, AC-05). */
+  readonly fullAccessAcknowledged?: 'terminal' | 'run_option' | 'page';
 }
 
 /**
@@ -81,6 +84,28 @@ export class WorkflowEngine {
       throw new McpUnavailableError(blocking);
     }
 
+    // The engine, not only the command line, refuses a level a runner cannot hold and a `full` step nobody acknowledged
+    // (specs/agent-permissions, AC-05, AC-07).
+    const findings = this.executor.permissionFindings(workflow);
+    const refused = findings.filter((finding) => finding.severity === 'error');
+    if (refused.length > 0) {
+      throw new IndabaError(
+        `The permissions cannot be honoured: ${refused
+          .map((f) =>
+            f.code === 'unsupported'
+              ? `step "${f.stepId}" level "${f.level}" on ${f.runner}`
+              : `step "${f.stepId}" ${f.code}`,
+          )
+          .join('; ')}`,
+      );
+    }
+    const full = findings.filter((finding) => finding.code === 'full');
+    if (full.length > 0 && options.fullAccessAcknowledged === undefined) {
+      throw new IndabaError(
+        `Steps at the level "full" need an acknowledgement before the run starts: ${[...new Set(full.map((f) => f.stepId))].join(', ')}`,
+      );
+    }
+
     const order = this.dag.build(workflow);
     const position = new Map<string, number>();
     const states = new Map<string, StepState>();
@@ -93,6 +118,9 @@ export class WorkflowEngine {
       'indaba.task.id': taskId,
       'indaba.workflow.name': workflow.name,
       [WORKFLOW_STRUCTURE_ATTRIBUTE]: describeStructure(order),
+      ...(options.fullAccessAcknowledged !== undefined
+        ? { 'indaba.permissions.full_acknowledged': options.fullAccessAcknowledged }
+        : {}),
     });
 
     let workspace: Workspace | undefined;

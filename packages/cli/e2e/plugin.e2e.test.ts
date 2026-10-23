@@ -77,10 +77,12 @@ describe('run with --plugin', () => {
     await writeFileIn(dir, 'plugin.mjs', PLUGIN);
 
     const validate = await runCli(['validate', 'flow.workflow.ai.yml', '--plugin', './plugin.mjs'], dir);
-    expect(validate).toMatchObject({ code: 0, stdout: 'plugin-flow is valid (1 steps, 1 roles).\n' });
+    expect(validate.code).toBe(0);
+    expect(validate.stdout.startsWith('plugin-flow is valid (1 steps, 1 roles).\n')).toBe(true);
 
     const plan = await runCli(['plan', 'flow.workflow.ai.yml', '--plugin', './plugin.mjs'], dir);
-    expect(plan).toMatchObject({ code: 0, stdout: '1. work [worker]\n' });
+    expect(plan.code).toBe(0);
+    expect(plan.stdout.startsWith('1. work [worker]\n')).toBe(true);
 
     const run = await runCli(
       ['run', 'flow.workflow.ai.yml', '--plugin', './plugin.mjs', '--task-id', 'e2e-plugin'],
