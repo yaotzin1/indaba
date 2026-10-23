@@ -13,6 +13,9 @@ finds at once, each prefixed with its path in the document, for example
 The file must be one YAML document, parsed with the YAML core schema (no custom tags) and with unique
 keys: a duplicate key is an error.
 
+Writing a tool that reads or writes these files (an editor, a form, a wizard)? See
+[For tools that write workflow files](#for-tools-that-write-workflow-files).
+
 ## A complete example
 
 ```yaml
@@ -411,3 +414,23 @@ steps it waits for (`depends_on`) and where a failure leads (`on_failure`). It i
 attribute of the run's root span, one JSON string. A view can draw the whole graph from it before the later steps run,
 and it describes the run even if the workflow file changes afterwards. Runs recorded by an earlier version do not have
 it.
+
+## For tools that write workflow files
+
+Three things in `@indaba/engine` let a program work with this format without copying it from this page:
+
+- **The schema.** `indaba schema` prints the JSON Schema (draft 2020-12) of the file, and `workflowJsonSchema()`
+  returns it. It states the structure: every field, its type, its allowed values and a one-line description. A field
+  the parser takes as empty may be `null`, and unknown keys are allowed, as the parser ignores them. Rules that join
+  two fields (a role a step names must exist, no dependency cycle, a runner must be registered) are not in it: those
+  are what `indaba validate` checks.
+- **Where each problem is.** `WorkflowParser.diagnose(text)` returns what `indaba validate` reports, with the same
+  sentences, each with its `path` (`$.steps[0].role`), `severity` (`error`, or `warning` for a file that is valid),
+  and a 1-based `line` and `column`. A missing field points at the mapping that lacks it.
+- **Editing without losing the author's text.** `WorkflowDocument.parse(text)` holds a file; `set(['steps', 0,
+  'role'], 'reviewer')`, `remove(path)`, `addStep(step, { after })`, `removeStep(id)` and `moveStep(id, { after })`
+  change it, and `toString()` gives the text back. Everything that was not edited stays byte for byte: comments,
+  blank lines, key order, quoting. A step's comment moves with it. `problems()` is `diagnose` of the current text. A
+  document with problems can still be edited, since a wizard passes through invalid states; it refuses only what is
+  unsafe (a key such as `__proto__`, a value that is not plain JSON) or not YAML, and text over 1 MiB or with more than
+  100 aliases. It reads and writes no file: saving, and choosing where, is the program's.

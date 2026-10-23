@@ -91,7 +91,7 @@ gantt
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
     web-app-actions        :done, 2026-10-22, 1d
-    web-app-editing-core   :active, 2026-10-22, 1d
+    web-app-editing-core   :done, 2026-10-22, 1d
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
     ruling-channel         :active, 2026-10-10, 2026-10-16
@@ -99,7 +99,7 @@ gantt
     step-variants          :active, 2026-10-10, 2026-10-16
     step-verdicts          :active, 2026-10-10, 2026-10-16
     step-budgets           :active, 2026-10-10, 2026-10-16
-    workflow-editor        :active, 2026-10-10, 2026-10-16
+    workflow-editor        :active, 2026-10-22, 2d
     run-blackboard         :active, 2026-10-11, 2026-10-16
     workflow-inputs        :active, 2026-10-11, 2026-10-16
     workspace-without-git  :active, 2026-10-11, 2026-10-16
@@ -131,7 +131,7 @@ gantt
 | `logging` | Implemented, except the web Settings screen (T-12, `feat/web-app-logging`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
 | `web-app` | In progress: delivery step 1 (the server, the page, Runs and Run, `indaba ui`) and the Settings screen are merged; step 2 has its first slice in `web-app-actions`; step 3 (editing) is planned in `plan-step-3.md` | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server`, `@indaba/web` (private), `indaba` (`ui`) |
 | `web-app-actions` | Implemented (merged, #59), except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
-| `web-app-editing-core` | Implemented on `feat/web-app-source-edit`, except the real-browser check (see its `review.md`) | `@indaba/core` (source types), `@indaba/server` (`WorkflowStore`, three resources), `@indaba/web` (the source view), `indaba` (`run-control/source.ts`). No dependency added |
+| `web-app-editing-core` | Implemented (merged, #60), except the real-browser check (see its `review.md`) | `@indaba/core` (source types), `@indaba/server` (`WorkflowStore`, three resources), `@indaba/web` (the source view), `indaba` (`run-control/source.ts`). No dependency added |
 | `workflow-registry` | Not started (specified) | `@indaba/core` (contract), `@indaba/engine` (file store), `indaba` |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
@@ -142,7 +142,7 @@ gantt
 | `step-variants` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-verdicts` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-budgets` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba` |
-| `workflow-editor` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `workflow-editor` | In progress: part 1 (`diagnose`, merged #61) and part 2 (`WorkflowDocument`, the schema, `indaba schema`, on `feat/workflow-editor-document`); part 3 (descriptions, `indaba catalog`) next | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
