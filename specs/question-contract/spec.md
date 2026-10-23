@@ -4,7 +4,7 @@
 > **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
 > **Semver impact**: minor (an optional field of `ask`, new optional exports, new span attributes; nothing existing changes; below 1.0)
 > **Builds on**: [`specs/agent-conversation`](../agent-conversation/spec.md) (the question loop, `ask`, the answerers and
-> the record of who answered; open as pull request 68 until it merges) and
+> the record of who answered; merged to `main` as a draft in pull request 68) and
 > [`specs/run-blackboard`](../run-blackboard/spec.md) (the `BOARD` line grammar the contract sits next to).
 > **Used by, not part of**: the `review-gate` spec that follows (a review request is the same contract with a different
 > kind) and the UI step that lets a person answer in a page.
