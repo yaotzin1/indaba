@@ -21,11 +21,11 @@ Order (spec C-03): part 2 first (its first pull request also carries T5b), then 
 
 ## Part 3: the editor
 
-- [ ] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's options, the 1 MiB and alias limits; refusals (AC-01, AC-07). Tests: 1 MiB plus one byte, an alias bomb, two documents, a sequence root.
-- [ ] T10. `get`, `set`, `remove`, `has` with path rules and plain-JSON check; forbidden keys (AC-02).
-- [ ] T11. `addStep`, `removeStep`, `moveStep` (AC-03).
-- [ ] T12. `toString` and the round-trip test on a heavily commented example (AC-04); editing an invalid document (AC-06).
-- [ ] T13. `problems()` equals `validate` for the same text, including positions (AC-05).
+- [x] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's options, the 1 MiB and alias limits; refusals (AC-01, AC-07). Tests: 1 MiB plus one byte, an alias bomb, two documents, a sequence root.
+- [x] T10. `get`, `set`, `remove`, `has` with path rules and plain-JSON check; forbidden keys (AC-02).
+- [x] T11. `addStep`, `removeStep`, `moveStep` (AC-03).
+- [x] T12. `toString` and the round-trip test on a heavily commented example (AC-04); editing an invalid document (AC-06).
+- [x] T13. `problems()` equals `validate` for the same text, including positions (AC-05).
 
 ## Documentation and gates
 

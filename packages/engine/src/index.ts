@@ -39,6 +39,12 @@ export {
   readProjectConfig,
   writeLoggingConfig,
 } from './config/project-config.js';
+export {
+  MAX_ALIASES,
+  MAX_DOCUMENT_BYTES,
+  WorkflowDocument,
+  WorkflowDocumentError,
+} from './editor/document.js';
 export type { RunnerPlan } from './engine/chain.js';
 export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';
 export type { RunnerLookup, Speaker } from './engine/mcp.js';
