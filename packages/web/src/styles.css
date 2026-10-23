@@ -1327,6 +1327,27 @@ fieldset.step {
   padding-left: 1.2em;
 }
 
+/* ---------- The registry in the Run a workflow panel (specs/workflow-registry, slice 2) ---------- */
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+  margin: 4px 0 2px;
+  padding: 0;
+  list-style: none;
+}
+.tag {
+  padding: 1px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-chip);
+  background: var(--well);
+  font-size: 0.82rem;
+}
+.tag.hidden-mark {
+  border-style: dashed;
+  color: var(--muted);
+}
+
 /* ---------- Narrow screens ---------- */
 @media (max-width: 480px) {
   .narrow-hide {

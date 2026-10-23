@@ -158,6 +158,11 @@ claims to be live while it is not.
 followed. A file with problems is listed with them, as `indaba validate` words them, and cannot be run. The search stops
 at 200 files (it says so); a file over 1 MiB is listed as invalid.
 
+The list is the workflow registry of those projects, the one `indaba workflows` keeps: each workflow shows the name,
+project and tags you gave it with `indaba workflows annotate`, and its last run (state, when, cost). A workflow you hid
+is behind **Show the hidden workflows**. The list is read again when you come back to the window, and the folders are
+looked at again at most every 30 seconds; a file that was deleted is not offered.
+
 **The first run asks first.** Before a workflow runs from the page for the first time, the panel shows what its file says
 it will use: the runner of every step, the commands it runs (shell commands, an agent's own command, local MCP servers),
 what each step may read and write, and the steps that need a person. Press **Run it** to go ahead. The page remembers
@@ -298,8 +303,8 @@ Messages in the Run a workflow panel:
 ## Not there yet
 
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
-published `@indaba/server`, so `indaba ui` works from npm; the list of workflows with their health (it needs
-`specs/workflow-registry`; the search above is a stopgap); "run this step" and a form for a workflow's inputs; answering
+published `@indaba/server`, so `indaba ui` works from npm; naming, tagging and hiding a workflow from the page (today
+with `indaba workflows annotate`); "run this step" and a form for a workflow's inputs; answering
 an agent's questions; applying or discarding a run's changes; forms and the graph as an editor (positions for every
 problem come with them).
 

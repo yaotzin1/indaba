@@ -69,9 +69,29 @@ New files, statements / branches: `engine/registry/file-registry.ts` 94.9 / 89.9
 CI on #69: Agent instruction set, Track and deliverables, Dependency audit, and Verify on ubuntu, windows and macOS all passed. The `main()` tests write nothing outside their
 temporary folder on any system (macOS reads the configuration folder from the real home, so those tests only scan).
 
+## Slice 2: `indaba ui` on the registry (2026-10-23, before CI)
+
+Stages run: 1 and 2 (AC-14 and AC-15 rewritten, C-12 to C-14), 3 (the slice 2 section of `api-surface.md` and
+`plan.md`), 4 (T-11 to T-16), 5 (the audit in `plan.md`), 6, 7, 8.
+
+1. **Boundary.** The finder is the command line's; the server still applies nothing and reads no index. The page takes
+   three optional fields of the web contract.
+2. **Determinism.** The rescan interval uses the injected clock (tested by moving it); two lists at once share one scan
+   (tested).
+3. **Surface.** Additive: `WorkflowSummary.tags`, `hidden`, `lastRun`; an id shape that accepts the registry's 16
+   characters as well as step 2's 32; `CONTRACT_VERSION` `1.4.0`. A run control or store built without a finder keeps
+   step 2's behaviour (C-13), so its tests are unchanged.
+4. **Security.** The page's id is matched exactly (a prefix that would name several entries is found as nothing, not a
+   500; tested); the entry's path was checked when the index was read and is read through the confined read. Tags and
+   names are shown as text.
+5. **Honest numbers.** The last run's cost goes through `formatRunCost`: "unknown" or "at least" where the run says so.
+7. **Verification.** On Linux, every gate of `quality_gates` exit 0; `pnpm qa`: Tests 2162 passed | 2 skipped, All files
+   97.08 / 92.31 / 96.88 / 97.36; `pnpm e2e`: 37 passed (the new `ui-registry.e2e.test.ts` among them); `pnpm smoke`
+   passed. New code: `finder.ts` 97.5 / 94.7. Windows and macOS in CI.
+
 ## Known gaps
 
-- Slice 2: `indaba ui` and the page still use step 2's scan and ids (AC-14, AC-15).
+- Naming, tagging and hiding from the page (C-14); a registry plugin for `indaba ui` (it loads no plugins).
 - The last run is found by name; recording the file in the trace would make it exact (a span attribute, a change of its
   own).
 - A root that is gone lists nothing; showing its old entries as missing needs a store outside the root (C-11).

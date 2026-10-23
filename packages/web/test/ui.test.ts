@@ -878,6 +878,53 @@ describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
     expect(within(dialog).getByText(/closing it, or Ctrl\+C in its terminal, cancels them/)).toBeTruthy();
   });
 
+  it('shows the registry’s tags and last run, keeps hidden ones behind a toggle, and asks again on focus', async () => {
+    const tagged = {
+      ...VALID,
+      tags: ['web', 'release'],
+      hidden: false,
+      lastRun: {
+        runId: 'r1',
+        startedAt: T(0),
+        status: 'completed' as const,
+        workflow: 'demo',
+        cost: { usd: 0.25, unknown: 0, calls: 2 },
+      },
+    };
+    const hidden = { ...BROKEN, id: 'w3', name: 'old', tags: [], hidden: true };
+    const client = runnable({ workflows: { workflows: [tagged, BROKEN, hidden], truncated: false } });
+    let asked = 0;
+    const first = client.workflows.bind(client);
+    client.workflows = async () => {
+      asked += 1;
+      return first();
+    };
+    const { dialog } = await openPanel(client);
+    const list = await within(dialog).findByRole('list', { name: 'Workflows found in the projects served' });
+    const tags = within(list).getByRole('list', { name: 'Tags' });
+    expect(
+      within(tags)
+        .getAllByRole('listitem')
+        .map((li) => li.textContent),
+    ).toEqual(['web', 'release']);
+    expect(within(list).getByText(/^Last run: completed, .+, cost \$0\.25$/)).toBeTruthy();
+    // A summary from a server without the registry says nothing of runs.
+    expect(within(list).queryAllByText('No run yet')).toHaveLength(0);
+    expect(within(dialog).queryByRole('button', { name: 'Run old' })).toBeNull();
+    const toggle = within(dialog).getByRole('button', { name: 'Show the hidden workflow' });
+    expect(toggle.getAttribute('aria-pressed')).toBe('false');
+    fireEvent.click(toggle);
+    expect(toggle.getAttribute('aria-pressed')).toBe('true');
+    const old = within(dialog).getByRole('button', { name: 'Run old' }).closest('li');
+    expect(old?.textContent).toContain('hidden');
+    expect(old?.textContent).toContain('No run yet');
+    const before = asked;
+    fireEvent(window, new Event('focus'));
+    await waitFor(() => expect(asked).toBe(before + 1));
+    // The list stays on screen while it is asked for again.
+    expect(within(dialog).getByRole('button', { name: 'Run demo' })).toBeTruthy();
+  });
+
   it('closes on Escape and gives focus back to the button that opened it', async () => {
     const { button, dialog } = await openPanel(runnable());
     await waitFor(() => expect(dialog.contains(document.activeElement)).toBe(true));

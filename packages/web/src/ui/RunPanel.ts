@@ -9,7 +9,9 @@ import {
   useState,
 } from 'react';
 import { ApiFailure, type Client, type Failure } from '../client.js';
+import { type Clock, formatRunCost, formatWhen } from '../format.js';
 import { messages } from '../messages.js';
+import { runLook } from '../status.js';
 
 /** How often a start is asked about while it has no trace yet. The page's stream retry, not a measurement. */
 export const START_POLL_MS = 500;
@@ -32,6 +34,8 @@ export interface RunPanelProps {
    * which is that press.
    */
   readonly startWith?: WorkflowSummary;
+  /** How times are shown: the page's clock. Without it a last run shows its date. */
+  readonly clock?: Clock;
 }
 
 type View =
@@ -83,8 +87,19 @@ function List(props: {
   );
 }
 
+/** The last run of a workflow as one line: its state, when it started and its cost (specs/workflow-registry, AC-15). */
+function lastRunText(workflow: WorkflowSummary, clock: Clock | undefined): string {
+  const run = workflow.lastRun;
+  if (run === undefined) {
+    return messages.actions.noRunYet;
+  }
+  const when = clock === undefined ? (run.startedAt?.slice(0, 10) ?? '–') : formatWhen(run.startedAt, clock);
+  return messages.actions.lastRun(runLook(run.status).word, when, formatRunCost(run.cost));
+}
+
 function WorkflowItem(props: {
   readonly workflow: WorkflowSummary;
+  readonly clock: Clock | undefined;
   readonly busy: boolean;
   readonly onRun: (workflow: WorkflowSummary) => void;
   readonly onEdit: ((workflowId: string) => void) | undefined;
@@ -99,6 +114,19 @@ function WorkflowItem(props: {
       { className: 'workflow-text' },
       h('b', null, workflow.name),
       h('span', { className: 'muted' }, messages.actions.inProject(workflow.path, workflow.project)),
+      (workflow.tags ?? []).length === 0 && workflow.hidden !== true
+        ? null
+        : h(
+            'ul',
+            { className: 'tags', 'aria-label': messages.actions.tagsLabel },
+            ...(workflow.tags ?? []).map((tag) => h('li', { key: tag, className: 'tag' }, tag)),
+            workflow.hidden === true
+              ? h('li', { key: '\u0000hidden', className: 'tag hidden-mark' }, messages.actions.hiddenMark)
+              : null,
+          ),
+      workflow.lastRun === undefined && workflow.tags === undefined
+        ? null
+        : h('span', { className: 'muted small' }, lastRunText(workflow, props.clock)),
       workflow.valid
         ? null
         : h(
@@ -146,6 +174,7 @@ export function RunPanel(props: RunPanelProps): ReactElement {
   const [listing, setListing] = useState<WorkflowListResponse | undefined>(undefined);
   const [view, setView] = useState<View>({ name: 'list' });
   const [busy, setBusy] = useState(false);
+  const [showHidden, setShowHidden] = useState(false);
   const dialog = useRef<HTMLDivElement | null>(null);
   const mounted = useRef(true);
 
@@ -175,6 +204,23 @@ export function RunPanel(props: RunPanelProps): ReactElement {
   }, [client, fail]);
 
   useEffect(load, [load]);
+
+  // The list is asked for again when the window gains focus, so a file written meanwhile shows; the server scans at most
+  // once every 30 seconds (specs/workflow-registry, AC-14). The old list stays until the new one arrives.
+  useEffect(() => {
+    if (view.name !== 'list') {
+      return;
+    }
+    const refresh = (): void => {
+      client.workflows().then((list) => {
+        if (mounted.current && list !== undefined) {
+          setListing(list);
+        }
+      }, fail);
+    };
+    window.addEventListener('focus', refresh);
+    return () => window.removeEventListener('focus', refresh);
+  }, [client, fail, view.name]);
 
   // Focus moves into the dialog when it opens and whenever its view changes, to the view's heading.
   useEffect(() => {
@@ -387,6 +433,7 @@ export function RunPanel(props: RunPanelProps): ReactElement {
       ),
     );
   } else {
+    const hiddenCount = listing?.workflows.filter((w) => w.hidden === true).length ?? 0;
     body = h(
       'div',
       null,
@@ -399,16 +446,31 @@ export function RunPanel(props: RunPanelProps): ReactElement {
           : h(
               'ul',
               { className: 'workflows', 'aria-label': messages.actions.listLabel },
-              ...listing.workflows.map((workflow) =>
-                h(WorkflowItem, {
-                  key: workflow.id,
-                  workflow,
-                  busy,
-                  onRun: (w) => start(w),
-                  onEdit: props.onEdit,
-                }),
-              ),
+              ...listing.workflows
+                .filter((workflow) => showHidden || workflow.hidden !== true)
+                .map((workflow) =>
+                  h(WorkflowItem, {
+                    key: workflow.id,
+                    workflow,
+                    clock: props.clock,
+                    busy,
+                    onRun: (w) => start(w),
+                    onEdit: props.onEdit,
+                  }),
+                ),
             ),
+      hiddenCount === 0
+        ? null
+        : h(
+            'button',
+            {
+              type: 'button',
+              className: 'quiet',
+              'aria-pressed': showHidden,
+              onClick: () => setShowHidden((shown) => !shown),
+            },
+            messages.actions.showHidden(hiddenCount),
+          ),
       listing?.truncated === true ? h('p', { className: 'note' }, messages.actions.truncated) : null,
     );
   }

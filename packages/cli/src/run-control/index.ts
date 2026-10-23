@@ -17,7 +17,8 @@ import { redact } from '../redact.js';
 import type { RunChild, RunStarter } from '../run-child.js';
 import type { UiRunControl } from '../server-loader.js';
 import { ConfirmationStore, contentHash, summaryOfUse } from './confirm.js';
-import { type FoundWorkflow, readWorkflow, scanRoots, tooLarge, UnreadableWorkflow } from './scan.js';
+import { type ListedWorkflow, scanFinder, type WorkflowFinder } from './finder.js';
+import { type FoundWorkflow, readWorkflow, tooLarge, UnreadableWorkflow } from './scan.js';
 
 /** How many runs started from the page may be alive at once. The server's `MAX_CONCURRENT_RUNS`, a starting value. */
 export const MAX_CONCURRENT_RUNS = 4;
@@ -48,6 +49,8 @@ export class RunControlError extends Error {
 
 export interface RunControlOptions {
   readonly roots: readonly string[];
+  /** Where the workflows are found: the registry's finder in `indaba ui`; step 2's scan when absent (spec C-13). */
+  readonly finder?: WorkflowFinder;
   readonly starter: RunStarter;
   /** The environment of every child: the one `indaba ui` started with, never anything the page sent (AC-18). */
   readonly environment: Readonly<Record<string, string | undefined>>;
@@ -186,11 +189,27 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
     throw new RunControlError(code, message, detail);
   };
 
-  const describe = async (found: FoundWorkflow): Promise<WorkflowSummary> => {
+  const finder = options.finder ?? scanFinder(options.roots);
+
+  /** The summary of a workflow, with the person's name for it when the registry has one. */
+  const describe = async (found: ListedWorkflow): Promise<WorkflowSummary> => {
+    const summary = await read(found);
+    return found.entry === undefined ? summary : { ...summary, name: sanitize(found.entry.name) };
+  };
+
+  const read = async (found: ListedWorkflow): Promise<WorkflowSummary> => {
+    const entry = found.entry;
     const summary = {
       id: found.id,
       path: found.path,
-      project: basename(found.root),
+      project: entry?.project ?? basename(found.root),
+      ...(entry === undefined
+        ? {}
+        : {
+            tags: entry.tags,
+            hidden: entry.hidden,
+            ...(entry.lastRun === undefined ? {} : { lastRun: entry.lastRun }),
+          }),
     };
     const fallbackName = basename(found.path).replace(/\.workflow\.ai\.ya?ml$|\.ya?ml$/, '');
     let buffer: Buffer;
@@ -286,7 +305,7 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
 
   return {
     list: async (): Promise<WorkflowListResponse> => {
-      const scan = await scanRoots(options.roots);
+      const scan = await finder.list();
       return { workflows: await Promise.all(scan.found.map(describe)), truncated: scan.truncated };
     },
 
@@ -298,7 +317,7 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
       // The slot is held from here, so two starts at once cannot both pass the limit.
       reserved += 1;
       try {
-        const found = (await scanRoots(options.roots)).found.find((f) => f.id === request.workflowId);
+        const found = await finder.find(request.workflowId);
         if (found === undefined) {
           return refuse('workflow_not_found', 'no workflow has this id');
         }

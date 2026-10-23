@@ -1,7 +1,7 @@
 # Specification: The workflow registry
 
-> **Status**: Clarified 2026-10-23 (section 8, decided by the maintainer); slice 1 in progress on
-> `feat/workflow-registry`
+> **Status**: Clarified 2026-10-23 (section 8, decided by the maintainer); slices 1 (#69) and 2 (`feat/workflow-registry-ui`)
+> implemented
 > **Stage entry**: 1
 > **Semver impact**: minor (new contract, an optional `PluginHost` member, new commands, one new file under `.indaba/`;
 > below 1.0)
@@ -94,9 +94,13 @@ use the registry (AC-14, AC-15).
 
 **Slice 2**
 
-- [ ] AC-14. `indaba ui` scans on start, and the page's list of workflows (the Run a workflow panel, Edit) is the
-  registry's, by its ids; step 2's id scheme goes. The page scans again on window focus at most once every 30 seconds.
-- [ ] AC-15. The page shows each entry's state, last run and cost, its tags, and hides hidden ones unless asked.
+- [x] AC-14. `indaba ui` lists the registry of its `--root` folders, by the registry's ids. The first request for the
+  list scans; a later one scans again when the last scan is 30 seconds old or more, so a page that asks again on window
+  focus scans at most once every 30 seconds. Starting a run and opening a source find the workflow by the registry's id.
+  An entry whose file is missing is not offered: it can neither run nor open.
+- [x] AC-15. The Run a workflow panel shows each workflow's tags and last run (its state, when it started and its cost,
+  "unknown" where the cost is unknown), hides hidden ones behind **Show hidden** with their number, and asks for the list
+  again when the window gains focus.
 
 ## 4. Non-goals
 
@@ -169,6 +173,12 @@ root and never an environment value. A copy writes with `wx` inside a root.
 - **C-11. A root that is gone.** Its index was inside it, so there is nothing left to show as missing; the draft's
   "entries missing with the reason" needs a store outside the root. The command line skips a listed root that is not a
   folder and says so (stage 6 found it, 2026-10-23).
+- **C-12. The roots of `indaba ui` are its `--root` folders** (slice 2, 2026-10-23), as they were for step 2; the
+  per-user list of added folders belongs to `indaba workflows`. A page that serves other folders is started with them.
+- **C-13. A run control or store built without a registry keeps step 2's scan and ids** (an embedder, the tests of
+  step 2 and 3a); `indaba ui` always gives it the registry.
+- **C-14. No annotating from the page in slice 2.** Names, tags and hiding are set with `indaba workflows annotate`;
+  the page shows them. Editing them from the page is a later slice, with the registry's screens.
 - **C-10. Ids.** Sixteen random hexadecimal characters, made once when an entry appears and kept in the index; the
   command line generates them, the store takes a generator. Step 2's ids (a hash of the root's position and the path)
   change when the order of roots changes; slice 2 moves the page to these.
