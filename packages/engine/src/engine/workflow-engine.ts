@@ -117,6 +117,12 @@ export class WorkflowEngine {
           reason = 'The run was cancelled.';
           break;
         }
+        // A retry moves the loop back to its target, past steps that do not depend on it. Those are COMPLETED and
+        // were not reset, and they must not run again.
+        if (state.status() === StepStatus.Completed) {
+          i += 1;
+          continue;
+        }
 
         const useWorktree =
           step.isolation === Isolation.GitWorktree || step.dependsOn.some((d) => isolated.has(d));
