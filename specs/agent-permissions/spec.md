@@ -118,7 +118,7 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 **Run options, compatibility and guards**
 
 - [ ] AC-12. `indaba run --permissions <level>` (optionally `<step>=<level>`, repeatable) sets an upper bound for this run: for a step that **writes** a level, the effective level is the lower
-  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. Lowering `edit` to `read` drops its `fs.write` and the implied guard then allows no change at all.
+  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. Lowering `edit` to `read` drops its `fs.write` and the implied guard then allows no change at all. Every bound that applies to a step is applied and the lowest wins; a bound of `edit` over a step at `full` gives `read`, because `full` names no folders for `edit` to allow (AC-03).
   A step with no level (the runner's default) is affected only by a bound of `read`, which gives it the `read` arguments; any other bound over it changes nothing, and `plan` says so for the step. A bound applies to agent
   steps only. A usage error names the step and why when: the named step does not exist or is not an agent step; or a runner of the step's chain cannot honour the resulting level (`--permissions read` is the dry-run switch
   where every runner offers `read`).

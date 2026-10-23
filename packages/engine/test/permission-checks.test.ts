@@ -254,14 +254,18 @@ steps:
 });
 
 describe('running steps with a level (AC-04, AC-11, AC-14, AC-15)', () => {
-  async function run(source: string, runner: FakeRunner) {
+  async function run(
+    source: string,
+    runner: FakeRunner,
+    options: { fullAccessAcknowledged?: 'terminal' | 'run_option' | 'page' } = {},
+  ) {
     const repo = await makeGitRepo();
     const h = harness(repo, [runner]);
     const spans: SpanEnded[] = [];
     h.events.addListener(SpanEnded, (e) => {
       spans.push(e);
     });
-    const result = await h.engine.run(parseWorkflow(source), { taskId: 'L' });
+    const result = await h.engine.run(parseWorkflow(source), { taskId: 'L', ...options });
     return { result, spans };
   }
 
@@ -275,7 +279,7 @@ describe('running steps with a level (AC-04, AC-11, AC-14, AC-15)', () => {
     expect(edit.requests[0]?.permissions?.fsWrite).toEqual(['src/**']);
 
     const full = new CapableRunner('cap', all);
-    await run(ask('    permissions:\n      level: full\n'), full);
+    await run(ask('    permissions:\n      level: full\n'), full, { fullAccessAcknowledged: 'run_option' });
     expect(full.requests[0]?.permissionLevel).toBe('full');
     expect(full.requests[0]?.permissions).toBeUndefined();
 

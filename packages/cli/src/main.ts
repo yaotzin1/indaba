@@ -26,6 +26,8 @@ import {
   effectiveGuards,
   FileWorkflowRegistry,
   fullAccessSteps,
+  type PermissionFinding,
+  type PermissionRunners,
   PROJECT_CONFIG_FILE,
   parseRunBound,
   planForStep,
@@ -595,7 +597,9 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
       if (command === 'plan') {
         return await plan(parsed, io, logger);
       }
-      return parsed.tui ? await runInDashboard(root, rest, io, logger) : await run(parsed, root, io, logger);
+      return parsed.tui
+        ? await runInDashboard(root, rest, io, logger, parsed)
+        : await run(parsed, root, io, logger);
     } catch (error) {
       const message = redact(error instanceof Error ? error.message : String(error), io.env);
       (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
@@ -922,6 +926,68 @@ async function projectDirOf(parsed: Parsed, io: Io): Promise<string | undefined>
 }
 
 /** `run --tui`: the same command line, without the flag, in a process of its own, shown as a dashboard. */
+interface PermissionGate {
+  readonly workflow: WorkflowDefinition;
+  readonly findings: readonly PermissionFinding[];
+  readonly acknowledged: 'terminal' | 'run_option' | 'page' | undefined;
+}
+
+/**
+ * What must hold before a run starts (specs/agent-permissions, AC-05, AC-07, AC-12): the run bounds are applied, a level
+ * a runner cannot hold is refused, and the steps at `full` are acknowledged by a person or by `--allow-full-access`. A
+ * number is the exit code of a run that must not start.
+ */
+async function permissionGate(
+  parsed: Parsed,
+  loaded: WorkflowDefinition,
+  runners: PermissionRunners,
+  io: Io,
+): Promise<PermissionGate | number> {
+  const bounds: RunBound[] = [];
+  for (const text of parsed.permissions) {
+    const bound = parseRunBound(text);
+    if ('error' in bound) {
+      return usageError(io, bound.error, 'run');
+    }
+    bounds.push(bound);
+  }
+  const bounded = applyRunBounds(loaded, bounds, runners);
+  if (bounded.errors.length > 0) {
+    return usageError(io, bounded.errors.join('\n'), 'run');
+  }
+  const workflow = bounded.workflow;
+  const findings = [...checkPermissions(workflow, runners), ...bounded.findings];
+  const refused = findings.filter((f) => f.severity === 'error');
+  if (refused.length > 0) {
+    io.stdout.write(`${parsed.file} is invalid:\n`);
+    for (const finding of refused) {
+      io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
+    }
+    return EXIT_FAILURE;
+  }
+
+  const full = fullAccessSteps(workflow, runners);
+  if (full.length === 0) {
+    return { workflow, findings, acknowledged: undefined };
+  }
+  const list = full.map((f) => `  ${f.stepId} (${f.runners.join(', ')})`).join('\n');
+  if (parsed.allowFullAccess !== undefined) {
+    return { workflow, findings, acknowledged: parsed.allowFullAccess };
+  }
+  if (io.terminal === undefined) {
+    return usageError(
+      io,
+      `These steps run at the level "full": the agent can change anything and run anything and nobody approves it.\n${list}\nThere is no terminal to ask at; pass --allow-full-access to start anyway.`,
+      'run',
+    );
+  }
+  if (!(await confirmFullAccess(io.terminal, list))) {
+    io.stderr.write('Not started: full access was not confirmed.\n');
+    return EXIT_USAGE;
+  }
+  return { workflow, findings, acknowledged: 'terminal' };
+}
+
 /** AC-05: names the steps at the level `full` and waits for a yes; anything else is a no. */
 async function confirmFullAccess(terminal: NonNullable<Io['terminal']>, list: string): Promise<boolean> {
   const lines = createInterface({ input: terminal.stdin, output: terminal.stdout });
@@ -939,10 +1005,33 @@ async function runInDashboard(
   projectDir: string,
   args: readonly string[],
   io: Io,
-  logger: Logger,
+  logger: CommandLogger,
+  parsed: Parsed,
 ): Promise<number> {
+  // The child has no terminal, so the parent asks about steps at `full` and hands the child the acknowledgement (AC-05).
+  const forwarded = args.filter((arg) => arg !== '--tui');
+  try {
+    const plugins = await loadPlugins(parsed.plugins, io.cwd);
+    const { parser, runners } = await createEngine({
+      projectDir,
+      env: io.env,
+      plugins,
+      logger,
+      logSinks: logger,
+    });
+    const workflow = await loadWorkflow(parser, parsed, io);
+    const gate = await permissionGate(parsed, workflow, runners, io);
+    if (typeof gate === 'number') {
+      return gate;
+    }
+    if (gate.acknowledged === 'terminal') {
+      forwarded.push('--allow-full-access');
+    }
+  } catch {
+    // A workflow that cannot be read is reported by the run itself; nothing is acknowledged for it here.
+  }
   return runWithDashboard(
-    args.filter((arg) => arg !== '--tui'),
+    forwarded,
     projectDir,
     { ...io, loadTui: io.loadTui ?? loadTui },
     { environment: io.env, noColor: io.env.NO_COLOR !== undefined && io.env.NO_COLOR !== '', logger },
@@ -970,49 +1059,11 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   });
   const loaded = await loadWorkflow(parser, parsed, io);
 
-  // --permissions only lowers what the file wrote (specs/agent-permissions, AC-12).
-  const bounds: RunBound[] = [];
-  for (const text of parsed.permissions) {
-    const bound = parseRunBound(text);
-    if ('error' in bound) {
-      return usageError(io, bound.error, 'run');
-    }
-    bounds.push(bound);
+  const gate = await permissionGate(parsed, loaded, runners, io);
+  if (typeof gate === 'number') {
+    return gate;
   }
-  const bounded = applyRunBounds(loaded, bounds, runners);
-  if (bounded.errors.length > 0) {
-    return usageError(io, bounded.errors.join('\n'), 'run');
-  }
-  const workflow = bounded.workflow;
-  const findings = [...checkPermissions(workflow, runners), ...bounded.findings];
-  const refused = findings.filter((f) => f.severity === 'error');
-  if (refused.length > 0) {
-    io.stdout.write(`${parsed.file} is invalid:\n`);
-    for (const finding of refused) {
-      io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
-    }
-    return EXIT_FAILURE;
-  }
-
-  const full = fullAccessSteps(workflow, runners);
-  let acknowledged: 'terminal' | 'run_option' | 'page' | undefined;
-  if (full.length > 0) {
-    const list = full.map((f) => `  ${f.stepId} (${f.runners.join(', ')})`).join('\n');
-    if (parsed.allowFullAccess !== undefined) {
-      acknowledged = parsed.allowFullAccess;
-    } else if (io.terminal !== undefined && (await confirmFullAccess(io.terminal, list))) {
-      acknowledged = 'terminal';
-    } else if (io.terminal !== undefined) {
-      io.stderr.write('Not started: full access was not confirmed.\n');
-      return EXIT_USAGE;
-    } else {
-      return usageError(
-        io,
-        `These steps run at the level "full": the agent can change anything and run anything and nobody approves it.\n${list}\nThere is no terminal to ask at; pass --allow-full-access to start anyway.`,
-        'run',
-      );
-    }
-  }
+  const { workflow, findings, acknowledged } = gate;
 
   const screen = screenOf(io);
   events.addListener(StepStatusChanged, (e) => {

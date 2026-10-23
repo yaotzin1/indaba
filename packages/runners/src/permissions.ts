@@ -46,9 +46,3 @@ export function denialWindows(output: string): readonly string[] {
   }
   return [output.slice(0, MAX_DENIAL_WINDOW), output.slice(-MAX_DENIAL_WINDOW)];
 }
-
-/** Whether a built-in table honours the level, so a runner puts the level's arguments on the command only then. */
-export function honours(table: readonly PermissionCapability[], level: PermissionLevel): boolean {
-  const row = table.find((c) => c.level === level);
-  return row !== undefined && row.mode !== EnforcementMode.Unsupported;
-}

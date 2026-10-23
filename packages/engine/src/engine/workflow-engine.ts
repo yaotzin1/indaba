@@ -11,6 +11,7 @@ import type {
 import {
   DagBuilder,
   FailureAction,
+  IndabaError,
   Isolation,
   McpUnavailableError,
   SpanStatus,
@@ -81,6 +82,28 @@ export class WorkflowEngine {
       .map((issue) => issue.describe());
     if (blocking.length > 0) {
       throw new McpUnavailableError(blocking);
+    }
+
+    // The engine, not only the command line, refuses a level a runner cannot hold and a `full` step nobody acknowledged
+    // (specs/agent-permissions, AC-05, AC-07).
+    const findings = this.executor.permissionFindings(workflow);
+    const refused = findings.filter((finding) => finding.severity === 'error');
+    if (refused.length > 0) {
+      throw new IndabaError(
+        `The permissions cannot be honoured: ${refused
+          .map((f) =>
+            f.code === 'unsupported'
+              ? `step "${f.stepId}" level "${f.level}" on ${f.runner}`
+              : `step "${f.stepId}" ${f.code}`,
+          )
+          .join('; ')}`,
+      );
+    }
+    const full = findings.filter((finding) => finding.code === 'full');
+    if (full.length > 0 && options.fullAccessAcknowledged === undefined) {
+      throw new IndabaError(
+        `Steps at the level "full" need an acknowledgement before the run starts: ${[...new Set(full.map((f) => f.stepId))].join(', ')}`,
+      );
     }
 
     const order = this.dag.build(workflow);

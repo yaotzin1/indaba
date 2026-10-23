@@ -757,3 +757,14 @@ describe('the run control: what the first round of tests left out', () => {
     expect(status).toEqual({ state: 'failed', failure: 'The run ended before it started.' });
   });
 });
+
+describe('summaryOfUse at the level full (specs/agent-permissions AC-04)', () => {
+  it('says full access, not "write nothing"', () => {
+    const wf = parseWorkflow(
+      'version: "1.0"\nname: f\nroles:\n  w: {runner: claude-code}\nsteps:\n  - id: s\n    role: w\n    goal: g\n    permissions:\n      level: full\n',
+    );
+    expect(summaryOfUse(wf).permissions).toEqual([
+      's: FULL ACCESS: the agent can change anything and run anything and nobody approves it',
+    ]);
+  });
+});

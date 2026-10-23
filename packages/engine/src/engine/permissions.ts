@@ -133,13 +133,11 @@ export function checkPermissions(
     if (level === Level.Full) {
       findings.push({ severity: 'fact', code: 'full', stepId: step.id, runners: chain.map((c) => c.name) });
     }
-    if (hasMcp(step, workflow)) {
+    if (hasMcp(step, workflow) && level !== Level.Full) {
       findings.push(
         level === Level.Read
           ? { severity: 'error', code: 'read_with_mcp', stepId: step.id }
-          : level === Level.Edit
-            ? { severity: 'note', code: 'edit_with_mcp', stepId: step.id }
-            : { severity: 'fact', code: 'full', stepId: step.id, runners: chain.map((c) => c.name) },
+          : { severity: 'note', code: 'edit_with_mcp', stepId: step.id },
       );
     }
     for (const { name, runner } of chain) {
@@ -216,7 +214,9 @@ export interface BoundedWorkflow {
 /**
  * AC-12: lower the permissions of this run. A bound never raises a level and never writes the file; it returns a new
  * workflow whose steps carry the lowered block, so every reader (the guards, the runner request, the confirmation) sees
- * the effective block. A named step wins over a bound with no step.
+ * the effective block. Every bound that applies to a step is applied and the lowest wins, so a bound for one step
+ * and a bound for all steps never raise each other. `full` lowered to `edit` becomes `read`, because `full` names no
+ * folders for `edit` to allow (AC-03).
  */
 export function applyRunBounds(
   workflow: WorkflowDefinition,
@@ -257,13 +257,12 @@ export function applyRunBounds(
     let result = step;
     for (const bound of all) {
       const bounded = applyBound(result.permissions, bound);
-      if (!bounded.changed) {
-        if (effectiveLevel(result.permissions).kind === 'default') {
-          findings.push({ severity: 'note', code: 'bound_no_effect', stepId: step.id });
-        }
-        continue;
+      if (bounded.changed && bounded.permissions !== undefined) {
+        result = { ...result, permissions: bounded.permissions };
       }
-      result = bounded.permissions === undefined ? result : { ...result, permissions: bounded.permissions };
+    }
+    if (all.length > 0 && result === step && effectiveLevel(step.permissions).kind === 'default') {
+      findings.push({ severity: 'note', code: 'bound_no_effect', stepId: step.id });
     }
     if (result !== step && result.permissions?.level !== undefined) {
       const chain = chainOf(result, workflow, runners);

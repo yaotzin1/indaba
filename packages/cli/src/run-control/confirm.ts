@@ -92,8 +92,10 @@ export function summaryOfUse(workflow: WorkflowDefinition): RunSummaryOfUse {
       item(
         declared === undefined
           ? `${step.id}: runner default (unrestricted)`
-          : // An empty `read` restricts nothing; an empty `write` allows nothing (docs/workflow-format.md).
-            `${step.id}: read ${declared.fsRead.length === 0 ? 'anything' : declared.fsRead.join(', ')}; ` +
+          : declared.level === 'full'
+            ? `${step.id}: FULL ACCESS: the agent can change anything and run anything and nobody approves it`
+            : // An empty `read` restricts nothing; an empty `write` allows nothing (docs/workflow-format.md).
+              `${step.id}: read ${declared.fsRead.length === 0 ? 'anything' : declared.fsRead.join(', ')}; ` +
               `write ${declared.fsWrite.length === 0 ? 'nothing' : declared.fsWrite.join(', ')}; ` +
               `terminal ${declared.terminal}`,
       ),

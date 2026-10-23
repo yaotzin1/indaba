@@ -49,6 +49,7 @@ import { effectiveGuards, planForRole, planForStep } from './chain.js';
 import type { McpIssue, McpResolution, RunnerLookup } from './mcp.js';
 import { McpPlanner } from './mcp.js';
 import { StepOutcome } from './outcome.js';
+import { checkPermissions, type PermissionFinding } from './permissions.js';
 import { PromptBuilder } from './prompt-builder.js';
 
 export interface StepExecutorOptions {
@@ -375,6 +376,9 @@ ${this.prompts.tail(result.failureText())}`,
     output: string,
     workdir: string,
   ): Promise<boolean> {
+    if (step.permissions?.level === PermissionLevel.Full) {
+      return false;
+    }
     if (!isPermissionCapable(runner) || !runner.permissionDenied(output)) {
       return false;
     }
@@ -389,6 +393,24 @@ ${this.prompts.tail(result.failureText())}`,
     }
     const unchanged = await this.guards.check({ type: GuardType.GitDiffEmpty, paths: [] }, workdir);
     return unchanged.passed;
+  }
+
+  /**
+   * What the permissions of this workflow mean for the runners registered here (specs/agent-permissions, AC-07): the
+   * engine refuses to start on an error, whoever calls it.
+   */
+  permissionFindings(workflow: WorkflowDefinition): PermissionFinding[] {
+    return checkPermissions(workflow, {
+      has: (name) => {
+        try {
+          this.runners.get(name);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      get: (name) => this.runners.get(name),
+    });
   }
 
   /** AC-15: the level, mode and scope that applied to this step on this runner. Words only: no path, command or message. */

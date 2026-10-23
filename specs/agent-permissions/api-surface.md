@@ -131,7 +131,7 @@ not in this surface; they belong to the later spec (spec C-05).
 - `effectiveGuards` (chain.ts) adds the implied `diff_within_scope` guard **in addition to** a declared one for a block that writes a level `read` or `edit` (AC-14), and none at `full`. A block with no level keeps today's rule.
 - Answerers, advisors, panel members and a decider are called with a block set by the engine at `read` (AC-06; applies when those features land).
 - `checkPermissions` also reports AC-18 (a step at `read` with `mcp`, an error; at `edit`, a note).
-- The acknowledgement of `full` (AC-05) is a function the composition root gives the engine: `acknowledgeFullAccess(steps): Promise<'terminal' | 'run_option' | 'page' | 'refused'>`. The flag is `--allow-full-access[=page]`; the server
+- The acknowledgement of `full` (AC-05) is a run option, `RunOptions.fullAccessAcknowledged: 'terminal' | 'run_option' | 'page'`, that the composition root sets after it has asked (or after `--allow-full-access`). `WorkflowEngine.run` refuses to start a workflow with a step at `full` when it is absent, and refuses a written level that a runner of a chain cannot hold, so an embedder cannot reach either unchecked. (Implemented as an option rather than a callback: the asking is the front end's, the refusal is the engine's.) The flag is `--allow-full-access[=page]`; the server
   passes `=page` after its confirmation, and the parent of the dashboard child asks at the terminal and passes the bare flag.
   A run with no such function and a `full` step refuses to start.
 

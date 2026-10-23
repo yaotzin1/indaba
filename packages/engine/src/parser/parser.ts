@@ -52,10 +52,10 @@ function resolveStepPermissions(
   roles: Readonly<Record<string, RoleDefinition>>,
   defaults: StepPermissions | undefined,
 ): StepDefinition {
-  if (step.runner === SHELL_RUNNER || isConsensusStep(step)) {
+  const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
+  if ((step.runner ?? role?.runner) === SHELL_RUNNER || isConsensusStep(step)) {
     return step;
   }
-  const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
   const resolved = resolvePermissions({
     ...(step.permissions !== undefined ? { step: step.permissions } : {}),
     ...(role?.permissions !== undefined ? { role: role.permissions } : {}),
@@ -117,6 +117,11 @@ export class WorkflowParser {
         const model = node.string('model', false);
         const agent = this.parseAgent(node, errors);
         const rolePermissions = this.parsePermissions(node, errors);
+        if (rolePermissions?.level !== undefined && chain.runner === SHELL_RUNNER) {
+          errors.add(
+            `${node.path}.permissions.level is not allowed on a shell role: a shell step runs the commands its author wrote`,
+          );
+        }
         roleEntries.push([
           roleName,
           {
@@ -163,6 +168,18 @@ export class WorkflowParser {
 
     const defaultPermissions = defaults === undefined ? undefined : this.parsePermissions(defaults, errors);
     const roles = record(roleEntries);
+    for (const step of steps) {
+      const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
+      if (
+        step.permissions?.level !== undefined &&
+        step.runner === undefined &&
+        role?.runner === SHELL_RUNNER
+      ) {
+        errors.add(
+          `step "${step.id}".permissions.level is not allowed: its role "${role.name}" runs shell commands the author wrote`,
+        );
+      }
+    }
 
     const workflow: WorkflowDefinition = {
       version,
