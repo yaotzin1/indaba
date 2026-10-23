@@ -5,8 +5,11 @@ the first and the answerer machinery of the second.
 
 ## `@indaba/core`
 
-- [ ] T-01. Types of `api-surface.md`, `isGate`, `Deadline`, `StepOutcome.reply`, `AnsweredBy` gaining `'policy'`,
-  `PluginHost.registerGateAnswerer`. Test: a consumer that switches on `AnsweredBy` still compiles.
+- [ ] T-00. First, and as a `fix` of its own: the engine skips a step that is `COMPLETED` and was not reset when the loop moves back to a
+  target (AC-27). Test: order `[A, X, B(depends on A)]`, `X` independent and completed, `B` fails with `retry_step` to `A`: the run does
+  not throw an invalid transition and `X` is not run again. This repairs `retry_step` today.
+- [ ] T-01. Types of `api-surface.md`, `isGate`, `Deadline`, `AnsweredBy` gaining `'policy'`, the optional
+  `PluginHost.registerGateAnswerer`. A note in the changelog that `AnsweredBy` gained a member.
 - [ ] T-02. `parseVerdictLine` and `parseDoubtLine` (AC-07, AC-11): first-column line outside code fences, narration before it
   allowed, a line inside a fence, two lines, an unknown label, case, a label that looks like a step id.
 - [ ] T-03. `panelLabelFrom` (AC-26): consensus on one label, a majority, a split with no quorum, a member that names an unknown label.
@@ -23,15 +26,15 @@ the first and the answerer machinery of the second.
 
 ## `@indaba/engine`
 
-- [ ] T-09. Parser and validator for every member and every parse error of `api-surface.md`, including `workspace: restore`, `person`
+- [ ] T-09. Parser and validator for every member and every parse error of `api-surface.md` (the template skip of AC-03 included), including `workspace: restore`, `person`
   not last, `advise` of the step's own role, a template target that is not a step, `when: doubt` on a shell step, and `isReviewStep`
   being false for a gate.
 - [ ] T-10. The change list of one attempt for `paths` (AC-12): the snapshot taken at the start of the attempt, only for a step under a gate
   with `paths`; earlier steps' changes do not count.
-- [ ] T-11. `GateRunner`: arm; `advise`; walk `by`; silent versus faulty (AC-15); the label or the policy; the `Deadline` aborting calls in
-  flight, counting what they spent and being disposed when the gate has an answer (AC-16). A fake answerer per kind; a fake `Deadline`; the
+- [ ] T-11. `GateRunner`: arm; `advise`; walk `by`; silent versus faulty (AC-15); the label or the policy; the person's `Deadline` (set when the person is asked, aborting a
+  delegate in flight and counting what it spent, disposed when the gate has an answer: AC-16). A fake answerer per kind; a fake `Deadline`; the
   step stays `VALIDATING` while it waits. Tests: a faulty reviewer, a reviewer that says `NO ANSWER`, and a panel with no quorum, each with
-  `if_nobody: approve`, end the step `ESCALATED`, not approved; the deadline with a running panel is silent.
+  `if_nobody: approve`, end the step `ESCALATED`, not approved; a model that runs long never uses up the person's time; `by: [role:r, person]` with a faulty `r` and a person who times out ends `ESCALATED`.
 - [ ] T-12. `WorkflowEngine`: route the label as `retry_step` does but not as a failed outcome (AC-21): `on_failure` not consulted, `retries`
   not moved, the status reason is `gate: <label>`, the counter (AC-09). A gate sends to the architect, the architect fails verification
   and is retried by `on_failure`: the gate note is still in the retry's prompt, the failure is delivered once (AC-22). A revised step that
@@ -40,7 +43,7 @@ the first and the answerer machinery of the second.
   with neither has a prompt byte-identical to today.
 - [ ] T-14. The board entries (`accepted`, exempt from `discarded` and `superseded`), `GateDecided`, the span attributes and the structure key
   (AC-19, AC-20), with a test that no note or evidence text is in a span, event, status reason or log line.
-- [ ] T-15. Cancellation while a gate waits (AC-25).
+- [ ] T-15. Cancellation while a gate waits (AC-25); the child span `gate <step>` (AC-04); the Logger records of the api-surface.
 - [ ] T-16. The gate panel: `GATE_PANEL_TOPIC` and the label from the members' latest messages (AC-26).
 
 ## `indaba`, `@indaba/tui` and documentation

@@ -124,7 +124,8 @@ Terms. A **character** is a Unicode code point. A **part** is `context`, `option
   choice `a`. The outcome carries `optionId` and `text`; the agent's next prompt (`ANSWERED_SECTION`) carries the option
   text, its consequence and the answerer's note, not only the id.
 - [ ] AC-17. The recommendation is the asker's. It is displayed as such and is never applied by Indaba on its own account.
-  What a gate may do with it when nobody answers belongs to the `review-gate` spec, not to this one.
+  What to do when nobody answers a question belongs to `agent-conversation`; a review gate has its own request and its own advice
+  (`review-gate`), and does not use this recommendation.
 
 **Record**
 

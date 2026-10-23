@@ -50,10 +50,10 @@ where a human or another agent looks, at the stages where the agent may have mis
 
 Terms. A **gate** is a `review` that has a `by`. A **review without `by`** is the review of `step-verdicts`, unchanged. A
 **label** is one of the closed set of outcomes of a gate (AC-06). A **source** is who gave the answer: `person`, `panel`, a
-role, a fresh instance, a decider, or `policy`. An answerer is **silent** only when it is a person who could not be reached
-or the deadline of AC-16 ended the wait. **Every other failure to answer is faulty**: a model answerer's call that failed or
-was stopped by a budget, a reply that did not meet the protocol of AC-07, a model that answered `NO ANSWER`, and a panel with
-no quorum on one label. The line is drawn here on purpose: what a model can be made to say is never "nobody" (AC-15).
+role, a fresh instance, a decider, or `policy`. The gate is **silent** only when a person was asked and could not be reached, or the time the gate gave the person (AC-16) ran
+out. **Every other failure to answer is faulty**: a model answerer's call that failed or was stopped by a budget, a reply that did
+not meet the protocol of AC-07, a model that answered `NO ANSWER`, and a panel with no quorum on one label. The line is drawn
+here on purpose: what a model can be made to say, or how long it can be made to run, is never "nobody" (AC-15).
 
 **Where a gate is, and what it adds to `review`**
 
@@ -70,9 +70,12 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
   `by`. A step's own `review` replaces it wholesale (as a step's `decider` replaces the default's, `agent-conversation`
   AC-08), and `review: none` turns it off for the step. A template is resolved per step: a `send_back` label whose target is a
   real step that is not the step or one of its ancestors is left out for that step (not an error), but a target that is not a
-  step at all is a parse error at the template, whatever the step; `send_back_to: previous` is resolved per step (AC-08);
-  `plan` shows, for each step, the gate in force and the labels it has, so that "a gate after every step" and what it can do
-  are visible.
+  step at all is a parse error at the template, whatever the step; `send_back_to: previous` is resolved per step (AC-08).
+  A template that cannot apply to a step for a reason that belongs to that step (`when: doubt` on a shell or debate step, `advise`
+  or `role:<name>` naming the step's own role, `decider` with no `reviews` authority for it) does not apply to that step, as if it
+  had said `review: none`; every other error (an unknown role, a bad range, a target that is not a step) is a parse error at the
+  template. `plan` shows, for each step, the gate in force, the labels it has, and the steps a template skipped with the reason,
+  so that "a gate after every step" and what it can do are visible.
 - [ ] AC-04. A gate runs after the step's outputs exist and its guards pass (`step-verdicts` AC-06, §5.2), and before the
   step is `COMPLETED`. While it waits the step stays `VALIDATING`; no status is added. A step whose outputs are missing or
   whose guard fails is a normal failure and its gate does not run. The wait is a child span of the step, so the time a
@@ -82,14 +85,15 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 
 - [ ] AC-05. `by` is `person`, or a list of answerer kinds: `panel`, `role:<name>`, `fresh:<name>`, `decider`, or a kind a
   plugin registers for gates (C-11). `person` may appear only alone or as the last element of a list ("if the machines
-  pass, ask me"). A list is walked in order: the first answerer that gives a label ends the walk; one that is faulty or
-  passes is recorded with its reason and the walk goes on; when the walk ends with no label, AC-15 decides. `decider`
+  pass, ask me"). A list is walked in order: the first answerer that gives a label ends the walk; one that is faulty is
+  recorded with its reason and the walk goes on; when the walk ends with no label, AC-15 decides. `decider`
   names the step's (or the default) decider, whose authority must include `reviews`, otherwise it is a parse error saying
   so: a decider never takes a gate by being promoted, only by being named (C-06). `panel`, `panel_rounds` and `decision`
   are as `ask.panel`, `ask.panel_rounds` and `ask.decision` (`agent-conversation` AC-49). `offer` is only valid when
-  `person` is in `by` and is what the person may delegate to (as `answerers` is in AC-06 of that spec): the person sees the
-  label it produced and chooses *use it* or *answer myself*; when they use it, the source is `person` and the record names
-  the answerer it came from. Every model answerer of a gate is read-only and metered (its AC-53 and AC-56).
+  `person` is in `by` and is what the person may delegate to (as `answerers` is in AC-06 of that spec). The person's choices follow
+  `agent-conversation` AC-47: *use it*, *answer myself instead*, *ask again*, *ask someone else* or *stop*. A delegate that is
+  faulty is shown to the person as such and they choose again; the person is still the one answering. When they use a delegate's
+  label the source is `person` and the record names the delegate. Every model answerer of a gate is read-only and metered (its AC-53 and AC-56).
 - [ ] AC-06. The labels of a gate are a closed set, written in the file: `approve` (continue), `revise` (run this step again
   with the note), `stop` (the step ends `ESCALATED`), `back` if `send_back_to` is written, and one label for each key of
   `send_back` (`send_back: { design: architect }`: the label `design` runs `architect` again). The target of `back` and of every
@@ -103,7 +107,8 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
   not an outcome. A panel's label is the label named by its members' latest messages under `decision` (AC-26). A reply never names
   a step, an action, a number or a path: the label is an indirection to the file, so the purpose of `step-verdicts` AC-05 holds
   (C-05).
-- [ ] AC-08. `send_back_to` is a step id, or the word `previous`, meaning the step's single direct predecessor; `previous`
+- [ ] AC-08. `send_back_to` is a step id, or the word `previous`, meaning the step's single direct predecessor (the keyword wins: a
+  step whose id is `previous` cannot be named as a target, which is a parse error saying so); `previous`
   on a step without exactly one predecessor is a parse error naming the step (in a template, the label `back` is left out for
   that step, AC-03). Nothing is chosen silently: with no `send_back_to` written there is no `back` label. The same `plan` line
   states what `if_nobody: reject` does on this gate: the `back` label if there is one, otherwise `revise`.
@@ -124,12 +129,14 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
   answerer as the agent's. A step under a gate whose `when` includes `doubt` has `DOUBT_INSTRUCTION` added to its prompt, a
   fixed sentence that says to write that line when the agent is unsure of its own work. Because the agent then decides whether
   anyone looks, `doubt` is **never the default**, and `plan` and the record state in plain words that "this gate looks only
-  when the agent says it has a doubt". An author who wants a deterministic trigger writes `paths`.
+  when the agent says it has a doubt". An author who wants a trigger that the agent does not control writes `paths`.
 - [ ] AC-12. `paths` is armed when the step changed, since its attempt began, a file that matches one of the globs. The change
   list is that of the tracked workspace between the snapshot taken when the attempt began and its end
   (`workspace-without-git`; the engine takes the snapshot, and only for a step under a gate with `paths`); a step's changes
-  from earlier steps do not count. The glob dialect is the one of the `diff_within_scope` guard. With no tracked workspace
-  the trigger cannot be evaluated and the gate is armed (fail towards looking), recorded as such.
+  from earlier steps do not count. The glob dialect is the one of the `diff_within_scope` guard. The list is the one the workspace
+  keeps, so a file that the workspace does not see (one that git ignores, or that a copy workspace excludes) cannot arm the gate
+  and is not in the evidence; the documentation says so. With no tracked workspace the trigger cannot be evaluated and the gate
+  is armed (fail towards looking), recorded as such.
 
 **What the answerer is shown**
 
@@ -137,11 +144,12 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
   writes from the file ("run `architect` and every step after it again", "continue to `deploy`"), the agent's doubt if there was
   one, and the advice (AC-17) if there is one. The evidence has four parts: the step and its attempt; the declared outputs as
   paths; the changed files, at most 50 paths with their status and a count of the rest; and the guards that passed, by name.
-  The agent's own account (the last `BOARD result:` of the attempt, cut at 2000 characters) is added last and labelled "the agent
+  The agent's own account (the step's last accepted `result` entry on the board, cut at 2000 characters; none if it posted none) is added last and labelled "the agent
   says". The names of files are chosen by the agent, so they are untrusted text: control characters and direction marks are removed
-  and a path is cut at 200 characters. The request, **encoded as the channel writes it, is at most 7000 bytes** (C-02), and the
-  builder fits it by cutting, in this order, the account, the doubt, the changed paths (keeping their count), and the outputs, so
-  that it is always within the 8 KiB bound of a channel file. It is text, fenced as data for a model answerer
+  and a path is cut at 200 characters. A gate has at most 12 labels in all, a consequence is at most 200 characters and a guard name at most 50 (parse errors and cuts,
+  C-02). The request, **encoded as the channel writes it, is at most 7000 bytes** (C-02), and the builder fits it by cutting, in
+  this order, the account, the doubt, the changed paths (keeping their count), the outputs and the guard names (keeping their
+  count), so that with the label limits above it is always within the 8 KiB bound of a channel file. It is text, fenced as data for a model answerer
   (`agent-conversation` AC-62) and never markup for a person, and it contains no diff.
 - [ ] AC-14. A front end shows the evidence in plain words (the step's name, the files that changed, what passed), then each
   label with its consequence, then the advice marked as advice. That rendering is the front end's, and the structure it renders
@@ -150,21 +158,23 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 **When nobody answers, and when an answerer is faulty**
 
 - [ ] AC-15. `if_nobody` says what happens when the walk ends with no label **and nothing in it was faulty**: the only answerer
-  that did not answer was a person who could not be reached, or the deadline of AC-16 ended the wait. Its values are `fail`
+  that did not answer was a person who could not be reached, or the time of AC-16 ran out. Its values are `fail`
   (the default: the step ends `ESCALATED`), `reject` (AC-08), `approve`, and `advice` (AC-17). It is the author's choice, per
   gate, and Indaba applies it only when the author wrote it. If **any** answerer in the walk was faulty and no later one
-  answered, the step ends `ESCALATED` naming the faulty answerer, whatever `if_nobody` says, unless the deadline ended the wait
-  (a call aborted by the deadline is silent, not faulty). A failed, budget-stopped, evasive or malformed answerer is not nobody,
-  and cannot be turned into an approval by what the agent under review writes.
-- [ ] AC-16. `timeout_seconds` (an integer from 1 to 604800) is optional. Without it a person never times out and
-  `agent-conversation` AC-06 and AC-15 hold as written. With it, the whole wait of the gate (the walk, the person, advice, any
-  model call still running) ends when the time passes: the engine's injected `Deadline` (C-09) aborts the calls in flight,
-  what they spent is counted, and the gate behaves as if nobody answered (AC-15). The timer is created when the gate starts
-  waiting and is disposed when the gate has an answer, is skipped, or the run ends, so that no timer outlives the gate.
+  answered, the step ends `ESCALATED` naming the faulty answerer, whatever `if_nobody` says, and whether or not the person's time ran out
+  afterwards. A failed, budget-stopped, evasive or malformed answerer is not nobody, and cannot be turned into an approval by what
+  the agent under review writes.
+- [ ] AC-16. `timeout_seconds` (an integer from 1 to 604800) is optional and valid only when `person` is in `by`: it is the time the
+  gate gives the **person**, from the moment they are asked. Without it a person never times out and `agent-conversation` AC-06 and
+  AC-15 hold as written. Model answerers, advisors and a panel are not under it; they are bounded by their own limits
+  (`panel_rounds`, the budgets of `step-budgets`, `max_decisions`), so that how long a model runs, which the agent under review can
+  influence, cannot use up the person's time. When the person's time runs out, a delegate still running (AC-05) is aborted and what
+  it spent is counted, and the gate behaves as if nobody answered (AC-15). The engine's injected `Deadline` (C-09) creates the timer
+  when the person is asked and disposes it when the person has answered, the gate is skipped, or the run ends, so that no timer
+  outlives the gate.
 - [ ] AC-17. `advise` is an optional list of `panel`, `role:<name>` or `fresh:<name>`, none of them the step's own role (or a
   fresh instance of it: parse error). It is walked like `by`, before `by`; the first label it gives is shown to the answerer as
-  advice and binds nobody; a faulty advisor is recorded and means there is no advice, not that the gate is faulty; it is
-  inside the deadline. `if_nobody: advice` applies that label when the gate is silent (AC-15); `advice` with no `advise` is a
+  advice and binds nobody; a faulty advisor is recorded and means there is no advice, not that the gate is faulty. `if_nobody: advice` applies that label when the gate is silent (AC-15); `advice` with no `advise` is a
   parse error, and with no advice produced at run time the gate behaves as `fail`. The agent's own account is evidence and
   never a label.
 - [ ] AC-18. An outcome that Indaba's policy produced (`reject`, `approve` or `advice` through `if_nobody`) is recorded as
@@ -176,11 +186,13 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 **The record**
 
 - [ ] AC-19. Every gate decision is recorded on the board (`run-blackboard`) as an engine `decision` entry with the scope
-  `gate:<step id>`: the label, the source, the iteration, the time and the note's place. The entry stays `accepted` and is
-  neither discarded nor superseded when the step is reset to run again (C-12). A skipped gate is recorded as skipped. Nothing is
+  `gate:<step id>`: the label, the source, the iteration, the time, and a reference to the decision record where the note is kept in full (the board
+  text is one line, so it holds the label and the reference, not the note). The entry stays `accepted` and is
+  neither discarded nor superseded when the step is reset to run again (C-12). A skipped gate is recorded as skipped. Gate entries are left out of the default digest a later step is given, so a step does not
+  read the decisions of every earlier iteration. Nothing is
   recorded only on a screen, and a model's or policy's decision is never written to the decision ledger as a human ruling
   (`agent-conversation` AC-18).
-- [ ] AC-20. A `GateDecided` event (step, source, iteration and, for a decision, the label and the rule; or `skipped: true`) is
+- [ ] AC-20. A `GateDecided` event (step, iteration and, for a decision, the source, the label and the rule; or `skipped: true` with neither) is
   dispatched for every decision, a policy decision and a skipped gate included, so that a listener and the dashboard see a
   decision that involved no question. The step's span carries `indaba.gate.label`, `indaba.gate.source`,
   `indaba.gate.iteration`, `indaba.gate.max_iterations`, `indaba.gate.when`, `indaba.gate.if_nobody` and
@@ -190,9 +202,9 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 
 - [ ] AC-21. A label that runs a step again resets that step and every step after it exactly as `retry_step` does
   (`step-verdicts` AC-04), but it is not a failed outcome: the step moves `VALIDATING` to `FAILED` with the fixed reason
-  `gate: <label>` and no note, `on_failure` is not consulted, and the target's `retries` counter does not move. `plan` lists,
+  `gate: <label>` and no note, `on_failure` is not consulted, and no entry of the engine's `retries` map moves. `plan` lists,
   for each label, the steps that would run again, so that nobody is surprised that a send-back to the architect re-runs steps
-  that were already approved; every gate after the target asks again.
+  that were already approved; every gate after the target is reached again and asks if its `when` arms it (AC-10).
 - [ ] AC-22. The target's next run is given two optional pieces of feedback of different kinds. The **failure** is delivered once,
   as today. The **gate note** (at most 4000 characters) is an instruction and is delivered on every execution of the target until
   the target completes, so that a retry of the target after a failure does not lose what the reviewer asked for; it is replaced by
@@ -213,7 +225,17 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 - [ ] AC-26. A panel answers a gate in the form of a debate whose topic (`GATE_PANEL_TOPIC`) gives the evidence, the labels with
   their consequences and the instruction to end the final message with `VERDICT: <label>`. Under `consensus` the label is the
   one every member's latest message names; under `majority`, the one more than half name; otherwise the panel has no quorum and
-  is faulty (AC-15). The panel's note is the latest message that named the label, cut at 4000.
+  is faulty (AC-15). A member whose latest message has no `VERDICT:` line (for example a bare `AGREEMENT:`) names no label, so the topic tells every
+  member to repeat the line in every message; the debate's own stopping rule is unchanged. The panel's note is the latest message
+  that named the label.
+
+**What the engine must do first**
+
+- [ ] AC-27. A send-back, like `retry_step` today, moves the loop back to the target. In an order that has steps after the target that
+  do not depend on it, the loop reaches steps that are already `COMPLETED` and unreset, and `COMPLETED` allows only `PENDING`
+  (`state.ts`), so the run would fail with an invalid transition. Before any gate is implemented the engine must skip a step that is
+  `COMPLETED` and was not reset (a `fix`, which also repairs `retry_step` for a workflow with independent branches); a gate's
+  send-back is specified on that engine.
 
 ## 4. Non-goals
 
@@ -239,7 +261,7 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 | the gate is not armed | the step completes; `skipped: not armed` on the board (AC-10) |
 | the gate has sent the step back before | armed whatever `when` says (AC-10) |
 | a person cannot be reached and nothing was faulty | `if_nobody` applies; `fail` ends the step `ESCALATED` as today (AC-15) |
-| `timeout_seconds` elapses | calls in flight are aborted and counted; `if_nobody` applies unless a call was faulty before (AC-15, AC-16) |
+| the person's time (`timeout_seconds`) runs out | a delegate in flight is aborted and counted; `if_nobody` applies unless an answerer was faulty before, in which case the step ends `ESCALATED` (AC-15, AC-16) |
 | a model answerer fails, is stopped by a budget, replies without a usable `VERDICT:` line, answers `NO ANSWER`, or a panel has no quorum | faulty; the walk goes on; if nothing later answers, the step ends `ESCALATED` naming it; `if_nobody` does not apply (AC-15) |
 | the label is `stop` | the step ends `ESCALATED`, the run `escalated` |
 | the iterations are exhausted | the step ends `ESCALATED` naming the step and the limit (AC-09) |
@@ -260,7 +282,7 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
   agent's choice, so they are treated as untrusted text and cleaned (AC-13); a file named like an instruction is shown as a name.
 - Automation fails open when it can be made to fail. `approve` through `if_nobody` therefore applies only when nobody could be
   reached, never when an answerer failed, ran out of budget, was evasive or replied badly (AC-15), because what the agent writes
-  can influence a model answerer. A gate that is sent back is armed again whatever `when` says (AC-10). Every policy outcome is
+  can influence a model answerer, and never because a model ran long, because models are not under the person's timeout (AC-16). A gate that is sent back is armed again whatever `when` says (AC-10). Every policy outcome is
   recorded as policy and shown in `plan` (AC-18). A workflow whose approval unlocks something sensitive must put a guard or a
   person in `by`.
 - The `doubt` trigger is under the agent's control; the spec says so (AC-11).
@@ -277,10 +299,11 @@ no quorum on one label. The line is drawn here on purpose: what a model can be m
 
 - `@indaba/core` (pure): `GateDefinition`, `GateRequest`, `GateAnswer`, `GateAnswerer`, `GateEvidence`, `GateDecision`,
   `Deadline`, `AnsweredBy` gains `'policy'`, `parseVerdictLine`, `parseDoubtLine`, `panelLabelFrom`, `resolveGate`,
-  `applyIfNobody`, `isArmed`, `buildGateRequest`, `gateBound`, `StepOutcome.reply`, and the attribute names.
+  `applyIfNobody`, `isArmed`, `buildGateRequest`, `gateBound`, and the attribute names.
 - `@indaba/engine`: parser and validator; `GateRunner` (arming, the snapshot, evidence, the walk, the label, the policy, the
   deadline), run by `WorkflowEngine.execute` between `validate` and `COMPLETED`; `WorkflowEngine` (routes the label, the counter,
-  the two kinds of feedback); `PromptBuilder` (the gate note, `DOUBT_INSTRUCTION`); the production `Deadline`.
+  the two kinds of feedback, keeps the run's outcome through `validate`); `StepOutcome.reply`; `PromptBuilder` (the gate note,
+  `DOUBT_INSTRUCTION`). The production `Deadline` is provided by the composition root (`indaba`), as the clock and the ids are.
 - `indaba` (CLI): `plan` output, and the answer prompt and commands of `agent-conversation`, extended to show a gate request.
 - `@indaba/tui`: the dashboard shows a gate request and its labels (AC-14) and a waiting gate in the step's row.
 - `@indaba/runners`: nothing.
@@ -323,8 +346,8 @@ All of these are **recommended; the maintainer confirms**.
   rely on it.
 - **C-09. The timer.** `Clock` has only `now()`. A timeout needs a way to end a wait and a way to stop waiting for it, so
   `@indaba/core` gains a small `Deadline` contract (`after(ms, parent?)` returning a signal and a `dispose`) that the composition
-  root provides with a real timer and a test provides with a fake. No decision logic reads a timer itself, and the abort ends model
-  calls in flight as well as the wait for a person.
+  root provides with a real timer and a test provides with a fake. No decision logic reads a timer itself, and the abort ends a delegate
+  in flight as well as the wait for a person.
 - **C-10. A gate is not a review step.** `isReviewStep` is true only for a review without `by`, so a gate adds no `## Verdict`
   section and a reply without `AGREEMENT:` is not a protocol failure. `step-verdicts` api-surface is amended for that.
 - **C-11. Plugin answerer kinds.** `Answerer` of `agent-conversation` answers questions through `answer`. A gate answerer has a
@@ -334,7 +357,7 @@ All of these are **recommended; the maintainer confirms**.
 - **C-12. The board entry of a decision.** `run-blackboard` settles an entry `discarded` when its step attempt fails and marks the
   accepted entries of a reset step `superseded`. A gate decision that sent the run back is the record of why, so it must stay.
   `run-blackboard` gains one sentence: an entry posted by the engine with the scope `gate:<step>` is `accepted` when posted and is
-  exempt from both, and the scope `gate:<step>` joins its scope vocabulary.
+  exempt from both, and the scope `gate:<step>` joins its scope vocabulary and is excluded from the default digest (AC-19).
 - **C-13. Not the default.** Indaba ships no gate. A workflow without `review` runs as it does today (`agent-conversation` AC-01).
   Whether to look, where and how often is the author's decision, and Indaba states what each choice means (AC-03, AC-11, AC-18);
   it does not recommend one.

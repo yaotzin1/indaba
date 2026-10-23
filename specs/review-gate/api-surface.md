@@ -38,10 +38,10 @@ export interface GateDefinition {
   readonly decision: 'consensus' | 'majority';         // 'consensus'
   readonly when: readonly GateTrigger[];               // ['always']
   readonly sendBackTo: string | undefined;             // a step id, or the word 'previous'; undefined = no `back` label
-  readonly sendBack: Readonly<Record<string, string>>; // {} ; label -> step id, each the step or an ancestor
+  readonly sendBack: Readonly<Record<string, string>>; // {} ; label -> step id, each the step or an ancestor; at most 12 labels in all
   readonly maxIterations: number;                      // 3 ; 1 to 10
   readonly ifNobody: IfNobody;                         // 'fail'
-  readonly timeoutSeconds: number | undefined;         // 1 to 604800; undefined = never
+  readonly timeoutSeconds: number | undefined;         // 1 to 604800, only with `person` in `by`; undefined = never
   readonly workspace: 'keep';                          // 'restore' is a parse error in this version (AC-23)
 }
 export function isGate(review: ReviewDefinition | GateDefinition): review is GateDefinition;
@@ -92,7 +92,7 @@ export interface GateAnswer {
 
 export type GateAnswerOutcome =
   | { readonly kind: 'answered'; readonly answer: GateAnswer; readonly answeredBy: AnsweredBy; readonly answerer: string; readonly via?: string }
-  | { readonly kind: 'silent'; readonly reason: 'unreachable' | 'deadline' }       // AC-15: the only two
+  | { readonly kind: 'silent'; readonly reason: 'unreachable' | 'person_timeout' } // AC-15: the only two; both are about a person
   | { readonly kind: 'faulty'; readonly reason: string };                         // anything else (AC-07, AC-15)
 
 /**
@@ -105,7 +105,7 @@ export interface GateAnswerer {
   answerGate(request: GateRequest, signal: AbortSignal): Promise<GateAnswerOutcome>;
 }
 
-/** Ends a wait and stops waiting for it (C-09). The composition root provides a real timer; tests provide a fake. */
+/** The person's time (AC-16) and the stop of that wait (C-09). The composition root provides a real timer; tests provide a fake. */
 export interface Deadline {
   after(ms: number, parent?: AbortSignal): { readonly signal: AbortSignal; dispose(): void };
 }
@@ -180,8 +180,10 @@ export function isArmed(
 /** AC-24: an upper bound, from the definition alone, on how often each gate can be reached. Pure. */
 export function gateBound(workflow: WorkflowDefinition): Readonly<Record<string, number>>;
 
-/** `StepOutcome` gains the step's reply, for `doubt` and the agent's account. Never copied into a status reason or a span. */
-//   readonly reply?: string;
+/** Fixed texts the engine adds to prompts (declared here so the api is complete; the wording is fixed in the implementation). */
+export const DOUBT_INSTRUCTION: string;                // AC-11: write a `DOUBT: <reason>` line when unsure of your own work
+export function describeLabel(label: GateLabel, resolved: ResolvedLabel): string;     // AC-13: the consequence, from the file
+export function gatePanelTopic(request: GateRequest): string;                        // AC-26: GATE_PANEL_TOPIC, ends with the VERDICT instruction
 ```
 
 Semver: new exports and optional members of a package below 1.0, minor. `GateDefinition` members have defaults, so a later member is
@@ -193,8 +195,9 @@ added with one.
 
 ## `PluginHost`
 
-`registerGateAnswerer(kind: string, answerer: GateAnswerer): void`. A gate's `by` naming a kind with none registered is a parse
-error. New method on a core contract: minor.
+`registerGateAnswerer?(answerer: GateAnswerer): void`, optional like the recent additions (`logger`, `registerLogSink`,
+`registerRegistry`) so that a host written before it still type-checks; the kind is `answerer.kind`. A gate's `by` naming a kind
+with none registered is a parse error. New optional method on a core contract: minor.
 
 ## Workflow file
 
@@ -208,9 +211,9 @@ New members of `review` (valid only with `by`, AC-01):
 | `panel`, `panel_rounds`, `decision` | as `ask.panel`, `ask.panel_rounds`, `ask.decision` | as there |
 | `when` | `always`, `doubt`, `{ paths: [globs] }`, or a list | `always` |
 | `send_back` | map of label to step id (the step or an ancestor) | none |
-| `send_back_to`, `max_iterations` | as `step-verdicts`; `send_back_to` may be `previous`; `max_iterations` defaults to `3` on a gate | |
+| `send_back_to`, `max_iterations` | existing members of `review`, valid with or without `by`; on a gate `send_back_to` may be `previous` and `max_iterations` defaults to `3` | |
 | `if_nobody` | `fail`, `reject`, `approve`, `advice` | `fail` |
-| `timeout_seconds` | integer 1 to 604800 | none (never) |
+| `timeout_seconds` | integer 1 to 604800: the person's time; only with `person` in `by` | none (never) |
 | `workspace` | `keep` (`restore` is rejected) | `keep` |
 
 `review: none` turns a gate off for a step. `defaults.review` is a `review` map with a `by`. A parse error names the field path
@@ -219,14 +222,19 @@ and why for: a gate member without `by`; `person` anywhere but last; `offer` wit
 `advise` naming the step's own role; `send_back` naming a step that does not exist (anywhere, a template included) or, on a step,
 one that is not the step or an ancestor (in a template that label is left out); a label that is a built-in, `skipped`, malformed or a
 step id; `send_back_to: previous` on a step without exactly one predecessor; `if_nobody: advice` with no `advise`; `when: doubt` on
-a shell or debate step; `workspace: restore`; `timeout_seconds` out of range.
+a shell or debate step; `workspace: restore`; `timeout_seconds` out of range or without `person` in `by`; `defaults.review` without `by`; `advise` containing `person` or
+`decider`; `role:<name>` of the step's own role in `by`; `by: [panel]` with no `panel`; a step id `previous` named as a target; more
+than 12 labels; an unknown key of `review`; a value outside its range or set for `when`, `paths`, `if_nobody`, `decision`,
+`panel_rounds` or `max_iterations`. In a template, the step-bound reasons of spec AC-03 skip the step instead of failing the parse.
 
 ## Engine
 
 - `WorkflowEngine.execute` runs the gate after `validate` and before `COMPLETED`. A send-back moves the step `VALIDATING` to `FAILED`
   with the fixed reason `gate: <label>`; `on_failure` is not consulted and the `retries` counter does not move (AC-21). The note goes
   to the gate-note map, never to `outcome.feedback`.
-- `StepOutcome` gains `reply?: string` (the runner's output kept for `doubt` and the agent's account).
+- `StepOutcome` (in `@indaba/engine`, `outcome.ts`) gains `reply?: string`, the runner's output, redacted, kept only for `doubt`. The
+  engine keeps the outcome of the run through `validate` (it overwrites it today) so that the gate can read it. The reply is never
+  copied into a status reason or a span. The agent's account is the step's last accepted `result` entry on the board, not the reply.
 - `StepRunOptions` gains `gateNote?: string`; `feedback?: string` keeps its meaning (the failure). `PromptBuilder.build(step, feedback?,
   gateNote?)` gains a third optional parameter. Its sections, in order: the role section and the other sections of
   `agent-conversation`, then the gate note, then the failure, then the verdict section (a review without `by` only); the gate note is
@@ -236,12 +244,17 @@ a shell or debate step; `workspace: restore`; `timeout_seconds` out of range.
   target completes (AC-22). The failure map keeps its present lifecycle.
 - The engine takes the workspace snapshot at the start of an attempt of a step under a gate with `paths`.
 - `isReviewStep(step)` of `step-verdicts` is true only for a review without `by` (C-10).
-- The engine takes a `Deadline` in its options (default: a real timer created by the composition root).
+- The engine takes a `Deadline` in its options; the composition root (`indaba`) provides the real timer, as it provides the clock and
+  the ids.
+- A send-back moves the loop back to the target and the engine skips every step that is `COMPLETED` and was not reset (spec AC-27;
+  a `fix` to be made first).
+- The decisions of a decider on a gate count toward `max_decisions` and `max_decisions_per_run` of `agent-conversation` AC-09.
+- Logging: every decision, every faulty answerer and every policy outcome has a Logger record (ids, labels and counts, never text).
 
 ## Events
 
-`GateDecided { taskId, stepId, iteration, source, label?, rule?, skipped }`: for a decision, `skipped` is false and `label` is set; for
-a gate that was not armed, `skipped` is true and neither `label` nor `rule` is set. It carries no note or evidence text. New event: minor.
+`GateDecided { taskId, stepId, iteration, skipped, source?, label?, rule? }`: for a decision, `skipped` is false and `source` and `label`
+are set (`rule` for a policy outcome); for a gate that was not armed, `skipped` is true and none of the three is set. It carries no note or evidence text. New event: minor.
 
 ## Span attributes
 
@@ -260,8 +273,8 @@ None carries a note, a reason or evidence text. The wait is a child span `gate <
 
 `StepStructure` (the web contract type, `packages/core`) and `describeStructure` gain one optional key per step, `gate`, holding the
 labels and their targets and `when` as fixed words, so that `watch` and the page can draw the loop before the run starts.
-`readStructure` must read the key in the same release that writes it (it rejects a whole structure on a malformed step), and the web
-contract version moves by a minor.
+`readStructure` must read the key in the same release that writes it (an older reader ignores a key it does not know, so a front end
+would not draw the gate; a malformed step makes it reject the whole structure), and the web contract version moves by a minor.
 
 ## CLI
 
@@ -281,6 +294,10 @@ commands and dashboard of `agent-conversation`, extended to render a `GateReques
   `'policy'`; the `reviews` request and outcome stay for the review without `by`; `PluginHost.registerGateAnswerer`.
 - `run-blackboard`: an engine entry with the scope `gate:<step>` is `accepted` when posted, exempt from `discarded` and `superseded`,
   and the scope joins its vocabulary (C-12).
-- `question-contract`: the header sentence that calls a review request "the same contract with a different kind" is corrected (C-07).
+- `question-contract`: the header sentence that calls a review request "the same contract with a different kind" is corrected (C-07),
+  and AC-17, which defers what a gate does with a recommendation to this spec, says instead that a gate has no recommendation of the
+  asker (it has advice, AC-17 here).
+- `agent-conversation` channel (data-model): a gate request file and a gate answer file (label, note, the delegate choice), with a gate
+  form of the file answerer (`FileAnswerer`) and of the terminal prompt.
 - `workspace-without-git`: nothing, except that the change list between two snapshots of one attempt is what AC-12 uses.
 - `docs/workflow-format.md`: every field above.
