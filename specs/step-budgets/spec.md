@@ -11,7 +11,7 @@
 > fields stay, money in any currency is added beside them),
 > [`specs/debate-arbiter`](../debate-arbiter/spec.md) (the human-in-the-terminal path) and
 > [`specs/ruling-channel`](../ruling-channel/spec.md) (the same question for front ends other than a terminal).
-> **Siblings**: [`specs/step-variants`](../step-variants/spec.md) and
+> **Siblings**: `specs/step-variants` (private specification) and
 > [`specs/step-verdicts`](../step-verdicts/spec.md) spend inside a budget and are described here only where
 > they touch it.
 

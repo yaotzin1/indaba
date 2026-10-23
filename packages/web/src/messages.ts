@@ -186,6 +186,13 @@ export const messages = {
     run: 'Run',
     runLabel: (name: string): string => `Run ${name}`,
     edit: 'Edit',
+    tagsLabel: 'Tags',
+    hiddenMark: 'hidden',
+    lastRun: (state: string, when: string, cost: string): string =>
+      `Last run: ${state}, ${when}, cost ${cost}`,
+    noRunYet: 'No run yet',
+    showHidden: (n: number): string =>
+      n === 1 ? 'Show the hidden workflow' : `Show the ${n} hidden workflows`,
     editLabel: (name: string): string => `Edit ${name}`,
     inProject: (path: string, project: string): string => `${path} in ${project}`,
     invalid: 'Cannot run: it has problems',

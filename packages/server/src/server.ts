@@ -38,7 +38,7 @@ import {
 } from './workflow-store.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.3.0';
+export const CONTRACT_VERSION = '1.4.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
@@ -57,8 +57,8 @@ const SOURCE_PATH = /^\/api\/v1\/workflows\/[^/]+\/source$/;
 const CHECK_PATH = `${API}/workflows/check`;
 /** The edit of a draft by the form, and what the form is built from (specs/web-app-editing-forms). */
 const EDIT_PATH = `${API}/workflows/edit`;
-/** A workflow id as the scan hands it out; anything else is not looked up. */
-const WORKFLOW_ID = /^[0-9a-f]{32}$/;
+/** A workflow id as the registry (16) or step 2's scan (32) hands it out; anything else is not looked up. */
+const WORKFLOW_ID = /^[0-9a-f]{16}(?:[0-9a-f]{16})?$/;
 /** A start id as the run control hands it out; anything else is not looked up. */
 const START_ID = /^[A-Za-z0-9_-]{1,64}$/;
 

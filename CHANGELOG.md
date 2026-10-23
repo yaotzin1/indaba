@@ -17,6 +17,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **`indaba ui` lists the workflow registry** (minor; track `feature`; spec `specs/workflow-registry`, slice 2). The Run a
+  workflow panel lists the registry of the served folders by the registry's ids: each workflow with the name, project
+  and tags set by `indaba workflows annotate` and its last run (state, when, cost); hidden ones behind a toggle; the list
+  asked for again when the window gains focus, the folders scanned at most every 30 seconds; a deleted file is not
+  offered. `WorkflowSummary` in `@indaba/core` gains optional `tags`, `hidden` and `lastRun`; `@indaba/server` takes a
+  workflow id of 16 or 32 hexadecimal characters; `CONTRACT_VERSION` is `1.4.0`. No dependency added.
+
 - **The workflow registry and `indaba workflows`** (minor; track `feature`; spec `specs/workflow-registry`, slice 1).
   `indaba workflows list | scan | add | annotate | remove | copy` lists the workflow files of the current folder and of
   folders you add (kept in `<user config>/indaba/workflow-roots.json`), each valid or with its first problem, its last
@@ -50,7 +57,7 @@ port". The PHP prototype that preceded them was never published.
   `Catalog` shape in `@indaba/engine` list the runners, guard types and arbiters of an installation, cleaned and cut
   at 200 characters, with the format's allowed values; `indaba catalog [--json] [--plugin <spec>]` prints it (exit
   `1` when a plugin fails to load, `2` for a usage error). `voters`, `prompts` and `values.promptAdditions` are empty
-  until `specs/voter-arbiter` and `specs/debate-findings` fill them.
+  until later features fill them.
 
 - **Edit a workflow file without losing its text, and its JSON Schema** (minor; track `feature`; spec
   `specs/workflow-editor`, part 2). `WorkflowDocument` in `@indaba/engine` holds a workflow's text and edits it by path
@@ -295,6 +302,9 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- A `retry_step` no longer fails the run when a step that does not depend on the target sits after it (patch; track `fix`). The
+  loop moved back to the target and then tried to run that completed, unreset step again, which the state machine refuses
+  (`Step "x" cannot move from COMPLETED to RUNNING`). A completed step that was not reset is now skipped.
 - `WorkflowDocument.set` into an empty `{}` map no longer respaces the whole file (patch; track `fix`; spec
   `specs/workflow-editor`, AC-04). The edit now splices only its own text, as every other edit does.
 - A run with no model call says so (patch; track `fix`). The cost in the header and the plain status line read

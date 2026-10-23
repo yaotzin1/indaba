@@ -11,7 +11,7 @@
 > answerer and decider is metered), [`specs/step-verdicts`](../step-verdicts/spec.md) (a second reply outcome with its own
 > precedence), [`specs/debate-findings`](../debate-findings/spec.md) (the `prompt:` reference and the prompt registry),
 > [`specs/acp-agent-install`](../acp-agent-install/spec.md) (how an agent is downloaded).
-> **Siblings**: [`specs/step-variants`](../step-variants/spec.md) and
+> **Siblings**: `specs/step-variants` (private specification) and
 > [`specs/workspace-without-git`](../workspace-without-git/spec.md) are described here only where they touch this
 > spec. The web view is a later mirror of the terminal dashboard and is not part of this change.
 > **Named, not written here**: `specs/asset-helper` (list, add, remove, verify and create skills and prompts;
