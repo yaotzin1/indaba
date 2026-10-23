@@ -1400,7 +1400,8 @@ describe('the source view and the Run panel when things go wrong (test gaps)', (
     await waitFor(() => expect(unload()).toBe(true));
     fireEvent.click(screen.getByRole('button', { name: 'Save' }));
     await screen.findByText('Saved.');
-    expect(unload()).toBe(false);
+    // The listener goes in the effect after the render that says "Saved.": wait for it, as above.
+    await waitFor(() => expect(unload()).toBe(false));
   });
 
   it('lets a Ctrl+click on Back open a new tab instead of leaving', async () => {
