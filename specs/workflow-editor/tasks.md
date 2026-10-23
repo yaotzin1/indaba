@@ -15,17 +15,17 @@ Order (spec C-03): part 2 first (its first pull request also carries T5b), then 
 
 - [x] T5. `WorkflowParser.diagnose` and `Problem` (C-02): positions from the `yaml` document for a path, a step, a top-level key, a YAML error; the messages equal `validate`'s for every example and a table of fixtures (AC-05).
 - [x] T5b. The workflow store of `indaba ui` answers problems from `diagnose` (AC-15); the source view's tests show a line for a structural problem.
-- [ ] T6. `workflowJsonSchema()` for the root, roles, steps, guards, `on_failure`, permissions, MCP servers and `defaults`, enumerations from the parser's constants, descriptions; check what the parser does with unknown keys and copy it (AC-08, AC-09).
-- [ ] T7. The conformance test (AC-10) with the devDependency after the licence check; fixtures for valid and invalid structure.
-- [ ] T8. `indaba schema`.
+- [x] T6. `workflowJsonSchema()` for the root, roles, steps, guards, `on_failure`, permissions, MCP servers and `defaults`, enumerations from the parser's constants, descriptions; check what the parser does with unknown keys and copy it (AC-08, AC-09).
+- [x] T7. The conformance test (AC-10) with the devDependency after the licence check; fixtures for valid and invalid structure.
+- [x] T8. `indaba schema`.
 
 ## Part 3: the editor
 
-- [ ] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's options, the 1 MiB and alias limits; refusals (AC-01, AC-07). Tests: 1 MiB plus one byte, an alias bomb, two documents, a sequence root.
-- [ ] T10. `get`, `set`, `remove`, `has` with path rules and plain-JSON check; forbidden keys (AC-02).
-- [ ] T11. `addStep`, `removeStep`, `moveStep` (AC-03).
-- [ ] T12. `toString` and the round-trip test on a heavily commented example (AC-04); editing an invalid document (AC-06).
-- [ ] T13. `problems()` equals `validate` for the same text, including positions (AC-05).
+- [x] T9. `WorkflowDocument.parse` / `create` / `clone` with the parser's options, the 1 MiB and alias limits; refusals (AC-01, AC-07). Tests: 1 MiB plus one byte, an alias bomb, two documents, a sequence root.
+- [x] T10. `get`, `set`, `remove`, `has` with path rules and plain-JSON check; forbidden keys (AC-02).
+- [x] T11. `addStep`, `removeStep`, `moveStep` (AC-03).
+- [x] T12. `toString` and the round-trip test on a heavily commented example (AC-04); editing an invalid document (AC-06).
+- [x] T13. `problems()` equals `validate` for the same text, including positions (AC-05).
 
 ## Documentation and gates
 

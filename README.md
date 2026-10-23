@@ -72,7 +72,7 @@ that makes the outcome trustworthy and inspectable:
 | :--- | :--- | :--- |
 | `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
-| `@indaba/engine` | Workflow parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
+| `@indaba/engine` | Workflow parser and validator with positioned problems, the workflow file's JSON Schema, `WorkflowDocument` (edits a file and keeps its comments), guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
 | `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
 | `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, and starting and stopping runs through what the CLI supplies (it spawns and writes nothing itself). Its package carries the built page | `@indaba/core`, `@indaba/engine` |

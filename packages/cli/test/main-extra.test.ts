@@ -222,3 +222,27 @@ describe('plugin failures that are not Errors', () => {
     expect(seen).toEqual([11]);
   });
 });
+
+describe('indaba schema (specs/workflow-editor, T8)', () => {
+  it('prints the JSON Schema of the workflow file', async () => {
+    const dir = await makeTempDir();
+    const captured = captureIo(dir);
+    expect(await main(['schema'], captured.io)).toBe(0);
+    const schema = JSON.parse(captured.stdout()) as { $schema: string; required: string[] };
+    expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
+    expect(schema.required).toEqual(['version', 'name']);
+  });
+
+  it('prints its help, refuses an argument, and is in the usage', async () => {
+    const dir = await makeTempDir();
+    const help = captureIo(dir);
+    expect(await main(['schema', '--help'], help.io)).toBe(0);
+    expect(help.stdout()).toContain('Usage: indaba schema');
+    const extra = captureIo(dir);
+    expect(await main(['schema', 'x.yml'], extra.io)).toBe(2);
+    expect(extra.stderr()).toContain('Unexpected argument: x.yml.');
+    const usage = captureIo(dir);
+    await main(['--help'], usage.io);
+    expect(usage.stdout()).toContain('schema            Print the JSON Schema of the workflow file');
+  });
+});

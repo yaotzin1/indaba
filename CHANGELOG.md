@@ -17,6 +17,16 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Edit a workflow file without losing its text, and its JSON Schema** (minor; track `feature`; spec
+  `specs/workflow-editor`, part 2). `WorkflowDocument` in `@indaba/engine` holds a workflow's text and edits it by path
+  (`get`, `set`, `remove`, `has`) and by step id (`addStep`, `removeStep`, `moveStep`); everything not edited stays byte
+  for byte (comments, blank lines, key order, quoting), and every edit is checked by reading the result back.
+  `problems()` places what `indaba validate` reports. It refuses keys that reach a prototype, values that are not plain
+  JSON, text over 1 MiB (`MAX_DOCUMENT_BYTES`) and more than 100 aliases (`MAX_ALIASES`), with a
+  `WorkflowDocumentError` naming the path. `workflowJsonSchema()` and the new command `indaba schema` give the file's
+  JSON Schema (draft 2020-12), kept equal to the parser by a test. `ajv` joins the development dependencies for that
+  test; nothing new ships.
+
 - **Every problem of a workflow file, placed** (minor; track `feature`; spec `specs/workflow-editor`, part 2, T5 and
   T5b). `WorkflowParser.diagnose(text)` in `@indaba/engine` answers the problems `indaba validate` reports (the same
   sentences: errors, or the warnings of a valid file), each with its `path` (`$.steps[0].role`), `severity`, and a

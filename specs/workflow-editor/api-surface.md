@@ -81,6 +81,21 @@ export function catalogOf(bundle: EngineBundle): Catalog;
 
 `indaba schema` and `indaba catalog [--json] [--plugin <spec>]`.
 
+### Amendment of 2026-10-23 (stage 6 found it, stage 3 decided it)
+
+```ts
+export class WorkflowDocumentError extends Error { readonly path?: string }   // every refusal of the document
+export const MAX_DOCUMENT_BYTES: number;   // 1 MiB
+export const MAX_ALIASES: number;          // 100
+```
+
+- `addStep(step)` without `after` appends; `moveStep(id)` without `after` moves to the front (so every place is
+  reachable: the front by omitting it, any other place after a step).
+- `set` at an index past the end of an existing list is refused: a list grows by one at its end.
+- An edit splices the text and reads it back; an edit the splice cannot make exactly (a flow collection, say) goes
+  through the `yaml` document model, which keeps comments and order but may respace the file. Both are checked by
+  reading the result back.
+
 ## Workflow schema, CLI, events and attributes
 
 | Surface | Name | Change |

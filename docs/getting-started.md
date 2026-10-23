@@ -25,6 +25,8 @@ npx indaba plan workflow.ai.yml       # show the order steps will run in, and MC
 npx indaba run workflow.ai.yml        # execute it
 ```
 
+`npx indaba schema` prints the JSON Schema of the file, for an editor that completes and checks it as you type.
+
 The file argument is optional and defaults to `.indaba/workflow.ai.yml`. On Windows use PowerShell or
 Command Prompt the same way; paths may use either slash. On macOS and Linux any shell works.
 
