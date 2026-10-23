@@ -110,4 +110,81 @@ describe('indaba ui: edit a workflow’s source', () => {
     }
     await ui.result;
   });
+
+  it('edits a field as the form does, keeping the file’s comments, and saves it (specs/web-app-editing-forms)', async () => {
+    const dir = await makeGitRepo();
+    const config = await makeTempDir();
+    const commented = `# Says hello.\n${WORKFLOW.replace('name: "editable"', 'name: "editable"   # the trace name')}`;
+    await writeFileIn(dir, 'edit.workflow.ai.yml', commented);
+    const ui = startCli(['ui', '--no-open'], dir, {
+      HOME: config,
+      USERPROFILE: config,
+      XDG_CONFIG_HOME: config,
+      APPDATA: config,
+    });
+    try {
+      await waitFor(() => ADDRESS.test(ui.stdout()), 'the address to be printed');
+      const [, origin = '', , token = ''] = ui.stdout().match(ADDRESS) ?? [];
+      const call = async (
+        path: string,
+        method = 'GET',
+        body?: unknown,
+      ): Promise<{ status: number; body: Body }> => {
+        const res = await fetch(`${origin}${path}`, {
+          method,
+          headers: {
+            Authorization: `Bearer ${token}`,
+            ...(method === 'GET' ? {} : { Origin: origin, 'Content-Type': 'application/json' }),
+          },
+          ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        });
+        return { status: res.status, body: (await res.json()) as Body };
+      };
+
+      const editor = await call('/api/v1/editor');
+      expect(editor.status).toBe(200);
+      const catalog = editor.body.catalog as { runners: { name: string }[]; arbiters: { name: string }[] };
+      expect(catalog.runners.map((r) => r.name)).toContain('shell');
+      expect(catalog.arbiters.map((a) => a.name)).toContain('human');
+      expect((editor.body.schema as { $schema: string }).$schema).toBe(
+        'https://json-schema.org/draft/2020-12/schema',
+      );
+
+      const listed = await call('/api/v1/workflows');
+      const id = String((listed.body.workflows as { id: string }[])[0]?.id);
+      const source = await call(`/api/v1/workflows/${id}/source`);
+
+      const edited = await call('/api/v1/workflows/edit', 'POST', {
+        text: source.body.text,
+        edits: [
+          { op: 'set', path: ['steps', 0, 'commands', 0], value: 'node -e "console.log(1)"' },
+          { op: 'addStep', step: { id: 'step-1', runner: 'shell' }, after: 'hello' },
+        ],
+      });
+      expect(edited.status).toBe(200);
+      const text = String(edited.body.text);
+      expect(text).toContain('# Says hello.');
+      expect(text).toContain('name: "editable"   # the trace name');
+      expect(edited.body.value).toMatchObject({ steps: [{ id: 'hello' }, { id: 'step-1' }] });
+      // The new step has no command yet: the problem names its path.
+      expect((edited.body.problems as { path?: string }[]).map((p) => p.path)).toContain('$.steps[1].runner');
+
+      const refused = await call('/api/v1/workflows/edit', 'POST', {
+        text,
+        edits: [{ op: 'removeStep', id: 'ghost' }],
+      });
+      expect(refused.status).toBe(422);
+      expect(refused.body).toMatchObject({ code: 'edit_refused', index: 0 });
+
+      const saved = await call(`/api/v1/workflows/${id}/source`, 'PUT', {
+        text,
+        baseHash: source.body.contentHash,
+      });
+      expect(saved.status).toBe(200);
+      expect(await readFile(join(dir, 'edit.workflow.ai.yml'), 'utf8')).toBe(text);
+    } finally {
+      ui.child.kill('SIGINT');
+    }
+    await ui.result;
+  });
 });

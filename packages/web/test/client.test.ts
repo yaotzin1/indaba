@@ -610,3 +610,91 @@ describe('the client: the source of a workflow (T-09)', () => {
     expect(await client.checkWorkflow('x')).toEqual([]);
   });
 });
+
+describe('the form’s calls (specs/web-app-editing-forms, T-08)', () => {
+  const CATALOG = {
+    catalog: 1,
+    runners: [{ name: 'shell', description: 'Runs commands.' }],
+    guards: [],
+    arbiters: [],
+    voters: [],
+    prompts: [],
+    values: { decisionTypes: [], isolation: [], failureActions: [], mcpPolicies: [], promptAdditions: [] },
+  };
+  const SCHEMA = {
+    type: 'object',
+    properties: { name: { type: 'string', pattern: '\\S' } },
+    x: [1, true, null],
+  };
+
+  it('reads the schema and catalog, says when the server has no form, and refuses a shape it cannot read', async () => {
+    const replies = fakeFetch([
+      json({ schema: SCHEMA, catalog: CATALOG }),
+      json({ code: 'editor_unavailable', message: 'no' }, 404),
+      json({ schema: SCHEMA, catalog: { ...CATALOG, catalog: 2 } }),
+      json({ schema: SCHEMA, catalog: { ...CATALOG, runners: [{ name: 'x' }] } }),
+      json({ schema: SCHEMA, catalog: { ...CATALOG, values: { ...CATALOG.values, isolation: [1] } } }),
+      json({ schema: SCHEMA, catalog: { ...CATALOG, values: 'none' } }),
+      json({ schema: 'none', catalog: CATALOG }),
+      json([]),
+      json({ code: 'unauthorized', message: 'no' }, 401),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.editor()).toEqual({ schema: SCHEMA, catalog: CATALOG });
+    expect(replies.calls[0]?.url).toBe('/api/v1/editor');
+    expect(await client.editor()).toBeUndefined();
+    for (let i = 0; i < 6; i += 1) {
+      expect(await failureOf(client.editor())).toEqual({
+        kind: 'server',
+        message: 'The server sent a form this page cannot read.',
+      });
+    }
+    expect(await failureOf(client.editor())).toEqual({ kind: 'unauthorized' });
+  });
+
+  it('edits a draft, and reads a text the form cannot read and a refused edit as answers', async () => {
+    const value = { name: 'x', steps: [{ id: 'a', n: 1.5 }] };
+    const replies = fakeFetch([
+      json({
+        text: 'name: x\n',
+        value,
+        problems: [
+          { message: 'p', path: '$.steps', line: 2, column: 1 },
+          { message: 3 },
+          { message: 'q', path: 4 },
+        ],
+      }),
+      json({ code: 'not_editable', message: 'invalid YAML' }, 422),
+      json({ code: 'edit_refused', message: 'no step has the id "z"', index: 1 }, 422),
+      json({ code: 'edit_refused', message: 'no index' }, 422),
+      json({ code: 'bad_request', message: 'Edit 0 is not an edit the page can make.' }, 400),
+      json({ text: 'name: x\n', value: [1] }),
+      new TypeError('offline'),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    const edits = [{ op: 'remove' as const, path: ['name'] }];
+    expect(await client.editWorkflow('name: x\n', edits)).toEqual({
+      kind: 'edited',
+      text: 'name: x\n',
+      value,
+      problems: [{ message: 'p', path: '$.steps', line: 2, column: 1 }],
+    });
+    expect(replies.calls[0]?.url).toBe('/api/v1/workflows/edit');
+    expect(await client.editWorkflow('[', [])).toEqual({ kind: 'not_editable', message: 'invalid YAML' });
+    expect(await client.editWorkflow('x', edits)).toEqual({
+      kind: 'refused',
+      message: 'no step has the id "z"',
+      index: 1,
+    });
+    expect(await failureOf(client.editWorkflow('x', edits))).toEqual({ kind: 'server', message: 'no index' });
+    expect(await failureOf(client.editWorkflow('x', edits))).toEqual({
+      kind: 'server',
+      message: 'Edit 0 is not an edit the page can make.',
+    });
+    expect(await failureOf(client.editWorkflow('x', edits))).toEqual({
+      kind: 'server',
+      message: 'The server did not apply the change.',
+    });
+    expect(await failureOf(client.editWorkflow('x', edits))).toEqual({ kind: 'unreachable' });
+  });
+});

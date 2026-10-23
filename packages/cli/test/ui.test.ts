@@ -6,7 +6,12 @@ import { userConfigFolder } from '../src/config-folder.js';
 import { main } from '../src/index.js';
 import { createBrowserOpener, openerCommand, type Starter } from '../src/open-browser.js';
 import type { RunStarter } from '../src/run-child.js';
-import { loadServer, type ServerLoad, type UiServerOptions } from '../src/server-loader.js';
+import {
+  loadServer,
+  type ServerLoad,
+  type UiServerOptions,
+  type UiWorkflowEditor,
+} from '../src/server-loader.js';
 import { captureIo, makeTempDir } from './support.js';
 
 const ADDRESS = 'http://127.0.0.1:4321/#token=abc';
@@ -96,8 +101,16 @@ describe('indaba ui', () => {
         logger: expect.anything(),
         loggingSettings: expect.anything(),
         workflowStore: expect.anything(),
+        workflowEditor: expect.anything(),
       },
     ]);
+    // The editor of the form (specs/web-app-editing-forms): the schema, and the catalog with the arbiter human.
+    const editor = (server.started[0] as { workflowEditor: UiWorkflowEditor }).workflowEditor;
+    expect(editor.info().catalog.arbiters.map((a) => a.name)).toContain('human');
+    expect(editor.info().catalog.runners.map((r) => r.name)).toContain('shell');
+    expect(editor.edit({ text: 'version: "1.0"\nname: a\nsteps: []\n', edits: [] }).value).toMatchObject({
+      name: 'a',
+    });
     expect(captured.stdout()).toContain(ADDRESS);
     expect(opened).toEqual([ADDRESS]);
     expect(server.closed()).toBe(0);

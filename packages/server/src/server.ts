@@ -20,13 +20,16 @@ import {
   type SinkTestResponse,
   type StartRunRequest,
   type StopRunResponse,
+  type WorkflowEditRefused,
+  type WorkflowNotEditable,
 } from '@indaba/core';
-import { DISCUSSION_DIRECTORY, DiscussionStore, isRunId } from '@indaba/engine';
+import { DISCUSSION_DIRECTORY, DiscussionStore, isRunId, sanitize } from '@indaba/engine';
 import { bearerOf, hostAllowed, originAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
 import { MAX_CONCURRENT_RUNS, type RunControl, RunControlError } from './run-control.js';
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
 import { readStatic } from './static.js';
+import { editsOf, type WorkflowEditor, WorkflowEditorError } from './workflow-editor.js';
 import {
   MAX_SOURCE_BODY_BYTES,
   MAX_SOURCE_BYTES,
@@ -35,7 +38,7 @@ import {
 } from './workflow-store.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.2.0';
+export const CONTRACT_VERSION = '1.3.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
@@ -52,6 +55,8 @@ const CONTENT_HASH = /^[0-9a-f]{64}$/;
 /** `/api/v1/workflows/{id}/source`, and the check of a draft. */
 const SOURCE_PATH = /^\/api\/v1\/workflows\/[^/]+\/source$/;
 const CHECK_PATH = `${API}/workflows/check`;
+/** The edit of a draft by the form, and what the form is built from (specs/web-app-editing-forms). */
+const EDIT_PATH = `${API}/workflows/edit`;
 /** A workflow id as the scan hands it out; anything else is not looked up. */
 const WORKFLOW_ID = /^[0-9a-f]{32}$/;
 /** A start id as the run control hands it out; anything else is not looked up. */
@@ -127,6 +132,11 @@ export interface ServerOptions {
    * it; without it the source resources answer 404.
    */
   readonly workflowStore?: WorkflowStore;
+  /**
+   * Editing a draft through the form, and the schema and catalog the form is built from (specs/web-app-editing-forms).
+   * The command line supplies it; without it the editor resources answer 404 and the page shows only the source view.
+   */
+  readonly workflowEditor?: WorkflowEditor;
 }
 
 export interface ServerHandle {
@@ -216,7 +226,16 @@ function fieldOf(body: unknown, key: string): unknown {
  * The methods a path accepts. Everything is read-only but the logging settings and the runs, each only when the command
  * line supplied what does the work.
  */
-function methodsOf(path: string, settings: boolean, runs: boolean, store: boolean): readonly string[] {
+function methodsOf(
+  path: string,
+  settings: boolean,
+  runs: boolean,
+  store: boolean,
+  editor: boolean,
+): readonly string[] {
+  if (editor && path === EDIT_PATH) {
+    return ['POST'];
+  }
   if (store && path === CHECK_PATH) {
     return ['POST'];
   }
@@ -318,6 +337,45 @@ function storeRefusal(error: Refusal): { status: number; error: ApiError } | und
     default:
       return undefined;
   }
+}
+
+/** A refusal of a workflow editor, recognised by name and `code` for the reason a store's is. */
+function isEditorError(error: unknown): error is Refusal & Error {
+  return (
+    error instanceof WorkflowEditorError ||
+    (error instanceof Error &&
+      error.name === 'WorkflowEditorError' &&
+      typeof (error as { code?: unknown }).code === 'string')
+  );
+}
+
+/** The plain words of an editor's refusal, with the document's own sentence; undefined for a code it should not give. */
+function editorRefusal(
+  error: Refusal & { readonly message: string },
+): WorkflowEditRefused | WorkflowNotEditable | undefined {
+  // The first line: a YAML error goes on to quote the text it could not read, which the page already has.
+  const sentence = sanitize(error.message.split('\n')[0] ?? '').trim();
+  if (error.code === 'not_editable') {
+    return {
+      code: 'not_editable',
+      message: `The form cannot read this text: ${sentence}.`,
+      nextAction: 'Fix it in the source view; the form comes back when the text can be read.',
+    };
+  }
+  if (error.code === 'edit_refused') {
+    const index = error.detail?.index;
+    const path = error.detail?.path;
+    if (typeof index !== 'number') {
+      return undefined;
+    }
+    return {
+      code: 'edit_refused',
+      message: `This change cannot be made: ${sentence}.`,
+      index,
+      ...(typeof path === 'string' ? { path: sanitize(path) } : {}),
+    };
+  }
+  return undefined;
 }
 
 interface Refusal {
@@ -478,6 +536,14 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       await handleSettings(req, res, path);
       return;
     }
+    if (head === 'editor' && parts.length === 1) {
+      handleEditorInfo(req, res);
+      return;
+    }
+    if (head === 'workflows' && parts.length === 2 && runId === 'edit') {
+      await handleEdit(req, res);
+      return;
+    }
     if (head === 'workflows' && parts.length === 2 && runId === 'check') {
       await handleCheck(req, res);
       return;
@@ -614,6 +680,55 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       return;
     }
     sendJson(res, 200, store.check(text));
+  };
+
+  const EDITOR_UNAVAILABLE: ApiError = {
+    code: 'editor_unavailable',
+    message: 'This server does not edit workflows as a form.',
+  };
+
+  const handleEditorInfo = (req: IncomingMessage, res: ServerResponse): void => {
+    const editor = options.workflowEditor;
+    if (editor === undefined) {
+      missing(req, res, EDITOR_UNAVAILABLE);
+      return;
+    }
+    sendJson(res, 200, editor.info());
+  };
+
+  const handleEdit = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
+    const editor = options.workflowEditor;
+    if (editor === undefined) {
+      missing(req, res, EDITOR_UNAVAILABLE);
+      return;
+    }
+    const body = await sourceBody(req, res);
+    if (body === undefined) {
+      return;
+    }
+    const text = sourceText(req, res, body);
+    if (text === undefined) {
+      return;
+    }
+    const edits = editsOf(body);
+    if (!edits.ok) {
+      refuse(req, res, 400, { code: 'bad_request', message: edits.message });
+      return;
+    }
+    try {
+      // Only the text and the copied edits are passed; nothing else of the body reaches the editor (AC-13).
+      sendJson(res, 200, editor.edit({ text, edits: edits.edits }));
+    } catch (error) {
+      const answer = isEditorError(error) ? editorRefusal(error) : undefined;
+      if (answer === undefined) {
+        throw error;
+      }
+      log.info('server.workflows', 'edit refused', {
+        code: answer.code,
+        ...('index' in answer ? { index: answer.index } : {}),
+      });
+      sendError(res, 422, answer);
+    }
   };
 
   const handleSource = async (req: IncomingMessage, res: ServerResponse, id: string): Promise<void> => {
@@ -881,6 +996,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       options.loggingSettings !== undefined,
       options.runs !== undefined,
       options.workflowStore !== undefined,
+      options.workflowEditor !== undefined,
     );
     if (!allowed.includes(req.method ?? '')) {
       res.setHeader('Allow', allowed.join(', '));

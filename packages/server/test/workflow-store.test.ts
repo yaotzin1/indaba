@@ -222,9 +222,9 @@ describe('the source resources (AC-01 to AC-06)', () => {
     expect((await send(`/api/v1/workflows/${ID}/source`)).status).toBe(422);
   });
 
-  it('says the contract version 1.2.0', async () => {
+  it('says the contract version 1.3.0', async () => {
     await start();
-    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.2.0' });
+    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.3.0' });
   });
 });
 

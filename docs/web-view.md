@@ -188,8 +188,36 @@ copies they left under `.indaba/run-inputs/`.
 
 ## Edit a workflow
 
-**Edit** next to a workflow in the Run a workflow panel opens its file as text, at an address of its own
-(`/workflows/<id>`), so a reload opens it again. It works for a workflow with problems too: that is where they get fixed.
+**Edit** next to a workflow in the Run a workflow panel opens it at an address of its own (`/workflows/<id>`), so a
+reload opens it again. It works for a workflow with problems too: that is where they get fixed. **Form** and **Source**
+switch between two views of the same draft; what you change in one is in the other.
+
+### As a form
+
+The form is shown first when the file can be read as a workflow; otherwise the source view, with the reason.
+
+- **The workflow, its roles and its steps** are fields: the name, each role's runner and model, and for the step you pick
+  in the list its id, role, runner, goal, what it waits for, what its agent may change, isolation, what happens on
+  failure, the debate fields, what it reads first and must create, its commands and its MCP servers. Each field says what
+  it is, in the words of [the workflow format](workflow-format.md).
+- **Choices come from your installation.** A runner is one this `indaba ui` knows (plugins included); a role is one the
+  file declares; what a step waits for is one of the other steps. A value the file holds that is not one of them (a
+  runner of a plugin not loaded here) is shown as it is and marked, never replaced.
+- **Only what you touch changes.** A change goes into the file at that one place: your comments, blank lines, order and
+  quoting stay as they were. A text field changes when you leave it or press **Enter**; a choice, at once. Clearing an
+  optional field removes it; the name and a step's id cannot be left empty.
+- **What a step's agent may change** is a choice of **Read only**, **Edit only these folders** (with the globs, one per
+  line), **Full access** or **Not set**; what it may read stays as the file says. A rule that is none of them is shown as
+  **Custom** and left alone until you pick one. A sentence in a goal ("do not edit files") is a request, not a rule.
+- **Steps**: **Add a step** puts one after the step shown, named `step-1`, `step-2` and so on, with the shell runner for
+  you to change; **Move up**, **Move down** and **Remove** (which asks first). Removing or renaming a step does not
+  rewrite the steps that name it: the problems say where to change them.
+- **Problems are at their field**, marked and read out with it; a problem of a whole step is at the top of the step, and
+  the rest at the top of the form. All of them are also listed under the form, as in the source view.
+- **What the form does not edit** (artifacts, MCP servers, an agent, guards, a key the format does not know) is named,
+  with a button that opens the source view at it.
+
+### As text
 
 - **As you type**, after a short pause, the page checks the text with the same parser as `indaba validate` and lists the
   problems under it, each with its line and column; press one to put the cursor there. A problem about something

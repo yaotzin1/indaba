@@ -1,3 +1,4 @@
+import { readFile } from 'node:fs/promises';
 import { describe, expect, it } from 'vitest';
 import { createEngine, loadPlugin, main } from '../src/index.js';
 import { captureIo, FIXTURE_WORKFLOW, makeTempDir, writePlugin, writeWorkflow } from './support.js';
@@ -231,6 +232,15 @@ describe('indaba schema (specs/workflow-editor, T8)', () => {
     const schema = JSON.parse(captured.stdout()) as { $schema: string; required: string[] };
     expect(schema.$schema).toBe('https://json-schema.org/draft/2020-12/schema');
     expect(schema.required).toEqual(['version', 'name']);
+  });
+
+  it('prints the schema the page’s tests are built on, so the form cannot drift (specs/web-app-editing-forms)', async () => {
+    const dir = await makeTempDir();
+    const captured = captureIo(dir);
+    expect(await main(['schema'], captured.io)).toBe(0);
+    const fixture = await readFile(new URL('../../web/test/workflow-schema.json', import.meta.url), 'utf8');
+    // When this fails, the schema changed: write it again with `node packages/cli/dist/bin.js schema`.
+    expect(JSON.parse(captured.stdout())).toEqual(JSON.parse(fixture));
   });
 
   it('prints its help, refuses an argument, and is in the usage', async () => {
