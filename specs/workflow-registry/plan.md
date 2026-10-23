@@ -66,3 +66,24 @@ run whose `workflow` equals its workflow's name when no other entry of the root 
 - CLI: each command and its output, `--json`, an id prefix and an ambiguous one, the roots file, a plugin store used,
   a plugin store that throws, the exit codes.
 - Core: `RegistryError`'s name and code; a plugin registering a registry through the host.
+
+## Slice 2
+
+- `run-control/finder.ts`: the finder holds the registry and the time of the last scan (from the injected clock).
+  `list()` scans when there was none or it is `intervalMs` old, then lists every entry, hidden ones included, and drops
+  missing ones. `find(id)` takes an exact id only (a page never sends a prefix), and when it finds nothing and the last
+  scan is older than a second it scans once and looks again, so a file just added is found. The step 2 finder wraps
+  `scanRoots` with the same two methods.
+- The run control's `describe` and the store's `read` add the entry's tags, hidden flag and last run to the summary.
+- `main.ts` builds one finder per set of roots and gives the same one to the run control and the store, so they agree
+  on ids and the scan is shared.
+- The panel: tags as chips after the name, the last run in one muted line (`formatRunCost`, "unknown" where unknown),
+  Show hidden as a toggle button with `aria-pressed` and the count; a `focus` listener on the window reloads the list
+  while the panel shows it.
+
+| Stage 5 question | Answer |
+| :--- | :--- |
+| A published signature broken? | No: three optional fields, an id shape that accepts more, a minor contract version. |
+| Untrusted data reaching a shell, a path or a log? | The id from the page is matched exactly against the registry, never used as a path; the entry's path was checked when the index was read and is read through the confined read. |
+| A clock in decision logic? | The finder's interval uses the injected clock. |
+| An unbounded loop? | One scan per 30 s from the list, at most one more per missing id per second. |

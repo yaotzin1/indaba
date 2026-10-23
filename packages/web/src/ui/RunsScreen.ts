@@ -167,6 +167,7 @@ export function RunsScreen(props: RunsScreenProps): ReactElement {
           onFatal,
           noticeSeen: props.noticeSeen === true,
           onNoticeSeen,
+          clock,
           ...(props.onEdit === undefined ? {} : { onEdit: props.onEdit }),
           ...(props.pollMs === undefined ? {} : { pollMs: props.pollMs }),
         })

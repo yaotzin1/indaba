@@ -61,6 +61,7 @@ import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { CONFIRMATION_FILE } from './run-control/confirm.js';
 import { createWorkflowEditor } from './run-control/editor.js';
+import { createWorkflowFinder, type WorkflowFinder } from './run-control/finder.js';
 import { createRunControl } from './run-control/index.js';
 import { createWorkflowStore } from './run-control/source.js';
 import { runWithDashboard } from './run-tui.js';
@@ -612,8 +613,31 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
   const parse = (source: string) => parser.parse(source);
   const pid = io.pid ?? process.pid;
   const diagnose = (source: string) => parser.diagnose(source);
+  // One finder per set of roots, shared by the store and the run control, so they agree on ids and share the scan
+  // (specs/workflow-registry, slice 2).
+  const clock = io.clock ?? (() => new Date());
+  const finders = new Map<string, WorkflowFinder>();
+  const finderFor = (roots: readonly string[]): WorkflowFinder => {
+    const key = JSON.stringify(roots);
+    const known = finders.get(key);
+    if (known !== undefined) {
+      return known;
+    }
+    const finder = createWorkflowFinder({
+      registry: new FileWorkflowRegistry({
+        roots,
+        parse,
+        clock,
+        ids: () => randomBytes(8).toString('hex'),
+        logger,
+      }),
+      clock,
+    });
+    finders.set(key, finder);
+    return finder;
+  };
   const workflowStore = (roots: readonly string[]) =>
-    createWorkflowStore({ roots, parse, diagnose, pid, logger });
+    createWorkflowStore({ roots, finder: finderFor(roots), parse, diagnose, pid, logger });
   const workflowEditor = createWorkflowEditor({
     parse,
     diagnose,
@@ -636,6 +660,7 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
     runControl: (roots) =>
       createRunControl({
         roots,
+        finder: finderFor(roots),
         starter,
         environment: io.env,
         confirmationFile,

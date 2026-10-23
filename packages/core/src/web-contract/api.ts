@@ -56,7 +56,7 @@ export interface RunResponse {
 
 /** One workflow file found in a served root. */
 export interface WorkflowSummary {
-  /** Opaque. The page sends it back; it is matched against a fresh scan, never opened as a path. */
+  /** Opaque: the registry's id. The page sends it back; it is looked up, never opened as a path. */
   readonly id: string;
   readonly name: string;
   /** Relative to its root, forward slashes. */
@@ -66,6 +66,12 @@ export interface WorkflowSummary {
   readonly valid: boolean;
   /** One plain sentence per problem, as `indaba validate` words them; empty when valid. */
   readonly problems: readonly string[];
+  /** The person's tags, from the workflow registry (contract 1.4). */
+  readonly tags?: readonly string[];
+  /** Hidden in the registry: the page shows it only when asked (contract 1.4). */
+  readonly hidden?: boolean;
+  /** The newest run of this workflow, when the registry can tell (contract 1.4). */
+  readonly lastRun?: RunSummary;
 }
 
 export interface WorkflowListResponse {

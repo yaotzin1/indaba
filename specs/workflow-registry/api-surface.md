@@ -190,6 +190,24 @@ indaba workflows copy <id> --to <folder> [--name <n>] [--plugin <spec>]...
 `engine.registry`: `scan finished` (root, the counts of the report), `index set aside` (root), `entry copied` (source
 and new id). `cli.workflows`: the command and its outcome code. Never a file's content.
 
+## Slice 2: `indaba ui` on the registry
+
+**Minor (below 1.0)**, additive. `CONTRACT_VERSION` `1.3.0` to `1.4.0`.
+
+```ts
+// @indaba/core web-contract: WorkflowSummary gains three optional members
+//   readonly tags?: readonly string[];
+//   readonly hidden?: boolean;
+//   readonly lastRun?: RunSummary;            // the registry entry's (spec AC-12)
+```
+
+- `@indaba/server`: a workflow id in an address is 16 or 32 lowercase hexadecimal characters (the registry's, or step
+  2's for a control built without a registry); anything else is `404` as before.
+- `indaba` (internal): `createWorkflowFinder({ registry, roots, clock, intervalMs })` with `list()`, `find(id)`; the run
+  control and the workflow store take an optional `finder` (default: step 2's scan, spec C-13). The interval is 30 000 ms,
+  a starting value.
+- `@indaba/web` (private): the panel's tags, last run, Show hidden, and the list asked again on window focus.
+
 ## Workflow schema, events and attributes
 
 No change.
