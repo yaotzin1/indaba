@@ -379,3 +379,32 @@ describe('the line of a field in the text (AC-07)', () => {
     expect(lineOfPath(YAML, ['roles', 'writer', 'nothing'], ids)).toBe(5);
   });
 });
+
+describe('keys and values the format may gain (question-contract, review-gate, agent-permissions)', () => {
+  it('keeps a review key on a step and in defaults as a field of the source view, not dropped', () => {
+    const doc = {
+      version: '1.0',
+      name: 'x',
+      defaults: { mcp_policy: 'required', review: { by: 'person' } },
+      steps: [{ id: 'a', runner: 'shell', commands: ['x'], review: { required: true } }],
+    };
+    const review = stepMembers(schema, doc, contextOf(doc, catalog))[0]?.fields.find(
+      (f) => f.key === 'review',
+    );
+    expect(review).toMatchObject({
+      path: ['steps', 0, 'review'],
+      kind: { kind: 'source', why: 'unknown_key' },
+    });
+    const defaults = headerFields(schema, doc).find((f) => f.key === 'defaults')?.kind;
+    expect(defaults?.kind === 'group' && defaults.fields.find((f) => f.key === 'review')).toMatchObject({
+      path: ['defaults', 'review'],
+      kind: { kind: 'source', why: 'unknown_key' },
+    });
+  });
+
+  it('reads a permission level it does not know as Custom, which the form never changes by itself', () => {
+    expect(presetOf({ fs: { write: [] }, terminal: 'ask' })).toBe('custom');
+    expect(presetOf({ level: 'ask' })).toBe('custom');
+    expect(presetOf({ fs: { write: ['src/**'] }, terminal: 'deny', level: 'ask' })).toBe('custom');
+  });
+});

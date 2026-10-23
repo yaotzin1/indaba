@@ -87,6 +87,25 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 - "Execute a spec" and "Review a spec" templates (C-17) are workflows that take the spec as an input; they arrive with
   `workflow-inputs`.
 
+### 3e. Answering from the page (`specs/web-app-answers`, name to confirm)
+
+> Planned 2026-10-23 at the maintainer's request, from the session that specifies `question-contract`, `review-gate` and
+> `agent-permissions`. Not specified yet; it waits for `specs/agent-conversation` (branch `docs/spec-agent-conversation`)
+> to land on `main`, and its spec is written against that contract, which this plan does not change.
+
+- **The gap.** A run started from the page has no terminal (`web-app-actions` AC-12), so a step that asks a person (an
+  agent's question, a review gate, `arbiter: human`) ends the run **escalated**: a person without a terminal cannot
+  answer at all.
+- **The slice.** The run view shows a pending question or gate where it happens, with the agent's words as text, and
+  sends the person's answer through the conversation contract; the run waits instead of escalating when the page can
+  answer. Every answer is an action of AC-13 of the parent (confirmed, recorded, never automatic).
+- **What it needs.** The channel and the shapes of `specs/agent-conversation`; the question and gate shapes of
+  `question-contract` and `review-gate`. Nothing in 3a to 3d assumes them.
+- **What 3b already leaves open for these specs.** The form never writes a permission level unless the person picks one
+  (no default), and a value outside its three presets (a future `ask`, a new key) shows as Custom and is kept as it is.
+  A key the format gains (an optional `review` on a step or in `defaults`) is shown by the form when the schema has it,
+  and until then as a key edited in the source view; nothing drops or rewrites it.
+
 ### Later, each with a spec of its own (not in step 3)
 
 - **Skills** (C-18) and **an assistant in the editor over ACP** (C-19): both marked "not decided" in the parent spec. They
