@@ -135,3 +135,54 @@ describe('diagnose: where each problem is (AC-05)', () => {
     expect(pathText(['steps', 0, 'on_failure', 'target'])).toBe('$.steps[0].on_failure.target');
   });
 });
+
+describe('placing a sentence: the cases a real file rarely gives', () => {
+  const placed = async (text: string, message: string) => {
+    const { place, LineCounter } = await import('../src/parser/diagnose.js');
+    const { parseDocument } = await import('yaml');
+    const lines = new LineCounter();
+    const doc = parseDocument(text, { lineCounter: lines });
+    return place(doc, lines, message, 'error');
+  };
+
+  it('places a key with an empty value just after its colon, and one with no value at the key', async () => {
+    const empty = await placed('name: x\nsteps:\n  - id: a\n    role:\n', '$.steps[0].role is empty');
+    expect(empty).toMatchObject({ path: '$.steps[0].role', line: 4, column: 10 });
+    const explicit = await placed('name: x\n? role\n', '$.role is empty');
+    expect(explicit).toMatchObject({ path: '$.role', line: 2, column: 3 });
+  });
+
+  it('places a sentence about a step that is not in the text at the list of steps', async () => {
+    expect(await placed('steps:\n  - id: a\n', 'step "ghost" needs a role or a runner')).toMatchObject({
+      path: '$.steps',
+      line: 2,
+    });
+    expect(await placed('name: x\nsteps: 3\n', 'step "a" needs a role or a runner')).toMatchObject({
+      path: '$.steps',
+    });
+  });
+
+  it('places a field a step does not have at the step', async () => {
+    expect(await placed('steps:\n  - id: a\n', 'step "a" on_failure.target "z" is not a step')).toMatchObject(
+      {
+        path: '$.steps[0]',
+        line: 2,
+        column: 5,
+      },
+    );
+  });
+
+  it('places a sentence it cannot read, or a top-level key that is absent, at the root', async () => {
+    expect(await placed('name: x\n', 'something new went wrong')).toMatchObject({
+      path: '$',
+      line: 1,
+      column: 1,
+    });
+    expect(await placed('name: x\n', 'roles must be a mapping')).toMatchObject({ path: '$', line: 1 });
+  });
+
+  it('gives no position when the document has no root', async () => {
+    const problem = await placed('', 'the document root must be a mapping');
+    expect(problem).toEqual({ path: '$', message: 'the document root must be a mapping', severity: 'error' });
+  });
+});

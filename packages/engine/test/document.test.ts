@@ -365,3 +365,53 @@ describe('every example, one field changed', () => {
     },
   );
 });
+
+describe('the edits a first round of tests left out', () => {
+  it('adds a key to an empty `{}` by splicing, so the rest stays byte for byte', () => {
+    const d = WorkflowDocument.parse(`${TEXT}defaults: {}   # none yet\n`);
+    d.set(['defaults', 'mcp_policy'], 'optional');
+    expect(d.toString()).toBe(`${TEXT}defaults:\n  mcp_policy: optional   # none yet\n`);
+    const e = doc();
+    e.remove(['roles', 'coder', 'runner']);
+    e.set(['roles', 'coder', 'runner'], 'shell');
+    expect(e.toString()).toBe(TEXT.replace('    runner: acp   # an agent\n', '    runner: shell\n'));
+  });
+
+  it('moves a step in a flow list through the document model, and reads back right', () => {
+    const d = WorkflowDocument.parse('name: x\nsteps: [{id: a}, {id: b}, {id: c}]\n');
+    d.moveStep('c');
+    expect((d.get(['steps']) as { id: string }[]).map((s) => s.id)).toEqual(['c', 'a', 'b']);
+    d.moveStep('c', { after: 'b' });
+    expect((d.get(['steps']) as { id: string }[]).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+  });
+
+  it('sets a list item to a collection, and edits inside a flow map, through the model', () => {
+    const d = doc();
+    d.set(['steps', 0, 'commands', 0], ['a', 'b']);
+    expect(d.get(['steps', 0, 'commands'])).toEqual([['a', 'b']]);
+    expect(d.toString()).toContain('# The first step.');
+    const e = WorkflowDocument.parse('name: x\ndefaults: {mcp_policy: required}\n');
+    e.set(['defaults', 'mcp_policy'], 'optional');
+    expect(e.toString()).toBe('name: x\ndefaults: {mcp_policy: optional}\n');
+    e.set(['defaults', 'other'], 1);
+    expect(e.get(['defaults'])).toEqual({ mcp_policy: 'optional', other: 1 });
+  });
+
+  it('inserts into a flow list that has items through the model', () => {
+    const d = WorkflowDocument.parse('name: x\nsteps: [{id: a}]\n');
+    d.addStep({ id: 'b' }, { after: 'a' });
+    d.set(['steps', 2], { id: 'c' });
+    expect((d.get(['steps']) as { id: string }[]).map((s) => s.id)).toEqual(['a', 'b', 'c']);
+    d.removeStep('b');
+    expect((d.get(['steps']) as { id: string }[]).map((s) => s.id)).toEqual(['a', 'c']);
+  });
+
+  it('moves a step that is already where it is asked to go without changing a byte', () => {
+    const d = doc();
+    d.moveStep('build');
+    expect(d.toString()).toBe(TEXT);
+    const one = WorkflowDocument.parse('name: x\nsteps:\n  - id: a\n');
+    one.moveStep('a');
+    expect(one.toString()).toBe('name: x\nsteps:\n  - id: a\n');
+  });
+});
