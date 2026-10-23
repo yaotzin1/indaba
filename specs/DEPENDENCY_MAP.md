@@ -105,8 +105,10 @@ gantt
     workflow-inputs        :active, 2026-10-11, 2026-10-16
     workspace-without-git  :active, 2026-10-11, 2026-10-16
     workflow-registry      :active, 2026-10-12, 2026-10-16
+    question-contract      :active, 2026-10-23, 2026-10-24
     single-step-run        :active, 2026-10-12, 2026-10-16
     agent-sandbox          :active, 2026-10-12, 2026-10-16
+    agent-conversation     :active, 2026-10-22, 2026-10-23
 ```
 
 `desktop-app` was dropped and is left out of the chart.
@@ -147,7 +149,9 @@ gantt
 | `workflow-editor` | Implemented: part 1 (`diagnose`, #61), part 2 (`WorkflowDocument`, the schema, `indaba schema`, #62), part 3 (descriptions, `indaba catalog`, #63). Voters and prompts in the catalog wait for their specs | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
