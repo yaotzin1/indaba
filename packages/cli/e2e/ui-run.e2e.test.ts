@@ -165,7 +165,9 @@ describe('indaba ui: Run and Stop', () => {
         async () => (await statusOf(client, quick)).status === 'completed',
         'the quick run to complete',
       );
-      expect((await statusOf(client, quick)).canStop).toBe(false);
+      // The trace says "completed" a moment before the run's process exits, and Stop is possible until it has: wait
+      // for the exit, as for the stopped run below (on Windows the gap is long enough to fail an immediate check).
+      await waitFor(async () => !(await statusOf(client, quick)).canStop, 'the quick run to exit');
       // Confirmed once: the same content starts without asking again.
       expect((await client.post('/api/v1/runs', { workflowId: idOf('quick.workflow.ai.yml') })).status).toBe(
         202,
