@@ -1,4 +1,6 @@
 import type {
+  EditorResponse,
+  EditWorkflowRequest,
   Logger,
   LoggingSettings,
   LoggingSettingsResponse,
@@ -11,6 +13,7 @@ import type {
   StartStatusResponse,
   StopRunResponse,
   WorkflowCheckResponse,
+  WorkflowEditResponse,
   WorkflowListResponse,
   WorkflowSourceResponse,
 } from '@indaba/core';
@@ -29,6 +32,14 @@ export interface UiServerOptions {
   readonly runs?: UiRunControl;
   /** Reading, checking and saving a workflow's text from the page (specs/web-app-editing-core). */
   readonly workflowStore?: UiWorkflowStore;
+  /** Editing a draft as a form, and what the form is built from (specs/web-app-editing-forms). */
+  readonly workflowEditor?: UiWorkflowEditor;
+}
+
+/** The shape of `WorkflowEditor` of `@indaba/server`. A refusal is an `Error` named `WorkflowEditorError` with a `code`. */
+export interface UiWorkflowEditor {
+  info(): EditorResponse;
+  edit(request: EditWorkflowRequest): WorkflowEditResponse;
 }
 
 /** The shape of `WorkflowStore` of `@indaba/server`. A refusal is an `Error` named `WorkflowStoreError` with a `code`. */
