@@ -21,6 +21,7 @@ import {
 import {
   catalogOf,
   effectiveGuards,
+  FileWorkflowRegistry,
   PROJECT_CONFIG_FILE,
   planForStep,
   readProjectConfig,
@@ -75,6 +76,14 @@ import { settingsCommand } from './settings.js';
 import { loadTui, type TuiLoad } from './tui-loader.js';
 import { ui } from './ui.js';
 import { watch } from './watch.js';
+import {
+  parseWorkflows,
+  WORKFLOW_ROOTS_FILE,
+  WORKFLOWS_USAGE,
+  type WorkflowsOptions,
+  WorkflowsUsageError,
+  workflowsCommand,
+} from './workflows.js';
 
 export interface Io {
   readonly stdout: { write(text: string): void };
@@ -125,6 +134,7 @@ Commands:
   ui                Open the web view of the runs on this machine
   schema            Print the JSON Schema of the workflow file
   catalog           List the runners, guard types and arbiters this installation offers
+  workflows         List, scan, annotate and copy the workflows of your folders
 
 Options:
   -h, --help        Show help
@@ -138,6 +148,7 @@ ${LOG_OPTIONS_USAGE}`;
 
 const COMMAND_USAGE: Readonly<Record<string, string>> = {
   catalog: CATALOG_USAGE,
+  workflows: WORKFLOWS_USAGE,
   schema: `Usage: indaba schema
 
 Print the JSON Schema (draft 2020-12) of the workflow file, for an editor or a form. It states the structure only:
@@ -421,6 +432,61 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
       io.stdout.write(`${JSON.stringify(workflowJsonSchema(), null, 2)}\n`);
       logger.info('cli.schema', 'the schema was printed');
       return EXIT_OK;
+    });
+  }
+  if (command === 'workflows') {
+    let options: WorkflowsOptions;
+    try {
+      options = parseWorkflows(args);
+    } catch (error) {
+      if (error instanceof WorkflowsUsageError) {
+        return usageError(io, error.message, 'workflows');
+      }
+      throw error;
+    }
+    if (options.help) {
+      io.stdout.write(commandUsage('workflows'));
+      return EXIT_OK;
+    }
+    return logged(command, io.cwd, logOptions, io, async (logger) => {
+      try {
+        const plugins = await loadPlugins(options.plugins, io.cwd);
+        const configFolder = userConfigFolder(
+          process.platform,
+          { appData: io.env.APPDATA, xdgConfigHome: io.env.XDG_CONFIG_HOME },
+          homedir(),
+        );
+        return await workflowsCommand(options, io, {
+          cwd: io.cwd,
+          rootsFile: join(configFolder, WORKFLOW_ROOTS_FILE),
+          pid: io.pid ?? process.pid,
+          logger,
+          registry: async (roots) => {
+            const bundle = await createEngine({
+              projectDir: io.cwd,
+              env: io.env,
+              plugins,
+              logger,
+              logSinks: logger,
+              humanAdjudicator: LISTED_HUMAN_ARBITER,
+            });
+            return (
+              bundle.workflowRegistry ??
+              new FileWorkflowRegistry({
+                roots,
+                parse: (source) => bundle.parser.parse(source),
+                clock: io.clock ?? (() => new Date()),
+                ids: () => randomBytes(8).toString('hex'),
+                logger,
+              })
+            );
+          },
+        });
+      } catch (error) {
+        const message = redact(error instanceof Error ? error.message : String(error), io.env);
+        (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+        return EXIT_FAILURE;
+      }
     });
   }
   if (command === 'catalog') {

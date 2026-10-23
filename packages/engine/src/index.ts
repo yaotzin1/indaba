@@ -85,6 +85,21 @@ export { ErrorBag } from './parser/error-bag.js';
 export { Interpolator } from './parser/interpolator.js';
 export { parseWorkflow, WorkflowParser } from './parser/parser.js';
 export { WorkflowValidator } from './parser/validator.js';
+export type { FileWorkflowRegistryOptions } from './registry/file-registry.js';
+export { FileWorkflowRegistry } from './registry/file-registry.js';
+export type { WorkflowFile, WorkflowFileScan } from './registry/files.js';
+export {
+  DEFAULT_WORKFLOW,
+  MAX_WORKFLOW_BYTES,
+  readWorkflowFile,
+  SCAN_MAX_DEPTH,
+  SCAN_MAX_DIRECTORIES,
+  SCAN_MAX_FILES,
+  scanWorkflowFiles,
+  tooLarge,
+  UnreadableWorkflow,
+} from './registry/files.js';
+export { REGISTRY_INDEX } from './registry/index-file.js';
 export * from './trace/index.js';
 export type { GitOptions, GitRunOptions } from './workspace/git.js';
 export { Git } from './workspace/git.js';

@@ -52,8 +52,9 @@ and are replaced by what the first pull request actually took.
 
 **Phase 6, the web view** (`specs/workflow-registry`, `specs/single-step-run`, `specs/web-app`, `specs/workflow-editor`)
 
-1. `WorkflowRegistry` contract and `FileWorkflowRegistry` with `indaba workflows list | scan | add | remove | copy`.
-   Usable from the terminal before any page exists.
+1. `WorkflowRegistry` contract and `FileWorkflowRegistry` with `indaba workflows list | scan | add | annotate | remove |
+   copy`. Usable from the terminal before any page exists. **Slice 1 built** (`specs/workflow-registry`); slice 2 moves
+   `indaba ui` onto it.
 2. Single-step run: `StepState.Skipped`, `RunOptions.only`, the input resolution and `--plan`, then the CLI options.
 3. `@indaba/server`: token, header checks, `GET` endpoints for workflows, runs, board and health, the event stream over the
    trace files. No page yet; tested over HTTP.

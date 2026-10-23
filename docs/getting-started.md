@@ -29,6 +29,13 @@ npx indaba run workflow.ai.yml        # execute it
 `npx indaba catalog` lists the runners, guard types and arbiters this installation offers, each in one line
 (`--plugin <spec>` to include a plugin's, `--json` for a program).
 
+`npx indaba workflows list` lists the workflow files of this folder and of the folders you add
+(`indaba workflows add <folder>`), each valid or with its first problem, and its last run. The list is kept in
+`.indaba/registry/` of each folder, on this machine only (it ignores itself in git); the files stay the workflows.
+`annotate <id>` gives an entry your name, project and tags or hides it, `copy <id> --to <folder>` copies a file and
+says what to review in it, and `remove <id>` takes a missing file out of the list; nothing deletes or rewrites a file.
+`indaba workflows --help` has the rest.
+
 The file argument is optional and defaults to `.indaba/workflow.ai.yml`. On Windows use PowerShell or
 Command Prompt the same way; paths may use either slash. On macOS and Linux any shell works.
 

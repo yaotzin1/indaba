@@ -76,6 +76,17 @@ export {
   Tracer,
 } from './observability/index.js';
 export type {
+  RegistryAnnotation,
+  RegistryCopy,
+  RegistryEntry,
+  RegistryErrorCode,
+  RegistryOrigin,
+  RegistryScanReport,
+  RegistryValidation,
+  WorkflowRegistry,
+} from './registry/index.js';
+export { RegistryError } from './registry/index.js';
+export type {
   Runner,
   RunnerChainOwner,
   RunRequest,

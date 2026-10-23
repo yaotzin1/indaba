@@ -1,12 +1,16 @@
 # Specification: The workflow registry
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 (the decisions in section 8 are recommendations the maintainer confirms)
-> **Semver impact**: minor (new contract, new commands, one new file under `.indaba/`; below 1.0)
+> **Status**: Clarified 2026-10-23 (section 8, decided by the maintainer); slice 1 in progress on
+> `feat/workflow-registry`
+> **Stage entry**: 1
+> **Semver impact**: minor (new contract, an optional `PluginHost` member, new commands, one new file under `.indaba/`;
+> below 1.0)
 > **Builds on**: [`docs/workflow-format.md`](../../docs/workflow-format.md) (the file is the workflow),
-> [`specs/web-app`](../web-app/spec.md) and [`specs/tui`](../tui/spec.md) (the consumers).
+> [`specs/web-app-actions`](../web-app-actions/spec.md) (the scan it replaces), [`specs/web-app`](../web-app/spec.md)
+> and [`specs/tui`](../tui/spec.md) (the consumers).
 > **Decided by the maintainer**: the registry is wanted; scanning stays, because workflows are also written outside
-> any editor; CouchDB and PouchDB were considered and are not the default (C-01).
+> any editor; CouchDB and PouchDB were considered and are not the default (C-01). On 2026-10-23: a JSON index per root,
+> annotations kept on the machine, step 2's discovery rules, and two slices (C-01 to C-03, C-07).
 
 ---
 
@@ -34,102 +38,143 @@ between machines and review them in pull requests. A registry that holds the rea
 
 ## 3. Acceptance criteria
 
-- [ ] AC-01. The registry is a contract, `WorkflowRegistry`, in `@indaba/core` (pure, no I/O). It lists, reads, adds,
-  removes and annotates entries and reports changes. Nothing else in the codebase reads the store directly.
-- [ ] AC-02. An entry holds: a stable id, the file's path relative to a **root**, the root, a display name, the project
-  it belongs to, tags, `hidden`, the SHA-256 of the file when last read, the validation state (valid, or the message), the
-  time of the last scan, `origin` (found by scan, added by hand, created by the editor, copied from another entry) and a
-  reference to the last run (`traceId`, result, cost). The workflow's definition is **not** stored.
-- [ ] AC-03. The built-in store is a JSON file at `.indaba/registry/index.json` under each root, written atomically
-  (temporary file, then rename) and readable if truncated by returning to an empty index and rescanning. It is a cache of
-  the folder plus the person's annotations; deleting it loses the annotations and nothing else.
-- [ ] AC-04. A **root** is a folder the person registered (or the folder `indaba` was started in). A scan walks a root
-  for `*.workflow.ai.yml`, `*.workflow.yml` and `workflow.ai.yml`, to a depth of 6, skipping `node_modules`, `.git`,
-  `.indaba` and `dist`, never following a symbolic link or junction, and stopping at 5000 files visited per root. These
-  are design choices, not measurements.
-- [ ] AC-05. A scan parses each candidate with the same parser a run uses and records the validation state. A file that
-  does not parse is listed with its message, not dropped and not fatal. A file that is not a workflow is skipped (it must
-  be YAML with a `steps` mapping and a `version`).
-- [ ] AC-06. A scan is incremental: a file whose size and modified time are unchanged is not re-read, and one whose
-  content hash is unchanged keeps its validation state. The hash, not the time, decides whether an annotation still
-  applies after an edit.
-- [ ] AC-07. Identity survives a rename within a root when the content hash matches and the old path is gone; otherwise
-  the old entry becomes `missing` and a new one appears. A `missing` entry is never silently deleted; the person removes it.
-- [ ] AC-08. A scan runs on `indaba ui` start, on request, and (in the page) on window focus at most once every 30
-  seconds. It is cancellable and reports progress. It never runs a workflow and never executes anything from a file.
-- [ ] AC-09. `indaba workflows list [--json]`, `scan`, `add <folder>`, `remove <id>` and `copy <id> --to <folder>
-  [--name <n>]` exist. `copy` writes a new file, refuses to overwrite one, records `origin: copied` with the source id,
-  and lists what a person will usually change (paths, names) without rewriting the file's content.
-- [ ] AC-10. Removing an entry never deletes the file. Deleting a file is a separate, confirmed action that is not in
-  this spec's commands.
-- [ ] AC-11. A path stored or read is confined: it must resolve inside its root and not through a link. A path from outside
-  Indaba (the page, a request) is an id to look up.
-- [ ] AC-12. The last-run reference is filled from the trace files by the same reader as `watch`, so an entry shows a
-  result without a second record of it. A missing trace shows "no run yet", not an error.
-- [ ] AC-13. A store registered through `PluginHost.registerRegistry` replaces the built-in one for the whole process,
-  with the same contract and no access the built-in lacks. A store that throws fails the call, and the CLI says so; it
-  does not fall back silently to the file store.
+Slice 1 (this pull request): the contract, the file store and `indaba workflows`. Slice 2: `indaba ui` and the page
+use the registry (AC-14, AC-15).
+
+**The contract**
+
+- [x] AC-01. The registry is a contract, `WorkflowRegistry`, in `@indaba/core` (pure, no I/O). It lists, reads, scans,
+  adds, annotates, removes and copies entries. Nothing else reads the store's file directly.
+- [x] AC-02. An entry holds: a stable id; the root and the file's path relative to it; a display name (the person's,
+  else the workflow's `name`, else the file's name); a project (the person's, else the root folder's name); tags;
+  `hidden`; the SHA-256 of the file when last read; the validation state (`valid`, `invalid` with the first message, or
+  `missing` with the reason); when it was last read; `origin` (`scanned`, `added`, `created`, `copied`) and, for a copy,
+  the id it was copied from; and the last run (AC-12). The workflow's definition is **not** stored.
+
+**The file store**
+
+- [x] AC-03. The built-in store keeps one JSON index per root at `.indaba/registry/index.json`, written whole to a
+  temporary file and renamed over the index. It is a cache of the folder plus the person's annotations; deleting it
+  loses the annotations and nothing else. It stays on the machine (C-02): the store writes `.indaba/registry/.gitignore`
+  holding `*`, so a project that does not ignore `.indaba/` still never commits it.
+- [x] AC-04. A **root** is the folder the command runs in, or one the person added (`indaba workflows add <folder>`),
+  kept in a per-user list in the user's configuration folder. A scan lists what step 2's scan lists (C-03):
+  `*.workflow.ai.yml` and `*.workflow.ai.yaml` up to 4 folders down, and the default `.indaba/workflow.ai.yml`; never
+  `node_modules`, `.git` or anything else under `.indaba/`; never through a link; at most 200 files and 2000 folders
+  per scan. One function does this for the page and the registry. The limits are starting values, not measurements.
+- [x] AC-05. A scan parses each file with the parser a run uses and records the validation state. A file that does not
+  parse is listed with its message, never dropped and never fatal. A file over 1 MiB is listed invalid and not read.
+- [x] AC-06. A scan is incremental: a file whose size and modified time are unchanged is not read again. Whether an
+  annotation still applies is decided by the entry's id, which a content change does not alter.
+- [x] AC-07. Identity survives a rename or a move within a root when the content hash matches an entry whose file is
+  gone; otherwise the old entry becomes `missing` and a new one appears. A `missing` entry is never deleted by a scan;
+  the person removes it.
+- [x] AC-08. A scan runs when a `workflows` command lists, and on request (`indaba workflows scan`). It can be cancelled
+  through its `AbortSignal`. It never runs a workflow and never executes anything from a file.
+
+**The command line**
+
+- [x] AC-09. `indaba workflows list [--json] [--all]`, `scan`, `add <folder-or-file>`, `annotate <id> [--name <n>]
+  [--project <p>] [--tag <t>]... [--no-tags] [--hide | --show] [--clear-name] [--clear-project]`, `remove <id>` and `copy <id> --to <folder>
+  [--name <n>]`. An id may be given by its first characters when they name one entry. Each takes `--plugin <spec>`
+  (repeatable), so a store a plugin registers is the one used (AC-13).
+- [x] AC-10. `copy` writes `<folder>/<name>.workflow.ai.yml` (the name defaulting to the source's file name) with the
+  source's bytes, refusing to overwrite (`wx`) and refusing a folder outside every root. It records `origin: copied`
+  with the source id, and prints what a person will usually change (the workflow's `name`, and each path, glob and
+  command the file holds) without rewriting the content (C-05).
+- [x] AC-11. `remove` takes an entry out of the list and never deletes the file. An entry whose file a scan would find
+  again is not removed: the command says to hide it instead, since it would come back. A path from outside Indaba is an
+  id to look up; every path stored or read resolves inside its root and not through a link.
+- [x] AC-12. The last run comes from the root's trace files, read by the reader `watch` uses. A trace records the
+  workflow's `name`, not its file (C-06), so a run is an entry's when the entry is the only one of its root with that
+  name; two entries with one name show no last run rather than a guess. A root with no traces shows "no run yet".
+- [x] AC-13. A store registered through `PluginHost.registerRegistry` replaces the built-in one for that command, with
+  the same contract and no access the built-in lacks. A store that throws fails the command, which says so; it does not
+  fall back to the file store.
+
+**Slice 2**
+
+- [ ] AC-14. `indaba ui` scans on start, and the page's list of workflows (the Run a workflow panel, Edit) is the
+  registry's, by its ids; step 2's id scheme goes. The page scans again on window focus at most once every 30 seconds.
+- [ ] AC-15. The page shows each entry's state, last run and cost, its tags, and hides hidden ones unless asked.
 
 ## 4. Non-goals
 
 - **No database in the default install.** No server, no container, no native module (C-01).
 - **No second copy of the workflow.** The file is the definition.
 - **No version history of workflows.** Git does that; an entry holds only a hash.
-- **No sync between machines.** A store plugin can offer it.
+- **No sync between machines, and no sharing of annotations through git** (C-02). A store plugin can offer either.
 - **No access control.** A registry lists what a person can already read; permissions belong to the host process.
 - **No running of workflows.** The registry points at files; the engine runs them.
+- **No deleting of files.** A separate, confirmed action, not in this spec.
+- **No connected workflows** (workflows that depend on one another): a paid feature with its own spec, which uses this
+  contract's ids (`plan-step-3.md`).
 
 ## 5. Behaviour on failure
 
 | Situation | Expected behaviour |
 | :--- | :--- |
-| the index is corrupt or unreadable | treat as empty, rescan, keep a `.bak` of the unreadable file, say so once |
-| a root is gone or unreadable | its entries are `missing` with the reason; other roots are unaffected |
+| the index is corrupt or unreadable | kept as `index.json.bak`, treated as empty, rescanned; the scan report says so once |
+| a root is gone or unreadable | it lists nothing, since its index lived in it; the command names the root that cannot be read; other roots are unaffected |
 | a file is half-written by an editor during a scan | the parse error is recorded as its state; the next scan corrects it |
-| two processes write the index at once | writes are atomic and whole-file; the later one wins, and a scan restores anything it lost |
-| a scan exceeds the file limit | it stops, lists what it found, and says which root to narrow |
-| a copy target exists | refuse; nothing is written |
-| a store plugin throws | the call fails with its message; no silent fallback |
+| two processes write the index at once | each write is whole and atomic; the later one wins, and a scan restores entries it lost (annotations made in the lost write are lost) |
+| a scan reaches a limit | it stops, keeps what it found, marks nothing missing that it did not look for, and reports `truncated` |
+| a copy target exists, or is outside every root | refused; nothing is written |
+| an id matches no entry, or several | the command says so and lists the candidates' ids |
+| a store plugin throws | the command fails with its message (redacted); no fallback |
 
 ## 6. Security and data handling
 
 File contents are untrusted: they are parsed with the safe parser and never evaluated. Names, tags and messages that
-come from a file are shown as text. Paths are confined to their root and never followed through a link, so a scan cannot
-be steered out of its root or into a device. The index holds no secrets and no file contents; error messages name a path
-relative to the root and never an environment value. A copy writes through the same confined-path code as artifacts.
+come from a file are shown as text, cleaned of control sequences. Paths are confined to their root and never followed
+through a link, so a scan cannot be steered out of its root or into a device. The index holds no secrets and no file
+contents, only paths, names, hashes and the first line of a parse error; error messages name a path relative to the
+root and never an environment value. A copy writes with `wx` inside a root.
 
 ## 7. Where it lives
 
-- `@indaba/core`: `WorkflowRegistry`, `RegistryEntry`, `RegistryScanReport`, `PluginHost.registerRegistry`.
-- `@indaba/engine`: `FileWorkflowRegistry` (the scan, the parser call, the index file, the trace reader for AC-12).
-- `indaba` (the CLI): the `workflows` command group and the composition root's registration.
-- Contract: `WorkflowRegistry` of `api-surface.md`.
+- `@indaba/core`: `WorkflowRegistry` and its value types, `PluginHost.registerRegistry` (optional).
+- `@indaba/engine`: `FileWorkflowRegistry` (the index, the scan, the parser call, the last runs), and the scan of
+  workflow files moved from the command line so both use one.
+- `indaba` (the CLI): the `workflows` command group, the per-user list of roots, the plugin host's registration.
 
 ## 8. Clarifications
 
-All recommendations; the maintainer confirms.
-
-- **C-01. A file index, not CouchDB.** A registry of a few hundred small records does not need a database, and the
-  repository's promise is "no database, no server, no container". CouchDB is a separate server process; PouchDB's
-  value is replication, which is only worth its complexity once two machines share a list. The contract (AC-01, AC-13)
-  makes that a plugin the day it is wanted, and the hosted service has its own store (`docs/hosted-service.md`).
-  Alternatives rejected: SQLite through `node:sqlite` (still experimental in Node 22, and a native dependency otherwise),
-  and storing definitions in the database (breaks editing by hand).
-- **C-02. Roots, not one global list.** A root per project keeps the index next to what it describes, so copying a
-  project copies its list, and no per-user database is needed. A per-user list of roots is a small file in the user's
-  configuration folder.
-- **C-03. Discovery by name and shape.** Names alone miss files called `review.yml`; shape alone parses every YAML file
-  in a repository. Both together keep the scan cheap and the list honest. A person can add a file by hand by path.
-- **C-04. Annotations are kept by id and hash.** A tag or a hidden flag survives an edit but not a rename that changes
-  content, which is rare and visible.
+- **C-01. A file index, not CouchDB.** Decided by the maintainer, 2026-10-23. A registry of a few hundred small records
+  does not need a database, and the repository's promise is "no database, no server, no container". CouchDB is a
+  separate server process; PouchDB's value is replication, which is only worth its complexity once two machines share a
+  list. The contract (AC-01, AC-13) makes that a plugin the day it is wanted. Rejected: SQLite through `node:sqlite`
+  (experimental in Node 22), and storing definitions in a database (breaks editing by hand).
+- **C-02. One index per root, on the machine.** Decided by the maintainer, 2026-10-23. The index next to its project, in
+  `.indaba/registry/`, holds the cache and the annotations together; nothing is committed or merged. The draft said
+  copying a project copies its list; that holds for a copied folder, not for git. Sharing annotations with a team is a
+  store plugin's job.
+- **C-03. Discovery is step 2's.** Decided by the maintainer, 2026-10-23: the registry lists exactly what the page lists
+  today, including the project default `.indaba/workflow.ai.yml` the draft would have skipped. The draft's
+  `*.workflow.yml` and shape check are dropped; a file with another name is added by path (`add <file>`, origin `added`).
+- **C-04. Annotations are kept by id.** A tag or a hidden flag survives an edit; a rename keeps the id when the content
+  is unchanged (AC-07).
 - **C-05. Copy does not interpret.** Workflows differ across projects in prompts, paths and models; guessing which to
-  change is worse than listing the places a person will look at. The editor (`specs/workflow-editor`) offers the
-  guided version.
+  change is worse than listing the places a person will look at. The form of `indaba ui` is the guided way.
+- **C-06. A last run is found by the workflow's name.** The trace names the workflow, not its file, and recording the
+  file would be a new span attribute (a change of its own). Matching by name within a root is right whenever the name is
+  unique there, and when it is not, the entry says nothing rather than something wrong.
+- **C-07. Two slices.** Decided by the maintainer, 2026-10-23: the contract, the store and the commands first; `indaba ui`
+  and the page in the next pull request.
+- **C-08. Remove is for what a scan would not bring back.** A missing entry, or one added by path whose file a scan does
+  not match. Removing a scanned file would last until the next scan; hiding is what the person wants, and the command
+  says so.
+- **C-09. `registerRegistry` is optional on `PluginHost`,** as `registerLogSink` is, so an implementer of the interface
+  is not broken; the draft accepted that break.
+- **C-11. A root that is gone.** Its index was inside it, so there is nothing left to show as missing; the draft's
+  "entries missing with the reason" needs a store outside the root. The command line skips a listed root that is not a
+  folder and says so (stage 6 found it, 2026-10-23).
+- **C-10. Ids.** Sixteen random hexadecimal characters, made once when an entry appears and kept in the index; the
+  command line generates them, the store takes a generator. Step 2's ids (a hash of the root's position and the path)
+  change when the order of roots changes; slice 2 moves the page to these.
 
 ## Artifacts not written
 
-- `plan.md`: the plan waits for the clarifications to be confirmed.
-- `tasks.md`: nothing to schedule until the plan exists.
 - `research.md`: the store alternatives are named in C-01; no measurement exists to compare.
-- `data-model.md`: the entry is defined in `api-surface.md` and the index is its list.
+- `data-model.md`: the entry is defined in `api-surface.md`, and the index file is described there.
 - `events.md`: the registry emits no event and adds no span.

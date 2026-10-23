@@ -8,6 +8,7 @@ import type {
   PluginHost,
   Runner,
   SimpleEventDispatcher,
+  WorkflowRegistry,
 } from '@indaba/core';
 import type { GuardRegistry } from '@indaba/engine';
 import type { RunnerRegistry } from '@indaba/runners';
@@ -17,6 +18,9 @@ import type { RunnerRegistry } from '@indaba/runners';
  * so an extension has no less access than a built-in and no more.
  */
 export class RegistryPluginHost implements PluginHost {
+  /** The workflow registry a plugin registered, the last one (specs/workflow-registry, AC-13). */
+  private workflowRegistry: WorkflowRegistry | undefined;
+
   constructor(
     private readonly runners: RunnerRegistry,
     private readonly guards: GuardRegistry,
@@ -33,6 +37,15 @@ export class RegistryPluginHost implements PluginHost {
       return;
     }
     this.sinks.addSink(sink);
+  }
+
+  registerRegistry(registry: WorkflowRegistry): void {
+    this.workflowRegistry = registry;
+  }
+
+  /** The registry a plugin registered, or undefined for the built-in one. */
+  registeredRegistry(): WorkflowRegistry | undefined {
+    return this.workflowRegistry;
   }
 
   registerRunner(runner: Runner): void {
