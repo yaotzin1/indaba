@@ -134,9 +134,11 @@ export interface ServerStreamEvent {
 /** One problem of a workflow text, as `indaba validate` words it (contract 1.2). */
 export interface WorkflowProblem {
   readonly message: string;
-  /** 1-based, when the parser gives a position (YAML syntax); absent otherwise. */
+  /** 1-based, where the problem is placed in the text; absent when not even its root could be placed. */
   readonly line?: number;
   readonly column?: number;
+  /** The place the sentence is about, as the parser writes it (`$.steps[0].role`); added in contract 1.3. */
+  readonly path?: string;
 }
 
 export interface WorkflowSourceResponse {
@@ -168,4 +170,79 @@ export interface CheckWorkflowRequest {
 
 export interface WorkflowCheckResponse {
   readonly problems: readonly WorkflowProblem[];
+}
+
+/** A value as JSON carries it (contract 1.3, specs/web-app-editing-forms). */
+export type JsonValue = null | boolean | number | string | readonly JsonValue[] | JsonObject;
+export interface JsonObject {
+  readonly [key: string]: JsonValue;
+}
+
+/** Keys and indexes from the root of a workflow file: `['steps', 0, 'role']`. */
+export type WorkflowPath = readonly (string | number)[];
+
+/** One change of a workflow text, as `WorkflowDocument` of `@indaba/engine` makes it. */
+export type WorkflowEdit =
+  | { readonly op: 'set'; readonly path: WorkflowPath; readonly value: JsonValue }
+  | { readonly op: 'remove'; readonly path: WorkflowPath }
+  | { readonly op: 'addStep'; readonly step: JsonObject; readonly after?: string }
+  | { readonly op: 'removeStep'; readonly id: string }
+  | { readonly op: 'moveStep'; readonly id: string; readonly after?: string };
+
+export interface EditWorkflowRequest {
+  readonly text: string;
+  /** Applied in order; empty reads the text without changing it. */
+  readonly edits: readonly WorkflowEdit[];
+}
+
+export interface WorkflowEditResponse {
+  /** The text after the edits. */
+  readonly text: string;
+  /** The document as plain JSON: what the form shows. */
+  readonly value: JsonObject;
+  /** The problems of `text`, as the check gives them, each with its `path`. */
+  readonly problems: readonly WorkflowProblem[];
+}
+
+/** `422`: the text cannot be read as a workflow document. */
+export interface WorkflowNotEditable extends ApiError {
+  readonly code: 'not_editable';
+}
+
+/** `422`: one edit was refused; nothing was changed. */
+export interface WorkflowEditRefused extends ApiError {
+  readonly code: 'edit_refused';
+  /** The index in `edits` of the edit refused. */
+  readonly index: number;
+  /** The path the refusal is about, when it is about one. */
+  readonly path?: string;
+}
+
+/** A name and one line, as the catalog lists a runner, a guard type or an arbiter. */
+export interface CatalogEntry {
+  readonly name: string;
+  readonly description: string;
+}
+
+/** What this installation offers a workflow: `Catalog` of `@indaba/engine`, version 1, as the page receives it. */
+export interface EditorCatalog {
+  readonly catalog: 1;
+  readonly runners: readonly CatalogEntry[];
+  readonly guards: readonly CatalogEntry[];
+  readonly arbiters: readonly CatalogEntry[];
+  readonly voters: readonly CatalogEntry[];
+  readonly prompts: readonly CatalogEntry[];
+  readonly values: {
+    readonly decisionTypes: readonly string[];
+    readonly isolation: readonly string[];
+    readonly failureActions: readonly string[];
+    readonly mcpPolicies: readonly string[];
+    readonly promptAdditions: readonly string[];
+  };
+}
+
+export interface EditorResponse {
+  /** `workflowJsonSchema()`: JSON Schema draft 2020-12 of the workflow file. */
+  readonly schema: JsonObject;
+  readonly catalog: EditorCatalog;
 }

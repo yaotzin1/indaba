@@ -70,7 +70,7 @@ describe('reading (AC-01)', () => {
     // Since specs/workflow-editor (AC-15), a structural problem is placed too: here, at the step that has no runner.
     const structural = store.check('version: "1.0"\nname: x\nsteps:\n  - id: a\n');
     expect(structural.problems).toEqual([
-      { message: 'step "a" needs a role or a runner', line: 4, column: 5 },
+      { message: 'step "a" needs a role or a runner', path: '$.steps[0]', line: 4, column: 5 },
     ]);
   });
 

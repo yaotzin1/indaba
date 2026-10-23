@@ -19,6 +19,7 @@ import {
   WorkflowValidationError,
 } from '@indaba/core';
 import {
+  catalogOf,
   effectiveGuards,
   PROJECT_CONFIG_FILE,
   planForStep,
@@ -58,6 +59,7 @@ import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { CONFIRMATION_FILE } from './run-control/confirm.js';
+import { createWorkflowEditor } from './run-control/editor.js';
 import { createRunControl } from './run-control/index.js';
 import { createWorkflowStore } from './run-control/source.js';
 import { runWithDashboard } from './run-tui.js';
@@ -66,6 +68,7 @@ import type {
   UiRunControl,
   UiSettingsBackend,
   UiSettingsState,
+  UiWorkflowEditor,
   UiWorkflowStore,
 } from './server-loader.js';
 import { settingsCommand } from './settings.js';
@@ -366,13 +369,14 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === 'ui') {
     return logged(command, io.cwd, logOptions, io, async (logger) => {
       try {
-        const { runControl, workflowStore } = await uiBackendsFor(io, logger);
+        const { runControl, workflowStore, workflowEditor } = await uiBackendsFor(io, logger);
         return await ui(args, io, {
           logger,
           ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
           loggingSettings: (root) => settingsBackend(root, io, logOptions),
           ...(runControl === undefined ? {} : { runControl }),
           workflowStore,
+          workflowEditor,
         });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
@@ -521,6 +525,7 @@ async function watchCommand(args: readonly string[], io: Io, logger: Logger): Pr
 interface UiBackends {
   readonly runControl?: (roots: readonly string[]) => UiRunControl;
   readonly workflowStore: (roots: readonly string[]) => UiWorkflowStore;
+  readonly workflowEditor: UiWorkflowEditor;
 }
 
 /**
@@ -530,15 +535,28 @@ interface UiBackends {
  * start runs.
  */
 async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
-  const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, logger });
+  // The arbiter `human` is listed, as `indaba catalog` lists it: a workflow can name it, and nothing here rules.
+  const bundle = await createEngine({
+    projectDir: io.cwd,
+    env: io.env,
+    logger,
+    humanAdjudicator: LISTED_HUMAN_ARBITER,
+  });
+  const { parser } = bundle;
   const parse = (source: string) => parser.parse(source);
   const pid = io.pid ?? process.pid;
   const diagnose = (source: string) => parser.diagnose(source);
   const workflowStore = (roots: readonly string[]) =>
     createWorkflowStore({ roots, parse, diagnose, pid, logger });
+  const workflowEditor = createWorkflowEditor({
+    parse,
+    diagnose,
+    schema: workflowJsonSchema(),
+    catalog: catalogOf(bundle),
+  });
   const starter = io.startRun;
   if (starter === undefined) {
-    return { workflowStore };
+    return { workflowStore, workflowEditor };
   }
   const folder = userConfigFolder(
     process.platform,
@@ -548,6 +566,7 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
   const confirmationFile = join(folder, CONFIRMATION_FILE);
   return {
     workflowStore,
+    workflowEditor,
     runControl: (roots) =>
       createRunControl({
         roots,

@@ -234,8 +234,17 @@ Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are t
 Editing a workflow's text ([`specs/web-app-editing-core`](../specs/web-app-editing-core/spec.md)) follows the same
 pattern with `WorkflowStore` (`packages/server/src/workflow-store.ts`) and `packages/cli/src/run-control/source.ts`. A
 save is always against the hash the page read (`baseHash`); the store re-reads the file just before it renames a
-temporary file over it, and a different hash is `changed_on_disk` with the disk's version. The page never builds YAML: it
-edits text, and the forms of step 3b will go through `WorkflowDocument` once `specs/workflow-editor` exists.
+temporary file over it, and a different hash is `changed_on_disk` with the disk's version. The page never builds YAML.
+
+The form ([`specs/web-app-editing-forms`](../specs/web-app-editing-forms/spec.md)) sends every change as an edit of a
+path to `POST /api/v1/workflows/edit`, with the draft's text; `WorkflowEditor` (`packages/server/src/workflow-editor.ts`,
+which also checks the limits of a request) is supplied by `packages/cli/src/run-control/editor.ts`, which applies it with
+`WorkflowDocument` and answers the new text, the document as JSON and its problems with their `path`. It runs on the
+command line because the page takes only types from `@indaba/core`, and the parser imports Node modules. The fields
+come from the schema (`GET /api/v1/editor`, with the catalog): `src/form-model.ts` reads it, with no React, and
+`src/ui/FormView.ts` renders it. Edits are queued in `SourceScreen.ts`, one at a time, and an answer for a draft that
+changed meanwhile is dropped. `test/workflow-schema.json` is the schema the page's tests use; a test in
+`packages/cli/test/main-extra.test.ts` fails when it differs from `indaba schema`, and says how to write it again.
 
 ## Tests
 
@@ -249,6 +258,8 @@ pnpm qa                                          # everything, with coverage
 | :--- | :--- |
 | `test/logic.test.ts` | Formatting, states, the token, the stream parser, the graph model, the address, the theme. No DOM |
 | `test/client.test.ts` | The client against a fake `fetch`: headers, failures, resume with `Last-Event-ID`, back-off, abort |
+| `test/form-model.test.ts` | The fields read from the real schema, the choices, where problems go, the permissions presets, entries and edits, the line of a key. No DOM |
+| `test/form.test.ts` | The form in happy-dom over a fake editor that works on JSON text: the two views, every kind of field, the presets, the steps, problems at their field, the order of edits |
 | `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output, the Run a workflow panel (focus, the confirmation, starting, refusals), Stop, and the source view (check, save, conflict, leaving with unsaved changes) |
 | `test/boot.test.ts` | Starting the page: the token leaves the address and travels as a header |
 | `test/layers.test.ts` | What the page may import, no HTML sink, nothing imports the page, the package stays private |

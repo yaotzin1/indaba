@@ -24,7 +24,10 @@ and saving it, without losing the comments and layout of a file they or a collea
 Slices 1b and 2 are not page work. Starting the forms before the document model exists would mean writing YAML by string
 in the browser, which `workflow-editor` exists to prevent. Slice 3a does not need it: it edits text, checks it with the
 parser that already exists (`parseWorkflow` messages, without line or column) and gets positions later.
-**Order: step 2, then 3a, then `debate-findings` and `workflow-editor`, then `workflow-registry`, then 3b to 3d.**
+**Order: step 2, then 3a, then `debate-findings` and `workflow-editor`, then 3b, then `workflow-registry`, then 3c
+and 3d.** Amended 2026-10-23 (`specs/web-app-editing-forms`, C-09): 3b edits only files the step 2 scan already lists
+and creates none, so it does not wait for the registry; 3d and copy or import do. (`workflow-editor` went ahead of
+`debate-findings`, by the maintainer's choice, 2026-10-22.)
 
 ## The slices
 
@@ -53,6 +56,9 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
   for the forms.
 
 ### 3b. Forms from the schema (`specs/web-app-editing-forms`)
+
+> Implemented on `feat/web-app-editing-forms` (2026-10-23). Edits go to the command line (`POST /api/v1/workflows/edit`), because the page takes only types
+> from `@indaba/core` and the parser imports Node modules (its C-01).
 
 - The step panel and the workflow header render fields from `workflowJsonSchema()` and the catalog (runners, guard types,
   arbiters, voters, prompts, with their descriptions), including `permissions` presets (C-16: read-only, edit only these

@@ -2,6 +2,10 @@ import type {
   ApiError,
   ContractResponse,
   DiscussionView,
+  EditorCatalog,
+  EditorResponse,
+  JsonObject,
+  JsonValue,
   LoggingSettingsResponse,
   RunSnapshot,
   RunSummary,
@@ -9,6 +13,7 @@ import type {
   ServerStreamEvent,
   SinkTestResponse,
   StartStatusResponse,
+  WorkflowEdit,
   WorkflowListResponse,
   WorkflowProblem,
   WorkflowSourceResponse,
@@ -85,6 +90,17 @@ export type SaveSourceAnswer =
   | { readonly kind: 'changed'; readonly current: { readonly text: string; readonly contentHash: string } }
   | { readonly kind: 'refused'; readonly code: string };
 
+/** What an edit of a draft gave: the new text and value, a text the form cannot read, or one edit refused. */
+export type EditAnswer =
+  | {
+      readonly kind: 'edited';
+      readonly text: string;
+      readonly value: JsonObject;
+      readonly problems: readonly WorkflowProblem[];
+    }
+  | { readonly kind: 'not_editable'; readonly message: string }
+  | { readonly kind: 'refused'; readonly message: string; readonly index: number };
+
 /** What asking to stop a run gave. */
 export type StopAnswer =
   | { readonly kind: 'stopping' }
@@ -109,6 +125,10 @@ export interface Client {
   saveWorkflowSource(workflowId: string, text: string, baseHash: string): Promise<SaveSourceAnswer>;
   /** The problems of a draft, or undefined when this server does not open workflow files. Nothing is saved. */
   checkWorkflow(text: string): Promise<readonly WorkflowProblem[] | undefined>;
+  /** The schema and catalog of the form, or undefined when this server does not edit as a form (specs/web-app-editing-forms). */
+  editor(): Promise<EditorResponse | undefined>;
+  /** Applies edits to a draft; nothing is saved. */
+  editWorkflow(text: string, edits: readonly WorkflowEdit[]): Promise<EditAnswer>;
   /** Follows one run until it ends or `signal` aborts, resuming after a drop with the last event id. */
   followRun(id: string, handlers: StreamHandlers<RunSnapshot>, signal: AbortSignal): Promise<void>;
   /** Follows the server-wide stream: a run started or ended. */
@@ -255,9 +275,39 @@ function isProblem(value: unknown): value is WorkflowProblem {
   return (
     isRecord(value) &&
     typeof value.message === 'string' &&
+    (value.path === undefined || typeof value.path === 'string') &&
     (value.line === undefined || isCount(value.line)) &&
     (value.column === undefined || isCount(value.column))
   );
+}
+
+/** Whether a value is JSON: it came from `response.json()`, so this tells the compiler more than it checks. */
+function isJson(value: unknown): value is JsonValue {
+  if (
+    value === null ||
+    typeof value === 'boolean' ||
+    typeof value === 'string' ||
+    typeof value === 'number'
+  ) {
+    return true;
+  }
+  return Array.isArray(value) ? value.every(isJson) : isRecord(value) && Object.values(value).every(isJson);
+}
+
+const isJsonObject = (value: unknown): value is JsonObject => isRecord(value) && isJson(value);
+
+const isEntries = (value: unknown): boolean =>
+  Array.isArray(value) &&
+  value.every((e) => isRecord(e) && typeof e.name === 'string' && typeof e.description === 'string');
+
+function isCatalog(value: unknown): value is EditorCatalog {
+  if (!isRecord(value) || value.catalog !== 1 || !isRecord(value.values)) {
+    return false;
+  }
+  const lists = ['runners', 'guards', 'arbiters', 'voters', 'prompts'];
+  const values = ['decisionTypes', 'isolation', 'failureActions', 'mcpPolicies', 'promptAdditions'];
+  const of = value.values;
+  return lists.every((key) => isEntries(value[key])) && values.every((key) => isStrings(of[key]));
 }
 
 const problemsIn = (value: unknown): readonly WorkflowProblem[] =>
@@ -585,6 +635,46 @@ export function createClient(options: ClientOptions): Client {
         return undefined;
       }
       return problemsIn(isRecord(answer.body) ? answer.body.problems : undefined);
+    },
+
+    async editor() {
+      let body: unknown;
+      try {
+        body = await json('/editor');
+      } catch (error) {
+        if (error instanceof ApiFailure && error.failure.kind === 'not_found') {
+          return undefined;
+        }
+        throw error;
+      }
+      if (!isRecord(body) || !isJsonObject(body.schema) || !isCatalog(body.catalog)) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent a form this page cannot read.' });
+      }
+      return { schema: body.schema, catalog: body.catalog };
+    },
+
+    async editWorkflow(text, edits) {
+      const answer = await post('/workflows/edit', { text, edits });
+      const body = answer.body;
+      if (
+        answer.status === 200 &&
+        isRecord(body) &&
+        typeof body.text === 'string' &&
+        isJsonObject(body.value)
+      ) {
+        return { kind: 'edited', text: body.text, value: body.value, problems: problemsIn(body.problems) };
+      }
+      if (answer.status === 422 && isApiError(body) && body.code === 'not_editable') {
+        return { kind: 'not_editable', message: body.message };
+      }
+      const index: unknown = isRecord(body) ? body.index : undefined;
+      if (answer.status === 422 && isApiError(body) && body.code === 'edit_refused' && isCount(index)) {
+        return { kind: 'refused', message: body.message, index };
+      }
+      throw new ApiFailure({
+        kind: 'server',
+        message: isApiError(body) ? body.message : 'The server did not apply the change.',
+      });
     },
 
     async stopRun(runId) {
