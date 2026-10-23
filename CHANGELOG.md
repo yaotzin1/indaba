@@ -57,7 +57,7 @@ port". The PHP prototype that preceded them was never published.
   `Catalog` shape in `@indaba/engine` list the runners, guard types and arbiters of an installation, cleaned and cut
   at 200 characters, with the format's allowed values; `indaba catalog [--json] [--plugin <spec>]` prints it (exit
   `1` when a plugin fails to load, `2` for a usage error). `voters`, `prompts` and `values.promptAdditions` are empty
-  until `specs/voter-arbiter` and `specs/debate-findings` fill them.
+  until later features fill them.
 
 - **Edit a workflow file without losing its text, and its JSON Schema** (minor; track `feature`; spec
   `specs/workflow-editor`, part 2). `WorkflowDocument` in `@indaba/engine` holds a workflow's text and edits it by path

@@ -8,7 +8,7 @@
 > arbiter), [`specs/debate-arbiter`](../debate-arbiter/spec.md) (rulings, the transcript),
 > [`specs/tui`](../tui/spec.md) (the run event stream, `TraceReader`, the dashboard) and
 > [`specs/observability`](../observability/spec.md) (events, span attributes, redaction).
-> **Siblings**: [`specs/step-variants`](../step-variants/spec.md), [`specs/step-verdicts`](../step-verdicts/spec.md),
+> **Siblings**: `specs/step-variants` (private specification), [`specs/step-verdicts`](../step-verdicts/spec.md),
 > [`specs/step-budgets`](../step-budgets/spec.md) and [`specs/ruling-channel`](../ruling-channel/spec.md) touch
 > the board and are described here only where they do. [`specs/workflow-editor`](../workflow-editor/spec.md)
 > will describe the new step field in its schema.

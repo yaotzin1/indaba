@@ -96,8 +96,6 @@ gantt
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
     ruling-channel         :active, 2026-10-10, 2026-10-16
-    voter-arbiter          :active, 2026-10-10, 2026-10-16
-    step-variants          :active, 2026-10-10, 2026-10-16
     step-verdicts          :active, 2026-10-10, 2026-10-16
     step-budgets           :active, 2026-10-10, 2026-10-16
     workflow-editor        :done, 2026-10-22, 2d
@@ -143,8 +141,8 @@ gantt
 | `acp-agent-install` | Not started (specified) | `@indaba/core` (registry types), `@indaba/runners` (installer, store), `indaba` (`agents`, the consent prompt) |
 | `debate-findings` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `ruling-channel` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
-| `voter-arbiter` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
-| `step-variants` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `voter-arbiter` | Specification moved to a private repository (see `specs/PRIVATE.md`); not started | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `step-variants` | Specification moved to a private repository (see `specs/PRIVATE.md`); not started | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-verdicts` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-budgets` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba` |
 | `workflow-editor` | Implemented: part 1 (`diagnose`, #61), part 2 (`WorkflowDocument`, the schema, `indaba schema`, #62), part 3 (descriptions, `indaba catalog`, #63). Voters and prompts in the catalog wait for their specs | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |

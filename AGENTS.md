@@ -26,12 +26,12 @@ repository's own stages with Indaba is a future goal and a non-goal today.
 | `packages/engine/` | `@indaba/engine`: parser and validator, guards, `WorkflowEngine`, git worktrees, JSONL span exporter, the workflow registry's file store |
 | `packages/runners/` | `@indaba/runners`: `ShellRunner`, `OpenRouterRunner`, the agent CLI runners, `RunnerRegistry`, `SseParser` |
 | `packages/tui/` | `@indaba/tui`: the optional Ink dashboard of a run (the only package that imports `ink` and `react`) |
-| `packages/server/` | `@indaba/server`: the optional local server of `indaba ui`: a token-protected HTTP and SSE view of the runs; runs start and stop via the CLI (no UI package). Its tarball carries the built page in `page/`, copied in by its `prepack` (`scripts/stage-page.mjs`) |
+| `packages/server/` | `@indaba/server`: the optional local server of `indaba ui`: a token-protected HTTP and SSE view of the runs; runs start and stop via the CLI (no UI package). Its tarball carries the built page in `page/` |
 | `packages/web/` | `@indaba/web`: the page of `indaba ui`, React in `.ts` files built by Vite into static files the server serves. Private and never published; its libraries are bundled at build time and ship inside `@indaba/server` |
 | `packages/cli/` | `indaba`: the commands, plugin loading, the composition root; `bin: indaba` |
 | `packages/*/test/` | Vitest tests; `core/test/architecture.test.ts` and `*/test/layers.test.ts` guard the boundaries |
 | `scripts/` | Node gates: validation, doc sync, workflow and security checks, hooks, the packed-install smoke test |
-| `specs/` | one directory per feature: spec, API surface, review, plus optional artifacts |
+| `specs/` | one directory per feature (spec, API surface, review, extras); a few specs are private: see `specs/PRIVATE.md` |
 | `docs/` | `vision.md`, and the user documentation (index: `docs/README.md`) |
 | `.agents/` | canonical skills and rules |
 | `.indaba/` | Indaba's own runtime state (worktrees, traces, artifacts), gitignored |

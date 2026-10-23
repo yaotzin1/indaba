@@ -60,10 +60,10 @@ agent; who makes each decision is still the person's choice.
 | Debate between roles to consensus, a human arbiter, a committed decision ledger | Works (alpha) |
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |
-| Review loops with a verdict, running one step several ways and choosing, shared run notes (blackboard) | Specified: `step-verdicts`, `step-variants`, `run-blackboard` |
+| Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |
 | Talk to the models, choose who decides, shared skills and prompts, workflow inputs | Specified: `agent-conversation`, `workflow-inputs` |
-| Workflow editor, schema and catalog for a wizard; ruling channel for other front ends; voter arbiter | Specified: `workflow-editor`, `ruling-channel`, `voter-arbiter` |
+| Workflow editor, schema and catalog for a wizard; ruling channel for other front ends | Specified: `workflow-editor`, `ruling-channel` |
 | Local web view: the runs, and one run live as a graph with each step's details, tries, output and cost | Built, read-only, on the `feat/web-app` branch; opened with `indaba ui`, or `pnpm try:ui` for a demo ([web-view.md](web-view.md)) |
 | The rest of the web view (`indaba ui`): workflow list, inspector, health, actions; workflow registry; running one step | Specified: `web-app`, `workflow-registry`, `single-step-run` |
 | Running agents in a container or a virtual machine, set up by Indaba itself | Specified: `agent-sandbox` |
