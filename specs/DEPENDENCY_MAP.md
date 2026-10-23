@@ -106,6 +106,7 @@ gantt
     workspace-without-git  :active, 2026-10-11, 2026-10-16
     workflow-registry      :active, 2026-10-12, 2026-10-24
     question-contract      :active, 2026-10-23, 2026-10-24
+    review-gate            :active, 2026-10-23, 2026-10-24
     single-step-run        :active, 2026-10-12, 2026-10-16
     agent-sandbox          :active, 2026-10-12, 2026-10-16
     agent-conversation     :active, 2026-10-22, 2026-10-23
@@ -150,6 +151,7 @@ gantt
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
+| `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `desktop-app` | Dropped | kept for history |
