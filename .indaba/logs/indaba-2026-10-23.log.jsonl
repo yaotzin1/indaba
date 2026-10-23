@@ -1,0 +1,3 @@
+{"time":"2026-10-23T06:47:26.434Z","level":"info","component":"cli.process","message":"process.start","fields":{"command":"catalog","indabaVersion":"0.1.0-alpha.2","nodeVersion":"v22.22.0","platform":"linux","arch":"x64"},"pid":643}
+{"time":"2026-10-23T06:47:26.440Z","level":"info","component":"cli.catalog","message":"the catalog was printed","fields":{"runners":8,"guards":2,"arbiters":1,"plugins":0},"pid":643}
+{"time":"2026-10-23T06:47:26.440Z","level":"info","component":"cli.process","message":"process.end","fields":{"exitCode":0},"pid":643}

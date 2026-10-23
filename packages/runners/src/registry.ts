@@ -1,4 +1,4 @@
-import type { Logger, Runner } from '@indaba/core';
+import type { Described, Logger, Runner } from '@indaba/core';
 import { RunnerUnavailableError } from '@indaba/core';
 import { AcpRunner, type AuthChooser } from './acp-runner.js';
 import { AntigravityRunner } from './antigravity-runner.js';
@@ -61,6 +61,14 @@ export class RunnerRegistry {
 
   names(): string[] {
     return [...this.runners.keys()];
+  }
+
+  /** Each runner's name with its description, `""` when it has none, in the order they were registered. */
+  describe(): Described[] {
+    return [...this.runners.values()].map((runner) => ({
+      name: runner.name,
+      description: runner.description ?? '',
+    }));
   }
 
   /**

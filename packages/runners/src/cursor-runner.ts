@@ -8,6 +8,7 @@ export interface CursorRunnerOptions extends CliRunnerOptions {
 
 export class CursorRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'cursor';
+  readonly description = 'The Cursor agent command line, one run per step; reads its terminal output.';
   private readonly binary: string;
 
   constructor(options: CursorRunnerOptions = {}) {

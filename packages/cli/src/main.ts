@@ -30,6 +30,14 @@ import {
   writeLoggingConfig,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
+import {
+  CATALOG_USAGE,
+  type CatalogOptions,
+  CatalogUsageError,
+  catalogCommand,
+  LISTED_HUMAN_ARBITER,
+  parseCatalog,
+} from './catalog.js';
 import { userConfigFolder } from './config-folder.js';
 import { createEngine } from './engine-factory.js';
 import type { ExitHooks } from './exit.js';
@@ -113,6 +121,7 @@ Commands:
   settings          Show or change the logging settings of the project (indaba.config)
   ui                Open the web view of the runs on this machine
   schema            Print the JSON Schema of the workflow file
+  catalog           List the runners, guard types and arbiters this installation offers
 
 Options:
   -h, --help        Show help
@@ -125,6 +134,7 @@ Run "indaba <command> --help" for the options of one command.
 ${LOG_OPTIONS_USAGE}`;
 
 const COMMAND_USAGE: Readonly<Record<string, string>> = {
+  catalog: CATALOG_USAGE,
   schema: `Usage: indaba schema
 
 Print the JSON Schema (draft 2020-12) of the workflow file, for an editor or a form. It states the structure only:
@@ -407,6 +417,44 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
       io.stdout.write(`${JSON.stringify(workflowJsonSchema(), null, 2)}\n`);
       logger.info('cli.schema', 'the schema was printed');
       return EXIT_OK;
+    });
+  }
+  if (command === 'catalog') {
+    let options: CatalogOptions;
+    try {
+      options = parseCatalog(args);
+    } catch (error) {
+      if (error instanceof CatalogUsageError) {
+        return usageError(io, error.message, 'catalog');
+      }
+      throw error;
+    }
+    if (options.help) {
+      io.stdout.write(commandUsage('catalog'));
+      return EXIT_OK;
+    }
+    return logged(command, io.cwd, logOptions, io, async (logger) => {
+      try {
+        return await catalogCommand(options, io, {
+          logger,
+          loadPlugins: (specifiers) => loadPlugins(specifiers, io.cwd),
+          sources: async (plugins) => {
+            const bundle = await createEngine({
+              projectDir: io.cwd,
+              env: io.env,
+              plugins,
+              logger,
+              logSinks: logger,
+              humanAdjudicator: io.humanAdjudicator ?? LISTED_HUMAN_ARBITER,
+            });
+            return { runners: bundle.runners, guards: bundle.guards, adjudicators: bundle.adjudicators };
+          },
+        });
+      } catch (error) {
+        const message = redact(error instanceof Error ? error.message : String(error), io.env);
+        (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+        return EXIT_FAILURE;
+      }
     });
   }
   if (command === 'report') {

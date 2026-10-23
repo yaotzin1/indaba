@@ -1,6 +1,6 @@
 # Specification: Workflow editor, schema and catalog
 
-> **Status**: Draft
+> **Status**: Implemented, 2026-10-23 (three pull requests: #61, #62 and the catalog's)
 > **Stage entry**: 1
 > **Semver impact**: minor (new exports, two new commands, optional `description` members on existing extension
 > interfaces; nothing existing changes). Amended 2026-10-22 (C-01 to C-03 below): it no longer waits for
@@ -39,62 +39,62 @@ and, later, GUIs that may edit parts of it. Three things stand in the way, and n
 
 **Editing**
 
-- [ ] AC-01. `WorkflowDocument.parse(text)` reads a workflow with the `yaml` package's document model, with the
+- [x] AC-01. `WorkflowDocument.parse(text)` reads a workflow with the `yaml` package's document model, with the
   options the parser uses (core schema, unique keys, strict, exactly one document) and two limits of its own: text
   over 1 MiB is refused before it is parsed, and aliases are capped at 100. `WorkflowDocument.create({ name })`
   returns a minimal document (`version`, `name`, empty `steps`).
-- [ ] AC-02. `get(path)`, `set(path, value)`, `remove(path)`, `has(path)` take a path as an array of keys and indexes
+- [x] AC-02. `get(path)`, `set(path, value)`, `remove(path)`, `has(path)` take a path as an array of keys and indexes
   (`['steps', 0, 'role']`). Values are plain JSON (strings, numbers, booleans, null, arrays, objects). A key named
   `__proto__`, `constructor` or `prototype`, a path through a scalar, or a value that is not plain JSON is an error
   naming the path.
-- [ ] AC-03. `addStep(step, { after? })`, `removeStep(id)` and `moveStep(id, { after? })` edit the `steps` list by step
+- [x] AC-03. `addStep(step, { after? })`, `removeStep(id)` and `moveStep(id, { after? })` edit the `steps` list by step
   id; `removeStep` does not touch other steps' `depends_on`, and `problems()` reports the dangling reference.
-- [ ] AC-04. `toString()` returns the YAML. Anything not edited is byte for byte unchanged: comments, blank lines, key
+- [x] AC-04. `toString()` returns the YAML. Anything not edited is byte for byte unchanged: comments, blank lines, key
   order, quoting and indentation. A test sets one field of a commented example and compares the text outside that
   line.
-- [ ] AC-05. `problems()` returns the problems of the current text: `{ path, message, severity, line?, column? }`,
+- [x] AC-05. `problems()` returns the problems of the current text: `{ path, message, severity, line?, column? }`,
   `severity` being `error` or `warning`, `line` and `column` 1-based. The position is that of the path when it is in the
   text, else of its nearest ancestor that is (a required key that is missing points at the mapping that lacks it), and
   absent only when not even the root can be placed. Its errors and warnings are exactly those of `indaba validate` for
   the same text (same parser, same validator, the same sentences).
-- [ ] AC-06. A document with problems can still be edited and written: a wizard goes through invalid states.
+- [x] AC-06. A document with problems can still be edited and written: a wizard goes through invalid states.
   Nothing in the editing API rejects a file for being semantically invalid, only for being unsafe (AC-02) or not YAML.
-- [ ] AC-07. `parse(text)` of text that is not YAML, has more than one document, or whose root is not a mapping,
+- [x] AC-07. `parse(text)` of text that is not YAML, has more than one document, or whose root is not a mapping,
   throws with a message; it does not return a half-document.
 
 **Schema**
 
-- [ ] AC-08. `workflowJsonSchema()` returns a JSON Schema (draft 2020-12) of the workflow file: every top-level
+- [x] AC-08. `workflowJsonSchema()` returns a JSON Schema (draft 2020-12) of the workflow file: every top-level
   field, role field and step field, their types, enumerated values (decision types, isolation, failure actions,
   `arbiter`, `prompt_additions`, MCP policy), required fields, and a `description` for each taken from the same
   sentence the documentation uses. `indaba schema` prints it.
-- [ ] AC-09. The schema states structure only. Rules across fields (a role must exist, a dependency must name a step,
+- [x] AC-09. The schema states structure only. Rules across fields (a role must exist, a dependency must name a step,
   no cycle, a runner must be registered) are not in it; the schema says so in its top-level `description`, and
   `problems()` is where those come from.
-- [ ] AC-10. A conformance test keeps the schema and the parser agreeing: every example workflow and every valid
+- [x] AC-10. A conformance test keeps the schema and the parser agreeing: every example workflow and every valid
   fixture passes the schema and the parser; every structurally invalid fixture is rejected by both. A field added to
   the parser without the schema fails the build.
 
 **Catalog**
 
-- [ ] AC-11. `Runner`, `Guard` and `Adjudicator` may carry a `description` (voters and prompts gain one with their
+- [x] AC-11. `Runner`, `Guard` and `Adjudicator` may carry a `description` (voters and prompts gain one with their
   own specs, C-01). The built-ins are
   described. The registries list `{ name, description }`.
-- [ ] AC-12. `indaba catalog [--json] [--plugin <spec>]` prints what this installation offers: runners, guard types,
+- [x] AC-12. `indaba catalog [--json] [--plugin <spec>]` prints what this installation offers: runners, guard types,
   arbiters, voters, prompts, and the enumerated values of the format. `--plugin` loads plugins first, so their
   contributions are listed. The JSON shape is documented and versioned (`"catalog": 1`).
-- [ ] AC-13. The catalog function behind it, `catalogOf(bundle)`, is exported so a web or Electron server can call it
+- [x] AC-13. The catalog function behind it, `catalogOf(bundle)`, is exported so a web or Electron server can call it
   in-process.
 
 **The source view of `indaba ui`**
 
-- [ ] AC-15. The workflow store of `indaba ui` (`specs/web-app-editing-core`) answers its problems from
+- [x] AC-15. The workflow store of `indaba ui` (`specs/web-app-editing-core`) answers its problems from
   `WorkflowParser.diagnose`, so the source view has a line and column for every problem it can place, not only for YAML
   syntax. Its contract (`WorkflowProblem`) is unchanged.
 
 **General**
 
-- [ ] AC-14. Every new line is covered by tests; the 85% floor holds.
+- [x] AC-14. Every new line is covered by tests; the 85% floor holds.
 
 ## 4. Non-goals
 

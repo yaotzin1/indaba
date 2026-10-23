@@ -56,7 +56,7 @@ export {
   SINK_TYPES,
   secretValuesOf,
 } from './logging/index.js';
-export type { Adjudicator, RulingRequest } from './mesh/adjudicator.js';
+export type { Adjudicator, Described, RulingRequest } from './mesh/adjudicator.js';
 export { AdjudicatorRegistry, Ruling, RulingSource, Verdict } from './mesh/adjudicator.js';
 export { Blackboard } from './mesh/blackboard.js';
 export type { ConsensusArbiterOptions, Participant } from './mesh/consensus.js';

@@ -11,6 +11,8 @@ const RUNTIME_DIRECTORY = '.indaba';
  */
 export class DiffWithinScopeGuard implements Guard {
   readonly type: string = GuardType.DiffWithinScope;
+  readonly description =
+    'Passes when every changed path matches one of the listed globs; added to a step with permissions.';
 
   constructor(private readonly git: Git = new Git()) {}
 

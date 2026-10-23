@@ -39,6 +39,8 @@ export {
   readProjectConfig,
   writeLoggingConfig,
 } from './config/project-config.js';
+export type { Catalog, CatalogSources, Describes } from './editor/catalog.js';
+export { catalogOf, MAX_DESCRIPTION } from './editor/catalog.js';
 export {
   MAX_ALIASES,
   MAX_DOCUMENT_BYTES,

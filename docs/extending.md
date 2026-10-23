@@ -28,12 +28,19 @@ interface PluginHost {
 
 interface Runner {
   readonly name: string; // what a workflow file writes in `runner:`
+  readonly description?: string; // one line, shown by `indaba catalog` and an editor
   run(request: RunRequest, signal?: AbortSignal): Promise<RunResult>;
 }
 
 interface Guard {
   readonly type: string; // what a workflow file writes in a guard's `type:`
+  readonly description?: string;
   check(guard: GuardDefinition, workdir: string): Promise<GuardResult>;
+}
+
+interface Adjudicator {
+  readonly description?: string;
+  rule(request: RulingRequest, signal?: AbortSignal): Promise<Ruling | null>;
 }
 ```
 
@@ -57,6 +64,10 @@ Behaviour worth knowing:
   continues, and the error goes to the command line's listener-error handler, which prints
   `Listener failed: <message>` to stderr. A listener may be async.
 - A plugin whose `register` throws stops the command with `Plugin "<name>" failed to register: ...`.
+- Give each runner, guard and adjudicator a `description`: one plain sentence of what it is, which
+  `indaba catalog --plugin <yours>` lists and an editor shows next to the name. It is optional; without one the
+  catalog lists the name alone. The catalog cuts it at 200 characters and drops control sequences, and it never
+  goes into a trace.
 
 Events you can listen to, all exported from `@indaba/core`: `StepStatusChanged` (`taskId`, `stepId`,
 `from`, `to`, optional `reason`), `SpanStarted` and `SpanEnded` (each carries a `span`). Names and
@@ -86,6 +97,7 @@ import {
 // A runner: answers every prompt by echoing it back. Never starts a process.
 const echo: Runner = {
   name: 'echo',
+  description: 'Answers every prompt by echoing it back.',
   async run(request: RunRequest, signal?: AbortSignal): Promise<RunResult> {
     if (signal?.aborted === true) {
       return new RunResult({ exitCode: 1, output: '', errorOutput: 'aborted' });

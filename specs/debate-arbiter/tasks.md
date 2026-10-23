@@ -31,4 +31,4 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## Follow-up (added with `specs/workflow-editor`)
 
-- [ ] T16. `Adjudicator.description?`, `AdjudicatorRegistry.describe()` returning `{ name, description }[]`, the terminal arbiter described (AC-17). Done on the branch that implements `workflow-editor`.
+- [x] T16. `Adjudicator.description?`, `AdjudicatorRegistry.describe()` returning `{ name, description }[]`, the terminal arbiter described (AC-17). Done on the branch that implements `workflow-editor`.

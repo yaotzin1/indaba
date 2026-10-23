@@ -117,7 +117,7 @@ gantt
 | `typescript-port` | Implemented | all |
 | `workflow-engine` | Implemented | `@indaba/core` (model, DAG, state), `@indaba/engine` (parser, guards, engine) |
 | `agent-mesh` | Implemented | `@indaba/core` |
-| `debate-arbiter` | Implemented, except T16 (`Adjudicator.description`, done with `workflow-editor`) | `@indaba/core` (`Adjudicator` contract, `PluginHost.registerAdjudicator`, the `arbiter` step field), `@indaba/engine` (parser, decision ledger, debate records, `StepExecutor`), `indaba` (the terminal arbiter) |
+| `debate-arbiter` | Implemented (T16, `Adjudicator.description`, delivered with `workflow-editor`) | `@indaba/core` (`Adjudicator` contract, `PluginHost.registerAdjudicator`, the `arbiter` step field), `@indaba/engine` (parser, decision ledger, debate records, `StepExecutor`), `indaba` (the terminal arbiter) |
 | `runner-adapters` | Implemented | `@indaba/core` (contract), `@indaba/runners` |
 | `transport-priority` | Implemented, except T-22 (the runner contract test helper) | `@indaba/core` (runner chain, permissions model, glob, span events), `@indaba/engine` (parser, fallback loop, scope guard), `@indaba/runners` (API and ACP runners), `indaba` |
 | `git-workspace` | Implemented | `@indaba/engine` |
@@ -142,7 +142,7 @@ gantt
 | `step-variants` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-verdicts` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-budgets` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba` |
-| `workflow-editor` | In progress: part 1 (`diagnose`, merged #61) and part 2 (`WorkflowDocument`, the schema, `indaba schema`, on `feat/workflow-editor-document`); part 3 (descriptions, `indaba catalog`) next | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
+| `workflow-editor` | Implemented: part 1 (`diagnose`, #61), part 2 (`WorkflowDocument`, the schema, `indaba schema`, #62), part 3 (descriptions, `indaba catalog`, on `feat/workflow-editor-catalog`). Voters and prompts in the catalog wait for their specs | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |

@@ -434,3 +434,7 @@ Three things in `@indaba/engine` let a program work with this format without cop
   document with problems can still be edited, since a wizard passes through invalid states; it refuses only what is
   unsafe (a key such as `__proto__`, a value that is not plain JSON) or not YAML, and text over 1 MiB or with more than
   100 aliases. It reads and writes no file: saving, and choosing where, is the program's.
+- **What can be chosen.** `indaba catalog --json` (and `catalogOf(...)` for a program that has the engine) lists the
+  runners, guard types and arbiters of this installation, plugins included, each with a one-line description, and
+  the allowed values of `decision_type`, `isolation`, `on_failure.action` and `mcp_policy`. Its `catalog` field is
+  the version of its shape. `voters` and `prompts` are empty until the features that add them exist.

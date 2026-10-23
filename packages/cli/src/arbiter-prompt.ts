@@ -43,6 +43,10 @@ function describe(request: RulingRequest): string {
   return `${lines.join('\n')}\n`;
 }
 
+/** What the arbiter `human` is, as the catalog says it (specs/workflow-editor, AC-11). */
+export const HUMAN_ARBITER_DESCRIPTION =
+  'A person at the terminal accepts or rejects a debate that failed; with no terminal the step escalates.';
+
 /**
  * Asks the person at the terminal to rule on a debate that failed: `accept` or `reject`, then an optional note.
  * Anything else is asked again, three times at most. If the input closes, the run is cancelled or the answers never
@@ -53,6 +57,7 @@ export function terminalAdjudicator(
   output: NodeJS.WritableStream,
 ): Adjudicator {
   return {
+    description: HUMAN_ARBITER_DESCRIPTION,
     async rule(request, signal) {
       if (signal?.aborted === true) {
         return null;
