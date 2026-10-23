@@ -151,6 +151,7 @@ gantt
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |
 | `agent-permissions` | Not started (specified; draft; the level `ask` is reserved for a later spec; removing the runners' hard-coded defaults is a later labelled minor) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
