@@ -1,7 +1,5 @@
-# Indaba's own runtime state
-/.indaba/worktrees/
-/.indaba/traces/
-/.indaba/artifacts/
+# Indaba's own runtime state: worktrees, traces, artifacts, logs, run copies, discussions (AGENTS.md, section 2)
+/.indaba/
 
 # Secrets: only .env.example may be committed (scripts/security-audit.mjs fails on a present .env)
 /.env
