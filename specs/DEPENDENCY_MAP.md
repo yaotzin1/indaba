@@ -107,6 +107,7 @@ gantt
     workflow-registry      :active, 2026-10-12, 2026-10-16
     single-step-run        :active, 2026-10-12, 2026-10-16
     agent-sandbox          :active, 2026-10-12, 2026-10-16
+    agent-conversation     :active, 2026-10-22, 2026-10-23
 ```
 
 `desktop-app` was dropped and is left out of the chart.
@@ -148,6 +149,7 @@ gantt
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
