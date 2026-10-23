@@ -33,6 +33,6 @@ Ordered by dependency. Each task brings its tests. Run `pnpm qa` after each grou
 
 - [x] **T-13** `docs/web-view.md`, `docs/web-view-development.md`, `README.md`, `CHANGELOG.md`,
   `specs/DEPENDENCY_MAP.md`, `specs/web-app/plan-step-3.md` (3b, the order of C-09).
-- [ ] **T-14** The gates of `workflow.ai.yml` (`quality_gates`), `pnpm e2e`, `pnpm smoke`; per-file coverage of the new
-  code (done); CI on the three systems (on the pull request).
+- [x] **T-14** The gates of `workflow.ai.yml` (`quality_gates`), `pnpm e2e`, `pnpm smoke`; per-file coverage of the new
+  code (done); CI on the three systems (green on #65).
 - [x] **T-15** `review.md`.

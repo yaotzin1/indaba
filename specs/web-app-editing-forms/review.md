@@ -1,6 +1,6 @@
 # Self-review: The local web view, step 3b (edit a workflow through forms)
 
-> **Status**: done, 2026-10-23, before CI. Stages run: 1 to 8 of the feature track (spec, clarifications, api-surface,
+> **Status**: done, 2026-10-23. Stages run: 1 to 8 of the feature track (spec, clarifications, api-surface,
 > plan with the stage 5 audit, tasks, implementation test first, verification, this review). Two stage 6 findings went
 > back to the contract and the spec, recorded there: `CatalogEntry` (web-contract imports only its own folder), and four
 > wordings (a refusal shown at the top; a runner chain is a list; "show in source" searches the text; C-10).
@@ -76,7 +76,7 @@ console error, the Tab order runs view switch, name, fields, roles, step list, A
 edited in the form keeps every comment, the blank line and the quoting of the file in the source view. Not measured:
 contrast ratios with a tool, and a screen reader.
 
-The Windows and macOS runs happen in CI on the pull request.
+CI on #65: Agent instruction set, Track and deliverables, Dependency audit, and Verify on ubuntu, windows and macOS all passed.
 
 ## Known gaps
 
