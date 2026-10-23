@@ -158,6 +158,81 @@
                     "type": "null"
                   }
                 ]
+              },
+              "permissions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "Used by an agent step of this role that has no permissions of its own.",
+                    "properties": {
+                      "level": {
+                        "anyOf": [
+                          {
+                            "enum": ["read", "edit", "full"],
+                            "description": "read (look only), edit (change the files fs.write names) or full (no limit and nobody asked). ask is not available yet."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "fs": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "read": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Globs the agent may read; empty or absent: not restricted."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "write": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Globs the agent may change; empty or absent: nothing."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "terminal": {
+                        "anyOf": [
+                          {
+                            "enum": ["allow", "deny"],
+                            "description": "Whether the agent may run commands: allow or deny (default deny)."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             }
           },
@@ -299,8 +374,19 @@
                 "anyOf": [
                   {
                     "type": "object",
-                    "description": "What the step’s agent may touch.",
+                    "description": "What the step’s agent may do. A step’s block, else its role’s, else defaults’, whole (never merged); a block with no level behaves as before.",
                     "properties": {
+                      "level": {
+                        "anyOf": [
+                          {
+                            "enum": ["read", "edit", "full"],
+                            "description": "read (look only), edit (change the files fs.write names) or full (no limit and nobody asked). ask is not available yet."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
                       "fs": {
                         "anyOf": [
                           {
@@ -648,13 +734,88 @@
       "anyOf": [
         {
           "type": "object",
-          "description": "Only defaults.mcp_policy is read.",
+          "description": "defaults.mcp_policy and defaults.permissions are read.",
           "properties": {
             "mcp_policy": {
               "anyOf": [
                 {
                   "enum": ["required", "optional"],
                   "description": "required (the default) or optional."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "permissions": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "description": "Used by an agent step whose step and role have no permissions.",
+                  "properties": {
+                    "level": {
+                      "anyOf": [
+                        {
+                          "enum": ["read", "edit", "full"],
+                          "description": "read (look only), edit (change the files fs.write names) or full (no limit and nobody asked). ask is not available yet."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "fs": {
+                      "anyOf": [
+                        {
+                          "type": "object",
+                          "properties": {
+                            "read": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "Globs the agent may read; empty or absent: not restricted."
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            },
+                            "write": {
+                              "anyOf": [
+                                {
+                                  "type": "array",
+                                  "items": {
+                                    "type": "string"
+                                  },
+                                  "description": "Globs the agent may change; empty or absent: nothing."
+                                },
+                                {
+                                  "type": "null"
+                                }
+                              ]
+                            }
+                          }
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "terminal": {
+                      "anyOf": [
+                        {
+                          "enum": ["allow", "deny"],
+                          "description": "Whether the agent may run commands: allow or deny (default deny)."
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
                 },
                 {
                   "type": "null"

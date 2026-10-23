@@ -1,6 +1,7 @@
 import type { RunRequest } from '@indaba/core';
-import { McpCapability, type McpCapable } from '@indaba/core';
+import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
+import { afterOnly, unsupported } from './permissions.js';
 
 export interface CursorRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -18,6 +19,15 @@ export class CursorRunner extends AbstractCliRunner implements McpCapable {
 
   mcpCapability(): McpCapability {
     return McpCapability.AgentManaged;
+  }
+
+  // The CLI is not installed where this was written: no argument is confirmed, so `read` and `full` are unsupported.
+  override permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      unsupported(PermissionLevel.Read, 'no_read_only_argument'),
+      afterOnly(PermissionLevel.Edit, 'commands_not_limited'),
+      unsupported(PermissionLevel.Full, 'argument_unconfirmed'),
+    ];
   }
 
   protected command(request: RunRequest): readonly string[] {

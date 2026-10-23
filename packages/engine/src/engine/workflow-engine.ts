@@ -40,6 +40,8 @@ export interface RunOptions {
   readonly taskId?: string;
   /** Live output of the running step. */
   readonly onOutput?: (chunk: string) => void;
+  /** How the person acknowledged the steps at the level `full`, recorded on the task span (specs/agent-permissions, AC-05). */
+  readonly fullAccessAcknowledged?: 'terminal' | 'run_option' | 'page';
 }
 
 /**
@@ -93,6 +95,9 @@ export class WorkflowEngine {
       'indaba.task.id': taskId,
       'indaba.workflow.name': workflow.name,
       [WORKFLOW_STRUCTURE_ATTRIBUTE]: describeStructure(order),
+      ...(options.fullAccessAcknowledged !== undefined
+        ? { 'indaba.permissions.full_acknowledged': options.fullAccessAcknowledged }
+        : {}),
     });
 
     let workspace: Workspace | undefined;

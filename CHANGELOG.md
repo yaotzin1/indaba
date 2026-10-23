@@ -17,6 +17,17 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Agent permissions: `permissions.level`** (minor; track `feature`; spec `specs/agent-permissions`, core, engine, runners and CLI; the page
+  and the editor presets are not part of this change). A `permissions` block gains `level` (`read`, `edit`, `full`) and is valid on a role and in
+  `defaults` (the step's, else the role's, else `defaults`'s, whole). Each runner turns a written level into its own arguments, placed after
+  `extraArgs`; `validate`, `plan` and run start refuse a level a runner of the chain cannot hold and state, for a step with no level, the
+  built-in default its runner applies. `indaba run --permissions [<step>=]<level>` lowers levels for one run; `--allow-full-access` acknowledges
+  steps at `full` when there is no terminal. A runner refused a permission in headless mode (`antigravity`) now fails the step with a fixed reason.
+  New in `@indaba/core`: `PermissionLevel`, `PermissionCapable`, `resolvePermissions`, `applyBound` and friends; `RunRequest.permissionLevel`;
+  span attributes `indaba.permissions.level`, `.mode`, `.scope` and `indaba.permissions.full_acknowledged`. **Behaviour change to know:** a
+  `permissions` block that a file already carried on a role or in `defaults` was ignored and now applies. Nothing else that exists changes; the
+  removal of the runners' built-in defaults is a later labelled release. `ask` is reserved. No dependency added.
+
 - **`indaba ui` lists the workflow registry** (minor; track `feature`; spec `specs/workflow-registry`, slice 2). The Run a
   workflow panel lists the registry of the served folders by the registry's ids: each workflow with the name, project
   and tags set by `indaba workflows annotate` and its last run (state, when, cost); hidden ones behind a toggle; the list

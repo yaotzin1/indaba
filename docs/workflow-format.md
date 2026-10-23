@@ -194,6 +194,35 @@ working directory. `permissions` does two things:
 `indaba validate` warns when a step declares `permissions` without `isolation: git_worktree`, and when
 no `acp` runner is in its chain (then only the guard enforces it, after the step has run).
 
+#### The level: `read`, `edit`, `full`
+
+`permissions.level` says how much a step's agent may do, and Indaba passes it to the runner in the runner's own terms:
+
+```yaml
+permissions: { level: read }                                      # look only
+permissions: { level: edit, fs: { write: ["src/**"] } }           # change these files; commands only with terminal: allow
+permissions: { level: full }                                      # no limit from Indaba and nobody asked
+```
+
+- `edit` needs a non-empty `fs.write`; `read` may not write `fs.write` or `terminal: allow`; `full` has no `fs` or `terminal`. `level: ask`
+  and `timeout_seconds` are rejected: this version cannot ask a person about an agent's actions yet.
+- A `permissions` block is also valid on a **role** and in **`defaults`**. An agent step uses its own block, else its role's, else
+  `defaults`'s, whole and never merged. A shell step and the participants of a debate never receive a role's or `defaults`'s block.
+- A step that writes **no level** keeps what its runner always did (`claude-code` accepts edits, `codex` uses its workspace-write sandbox, the
+  others add nothing), and `validate` and `plan` say so for every such step. A later, labelled release will make an absent block `read`.
+- `validate`, `plan` and the start of a run refuse a written level that a runner of the step's chain cannot hold. For `opencode` and `cursor`
+  `read` is not offered (no read-only mode exists and the guard cannot stop a command); `edit` there is only checked after the step. For `codex`,
+  `read` and `full` are not offered until their arguments are confirmed. A `read` step that is given `mcp` servers is an error: a tool server
+  acts with its own rights.
+- The scope guard sees only what git shows in the step's working tree. It does not see a command that ran, a path git ignores, or a write
+  outside the tree, and it does not hold `terminal`.
+- The runner's flags for a level come after any `extraArgs`, so an embedder's flags cannot widen it.
+- `antigravity` run headless refuses a tool that needs a permission and still exits 0. With a declared output missing (or no change in the
+  working tree), the step fails with a fixed reason instead of passing.
+- `full` is acknowledged once per run: `indaba run` lists the steps and asks at a terminal, or refuses to start without one unless
+  `--allow-full-access` is given. `indaba run --permissions [<step>=]<level>` only **lowers** levels for one run (a step with no level takes only
+  `read`); it never writes the file.
+
 #### Shell steps
 
 `runner: "shell"` runs each command line through the platform shell (`/bin/sh -c` on macOS and Linux,

@@ -14,8 +14,12 @@ import {
   DecisionType,
   FailureAction,
   Isolation,
+  isConsensusStep,
   McpPolicy,
+  PermissionLevel,
   PermissionMode,
+  resolvePermissions,
+  SHELL_RUNNER,
   WorkflowValidationError,
 } from '@indaba/core';
 import { parseAllDocuments } from 'yaml';
@@ -38,6 +42,27 @@ function lookup<T extends string>(values: Readonly<Record<string, T>>, name: str
 /** Parses and validates a workflow file. Every problem found is reported at once. */
 /** The options every read of a workflow uses, so `parse` and `diagnose` see the same document. */
 const YAML_OPTIONS = { schema: 'core', uniqueKeys: true, strict: true, logLevel: 'silent' } as const;
+
+/**
+ * AC-01: an agent step's effective block is the step's, else its role's, else `defaults`'s, whole. A shell step and a
+ * debate step never receive a role's or `defaults`'s block (AC-03, AC-19).
+ */
+function resolveStepPermissions(
+  step: StepDefinition,
+  roles: Readonly<Record<string, RoleDefinition>>,
+  defaults: StepPermissions | undefined,
+): StepDefinition {
+  if (step.runner === SHELL_RUNNER || isConsensusStep(step)) {
+    return step;
+  }
+  const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
+  const resolved = resolvePermissions({
+    ...(step.permissions !== undefined ? { step: step.permissions } : {}),
+    ...(role?.permissions !== undefined ? { role: role.permissions } : {}),
+    ...(defaults !== undefined ? { defaults } : {}),
+  });
+  return resolved === undefined || resolved === step.permissions ? step : { ...step, permissions: resolved };
+}
 
 /** Top-level keys of a repository's development workflow, a different format that shares the file name. */
 const DEVELOPMENT_WORKFLOW_KEYS = ['governance', 'tracks', 'stages', 'quality_gates'];
@@ -91,6 +116,7 @@ export class WorkflowParser {
       if (chain !== undefined) {
         const model = node.string('model', false);
         const agent = this.parseAgent(node, errors);
+        const rolePermissions = this.parsePermissions(node, errors);
         roleEntries.push([
           roleName,
           {
@@ -100,6 +126,7 @@ export class WorkflowParser {
             ...(agent !== undefined ? { agent } : {}),
             ...(model !== undefined ? { model } : {}),
             mcp: node.stringList('mcp'),
+            ...(rolePermissions !== undefined ? { permissions: rolePermissions } : {}),
           },
         ]);
       }
@@ -134,14 +161,18 @@ export class WorkflowParser {
         ? McpPolicy.Required
         : (this.parsePolicy(defaults, errors) ?? McpPolicy.Required);
 
+    const defaultPermissions = defaults === undefined ? undefined : this.parsePermissions(defaults, errors);
+    const roles = record(roleEntries);
+
     const workflow: WorkflowDefinition = {
       version,
       name,
       artifacts,
-      roles: record(roleEntries),
-      steps,
+      roles,
+      steps: steps.map((step) => resolveStepPermissions(step, roles, defaultPermissions)),
       mcpServers: record(serverEntries),
       defaultMcpPolicy,
+      ...(defaultPermissions !== undefined ? { defaultPermissions } : {}),
     };
 
     const problems = errors.isEmpty() ? this.validator.validate(workflow) : errors.all();
@@ -255,6 +286,11 @@ export class WorkflowParser {
     const chain = this.runnerChain(node, false, errors);
     const agent = this.parseAgent(node, errors);
     const permissions = this.parsePermissions(node, errors);
+    if (permissions?.level !== undefined && chain?.runner === SHELL_RUNNER) {
+      errors.add(
+        `${node.path}.permissions.level is not allowed on a shell step: a shell step runs the commands its author wrote`,
+      );
+    }
     const onFailure = this.parseOnFailure(node.map('on_failure'), errors);
     const mcpPolicy = this.parsePolicy(node, errors);
 
@@ -342,11 +378,49 @@ export class WorkflowParser {
     if (terminal === undefined) {
       errors.add(`${block.path}.terminal "${terminalName}" must be "allow" or "deny"`);
     }
+    const fsRead = fs?.stringList('read') ?? [];
+    const fsWrite = fs?.stringList('write') ?? [];
+    const level = this.parseLevel(block, errors);
+    if (block.has('timeout_seconds')) {
+      errors.add(
+        `${block.path}.timeout_seconds is not supported: this version cannot ask a person about an agent's actions yet`,
+      );
+    }
+    if (level === PermissionLevel.Edit && fsWrite.length === 0) {
+      errors.add(`${block.path}.level "edit" needs the folders it may change: add fs.write`);
+    }
+    if (level === PermissionLevel.Read && (fsWrite.length > 0 || terminal === PermissionMode.Allow)) {
+      errors.add(
+        `${block.path}.level "read" may not write files or run commands: remove fs.write and terminal "allow"`,
+      );
+    }
+    if (level === PermissionLevel.Full && (block.has('fs') || block.has('terminal'))) {
+      errors.add(`${block.path}.level "full" has no limits to give: remove fs and terminal`);
+    }
     return {
-      fsRead: fs?.stringList('read') ?? [],
-      fsWrite: fs?.stringList('write') ?? [],
+      ...(level !== undefined ? { level } : {}),
+      fsRead,
+      fsWrite,
       terminal: terminal ?? PermissionMode.Deny,
     };
+  }
+
+  private parseLevel(block: Node, errors: ErrorBag): PermissionLevel | undefined {
+    const name = block.string('level', false);
+    if (name === undefined) {
+      return undefined;
+    }
+    if (name === 'ask') {
+      errors.add(
+        `${block.path}.level "ask" is not available yet: this version cannot ask a person about an agent's actions; use "read", "edit" or "full"`,
+      );
+      return undefined;
+    }
+    const level = lookup(PermissionLevel, name);
+    if (level === undefined) {
+      errors.add(`${block.path}.level "${name}" must be "read", "edit" or "full"`);
+    }
+    return level;
   }
 
   private parsePolicy(node: Node, errors: ErrorBag): McpPolicy | undefined {

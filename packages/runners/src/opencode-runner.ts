@@ -1,6 +1,7 @@
 import type { RunRequest } from '@indaba/core';
-import { McpCapability, type McpCapable } from '@indaba/core';
+import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
+import { afterOnly, fullAccess, unsupported } from './permissions.js';
 
 export interface OpenCodeRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -30,8 +31,26 @@ export class OpenCodeRunner extends AbstractCliRunner implements McpCapable {
     return McpCapability.AgentManaged;
   }
 
+  // No read-only argument exists, and the scope guard cannot stop a command: `read` is unsupported; `edit` is only checked after the step.
+  override permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      unsupported(PermissionLevel.Read, 'no_read_only_argument'),
+      afterOnly(PermissionLevel.Edit, 'commands_not_limited'),
+      fullAccess('auto_approve'),
+    ];
+  }
+
+  protected override levelArguments(level: PermissionLevel): readonly string[] {
+    return level === PermissionLevel.Full ? ['--auto'] : [];
+  }
+
   protected command(request: RunRequest): readonly string[] {
-    const command = [this.binary, 'run', ...this.extraArgs];
+    const command = [
+      this.binary,
+      'run',
+      ...this.extraArgs,
+      ...(request.permissionLevel === undefined ? [] : this.levelArguments(request.permissionLevel)),
+    ];
     if (request.model !== undefined) {
       command.push('--model', request.model);
     }

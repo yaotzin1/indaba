@@ -1,7 +1,8 @@
 import type { RunRequest } from '@indaba/core';
-import { McpCapability, type McpCapable } from '@indaba/core';
+import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
 import { McpConfigWriter } from './mcp.js';
+import { nativeWithGuard, unsupported } from './permissions.js';
 
 export interface CodexRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -20,23 +21,43 @@ export class CodexRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'codex';
   readonly description = 'The Codex command line, one run per step; reads its terminal output.';
   private readonly binary: string;
-  private readonly extraArgs: readonly string[];
+  private readonly extraArgs: readonly string[] | undefined;
 
   constructor(options: CodexRunnerOptions = {}) {
     super(options);
     this.binary = options.binary ?? 'codex';
-    this.extraArgs = options.extraArgs ?? ['--sandbox', 'workspace-write'];
+    this.extraArgs = options.extraArgs;
+  }
+
+  // `read-only` and `danger-full-access` are not offered: the CLI is not installed where this was written, and a level whose
+  // argument cannot be confirmed is unsupported, never a guess (specs/agent-permissions, C-03).
+  override permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      unsupported(PermissionLevel.Read, 'argument_unconfirmed'),
+      nativeWithGuard(PermissionLevel.Edit, 'commands_not_limited'),
+      unsupported(PermissionLevel.Full, 'argument_unconfirmed'),
+    ];
+  }
+
+  protected override levelArguments(level: PermissionLevel): readonly string[] {
+    return level === PermissionLevel.Edit ? ['--sandbox', 'workspace-write'] : [];
   }
 
   mcpCapability(): McpCapability {
     return McpCapability.Injected;
   }
 
+  private permissionArguments(request: RunRequest): readonly string[] {
+    return request.permissionLevel === undefined
+      ? (this.extraArgs ?? ['--sandbox', 'workspace-write'])
+      : [...(this.extraArgs ?? []), ...this.levelArguments(request.permissionLevel)];
+  }
+
   protected command(request: RunRequest): readonly string[] {
     const command = [
       this.binary,
       'exec',
-      ...this.extraArgs,
+      ...this.permissionArguments(request),
       ...McpConfigWriter.codexArgs(request.mcpServers ?? []),
     ];
     if (request.model !== undefined) {

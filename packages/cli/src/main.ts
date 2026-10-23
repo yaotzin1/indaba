@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { realpath } from 'node:fs/promises';
 import { homedir, hostname } from 'node:os';
 import { join, resolve } from 'node:path';
+import { createInterface } from 'node:readline/promises';
 import { parseArgs } from 'node:util';
 import {
   type Adjudicator,
@@ -19,11 +20,16 @@ import {
   WorkflowValidationError,
 } from '@indaba/core';
 import {
+  applyRunBounds,
   catalogOf,
+  checkPermissions,
   effectiveGuards,
   FileWorkflowRegistry,
+  fullAccessSteps,
   PROJECT_CONFIG_FILE,
+  parseRunBound,
   planForStep,
+  type RunBound,
   readProjectConfig,
   type WorkflowParser,
   WorkflowStatus,
@@ -54,6 +60,7 @@ import {
   testSink,
 } from './log.js';
 import type { BrowserOpener } from './open-browser.js';
+import { describePermissionFinding } from './permission-report.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { redact } from './redact.js';
@@ -177,6 +184,10 @@ Options:
   -v, --verbose           Print the cost of each span; -vv also streams agent output
       --tui               Run in a process of its own and show it as a dashboard (needs a terminal and @indaba/tui);
                           closing the dashboard asks whether to detach (the run goes on) or cancel it
+      --permissions [<step>=]<level>
+                          Lower what agents may do in this run: read, edit or full (repeatable). It never raises a level
+                          and never writes the file; a step with no level takes only read.
+      --allow-full-access Acknowledge the steps at the level full when there is no terminal to ask at
 `,
 };
 
@@ -184,7 +195,16 @@ function withLogOptions(usage: string): string {
   return `${usage}\n${LOG_OPTIONS_USAGE}`;
 }
 
-const RUN_ONLY_OPTIONS = ['workdir', 'task-id', 'timeout', 'verbose', 'tui', 'discussion-dir'] as const;
+const RUN_ONLY_OPTIONS = [
+  'workdir',
+  'task-id',
+  'timeout',
+  'verbose',
+  'tui',
+  'discussion-dir',
+  'permissions',
+  'allow-full-access',
+] as const;
 
 function processIo(): Io {
   return { stdout: process.stdout, stderr: process.stderr, env: process.env, cwd: process.cwd() };
@@ -284,10 +304,15 @@ interface Parsed {
   readonly verbosity: number;
   readonly tui: boolean;
   readonly discussionDir: string | undefined;
+  readonly permissions: readonly string[];
+  readonly allowFullAccess: 'run_option' | 'page' | undefined;
   readonly help: boolean;
 }
 
-function parseCommand(command: string, args: readonly string[]): Parsed {
+function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
+  // `--allow-full-access=page` is what the server passes after its own confirmation (specs/agent-permissions, AC-05).
+  const fromPage = rawArgs.includes('--allow-full-access=page');
+  const args = rawArgs.map((arg) => (arg === '--allow-full-access=page' ? '--allow-full-access' : arg));
   let result: ReturnType<typeof parseWith>;
   try {
     result = parseWith(args);
@@ -324,6 +349,8 @@ function parseCommand(command: string, args: readonly string[]): Parsed {
     verbosity: values.verbose?.length ?? 0,
     tui: values.tui === true,
     discussionDir: values['discussion-dir'],
+    permissions: values.permissions ?? [],
+    allowFullAccess: values['allow-full-access'] === true ? (fromPage ? 'page' : 'run_option') : undefined,
     help: values.help === true,
   };
 }
@@ -342,6 +369,8 @@ function parseWith(args: readonly string[]) {
       verbose: { type: 'boolean', short: 'v', multiple: true },
       tui: { type: 'boolean' },
       'discussion-dir': { type: 'string' },
+      permissions: { type: 'string', multiple: true },
+      'allow-full-access': { type: 'boolean' },
     },
   });
 }
@@ -760,7 +789,7 @@ async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Pro
 
 async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser } = await createEngine({
+  const { parser, runners } = await createEngine({
     projectDir: io.cwd,
     env: io.env,
     plugins,
@@ -780,18 +809,30 @@ async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<
     }
     return EXIT_FAILURE;
   }
+  const findings = checkPermissions(workflow, runners);
+  const refused = findings.filter((f) => f.severity === 'error');
+  if (refused.length > 0) {
+    io.stdout.write(`${parsed.file} is invalid:\n`);
+    for (const finding of refused) {
+      io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
+    }
+    return EXIT_FAILURE;
+  }
   io.stdout.write(
     `${workflow.name} is valid (${workflow.steps.length} steps, ${Object.keys(workflow.roles).length} roles).\n`,
   );
   for (const warning of new WorkflowValidator().warnings(workflow)) {
     io.stdout.write(`warning: ${warning}\n`);
   }
+  for (const finding of findings) {
+    io.stdout.write(`permissions: ${describePermissionFinding(finding)}\n`);
+  }
   return EXIT_OK;
 }
 
 async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { parser, planner } = await createEngine({
+  const { parser, planner, runners } = await createEngine({
     projectDir: io.cwd,
     env: io.env,
     plugins,
@@ -827,6 +868,12 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   });
 
   let failed = false;
+  for (const finding of checkPermissions(workflow, runners)) {
+    failed ||= finding.severity === 'error';
+    io.stdout.write(
+      `${finding.severity === 'error' ? 'permissions error: ' : 'permissions: '}${describePermissionFinding(finding)}\n`,
+    );
+  }
   for (const issue of planner.preflight(workflow)) {
     failed ||= issue.isError;
     io.stdout.write(`${issue.isError ? 'MCP error: ' : 'MCP warning: '}${issue.describe()}\n`);
@@ -875,6 +922,19 @@ async function projectDirOf(parsed: Parsed, io: Io): Promise<string | undefined>
 }
 
 /** `run --tui`: the same command line, without the flag, in a process of its own, shown as a dashboard. */
+/** AC-05: names the steps at the level `full` and waits for a yes; anything else is a no. */
+async function confirmFullAccess(terminal: NonNullable<Io['terminal']>, list: string): Promise<boolean> {
+  const lines = createInterface({ input: terminal.stdin, output: terminal.stdout });
+  try {
+    const answer = await lines.question(
+      `These steps run at the level "full": the agent can change anything and run anything and nobody approves it.\n${list}\nStart the run? [y/N] `,
+    );
+    return /^\s*y(es)?\s*$/i.test(answer);
+  } finally {
+    lines.close();
+  }
+}
+
 async function runInDashboard(
   projectDir: string,
   args: readonly string[],
@@ -891,7 +951,7 @@ async function runInDashboard(
 
 async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
-  const { engine, parser, events } = await createEngine({
+  const { engine, parser, events, runners } = await createEngine({
     projectDir,
     logger,
     logSinks: logger,
@@ -908,7 +968,51 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
       io.stderr.write(`Listener failed: ${redact(reason, io.env)}\n`);
     },
   });
-  const workflow = await loadWorkflow(parser, parsed, io);
+  const loaded = await loadWorkflow(parser, parsed, io);
+
+  // --permissions only lowers what the file wrote (specs/agent-permissions, AC-12).
+  const bounds: RunBound[] = [];
+  for (const text of parsed.permissions) {
+    const bound = parseRunBound(text);
+    if ('error' in bound) {
+      return usageError(io, bound.error, 'run');
+    }
+    bounds.push(bound);
+  }
+  const bounded = applyRunBounds(loaded, bounds, runners);
+  if (bounded.errors.length > 0) {
+    return usageError(io, bounded.errors.join('\n'), 'run');
+  }
+  const workflow = bounded.workflow;
+  const findings = [...checkPermissions(workflow, runners), ...bounded.findings];
+  const refused = findings.filter((f) => f.severity === 'error');
+  if (refused.length > 0) {
+    io.stdout.write(`${parsed.file} is invalid:\n`);
+    for (const finding of refused) {
+      io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
+    }
+    return EXIT_FAILURE;
+  }
+
+  const full = fullAccessSteps(workflow, runners);
+  let acknowledged: 'terminal' | 'run_option' | 'page' | undefined;
+  if (full.length > 0) {
+    const list = full.map((f) => `  ${f.stepId} (${f.runners.join(', ')})`).join('\n');
+    if (parsed.allowFullAccess !== undefined) {
+      acknowledged = parsed.allowFullAccess;
+    } else if (io.terminal !== undefined && (await confirmFullAccess(io.terminal, list))) {
+      acknowledged = 'terminal';
+    } else if (io.terminal !== undefined) {
+      io.stderr.write('Not started: full access was not confirmed.\n');
+      return EXIT_USAGE;
+    } else {
+      return usageError(
+        io,
+        `These steps run at the level "full": the agent can change anything and run anything and nobody approves it.\n${list}\nThere is no terminal to ask at; pass --allow-full-access to start anyway.`,
+        'run',
+      );
+    }
+  }
 
   const screen = screenOf(io);
   events.addListener(StepStatusChanged, (e) => {
@@ -925,7 +1029,12 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   }
 
   screen.line(`Running ${workflow.name}\n`);
+  // The full-access sentence is repeated at the start of every run; the other facts are for plan and validate (AC-04, AC-08).
+  for (const finding of findings.filter((f) => f.code === 'full')) {
+    screen.line(`  permissions: ${describePermissionFinding(finding)}\n`);
+  }
   const result = await engine.run(workflow, {
+    ...(acknowledged === undefined ? {} : { fullAccessAcknowledged: acknowledged }),
     ...(io.signal === undefined ? {} : { signal: io.signal }),
     ...(parsed.taskId === undefined ? {} : { taskId: parsed.taskId }),
     ...(parsed.verbosity >= 2 ? { onOutput: printed(screen) } : {}),

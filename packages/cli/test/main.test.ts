@@ -69,7 +69,13 @@ describe('arguments and exit codes', () => {
 describe('validate', () => {
   it('accepts the example workflow', async () => {
     const r = await run(['validate', example]);
-    expect(r).toEqual({ code: 0, out: 'indaba-task-pipeline is valid (4 steps, 3 roles).\n', err: '' });
+    expect(r.code).toBe(0);
+    expect(r.err).toBe('');
+    expect(r.out.startsWith('indaba-task-pipeline is valid (4 steps, 3 roles).\n')).toBe(true);
+    // A step that writes no level is told which built-in default its runner applies (specs/agent-permissions, AC-08).
+    expect(r.out).toContain(
+      'permissions: step "code": no level is written, so the built-in default of the claude-code runner applies',
+    );
   });
 
   it('resolves the file against the working directory', async () => {
@@ -123,7 +129,7 @@ describe('plan', () => {
   it('prints the execution order of the example', async () => {
     const r = await run(['plan', example]);
     expect(r.code).toBe(0);
-    expect(r.out).toBe(
+    expect(r.out.split('permissions: ')[0]).toBe(
       [
         '1. rfc [architect]',
         '2. code [implementer] (after rfc)',
@@ -132,6 +138,8 @@ describe('plan', () => {
         '',
       ].join('\n'),
     );
+    // A step that writes no level is told which built-in default its runner applies (specs/agent-permissions, AC-08).
+    expect(r.out).toContain('permissions: step "code": no level is written');
   });
 
   it('prints MCP findings and fails on an error', async () => {

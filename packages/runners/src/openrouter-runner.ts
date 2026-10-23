@@ -1,12 +1,14 @@
-import type { Runner } from '@indaba/core';
+import type { PermissionCapability, PermissionCapable, Runner } from '@indaba/core';
 import {
   DEFAULT_TIMEOUT_SECONDS,
+  PermissionLevel,
   RunnerError,
   RunnerUnavailableError,
   type RunRequest,
   RunResult,
   TokenUsage,
 } from '@indaba/core';
+import { fullAccess, nativeWithGuard } from './permissions.js';
 import { SseParser } from './sse-parser.js';
 
 export type FetchFunction = (input: string, init: RequestInit) => Promise<Response>;
@@ -76,7 +78,7 @@ function checkBaseUrl(raw: string, label: string): string {
  * content is. Throws RunnerUnavailableError, so a workflow can fall back, only when nothing has been
  * run: no key, no model, a rejected key, or no response at all.
  */
-export class OpenAiCompatibleRunner implements Runner {
+export class OpenAiCompatibleRunner implements Runner, PermissionCapable {
   readonly name: string;
   /** Names the service and the variable it needs; never its address or its key. */
   readonly description: string;
@@ -90,6 +92,21 @@ export class OpenAiCompatibleRunner implements Runner {
   private readonly extraHeaders: Readonly<Record<string, string>>;
   private readonly requestExtras: Readonly<Record<string, unknown>>;
   private readonly fetchFn: FetchFunction;
+
+  /** A chat API cannot act on files or run commands, so each level holds by what the runner is (specs/agent-permissions, C-03). */
+  permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      nativeWithGuard(PermissionLevel.Read, 'cannot_act'),
+      nativeWithGuard(PermissionLevel.Edit, 'cannot_act'),
+      fullAccess('cannot_act'),
+    ];
+  }
+
+  permissionDenied(_output: string): boolean {
+    return false;
+  }
+
+  readonly canRecogniseDenial = false;
 
   constructor(options: OpenAiCompatibleRunnerOptions) {
     this.name = options.name;

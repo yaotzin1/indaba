@@ -1,7 +1,8 @@
 import type { RunRequest } from '@indaba/core';
-import { McpCapability, type McpCapable } from '@indaba/core';
+import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions, PreparedCommand } from './abstract-cli-runner.js';
 import { McpConfigWriter } from './mcp.js';
+import { fullAccess, nativeWithGuard } from './permissions.js';
 
 export interface ClaudeRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -19,12 +20,25 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'claude-code';
   readonly description = 'The Claude Code command line, one run per step; reads its terminal output.';
   private readonly binary: string;
-  private readonly extraArgs: readonly string[];
+  private readonly extraArgs: readonly string[] | undefined;
 
   constructor(options: ClaudeRunnerOptions = {}) {
     super(options);
     this.binary = options.binary ?? 'claude';
-    this.extraArgs = options.extraArgs ?? ['--permission-mode', 'acceptEdits'];
+    this.extraArgs = options.extraArgs;
+  }
+
+  override permissionCapabilities(): readonly PermissionCapability[] {
+    return [
+      nativeWithGuard(PermissionLevel.Read, 'plan_mode'),
+      nativeWithGuard(PermissionLevel.Edit, 'accept_edits'),
+      fullAccess('bypass_permissions'),
+    ];
+  }
+
+  protected override levelArguments(level: PermissionLevel): readonly string[] {
+    const mode = { read: 'plan', edit: 'acceptEdits', full: 'bypassPermissions' }[level];
+    return ['--permission-mode', mode];
   }
 
   mcpCapability(): McpCapability {
@@ -44,7 +58,12 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
   }
 
   private build(request: RunRequest, mcpConfigFile: string | undefined): string[] {
-    const command = [this.binary, '-p', request.prompt, ...this.extraArgs];
+    // A written level comes last, so an embedder's extraArgs can never widen it (AC-07); with no level the legacy default stays.
+    const permission =
+      request.permissionLevel === undefined
+        ? (this.extraArgs ?? ['--permission-mode', 'acceptEdits'])
+        : [...(this.extraArgs ?? []), ...this.levelArguments(request.permissionLevel)];
+    const command = [this.binary, '-p', request.prompt, ...permission];
     if (mcpConfigFile !== undefined) {
       command.push('--mcp-config', mcpConfigFile, '--strict-mcp-config');
     }
