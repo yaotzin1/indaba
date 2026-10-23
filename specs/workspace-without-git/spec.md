@@ -7,7 +7,7 @@
 > the changelog (`api-surface.md`). Existing workflows behave exactly as before.
 > **Builds on**: [`specs/git-workspace`](../git-workspace/spec.md) (worktrees and patches),
 > [`specs/debate-arbiter`](../debate-arbiter/spec.md) (the decision ledger). **Changes two specs written at the same
-> time**: [`specs/step-variants`](../step-variants/spec.md) and [`specs/step-budgets`](../step-budgets/spec.md)
+> time**: `specs/step-variants` (private specification) and [`specs/step-budgets`](../step-budgets/spec.md)
 > (section 9).
 
 ---

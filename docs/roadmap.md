@@ -26,7 +26,7 @@ Indaba is for, and which parts exist today, is in [positioning.md](positioning.m
 | 5 | Safe on the machine | `specs/agent-sandbox` | `sandbox: container` runs a step in a container that Indaba set up itself (image, agent, cleanup); a step never falls back to the host; `indaba sandbox doctor` says what to do when it cannot; tried on the maintainer's Windows machine |
 | 6 | The web view | `specs/web-app`, `specs/workflow-registry`, `specs/single-step-run`, then `specs/workflow-editor` | `indaba ui` serves a page on the local machine, with a token: first read-only (workflow list, graph, inspector, live run, health), then actions (run, stop, one step, answers), then the editor and wizard |
 
-Later and only if asked for: variants (`specs/step-variants`), the voter arbiter, the debate prompt library, the asset helper for downloading skills and prompts, and downloading agents (`specs/acp-agent-install`).
+Later and only if asked for: the debate prompt library, the asset helper for downloading skills and prompts, and downloading agents (`specs/acp-agent-install`).
 
 ## Implementation plan: phases 5 and 6
 
