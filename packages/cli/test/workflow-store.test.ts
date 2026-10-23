@@ -1,7 +1,7 @@
 import { chmod, mkdir, readdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createLogger, type LogRecord } from '@indaba/core';
-import { parseWorkflow } from '@indaba/engine';
+import { parseWorkflow, WorkflowParser } from '@indaba/engine';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { RunChild, RunStarter } from '../src/run-child.js';
 import { contentHash } from '../src/run-control/confirm.js';
@@ -38,6 +38,7 @@ async function project(text: string | Buffer = WORKFLOW) {
   const store = createWorkflowStore({
     roots: [root],
     parse: parseWorkflow,
+    diagnose: (text: string) => new WorkflowParser().diagnose(text),
     pid: PID,
     logger: createLogger({
       sinks: [{ write: (record) => logged.push(record) }],
@@ -66,9 +67,11 @@ describe('reading (AC-01)', () => {
     expect(problems[0]).toMatchObject({ line: expect.any(Number), column: expect.any(Number) });
     expect(problems[0]?.message).toMatch(/^invalid YAML/);
     expect(workflow).toMatchObject({ valid: false, name: 'demo' });
+    // Since specs/workflow-editor (AC-15), a structural problem is placed too: here, at the step that has no runner.
     const structural = store.check('version: "1.0"\nname: x\nsteps:\n  - id: a\n');
-    expect(structural.problems.length).toBeGreaterThan(0);
-    expect(structural.problems.every((p) => p.line === undefined && p.column === undefined)).toBe(true);
+    expect(structural.problems).toEqual([
+      { message: 'step "a" needs a role or a runner', line: 4, column: 5 },
+    ]);
   });
 
   it('refuses an id the scan does not list, a file over the limit, and bytes that are not UTF-8', async () => {
@@ -218,7 +221,12 @@ describe('saving (AC-03 to AC-06)', () => {
     const root = await makeTempDir();
     await mkdir(join(root, '.indaba'), { recursive: true });
     await writeFile(join(root, '.indaba', 'workflow.ai.yml'), WORKFLOW);
-    const store = createWorkflowStore({ roots: [root], parse: parseWorkflow, pid: PID });
+    const store = createWorkflowStore({
+      roots: [root],
+      parse: parseWorkflow,
+      diagnose: (text: string) => new WorkflowParser().diagnose(text),
+      pid: PID,
+    });
     const id = workflowId(0, '.indaba/workflow.ai.yml');
     const { contentHash: base } = await store.read(id);
     await store.save(id, { text: CHANGED, baseHash: base });

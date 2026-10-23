@@ -464,7 +464,9 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
   const { parser } = await createEngine({ projectDir: io.cwd, env: io.env, logger });
   const parse = (source: string) => parser.parse(source);
   const pid = io.pid ?? process.pid;
-  const workflowStore = (roots: readonly string[]) => createWorkflowStore({ roots, parse, pid, logger });
+  const diagnose = (source: string) => parser.diagnose(source);
+  const workflowStore = (roots: readonly string[]) =>
+    createWorkflowStore({ roots, parse, diagnose, pid, logger });
   const starter = io.startRun;
   if (starter === undefined) {
     return { workflowStore };

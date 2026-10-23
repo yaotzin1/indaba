@@ -70,6 +70,8 @@ export { DEFAULT_RETRY_DELAY_MS, RemoteLogSink } from './observability/remote-lo
 export type { CollectorAddress } from './observability/remote-transport.js';
 export { authorizationOf, parseCollectorAddress } from './observability/remote-transport.js';
 export { RandomIdGenerator, SystemClock } from './observability/system.js';
+export type { Path, Problem } from './parser/diagnose.js';
+export { pathText } from './parser/diagnose.js';
 export { ErrorBag } from './parser/error-bag.js';
 export { Interpolator } from './parser/interpolator.js';
 export { parseWorkflow, WorkflowParser } from './parser/parser.js';

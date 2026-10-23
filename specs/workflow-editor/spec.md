@@ -3,7 +3,8 @@
 > **Status**: Draft
 > **Stage entry**: 1
 > **Semver impact**: minor (new exports, two new commands, optional `description` members on existing extension
-> interfaces; nothing existing changes). Stacked on `specs/debate-findings`.
+> interfaces; nothing existing changes). Amended 2026-10-22 (C-01 to C-03 below): it no longer waits for
+> `specs/debate-findings` or `specs/voter-arbiter`.
 
 ---
 
@@ -52,8 +53,10 @@ and, later, GUIs that may edit parts of it. Three things stand in the way, and n
   order, quoting and indentation. A test sets one field of a commented example and compares the text outside that
   line.
 - [ ] AC-05. `problems()` returns the problems of the current text: `{ path, message, severity, line?, column? }`,
-  `severity` being `error` or `warning`, `line` and `column` 1-based and present when the path exists in the text.
-  Its errors and warnings are exactly those of `indaba validate` for the same text (same parser, same validator).
+  `severity` being `error` or `warning`, `line` and `column` 1-based. The position is that of the path when it is in the
+  text, else of its nearest ancestor that is (a required key that is missing points at the mapping that lacks it), and
+  absent only when not even the root can be placed. Its errors and warnings are exactly those of `indaba validate` for
+  the same text (same parser, same validator, the same sentences).
 - [ ] AC-06. A document with problems can still be edited and written: a wizard goes through invalid states.
   Nothing in the editing API rejects a file for being semantically invalid, only for being unsafe (AC-02) or not YAML.
 - [ ] AC-07. `parse(text)` of text that is not YAML, has more than one document, or whose root is not a mapping,
@@ -74,13 +77,20 @@ and, later, GUIs that may edit parts of it. Three things stand in the way, and n
 
 **Catalog**
 
-- [ ] AC-11. `Runner`, `Guard`, `Adjudicator`, `Voter` and prompts may carry a `description`. The built-ins are
+- [ ] AC-11. `Runner`, `Guard` and `Adjudicator` may carry a `description` (voters and prompts gain one with their
+  own specs, C-01). The built-ins are
   described. The registries list `{ name, description }`.
 - [ ] AC-12. `indaba catalog [--json] [--plugin <spec>]` prints what this installation offers: runners, guard types,
   arbiters, voters, prompts, and the enumerated values of the format. `--plugin` loads plugins first, so their
   contributions are listed. The JSON shape is documented and versioned (`"catalog": 1`).
 - [ ] AC-13. The catalog function behind it, `catalogOf(bundle)`, is exported so a web or Electron server can call it
   in-process.
+
+**The source view of `indaba ui`**
+
+- [ ] AC-15. The workflow store of `indaba ui` (`specs/web-app-editing-core`) answers its problems from
+  `WorkflowParser.diagnose`, so the source view has a line and column for every problem it can place, not only for YAML
+  syntax. Its contract (`WorkflowProblem`) is unchanged.
 
 **General**
 
@@ -148,6 +158,21 @@ Defaults chosen here, inherited by every consumer:
 - Edits never validate semantics (AC-06): a wizard passes through invalid states, and validation is a separate call.
 - Positions are 1-based line and column, as editors show them.
 - The catalog carries a `catalog` version number so a front end can detect a shape it does not know.
+
+## Amendments of 2026-10-22
+
+- **C-01. Not stacked any more.** The maintainer chose to build this before `specs/voter-arbiter` and
+  `specs/debate-findings`, neither of which has code. What this spec delivers that the forms and the graph editor
+  need (the document, positions, the schema) depends on neither. Voters, prompts and `prompt_additions` are left out of
+  the schema and the descriptions; the catalog keeps `voters`, `prompts` and `values.promptAdditions` in its shape,
+  **empty** until those specs fill them, so adding them later does not change the catalog's version.
+- **C-02. Positions without rewriting the error sites.** A structural error already begins with its path
+  (`$.steps[0].role ...`), and a check of the validator names its step (`step "build" ...`) or a top-level key.
+  `diagnose` reads that and finds the place in the `yaml` document; no message changes, so `validate`'s output is the
+  same by construction. The plan's `ErrorBag.addAt` is not needed.
+- **C-03. Order of the parts.** Diagnostics first (the widest risk, and it gives the source view its positions at
+  once, AC-15), then the editor and the schema, then the descriptions and the catalog. Each part is its own pull
+  request.
 
 ## Artifacts not written
 

@@ -17,6 +17,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Every problem of a workflow file, placed** (minor; track `feature`; spec `specs/workflow-editor`, part 2, T5 and
+  T5b). `WorkflowParser.diagnose(text)` in `@indaba/engine` answers the problems `indaba validate` reports (the same
+  sentences: errors, or the warnings of a valid file), each with its `path` (`$.steps[0].role`), `severity`, and a
+  1-based `line` and `column`; a missing key points at the mapping that lacks it. New exports: `Problem`, `Path`,
+  `pathText`. The source view of `indaba ui` now has a line for every problem, not only for YAML syntax. `parse` and
+  `validate` are unchanged.
+
 - **Edit a workflow's text from `indaba ui`** (minor; track `feature`; spec `specs/web-app-editing-core`, step 3a of
   `specs/web-app`). **Edit** in the Run a workflow panel opens a workflow file as text, with line numbers, the problems
   `indaba validate` would report as you type (with line and column for YAML syntax), **Save**, and **Run** once the

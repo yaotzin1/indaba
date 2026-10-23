@@ -1,8 +1,8 @@
 # Plan: Workflow editor, schema and catalog
 
 > Stage 3. Contract: [`api-surface.md`](api-surface.md). Behaviour: [`spec.md`](spec.md).
-> The three parts are independent and can ship in three pull requests: descriptions and catalog, then schema, then
-> the editor.
+> The three parts are independent and ship in three pull requests, in this order (spec C-03): diagnostics, then the
+> editor and the schema, then the descriptions and the catalog.
 
 ## Where each piece goes
 
@@ -25,13 +25,20 @@ tests that on a commented example, not just asserts it. `addStep`/`moveStep` ope
 looking up the item with the given `id`. Intermediate containers are created as maps or sequences according to the
 next key (string: map, number: sequence).
 
-## Diagnostics with positions
+## Diagnostics with positions (amended, spec C-02)
 
-The parser's `ErrorBag` holds strings such as `$.steps[0].role "x" ...`. `diagnose` needs the path separately: the bag
-gains `addAt(path, message)` and keeps the existing `add` (which splits a leading `$...` path off the message, so no
-call site has to change at once). A path becomes a position by walking the `yaml` document with the same keys and
-reading `node.range` (`[start, valueEnd, nodeEnd]`) converted through `LineCounter`. `WorkflowValidator.warnings` gains
-a path where it has one.
+`diagnose(source)` parses once with `parseDocument` and a `LineCounter`. A YAML error gives its own position. Otherwise
+it runs `parse` and `warnings` as `validate` does and places each sentence:
+
+- one that begins with a path (`$.steps[0].role ...`, `$.defaults ...`) at that path, walking the document's maps and
+  sequences and reading `range` through the `LineCounter`; a key that is absent falls back to the nearest ancestor that
+  is present;
+- one that names a step (`step "build" ...`) at the `steps` item with that `id`;
+- one that begins with a top-level key (`steps must contain ...`) at that key;
+- any other at the document root.
+
+No message changes, so `validate` is unchanged; a test compares `diagnose`'s messages with `validate`'s for every
+example and fixture.
 
 ## Schema
 

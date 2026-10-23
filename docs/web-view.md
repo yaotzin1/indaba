@@ -192,8 +192,8 @@ copies they left under `.indaba/run-inputs/`.
 (`/workflows/<id>`), so a reload opens it again. It works for a workflow with problems too: that is where they get fixed.
 
 - **As you type**, after a short pause, the page checks the text with the same parser as `indaba validate` and lists the
-  problems under it. A YAML syntax problem names its line and column; press it to put the cursor there. Other problems
-  (a step with no runner, say) name the step, not a line, for now.
+  problems under it, each with its line and column; press one to put the cursor there. A problem about something
+  that is missing (a step with no runner, say) points at the step that lacks it.
 - **Tab** indents by two spaces. To leave the editor with the keyboard, press **Escape**, then **Tab**.
 - **Save** writes the file. A text with problems is saved too, so you never lose a draft; it cannot run until they are
   fixed. **Run** is there once the saved file has none.

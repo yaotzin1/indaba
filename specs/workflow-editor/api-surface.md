@@ -1,6 +1,7 @@
 # API surface contract: Workflow editor, schema and catalog
 
-> Builds on `specs/debate-findings` (the format it describes) and the registries of the three arbiter specs.
+> Amended 2026-10-22 with `spec.md` C-01 to C-03: voters and prompts are left to their own specs; the catalog keeps their
+> fields, empty.
 
 ## Semver classification
 
@@ -16,12 +17,13 @@ which no implementer is forced to write and no caller is forced to read.
 //   Runner.description?: string
 //   Guard.description?: string
 //   Adjudicator.description?: string   (specs/debate-arbiter, AC-17)
-//   Voter.description?: string          (specs/voter-arbiter, AC-13)
+//   (Voter.description arrives with specs/voter-arbiter; prompts' with specs/debate-findings)
 
 export interface Described { readonly name: string; readonly description: string }   // "" when none
 ```
 
-`AdjudicatorRegistry`, `VoterRegistry` and `PromptRegistry` each gain or already have `describe(): readonly Described[]`.
+`AdjudicatorRegistry` gains `describe(): readonly Described[]`; the voter and prompt registries will have it when they
+exist.
 
 ### `@indaba/engine`
 
@@ -58,22 +60,22 @@ export interface Catalog {
   readonly runners: readonly Described[];
   readonly guards: readonly Described[];
   readonly arbiters: readonly Described[];
-  readonly voters: readonly Described[];
-  readonly prompts: readonly Described[];
+  readonly voters: readonly Described[];                    // empty until specs/voter-arbiter
+  readonly prompts: readonly Described[];                   // empty until specs/debate-findings
   readonly values: {                                        // the enumerated values of the format
     readonly decisionTypes: readonly string[];
     readonly isolation: readonly string[];
     readonly failureActions: readonly string[];
     readonly mcpPolicies: readonly string[];
-    readonly promptAdditions: readonly string[];
+    readonly promptAdditions: readonly string[];            // empty until specs/debate-findings
   };
 }
 export function catalogOf(bundle: EngineBundle): Catalog;
 ```
 
 `WorkflowParser` gains `diagnose(source: string): readonly Problem[]` (errors and warnings, with positions), which
-`problems()` and `indaba validate` share; `parse` is unchanged. `EngineBundle` gains the adjudicator, voter and prompt
-registries so `catalogOf` can list them.
+`problems()` uses; its messages are the sentences `parse` and `warnings` already give, so `indaba validate` is unchanged.
+`parse` is unchanged. `EngineBundle` gains the adjudicator registry so `catalogOf` can list it.
 
 ### `indaba` (CLI)
 

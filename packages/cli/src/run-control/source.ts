@@ -11,7 +11,7 @@ import {
   type WorkflowSourceResponse,
   WorkflowValidationError,
 } from '@indaba/core';
-import { sanitize } from '@indaba/engine';
+import { type Problem, sanitize } from '@indaba/engine';
 import type { UiWorkflowStore } from '../server-loader.js';
 import { contentHash } from './confirm.js';
 import {
@@ -41,6 +41,8 @@ export interface WorkflowStoreOptions {
   readonly roots: readonly string[];
   /** Parses a workflow as `indaba validate` does; throws `WorkflowValidationError` with its problems. */
   readonly parse: (source: string) => WorkflowDefinition;
+  /** The same problems, each placed in the text (`WorkflowParser.diagnose`, specs/workflow-editor). */
+  readonly diagnose: (source: string) => readonly Problem[];
   /** This process's id, for the name of the temporary file of a save. */
   readonly pid: number;
   readonly logger?: Logger;
@@ -48,9 +50,6 @@ export interface WorkflowStoreOptions {
 
 /** The suffix of the temporary file a save writes beside its target; never the name of a workflow the scan lists. */
 export const SAVE_SUFFIX = '.indaba-save';
-
-/** `yaml` words the position of a syntax error this way; nothing else in a problem is read as a position. */
-const POSITION = /at line (\d+), column (\d+)/;
 
 /** UTF-8 that fails on a byte sequence it cannot decode, and keeps a byte-order mark so the bytes round-trip. */
 const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
@@ -63,14 +62,12 @@ function textOf(buffer: Buffer): string | undefined {
   }
 }
 
-function problemOf(message: string): WorkflowProblem {
-  const clean = sanitize(message);
-  const at = POSITION.exec(clean);
-  const line = at === null ? Number.NaN : Number(at[1]);
-  const column = at === null ? Number.NaN : Number(at[2]);
-  return Number.isSafeInteger(line) && Number.isSafeInteger(column) && line > 0 && column > 0
-    ? { message: clean, line, column }
-    : { message: clean };
+/** A problem of `diagnose` as the page receives it: its sentence cleaned, its place when it has one (AC-15). */
+function problemOf(problem: Problem): WorkflowProblem {
+  const message = sanitize(problem.message);
+  return problem.line === undefined || problem.column === undefined
+    ? { message }
+    : { message, line: problem.line, column: problem.column };
 }
 
 const nameOf = (path: string): string => basename(path).replace(/\.workflow\.ai\.ya?ml$|\.ya?ml$/, '');
@@ -90,10 +87,12 @@ export function createWorkflowStore(options: WorkflowStoreOptions): UiWorkflowSt
       return { problems: [], name: sanitize(workflow.name) };
     } catch (error) {
       if (error instanceof WorkflowValidationError) {
-        return { problems: error.problems.map(problemOf), name: undefined };
+        // The errors `parse` gave, with the places `diagnose` finds; the warnings of a valid file are not problems here.
+        const placed = options.diagnose(text).filter((p) => p.severity === 'error');
+        return { problems: placed.map(problemOf), name: undefined };
       }
       return {
-        problems: [problemOf(error instanceof Error ? error.message : String(error))],
+        problems: [{ message: sanitize(error instanceof Error ? error.message : String(error)) }],
         name: undefined,
       };
     }
