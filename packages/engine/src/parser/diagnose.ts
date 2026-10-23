@@ -63,7 +63,8 @@ function child(node: YamlNode | null | undefined, part: string | number): YamlNo
     if (pair === undefined) {
       return undefined;
     }
-    // A key with no value (`role:`) is placed at the key itself.
+    // `role:` has an empty value node just after its colon, which is where it is placed; a key with no value node
+    // at all (an explicit `? role`) is placed at the key.
     return (pair.value as YamlNode | null) ?? (pair.key as YamlNode | null) ?? undefined;
   }
   if (isSeq(node) && typeof part === 'number') {

@@ -1329,3 +1329,151 @@ describe('the source view (T-10, T-11, AC-09 to AC-13)', () => {
     expect(screen.queryByLabelText('The workflow file')).toBeNull();
   });
 });
+
+describe('the source view and the Run panel when things go wrong (test gaps)', () => {
+  const TEXT = 'version: "1.0"\nname: demo\nsteps:\n  - id: a\n';
+  const WF = {
+    id: 'w1',
+    name: 'demo',
+    path: 'demo.workflow.ai.yml',
+    project: 'shop',
+    valid: true,
+    problems: [],
+  };
+  const SOURCE: WorkflowSourceResponse = {
+    workflow: WF,
+    text: TEXT,
+    contentHash: 'a'.repeat(64),
+    problems: [],
+  };
+  const gone = new ApiFailure({ kind: 'unreachable' });
+
+  function editable(extra: Parameters<typeof fakeClient>[0] = {}) {
+    return fakeClient({
+      runs: RUNS,
+      workflows: { workflows: [WF], truncated: false },
+      source: SOURCE,
+      check: () => [],
+      ...extra,
+    });
+  }
+  function open(client: FakeClient) {
+    render(h(App, { ...appProps(client, `/workflows/${WF.id}`), checkDelayMs: 5, pollMs: 5 }));
+  }
+  const editor = async () => (await screen.findByLabelText('The workflow file')) as HTMLTextAreaElement;
+
+  it('asks for the address again when the token is refused while opening a file', async () => {
+    open(editable({ source: { kind: 'unauthorized' } }));
+    expect((await screen.findByRole('alert')).textContent).toContain('This page needs its address');
+  });
+
+  it('says the server stopped when a check of the draft cannot reach it', async () => {
+    const client = editable();
+    client.checkWorkflow = async () => {
+      throw gone;
+    };
+    open(client);
+    fireEvent.change(await editor(), { target: { value: `${TEXT}x: 1\n` } });
+    expect((await screen.findByRole('alert')).textContent).toContain('The server stopped');
+  });
+
+  it('says the server stopped when a save cannot reach it, and shows Saving... meanwhile', async () => {
+    let fail: () => void = () => undefined;
+    const client = editable();
+    client.saveWorkflowSource = () =>
+      new Promise((_resolve, reject) => {
+        fail = () => reject(gone);
+      });
+    open(client);
+    fireEvent.change(await editor(), { target: { value: 'changed' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    expect(await screen.findAllByText('Saving...')).not.toHaveLength(0);
+    await act(async () => fail());
+    expect((await screen.findByRole('alert')).textContent).toContain('The server stopped');
+  });
+
+  it('has the browser ask before the tab closes with unsaved changes, and not once they are saved', async () => {
+    open(editable());
+    const area = await editor();
+    const unload = () => {
+      const event = new Event('beforeunload', { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    expect(unload()).toBe(false);
+    fireEvent.change(area, { target: { value: 'changed' } });
+    await waitFor(() => expect(unload()).toBe(true));
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await screen.findByText('Saved.');
+    // The listener goes in the effect after the render that says "Saved.": wait for it, as above.
+    await waitFor(() => expect(unload()).toBe(false));
+  });
+
+  it('lets a Ctrl+click on Back open a new tab instead of leaving', async () => {
+    open(editable());
+    await editor();
+    const back = screen.getByRole('link', { name: '← Runs' });
+    // The page leaves a modified click to the browser (a new tab): it does not prevent its default.
+    expect(fireEvent.click(back, { ctrlKey: true })).toBe(true);
+    // A plain click it handles itself.
+    cleanup();
+    open(editable());
+    await editor();
+    expect(fireEvent.click(screen.getByRole('link', { name: '← Runs' }))).toBe(false);
+  });
+
+  it('scrolls the line numbers with the text', async () => {
+    open(editable());
+    const area = await editor();
+    const gutter = document.querySelector('.source-gutter') as HTMLDivElement;
+    area.scrollTop = 40;
+    fireEvent.scroll(area);
+    expect(gutter.scrollTop).toBe(area.scrollTop);
+  });
+
+  it('closes the Run panel opened from the editor and goes back to the text', async () => {
+    open(editable({ startStatus: () => ({ state: 'starting' }) }));
+    await editor();
+    fireEvent.click(screen.getByRole('button', { name: 'Run' }));
+    const dialog = await screen.findByRole('dialog');
+    fireEvent.keyDown(dialog, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(await editor()).toBeTruthy();
+  });
+
+  it('says the server stopped when a start, or the question after it, cannot reach it', async () => {
+    const client = editable();
+    client.startRun = async () => {
+      throw gone;
+    };
+    render(h(App, { ...appProps(client), pollMs: 5 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    fireEvent.click(
+      await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Run demo' }),
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('The server stopped');
+    cleanup();
+    const asking = editable();
+    asking.startStatus = async () => {
+      throw gone;
+    };
+    render(h(App, { ...appProps(asking), pollMs: 5 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    fireEvent.click(
+      await within(await screen.findByRole('dialog')).findByRole('button', { name: 'Run demo' }),
+    );
+    expect((await screen.findByRole('alert')).textContent).toContain('The server stopped');
+  });
+
+  it('brings focus back into the dialog with Shift+Tab when it has gone outside', async () => {
+    render(h(App, { ...appProps(editable()), pollMs: 5 }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Run a workflow' }));
+    const dialog = await screen.findByRole('dialog');
+    await within(dialog).findByRole('button', { name: 'Run demo' });
+    const outside = screen.getByRole('link', { name: 'Settings' });
+    outside.focus();
+    fireEvent.keyDown(dialog, { key: 'Tab', shiftKey: true });
+    const buttons = [...dialog.querySelectorAll<HTMLElement>('button:not([disabled])')];
+    expect(document.activeElement).toBe(buttons[buttons.length - 1]);
+  });
+});

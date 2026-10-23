@@ -283,6 +283,8 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- `WorkflowDocument.set` into an empty `{}` map no longer respaces the whole file (patch; track `fix`; spec
+  `specs/workflow-editor`, AC-04). The edit now splices only its own text, as every other edit does.
 - A run with no model call says so (patch; track `fix`). The cost in the header and the plain status line read
   `cost none` for a run that made no model call, which looks like a free run. It now reads `cost no model calls`; a
   call priced at exactly zero still shows `$0.0000`, and `unknown` stays for a call that could not be priced.
