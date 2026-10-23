@@ -15,6 +15,7 @@ export interface AntigravityRunnerOptions extends CliRunnerOptions {
  */
 export class AntigravityRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'antigravity';
+  readonly description = 'The Antigravity command line, one run per step; reads its terminal output.';
   private readonly binary: string;
   private readonly extraArgs: readonly string[];
 

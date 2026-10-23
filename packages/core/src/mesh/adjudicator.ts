@@ -39,6 +39,8 @@ export interface RulingRequest {
 
 /** Settles a debate that ended without consensus. Add one by registering it from a plugin. */
 export interface Adjudicator {
+  /** One line a wizard shows next to its name (specs/debate-arbiter T16, specs/workflow-editor AC-11). Optional. */
+  readonly description?: string;
   /** A `Ruling`, or `null` when it cannot answer; the step then escalates as it always has. */
   rule(request: RulingRequest, signal?: AbortSignal): Promise<Ruling | null>;
 }
@@ -64,4 +66,18 @@ export class AdjudicatorRegistry {
   names(): readonly string[] {
     return [...this.byName.keys()];
   }
+
+  /** Each name with its description, `""` when it has none, in the order they were registered. */
+  describe(): readonly Described[] {
+    return [...this.byName].map(([name, adjudicator]) => ({
+      name,
+      description: adjudicator.description ?? '',
+    }));
+  }
+}
+
+/** A name a workflow can use, and the one line that says what it is; `""` when there is none (AC-11). */
+export interface Described {
+  readonly name: string;
+  readonly description: string;
 }

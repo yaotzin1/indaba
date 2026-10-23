@@ -95,6 +95,8 @@ export interface EngineBundle {
   readonly planner: McpPlanner;
   readonly runners: RunnerRegistry;
   readonly guards: GuardRegistry;
+  /** The arbiters a step's `arbiter` can name, for the catalog (specs/workflow-editor, T2). */
+  readonly adjudicators: AdjudicatorRegistry;
   readonly events: SimpleEventDispatcher;
 }
 
@@ -200,6 +202,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     planner: new McpPlanner(runners),
     runners,
     guards,
+    adjudicators,
     events,
   };
 }

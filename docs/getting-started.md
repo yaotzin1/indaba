@@ -26,6 +26,8 @@ npx indaba run workflow.ai.yml        # execute it
 ```
 
 `npx indaba schema` prints the JSON Schema of the file, for an editor that completes and checks it as you type.
+`npx indaba catalog` lists the runners, guard types and arbiters this installation offers, each in one line
+(`--plugin <spec>` to include a plugin's, `--json` for a program).
 
 The file argument is optional and defaults to `.indaba/workflow.ai.yml`. On Windows use PowerShell or
 Command Prompt the same way; paths may use either slash. On macOS and Linux any shell works.

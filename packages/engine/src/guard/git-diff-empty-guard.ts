@@ -8,6 +8,8 @@ import { Git } from '../workspace/git.js';
  */
 export class GitDiffEmptyGuard implements Guard {
   readonly type: string = GuardType.GitDiffEmpty;
+  readonly description =
+    'Passes when nothing under the listed paths (default: the whole directory) was modified, added or deleted.';
 
   constructor(private readonly git: Git = new Git()) {}
 

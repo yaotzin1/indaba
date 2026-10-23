@@ -17,6 +17,7 @@ export interface ClaudeRunnerOptions extends CliRunnerOptions {
  */
 export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'claude-code';
+  readonly description = 'The Claude Code command line, one run per step; reads its terminal output.';
   private readonly binary: string;
   private readonly extraArgs: readonly string[];
 

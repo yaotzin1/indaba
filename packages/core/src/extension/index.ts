@@ -23,6 +23,8 @@ export class GuardResult {
 export interface Guard {
   /** The `type` a workflow file uses to select this guard. */
   readonly type: string;
+  /** One line a wizard shows next to the type (specs/workflow-editor, AC-11). Optional. */
+  readonly description?: string;
   check(guard: GuardDefinition, workdir: string): Promise<GuardResult>;
 }
 

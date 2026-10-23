@@ -17,6 +17,15 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Descriptions, and `indaba catalog`** (minor; track `feature`; spec `specs/workflow-editor`, part 3).
+  `Runner`, `Guard` and `Adjudicator` in `@indaba/core` may carry an optional `description`, one line a wizard shows
+  next to the name; every built-in has one (this also delivers `specs/debate-arbiter` T16). `Described` is exported;
+  `AdjudicatorRegistry`, `GuardRegistry` and `RunnerRegistry` gain `describe()`. `catalogOf(sources)` and the
+  `Catalog` shape in `@indaba/engine` list the runners, guard types and arbiters of an installation, cleaned and cut
+  at 200 characters, with the format's allowed values; `indaba catalog [--json] [--plugin <spec>]` prints it (exit
+  `1` when a plugin fails to load, `2` for a usage error). `voters`, `prompts` and `values.promptAdditions` are empty
+  until `specs/voter-arbiter` and `specs/debate-findings` fill them.
+
 - **Edit a workflow file without losing its text, and its JSON Schema** (minor; track `feature`; spec
   `specs/workflow-editor`, part 2). `WorkflowDocument` in `@indaba/engine` holds a workflow's text and edits it by path
   (`get`, `set`, `remove`, `has`) and by step id (`addStep`, `removeStep`, `moveStep`); everything not edited stays byte

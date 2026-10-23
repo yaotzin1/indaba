@@ -18,6 +18,7 @@ export interface CodexRunnerOptions extends CliRunnerOptions {
  */
 export class CodexRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'codex';
+  readonly description = 'The Codex command line, one run per step; reads its terminal output.';
   private readonly binary: string;
   private readonly extraArgs: readonly string[];
 

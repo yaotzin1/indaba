@@ -74,6 +74,8 @@ export class RunResult {
 export interface Runner {
   /** The name workflows use to select this runner, e.g. "claude-code". */
   readonly name: string;
+  /** One line a wizard shows next to the name (specs/workflow-editor, AC-11). Optional; a plugin may give one. */
+  readonly description?: string;
   run(request: RunRequest, signal?: AbortSignal): Promise<RunResult>;
 }
 

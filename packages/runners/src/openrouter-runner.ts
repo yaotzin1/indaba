@@ -78,6 +78,8 @@ function checkBaseUrl(raw: string, label: string): string {
  */
 export class OpenAiCompatibleRunner implements Runner {
   readonly name: string;
+  /** Names the service and the variable it needs; never its address or its key. */
+  readonly description: string;
   // A private field: invisible to JSON.stringify, inspection and structured logging.
   readonly #apiKey: string;
   private readonly label: string;
@@ -92,6 +94,9 @@ export class OpenAiCompatibleRunner implements Runner {
   constructor(options: OpenAiCompatibleRunnerOptions) {
     this.name = options.name;
     this.label = options.label ?? options.name;
+    this.description = `${this.label}: a model over an OpenAI-compatible API, streamed${
+      options.apiKeyEnv === undefined ? '' : `; needs ${options.apiKeyEnv}`
+    }. A step names its model.`;
     this.#apiKey = options.apiKey;
     this.apiKeyEnv = options.apiKeyEnv;
     this.keyless = options.keyless === true;

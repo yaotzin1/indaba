@@ -31,6 +31,8 @@ export interface ShellRunnerOptions {
  */
 export class ShellRunner implements Runner {
   readonly name = 'shell';
+  readonly description =
+    'Runs the step’s command lines in order through the system shell (/bin/sh, or cmd.exe on Windows); the first that exits non-zero fails the step.';
   private readonly spawner: ProcessSpawner;
 
   constructor(options: ShellRunnerOptions = {}) {

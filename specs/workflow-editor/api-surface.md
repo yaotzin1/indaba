@@ -83,6 +83,11 @@ export function catalogOf(bundle: EngineBundle): Catalog;
 
 ### Amendment of 2026-10-23 (stage 6 found it, stage 3 decided it)
 
+- `catalogOf` takes `CatalogSources` (`{ runners, guards, adjudicators }`, each with `describe()`), a structural
+  type: `EngineBundle` is the command line's, which `@indaba/engine` cannot import. The CLI's bundle passes as it is.
+  `Describes`, `CatalogSources` and `MAX_DESCRIPTION` (200) are exported with it.
+- `indaba catalog` lists `human` among the arbiters even with no terminal attached, since a workflow can name it.
+
 ```ts
 export class WorkflowDocumentError extends Error { readonly path?: string }   // every refusal of the document
 export const MAX_DOCUMENT_BYTES: number;   // 1 MiB

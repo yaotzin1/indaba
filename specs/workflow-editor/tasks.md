@@ -6,10 +6,10 @@ Order (spec C-03): part 2 first (its first pull request also carries T5b), then 
 
 ## Part 1: descriptions and the catalog
 
-- [ ] T1. `description?` on `Runner`, `Guard`, `Adjudicator`; `Described`; `describe()` on the adjudicator registry; describe the built-ins (AC-11). Includes `specs/debate-arbiter` T16.
-- [ ] T2. The runner and guard registries expose `describe()`; `EngineBundle` exposes the adjudicator registry; `voters`, `prompts` and `values.promptAdditions` are empty (C-01).
-- [ ] T3. `catalogOf` and the `Catalog` shape; descriptions cut at 200 and cleaned (AC-12, AC-13). Tests: a plugin's contribution appears; a runner without a description is listed with an empty one.
-- [ ] T4. `indaba catalog [--json] [--plugin]`: output, exit codes, a failing plugin.
+- [x] T1. `description?` on `Runner`, `Guard`, `Adjudicator`; `Described`; `describe()` on the adjudicator registry; describe the built-ins (AC-11). Includes `specs/debate-arbiter` T16.
+- [x] T2. The runner and guard registries expose `describe()`; `EngineBundle` exposes the adjudicator registry; `voters`, `prompts` and `values.promptAdditions` are empty (C-01).
+- [x] T3. `catalogOf` and the `Catalog` shape; descriptions cut at 200 and cleaned (AC-12, AC-13). Tests: a plugin's contribution appears; a runner without a description is listed with an empty one.
+- [x] T4. `indaba catalog [--json] [--plugin]`: output, exit codes, a failing plugin.
 
 ## Part 2: diagnostics and the schema
 
@@ -29,6 +29,6 @@ Order (spec C-03): part 2 first (its first pull request also carries T5b), then 
 
 ## Documentation and gates
 
-- [ ] T14. `docs/workflow-format.md` (link to the schema, a section for tool authors), `docs/extending.md` (`description`), `docs/getting-started.md` (the two commands), `README.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`.
-- [ ] T15. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
-- [ ] T16. Fill `review.md`.
+- [x] T14. `docs/workflow-format.md` (link to the schema, a section for tool authors), `docs/extending.md` (`description`), `docs/getting-started.md` (the two commands), `README.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`.
+- [x] T15. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
+- [x] T16. Fill `review.md`.

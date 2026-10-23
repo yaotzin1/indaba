@@ -13,6 +13,8 @@ export interface CommandRunnerOptions extends CliRunnerOptions {
  */
 export class CommandRunner extends AbstractCliRunner implements McpCapable {
   private readonly mcp: McpCapability;
+  readonly description =
+    'A command line set in the environment, one run per step; reads its terminal output.';
 
   /** @param template e.g. ['codex', 'exec', '{prompt}'] */
   constructor(

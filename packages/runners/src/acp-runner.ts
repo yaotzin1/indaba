@@ -146,6 +146,8 @@ type Trip = 'timeout' | 'abort';
  */
 export class AcpRunner implements Runner, McpCapable {
   readonly name = 'acp';
+  readonly description =
+    'An agent over the Agent Client Protocol (claude, codex, gemini, opencode or your own): structured events and a permission gate.';
   private readonly spawner: StreamingProcessSpawner;
   private readonly presets: Readonly<Record<string, AcpAgentPreset>>;
   private readonly env: Readonly<Record<string, string | undefined>>;

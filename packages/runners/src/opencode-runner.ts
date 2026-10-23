@@ -16,6 +16,7 @@ export interface OpenCodeRunnerOptions extends CliRunnerOptions {
  */
 export class OpenCodeRunner extends AbstractCliRunner implements McpCapable {
   readonly name = 'opencode';
+  readonly description = 'The OpenCode command line, one run per step; reads its terminal output.';
   private readonly binary: string;
   private readonly extraArgs: readonly string[];
 
