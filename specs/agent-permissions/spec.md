@@ -75,7 +75,7 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
   write a `level` is not held to them (AC-13). A level on a `shell` step is an error: shell steps run the commands the author wrote; a `defaults` or role block is simply not applied to them (AC-01). A level on a step whose runners are
   API-only and that has no `mcp` list (AC-18) is allowed and satisfied by `native`.
 - [ ] AC-04. `full` does not add the `diff_within_scope` guard, sends the runner no `fs`/`terminal` limits (for `acp`: the gate allows every request and its file server does not limit writes, so the agent's
-  own tools and the gate both act freely; `request.permissionLevel` is the one channel, and `decidePermission` takes the level), is described as `full` and never as "write nothing" by `summaryOfUse` and the trace views, is shown by `plan`, `validate`, the dashboard and the page in plain words ("this
+  own tools and the gate both act freely; `request.permissionLevel` is the one channel, and `decidePermission` takes the level), is described as `full` and never as "write nothing" by `summaryOfUse` (`packages/cli/src/run-control/confirm.ts`; its result type `RunSummaryOfUse` is in `@indaba/core` web-contract), is shown by `plan`, `validate`, the dashboard and the page in plain words ("this
   step's agent can change anything and run anything and nobody approves it"), and is never the effect of an absent field (AC-08).
 - [ ] AC-05. A run whose effective permissions include `full` on any step asks the person, once per run, before the first step, at a terminal: it names
   the steps and the runner of each and waits for a yes. Without a terminal the run refuses to start with a usage error naming the steps, unless
@@ -110,8 +110,8 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - [ ] AC-11. A runner declares `permissionDenied(output)`, which recognises, from the agent's final output, that a permission it needed was refused in
   headless mode (for `antigravity`: the message quoted in section 1). A step fails with a fixed reason that names the level in force and the block to
   change only when the runner recognises the message, the exit code is 0, **and** a level is in force (`read`, `edit`, or a step on the runner's default, where the reason names "the <runner> default") **and** a declared output is missing or, when the step declares no outputs, the
-  worktree diff is empty (so a reviewer that quotes the message is not failed). It is evaluated for each attempt, for the runner of the chain that ran it. The message the runner recognises is the one
-  observed from `agy -p` on 2026-10-23 (section 1), kept as a test fixture built from fragments. The text of the agent's message is not copied into the reason
+  worktree diff is empty (so a reviewer that quotes the message is not failed). It is evaluated for each attempt, for the runner of the chain that ran it. The test is: a step whose output contains the recorded message, exit 0, a declared output missing, fails with the fixed reason; the same output with the output present passes. The message is
+  the one observed once from `agy -p` on 2026-10-23 (section 1) and is kept as a test fixture built from fragments. The text of the agent's message is not copied into the reason
   or any span. A step that failed this way is an ordinary failure for `on_failure`. A built-in CLI runner that cannot recognise a refusal says so in `plan`
   ("a refused permission cannot be told from success for this runner"); no front end implies otherwise.
 
@@ -200,7 +200,7 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 ## 7. Where it lives
 
 - `@indaba/core` (pure): `PermissionLevel`, `PermissionMode`-style enforcement words, `PermissionCapability`, `PermissionCapable`, `StepPermissions.level`, `resolvePermissions` (AC-01), `impliedLevel` (AC-13), `lowerLevel` (AC-12), `unsupportedBy` (AC-07), `describeEnforcement` (structured, C-10),
-  `RunRequest.permissionLevel`, `Describes` gaining an optional `permissions` member for runners (C-11).
+  `RunRequest.permissionLevel`, and, in `@indaba/engine`, `Describes` (editor/catalog.ts) gaining an optional `permissions` member for runners (C-11).
 - `@indaba/engine`: parser (the field, role and `defaults` blocks), the checks at `validate`/`plan`/run start with the registry, the guard rule (AC-04, AC-14), the
   `plan`/`validate` text, the `full` acknowledgement hook, `--permissions` resolution, the answerers' `read` (AC-06).
 - `@indaba/runners`: every built-in runner implements `PermissionCapable` (the arguments for a written level and `permissionDenied`); the `full` path of `decidePermission`. The two hard-coded
@@ -240,10 +240,10 @@ All of these are **recommended; the maintainer confirms**.
   For `opencode` and `cursor` no read-only or edit-only argument was found in `--help`. Their `read` is therefore `unsupported` (the guard cannot hold "no commands", AC-07): a step that writes `read` on them is an error that says so
   and names `acp` with `agent: opencode` as the way, which the documentation already recommends. Their `edit` has mode `after`: the runner is started with no permission argument and only the guard checks, after the step, which `plan` says
   with the note `commands_not_limited` (AC-17). `antigravity` also has `--sandbox` ("terminal restrictions"), not used here; its runner comment, which says
-  that edits are auto-approved, is wrong for headless mode and is corrected in the same change.
+  that edits are auto-approved, was contradicted by one headless run on 2026-10-23 (an observation, not a survey) and is corrected in the same change.
   The `ask` column is the design for the later version (C-05); in this version `ask` is reserved and no column entry is used.
-- **C-04. A plugin runner** that does not implement `PermissionCapable` supports no level: a step that names a level and can use it is an error, and a step with no block gets
-  `read`, which `plan` says the plugin cannot enforce. Implementing the contract is how a plugin takes part; there is no privileged path for a built-in (extensibility rule).
+- **C-04. A plugin runner** that does not implement `PermissionCapable` supports no level: a step that names a level and can use it is an error, and a step with no level keeps whatever the plugin does (AC-08: nothing is
+  hidden), which `plan` says Indaba cannot describe for it; once the defaults go (C-01) an absent block means `read` and the plugin's inability to enforce it is stated. Implementing the contract is how a plugin takes part; there is no privileged path for a built-in (extensibility rule).
 - **C-05. `ask` is deferred; the design is kept.** The maintainer deferred it on 2026-10-23 to keep this release to what stands on its own. What was agreed, for the later spec `agent-permissions-ask`:
   the runner must be `acp`; a request for a command, a fetch or any other action that is not a file operation is put to a person with *allow once* and *deny*, never "always"; a file change outside `fs.write`,
   anything under `.git` or `.indaba`, and a command nobody can be asked about are denied without asking, because the file server of the gate refuses them whatever a person says; a request whose text had to be
@@ -264,7 +264,7 @@ All of these are **recommended; the maintainer confirms**.
   a minor.
 - **C-10. Words belong to the front end.** Core returns structured descriptions (a runner, a level, a mode, a scope, a note id), the CLI renders them in English, and the page renders
   them from its message catalogue (`web-app-actions` AC-14).
-- **C-11. The catalog member.** `catalogOf` reads only `Describes.describe()` (a name and a description) and rebuilds each entry. `Describes` gains an optional `permissions` member that only runners provide, and `clean()` keeps it. The new
+- **C-11. The catalog member.** `catalogOf` reads only `Describes.describe()` (in `@indaba/engine`, `editor/catalog.ts`: a name and a description; the core type `Described` is not changed) and rebuilds each entry. `Describes` gains an optional `permissions` member that only runners provide, and `clean()` keeps it. The new
   member is additive and optional, so `catalog` stays at `1`; the comment in `engine/editor/catalog.ts` ("a change of shape raises it") is amended to say an optional member does not. The maintainer confirms this reading.
 
 ## Artifacts not written
@@ -272,4 +272,4 @@ All of these are **recommended; the maintainer confirms**.
 - `plan.md`: `tasks.md` is the order of work; the hooks are in the runners and the engine's validator.
 - `research.md`: the one external fact, the CLI flags, is in C-03 with what was verified and what was not.
 - `data-model.md`: no stored format of its own.
-- `events.md`: the one event, `PermissionDecided`, is listed in `api-surface.md`.
+- `events.md`: this release adds no event; `PermissionDecided` belongs to the later `ask` spec (C-05).

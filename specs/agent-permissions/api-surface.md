@@ -65,7 +65,7 @@ export const MAX_DENIAL_WINDOW: 4096;                          // C-07
 /** `StepPermissions` gains one optional member. The three existing members keep their types and the parser's filling (C-09). */
 //   readonly level?: PermissionLevel;
 
-/** `Describes` (the catalog source) gains, for runners only, `permissions?: Readonly<Record<PermissionLevel, { mode, scope, note }>>`; `catalogOf` and `clean()` keep it (spec C-11). */
+/** In `@indaba/engine` (editor/catalog.ts), `Describes` (the catalog source) gains, for runners only, `permissions?: Readonly<Record<PermissionLevel, { mode, scope, note }>>`; `catalogOf` and `clean()` keep it (spec C-11). */
 
 /** `RunRequest` gains the level the step wrote, or the one a run bound gave it (AC-12). Absent for a step with no level. Runners that do not implement PermissionCapable ignore it. */
 //   readonly permissionLevel?: PermissionLevel;
@@ -125,6 +125,7 @@ not in this surface; they belong to the later spec (spec C-05).
   validates what it can without runners: the unknown or reserved level, the combinations of AC-03 on the block as written, a level on a `shell` step.
 - `checkPermissions(workflow, registry)` makes the checks that need runners (AC-07: every runner of the chain for a written level; the `full` list; the facts of AC-08 for steps with no level). It is called by `validate`, `plan` and at the start of a run, not by `parseWorkflow`. The editor's check resource calls it
   when it has the catalog.
+- `resolveRunBound(workflow, registry, bounds)` (AC-12) composes `applyBound` and `unsupportedBy` over each step and its chain and returns the usage errors; the CLI prints them.
 - Resolution (AC-01) happens once per agent step and its result is handed to every reader that reads `step.permissions` today: `effectiveGuards(step, resolved)` (chain.ts; it has no workflow argument today),
   `runAgent` (step-executor.ts), `summaryOfUse` (run-control/confirm.ts, which also gains `fullAccessSteps`), the validator's warnings, and `plan` in the CLI. `planForRole` is unchanged (AC-19).
 - `effectiveGuards` (chain.ts) adds the implied `diff_within_scope` guard **in addition to** a declared one for a block that writes a level `read` or `edit` (AC-14), and none at `full`. A block with no level keeps today's rule.
