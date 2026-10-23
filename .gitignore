@@ -15,3 +15,6 @@ node_modules/
 .stryker/
 coverage/
 coverage-tmp/
+
+# JetBrains IDE settings
+.idea/
