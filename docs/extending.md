@@ -182,6 +182,24 @@ A plugin can also add a sink, a place records go, with `logSinks` on the plugin 
 receives the same redacted records as the built-in file and terminal sinks, and one that throws is dropped after one
 warning. See [logging.md](logging.md#for-plugin-authors).
 
+## Replacing the workflow registry
+
+`indaba workflows` keeps its list in a JSON file per folder (`FileWorkflowRegistry` of `@indaba/engine`). A plugin can
+put another store behind the same contract, `WorkflowRegistry` of `@indaba/core`: a database, or a service shared by a
+team.
+
+```js
+register(host) {
+  host.registerRegistry?.(myRegistry); // list, get, scan, add, annotate, remove, copy, roots
+}
+```
+
+The last one registered is used for that command (`indaba workflows ... --plugin <yours>`). It gets the same contract
+and nothing the built-in store lacks. A store that throws fails the command with its message; Indaba does not fall
+back to the file store. Refuse with `RegistryError` and one of its codes (`not_found`, `ambiguous`, `outside_roots`,
+`not_a_workflow`, `exists`, `would_return`, `store_failed`) so the command line can say what happened. The method is
+optional on `PluginHost`, so a host written before it existed still type-checks.
+
 ## Running with a plugin
 
 Pass `--plugin` to `validate`, `plan` and `run`. The option repeats, and the value is a file path

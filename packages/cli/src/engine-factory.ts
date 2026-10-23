@@ -14,6 +14,7 @@ import {
   StepOutput,
   StepStatusChanged,
   Tracer,
+  type WorkflowRegistry,
 } from '@indaba/core';
 import {
   DecisionLedger,
@@ -34,6 +35,9 @@ import {
 import { type AuthChooser, loggingFetch, openAiCompatibleFromEnv, RunnerRegistry } from '@indaba/runners';
 import { RegistryPluginHost } from './plugin-host.js';
 import { redact } from './redact.js';
+
+const registryOf = (registry: WorkflowRegistry | undefined): { workflowRegistry?: WorkflowRegistry } =>
+  registry === undefined ? {} : { workflowRegistry: registry };
 
 /** The environment values the built-in runners read. Nothing else is forwarded. */
 const RUNNER_ENV_KEYS = [
@@ -98,6 +102,8 @@ export interface EngineBundle {
   /** The arbiters a step's `arbiter` can name, for the catalog (specs/workflow-editor, T2). */
   readonly adjudicators: AdjudicatorRegistry;
   readonly events: SimpleEventDispatcher;
+  /** A workflow registry a plugin registered, which replaces the built-in one (specs/workflow-registry, AC-13). */
+  readonly workflowRegistry?: WorkflowRegistry;
 }
 
 /** The composition root: the one place that wires concrete implementations and reads configuration. */
@@ -204,5 +210,6 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     guards,
     adjudicators,
     events,
+    ...registryOf(host.registeredRegistry()),
   };
 }

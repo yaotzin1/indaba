@@ -17,6 +17,18 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The workflow registry and `indaba workflows`** (minor; track `feature`; spec `specs/workflow-registry`, slice 1).
+  `indaba workflows list | scan | add | annotate | remove | copy` lists the workflow files of the current folder and of
+  folders you add (kept in `<user config>/indaba/workflow-roots.json`), each valid or with its first problem, its last
+  run (matched by the workflow's name within its folder), your name, project and tags, or hidden. The list is a JSON
+  index per folder in `.indaba/registry/`, with a `.gitignore` so it stays on the machine; files are never deleted or
+  rewritten, and a copy is written beside the others with `wx` and says what to review. New in `@indaba/core`:
+  `WorkflowRegistry`, `RegistryEntry`, `RegistryScanReport`, `RegistryAnnotation`, `RegistryCopy`, `RegistryOrigin`,
+  `RegistryValidation`, `RegistryErrorCode`, `RegistryError`, and the optional `PluginHost.registerRegistry`. New in
+  `@indaba/engine`: `FileWorkflowRegistry`, `REGISTRY_INDEX`, and the walk and confined read the page already used,
+  moved from the command line (`scanWorkflowFiles`, `readWorkflowFile`, `UnreadableWorkflow`, `tooLarge`, the scan
+  limits, `DEFAULT_WORKFLOW`, `MAX_WORKFLOW_BYTES`); what they find is unchanged. No dependency added.
+
 - **Edit a workflow as a form in `indaba ui`** (minor; track `feature`; spec `specs/web-app-editing-forms`, step 3b of
   `specs/web-app`). The workflow screen has **Form** and **Source**, two views of one draft; the form comes first when the
   file can be read. Its fields are read from the workflow's JSON Schema and its choices from the catalog and the file:

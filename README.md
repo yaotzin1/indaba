@@ -70,7 +70,7 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`, `schema`, `catalog`, `workflows`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator with positioned problems, the workflow file's JSON Schema, `WorkflowDocument` (edits a file and keeps its comments), guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |

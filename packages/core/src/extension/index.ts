@@ -1,5 +1,6 @@
 import type { Logger, LogSink } from '../logging/logger.js';
 import type { Adjudicator } from '../mesh/adjudicator.js';
+import type { WorkflowRegistry } from '../registry/index.js';
 import type { Runner } from '../runner/index.js';
 import type { GuardDefinition } from '../workflow/model.js';
 
@@ -54,6 +55,11 @@ export interface PluginHost {
    * Optional so a host written before it existed still type-checks; the `indaba` command line always provides it.
    */
   registerLogSink?(sink: LogSink): void;
+  /**
+   * Replaces the built-in workflow registry for the command (specs/workflow-registry, AC-13); the last one registered
+   * is used. Optional so a host written before it existed still type-checks.
+   */
+  registerRegistry?(registry: WorkflowRegistry): void;
 }
 
 /** An extension package default-exports one of these. Core never learns what plugins exist. */
