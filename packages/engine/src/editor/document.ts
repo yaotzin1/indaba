@@ -725,12 +725,13 @@ export class WorkflowDocument {
   /** The splice that adds `key: value` at the end of a block map. */
   private spliceAddKey(mapPath: Path, map: YamlNode, key: string, value: unknown): Splice | undefined {
     const text = this.text;
-    if (!isMap(map) || map.flow === true) {
+    if (!isMap(map)) {
       return undefined;
     }
     const line = (indent: number): string =>
       `${' '.repeat(indent)}${render(key)}:${afterKey(value, indent)}\n`;
     const last = map.items[map.items.length - 1];
+    // An empty map is always written `{}`, a flow map, so this comes before flow maps go to the model.
     if (last === undefined) {
       // An empty `{}` after a key: replace it with a block of one key.
       const pair = pairAt(this.parsed.doc, mapPath);
@@ -742,6 +743,9 @@ export class WorkflowDocument {
       }
       const indent = indentOf(text, keyStart) + 2;
       return { from: after, to: end, insert: `\n${line(indent).replace(/\n$/, '')}` };
+    }
+    if (map.flow === true) {
+      return undefined;
     }
     const firstKey = (map.items[0]?.key as YamlNode | null)?.range?.[0];
     const lastValue = (last.value as YamlNode | null) ?? (last.key as YamlNode | null);

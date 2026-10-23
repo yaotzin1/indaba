@@ -669,3 +669,91 @@ describe('the run control (T-12)', () => {
     }).toThrow();
   });
 });
+
+describe('the run control: what the first round of tests left out', () => {
+  it('lists a file over 1 MiB as invalid, and refuses to start it', async () => {
+    const root = await project({ 'big.workflow.ai.yml': `name: x\n# ${'x'.repeat(MAX_WORKFLOW_BYTES)}\n` });
+    const { control } = await controlFor([root], fakeStarter().starter);
+    const [big] = (await control.list()).workflows;
+    expect(big).toMatchObject({ valid: false, name: 'big' });
+    expect(big?.problems[0]).toMatch(/larger than 1 MiB/);
+    await expect(control.start({ workflowId: big?.id ?? '' })).rejects.toMatchObject({
+      code: 'workflow_invalid',
+      detail: { problems: [expect.stringMatching(/larger than 1 MiB/)] },
+    });
+  });
+
+  it('starts nothing with a generated id of the wrong shape', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter, { ids: () => '../../x' });
+    const workflow = (await control.list()).workflows[0];
+    const asked = await control.start({ workflowId: workflow?.id ?? '' }).catch((e: unknown) => e);
+    const hash = String((asked as RunControlError).detail?.contentHash);
+    await expect(
+      control.start({ workflowId: workflow?.id ?? '', confirmedHash: hash }),
+    ).rejects.toMatchObject({
+      code: 'start_failed',
+    });
+    expect(runs).toEqual([]);
+    await expect(readdir(join(root, RUN_INPUTS))).rejects.toThrow();
+  });
+
+  it('says not_saved when the confirmation store cannot be written, whoever runs the test', async () => {
+    const root = await project();
+    const config = await makeTempDir();
+    // A file where the store's folder must be: no user, root included, can write the store under it.
+    await writeFile(join(config, 'indaba'), 'not a folder');
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter, {
+      confirmationFile: join(config, 'indaba', 'confirmed-workflows.json'),
+    });
+    const workflow = (await control.list()).workflows[0];
+    const asked = await control.start({ workflowId: workflow?.id ?? '' }).catch((e: unknown) => e);
+    const hash = String((asked as RunControlError).detail?.contentHash);
+    await expect(
+      control.start({ workflowId: workflow?.id ?? '', confirmedHash: hash }),
+    ).rejects.toMatchObject({
+      code: 'not_saved',
+    });
+    expect(runs).toEqual([]);
+    expect(logged.map((r) => r.message)).toContain('a confirmation could not be saved');
+  });
+
+  it('takes no task id from a root record that does not carry a string one', async () => {
+    const root = await project();
+    const { starter } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const { started } = await confirmAndStart(control);
+    const traces = join(root, '.indaba', 'traces');
+    await mkdir(traces, { recursive: true });
+    const record = (task: unknown) =>
+      `${JSON.stringify({
+        type: 'span_started',
+        at: '2026-10-22T12:00:00.000Z',
+        trace_id: '8'.repeat(32),
+        span_id: 'r'.repeat(16),
+        parent_span_id: null,
+        name: 'indaba.task demo',
+        attributes: { 'indaba.task.id': task },
+      })}\n`;
+    await writeFile(join(traces, `${'8'.repeat(32)}.events.jsonl`), record(7));
+    control.startStatus(started.startId);
+    await flush();
+    expect(control.startStatus(started.startId)).toEqual({ state: 'starting' });
+  });
+
+  it('says the run ended before it started when it wrote nothing to its error stream', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter({ stderr: '\n  \n' });
+    const { control } = await controlFor([root], starter);
+    const { started } = await confirmAndStart(control);
+    runs[0]?.finish(1);
+    let status = control.startStatus(started.startId);
+    for (let i = 0; i < 200 && status?.state === 'starting'; i += 1) {
+      await flush();
+      status = control.startStatus(started.startId);
+    }
+    expect(status).toEqual({ state: 'failed', failure: 'The run ended before it started.' });
+  });
+});
