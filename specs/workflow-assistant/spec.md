@@ -1,8 +1,8 @@
 # Specification: Workflow assistant (describe it in words, the editor fills in the data)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
-> **Semver impact**: minor (new optional server resources, a new optional panel, a new optional configuration section, new span attributes; nothing that exists changes behaviour).
+> **Stage entry**: 1 to 4 written (specify, clarify, tasks); the decisions in section 8 are recommended and the maintainer confirms them
+> **Semver impact**: minor (new optional server resources, a new optional panel, a new optional per-user profiles file, new span attributes; nothing that exists changes behaviour).
 > **Licence**: MIT, in this repository. The maintainer decided on 2026-10-23 that this is **not** a paid feature (see C-01 for the line against the paid wizard).
 > **Builds on**: [`specs/workflow-editor`](../workflow-editor/spec.md) (the document and the edits), [`specs/web-app-editing-core`](../web-app-editing-core/spec.md) and
 > [`specs/web-app-editing-forms`](../web-app-editing-forms/spec.md) (the edit view), [`specs/question-contract`](../question-contract/spec.md) (how the assistant asks),
@@ -45,7 +45,7 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 - [ ] AC-02. The assistant works on the **draft that is open**. It does not create files, choose where a file goes, save, validate-and-run, or start a run: saving and running stay the person's actions
   (`web-app-actions` AC-13). Creating a workflow from nothing through a guided sequence with templates is the wizard (C-01), not this.
 - [ ] AC-03. An assistant profile is one of: an **agent** the person already uses, started through its runner (the ACP and command-line runners of the catalog), or a **model on a service** through a runner of the catalog
-  (OpenRouter, an OpenAI-compatible endpoint) with a model id. It is kept in the user's configuration (`indaba.config`, a section `assistant`), never in a workflow file and never in the page's storage. The
+  (OpenRouter, an OpenAI-compatible endpoint) with a model id. It is kept in the **user's** configuration folder (`assistant.yml`, the folder `indaba ui` already uses for what a person confirmed), outside every project, so a project that arrives from elsewhere cannot carry a profile; never in a workflow file, never in the project's committed `indaba.config` and never in the page's storage. The
   key of a service comes from the environment, as for every runner, and is in no file, response, log line or span. The person can have several profiles and picks one per session. Removing the profile turns the
   assistant off.
 
@@ -54,57 +54,57 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 - [ ] AC-04. The person types a request. The assistant answers with one of: a **proposal** (AC-05), a **question** (AC-06), an **explanation** (AC-07) or a **refusal with a reason** (for example the request is
   not about this workflow). Every answer is text shown as text (never as markup that runs).
 - [ ] AC-05. A proposal is shown as the **difference** against the draft (the source view's diff) and as a plain-word list of changes, one per edit, each with a short reason from the model. The person accepts
-  the proposal, accepts some of its edits, or discards it. Accepting applies the edits to the draft as ordinary edits of `web-app-editing-core` (so they show in the forms and the graph, are validated by the
+  the proposal, accepts some of its edits, or discards it. Positions in the proposal (`index`) are positions in `edits`, in the order given. The chosen edits are applied in order to a copy and validated; a choice that does not validate (for example an edit of a step whose `addStep` was not chosen) is refused with the problems. Accepting returns the chosen edits and the page applies them to the draft as ordinary edits of `web-app-editing-core` (so they show in the forms and the graph, are validated by the
   usual call, and can be reverted the way any edit can); nothing is saved. A proposal that does not validate (AC-12) is shown with the problem and cannot be accepted.
 - [ ] AC-06. The assistant may **ask**. A question is in the form of `question-contract` (context, options, a recommendation, what happens otherwise) and is checked by the same pure `checkQuestion`; a question
-  that fails the check is not shown, and the assistant is asked once to fix it. The person answers by choosing an option or writing text. At most **5 questions per request** (a design choice, C-06);
+  that fails the check is not shown, and the assistant is asked once to fix it. The person answers by choosing an option or writing text. At most **5 questions per request** (a design choice, C-06; a request is one message of the person and the answers that follow it, and the counter resets at the next message); the session gives each question an id;
   after that the assistant must propose with what it has, saying what it assumed. No answer is never an approval: a request left unanswered changes nothing.
 - [ ] AC-07. The person can ask what a field or a choice means. The answer is an explanation, taken from the context pack, and **applies no edit**.
 
 **What the model is given, and what it may do**
 
 - [ ] AC-08. By default the model receives the **context pack**: the workflow format (`docs/workflow-format.md`), the JSON Schema (`indaba schema`), the catalog of this installation (`indaba catalog`: runners with the
-  permission map of `agent-permissions`, guard types, arbiters), the plain-word list of permission levels and presets, and the two examples of `examples/`. The pack matches the **installed version** of
-  Indaba (it is built from the files shipped with it), is shown to the person in full on request, and has a fixed size bound (C-06). The pack is data for the model; it contains no secret and no path of the person.
+  permission map of `agent-permissions`, guard types, arbiters), the plain-word list of permission levels and presets, and the examples `task-pipeline` and `review-debate` of `examples/`. The pack matches the **installed version** of
+  Indaba (it is built from the files shipped with it), is shown to the person in full on request, and has a fixed size bound (C-06): over it, the examples are left out first, then the schema, and the pack says what it omitted. The pack is data for the model; it contains no secret and no path of the person.
 - [ ] AC-09. The person may **add documents** to a session (a file of the project they choose by path inside a served root, or pasted text) and may remove any of them, including turning the default pack off
-  for the session. Documents the person adds are marked as data in the prompt: text in them that looks like an instruction is not followed as one (the prompt says so, and AC-10 is what actually protects).
+  for the session. Documents the person adds are marked as data in the prompt: the prompt marks them as data (a test checks the marker), and what actually protects is AC-13.
   Only the draft, the pack, the added documents and the conversation are sent; no other file of the project is read.
 - [ ] AC-10. **The model's output is untrusted.** It is parsed as a closed structure (AC-11); anything else is a refusal shown to the person. The assistant has no tools: it runs at the level `read` of
   `agent-permissions` (an agent through the ACP gate that refuses every request, a service with no tool definitions), runs no command and reads no file itself.
-- [ ] AC-11. A proposal is a list of edits drawn from the **same operations as the forms**: set a field at a path, add or remove a step or a role, in the vocabulary of `workflow-editor`. An operation outside
+- [ ] AC-11. A proposal is a list of edits drawn from the **same operations as the forms**, exactly the `WorkflowEdit` of the web contract: `set` and `remove` at a path (roles are reached this way), `addStep`, `removeStep`, `moveStep`. An operation outside
   that list, a path that does not exist in the schema, or a value of the wrong type rejects the **whole** proposal (no partial application of text the program did not understand).
-- [ ] AC-12. Before it is shown, the proposal is applied to a **copy** of the draft and validated by `validate` with the catalog. A proposal whose result is invalid is shown as invalid, with the problems, and the assistant may be asked once
-  to repair it, with only that failure as input (retries are bounded and isolated, `AGENTS.md`). A proposal never changes the draft itself until the person accepts it.
-- [ ] AC-13. **High-impact edits are marked and are accepted one by one.** An edit is high-impact when it sets or raises a `permissions.level` or a `permissions` block, adds or changes an `mcp` list, adds or changes a
-  `shell` command, changes a step's `runner` or a role's `runner`, turns off or removes a guard, sets an arbiter, or sets a gate's `if_nobody` or deadline to anything that approves. They are shown first and
+- [ ] AC-12. Before it is shown, the proposal is applied to a **copy** of the draft and validated by `validate` with the catalog. A proposal whose result is invalid is shown as invalid, with the problems. The repair happens inside the same turn: the assistant is asked **once** to repair it, with only that failure as input (retries are bounded and isolated, `AGENTS.md`),
+  and the turn's usage is the sum of both calls. If the repair also fails, the turn is the proposal marked invalid, which cannot be accepted. Output that is not the closed structure becomes a `refusal` turn with the reason of the parse. A proposal never changes the draft itself until the person accepts it.
+- [ ] AC-13. **High-impact edits are marked and are accepted one by one.** The class is decided edit by edit, against the state of the draft just before that edit, and looks inside the value of a `set` and the step of an `addStep`, so nesting does not hide it. An edit is high-impact when it writes a `permissions` block or level, adds or changes an `mcp` list, adds or changes a
+  `shell` command, changes a step's `runner` or a role's `runner`, changes or removes a guard, sets an arbiter, or (once `review-gate` is implemented; until then no such field exists) sets a gate's `if_nobody` or deadline to anything that approves. They are shown first and
   separately in plain words ("this lets an agent change anything", "this runs a command"), **"accept all" does not include them**, and a proposal that includes `permissions.level: full` shows the sentence of
   `agent-permissions` AC-04. The model cannot make an edit non-high-impact: the class is decided by the program from the edit, never from the model's words. (This is what makes a prompt-injected document harmless: it
   can at most put a marked change in front of a person.)
 
 **What leaves the machine, and what it costs**
 
-- [ ] AC-14. Before the first use of a profile, and again when the profile or the set of added documents changes, the panel states in plain words **where the content goes** (the agent's own service or the endpoint of the
+- [ ] AC-14. Before the first use of a profile, and again when the profile, the set of added documents or the switch of the default pack changes (`PUT .../context`), the panel states in plain words **where the content goes** (the agent's own service or the endpoint of the
   profile, by name) and what is sent (AC-09), and waits for the person's confirmation. Choosing a local agent or model does not remove the statement. The confirmation is not remembered across profiles.
-- [ ] AC-15. Each answer shows the tokens and cost of the call when the runner reports them, and "unknown" when it does not (`AGENTS.md`: no invented numbers). A request that would exceed a bound on the size of
-  the sent text (C-06) is refused before it is sent, naming what to remove.
-- [ ] AC-16. A call has a timeout and can be cancelled by the person; a cancelled or failed call leaves the draft untouched and says why in plain words. A model that is not installed, not logged in or not reachable
+- [ ] AC-15. Each answer shows the tokens and cost of the call when the runner reports them, and "unknown" when it does not (`AGENTS.md`: no invented numbers). A request that would exceed `MAX_CONTEXT_CHARS` (C-06) is refused before it is sent, naming what to remove.
+- [ ] AC-16. A call has a timeout and can be cancelled by the person (cancelling the call leaves the session; forgetting the session is a different action); a cancelled or failed call leaves the draft untouched and says why in plain words. A model that is not installed, not logged in or not reachable
   is reported as such, not as an empty answer.
 
 **What is kept**
 
 - [ ] AC-17. The conversation lives in the page for the session and is not written to disk by Indaba. Nothing of it is in a trace, an event or a log line except counts (calls, questions, edits proposed and accepted,
-  high-impact edits accepted) as span attributes (AC-18). The text sent to or received from the model is in no log.
-- [ ] AC-18. The span of an assistant call carries `indaba.assistant.profile_kind` (`agent` or `service`), `indaba.assistant.questions`, `indaba.assistant.edits_proposed`, `indaba.assistant.edits_accepted` and
-  `indaba.assistant.high_impact_accepted`. It carries no prompt, no answer, no path and no key.
+  high-impact edits accepted) as span attributes (AC-18). The text sent to or received from the model is in no log. The test puts a sentinel string in the prompt, in the model's answer, in a document path and in a key, and asserts that none of them appears in a span, an event or a log line.
+- [ ] AC-18. The span of a model call carries `indaba.assistant.profile_kind` (`agent` or `service`) and `indaba.assistant.questions`; the span of the accept carries `indaba.assistant.edits_proposed`,
+  `indaba.assistant.edits_accepted` and `indaba.assistant.high_impact_accepted`. They carry no prompt, no answer, no path and no key. The session is given a tracer and a logger.
 
 **Interfaces**
 
-- [ ] AC-19. The server offers the assistant as resources next to the editing resources (token-protected like the rest, `web-app` AC-18): list profiles, start a session, send a message, answer a question, cancel,
-  accept (all, some, or one high-impact edit). They run only for a draft inside a served root. A request that names a path outside the roots is refused.
+- [ ] AC-19. The server offers the assistant as resources under `/api/v1/assistant` next to the editing resources (token-protected like the rest, `web-app` AC-18): list profiles, start a session, change the context, send a message,
+  answer a question, accept, cancel a call, forget a session. The server keeps the session in memory and **no draft**: the page sends the draft's text with each message, and accept returns edits for the page to apply with the
+  existing editing resource. A request that names a path outside the served roots is refused.
 - [ ] AC-20. The logic is in `@indaba/engine` and is independent of the page: the same functions are what a TUI or the CLI would call later. The page owns only the words it shows (`web-app-actions` AC-14 style
   message catalogue) and the confirmation steps.
-- [ ] AC-21. A profile whose runner is a plugin's takes part through the same contracts (extensibility rule): the assistant asks the catalog what a runner is and starts it through the `Runner` contract; a
-  built-in has no way the plugin lacks.
+- [ ] AC-21. A profile's runner is resolved by name in the runner registry, plugins included, and started through the `Runner` contract; a built-in has no way a plugin lacks. A plugin runner is offered as a profile only if it
+  declares the level `read` through the `PermissionCapable` contract of `agent-permissions` (C-04 there); until that contract exists, only the built-in API runners (no tools) and the ACP runner (every request refused) are offered.
 
 ## 4. Non-goals
 
@@ -148,7 +148,7 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 - `@indaba/core` (pure): the closed shapes of an assistant message and an edit proposal (`AssistantReply`, `ProposedEdit`), `classifyEdit` (AC-13), the size bounds as constants.
 - `@indaba/engine`: the session (`AssistantSession`), the context pack builder (`buildContextPack`), proposal parsing and validation on a copy, the call through a `Runner` at `read`, the high-impact classification
   applied to the edits of `workflow-editor`.
-- `indaba` (CLI): the `assistant` section of `indaba.config` and its validation.
+- `@indaba/engine`: also `parseAssistantProfiles` (the pure parse of the per-user file). `indaba` (CLI): finds the file in the user configuration folder (`userConfigFolder`) and passes its text.
 - `@indaba/server`: the resources of AC-19.
 - `@indaba/web`: the panel, the diff and the list of changes, the one-by-one acceptance of high-impact edits, the confirmation of AC-14, the words.
 
@@ -165,9 +165,9 @@ All of these are **recommended; the maintainer confirms**.
   `agent-permissions`: what a model can influence must never become an approval.
 - **C-04. Why the pack is built from shipped files.** A model that is told the format from memory invents fields. Building the pack from the installed version's own documentation, schema and catalog keeps
   it true for that version and costs no network. Which docs are shipped inside the packages is a packaging decision of the implementation (`security-guard` skill).
-- **C-05. Why a profile is configuration, not part of a workflow.** The model that helps edit a file is the editor's business, not the workflow's; two people editing the same file may use different models, and a
-  key must never travel with a file.
-- **C-06. Numbers that are guesses.** 5 questions per request, and the size bounds of the sent text and of the pack, are design choices that are not measured; they are named constants in `api-surface.md` and revised
+- **C-05. Why a profile is per-user, not part of a workflow or of the project.** The model that helps edit a file is the editor's business, not the workflow's; two people editing the same file may use different models,
+  and a key must never travel with a file. `indaba.config` is committed with the project (and `parseProjectConfig` allows only `logging`), so a profile there would let a downloaded project choose where the person's content goes.
+- **C-06. Numbers that are guesses.** 5 questions per request, 200,000 characters of sent text and 100,000 characters of pack are design choices that are not measured; they are named constants in `api-surface.md` and revised
   when real sessions exist.
 - **C-07. Questions without a channel.** The panel talks to the person directly, so it does not need `agent-conversation`; it reuses only the shape and the check of `question-contract`.
 - **C-08. Honest limits.** The assistant makes valid files, not necessarily good ones: it can propose a wrong goal text. The diff and the person's reading are the check, and `validate` is not a judgement of quality.
