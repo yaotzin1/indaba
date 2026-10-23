@@ -172,3 +172,58 @@ describe('decidePermission at full', () => {
     expect(decidePermission('execute', undefined, undefined, '/w', 'read')).toBe('rejected');
   });
 });
+
+describe('extraArgs can never widen a written level (AC-07)', () => {
+  it('drops the permission flags of claude-code, whatever their spelling, when a level is written', async () => {
+    const make = (spawner: FakeSpawner) =>
+      new ClaudeRunner({
+        spawner,
+        usePty: false,
+        extraArgs: ['--dangerously-skip-permissions', '--permission-mode=bypassPermissions', '--verbose'],
+      });
+    expect(await commandOf(make, 'read')).toEqual([
+      'claude',
+      '-p',
+      'p',
+      '--verbose',
+      '--permission-mode',
+      'plan',
+    ]);
+  });
+
+  it('drops antigravity, codex and opencode permission flags the same way', async () => {
+    const antigravity = (spawner: FakeSpawner) =>
+      new AntigravityRunner({
+        spawner,
+        usePty: false,
+        extraArgs: ['--dangerously-skip-permissions', '--mode', 'auto', '--x'],
+      });
+    expect(await commandOf(antigravity, 'read')).toEqual(['agy', '--x', '--mode', 'plan', '-p', 'p']);
+
+    const codex = (spawner: FakeSpawner) =>
+      new CodexRunner({
+        spawner,
+        usePty: false,
+        extraArgs: ['--sandbox', 'danger-full-access', '--full-auto', '--y'],
+      });
+    expect(await commandOf(codex, 'edit')).toEqual([
+      'codex',
+      'exec',
+      '--y',
+      '--sandbox',
+      'workspace-write',
+      'p',
+    ]);
+
+    const opencode = (spawner: FakeSpawner) =>
+      new OpenCodeRunner({ spawner, usePty: false, extraArgs: ['--auto', '--z'] });
+    expect(await commandOf(opencode, 'edit')).toEqual(['opencode', 'run', '--z', 'p']);
+    expect(await commandOf(opencode, 'full')).toEqual(['opencode', 'run', '--z', '--auto', 'p']);
+  });
+
+  it('leaves extraArgs alone when no level is written, as before', async () => {
+    const opencode = (spawner: FakeSpawner) =>
+      new OpenCodeRunner({ spawner, usePty: false, extraArgs: ['--auto'] });
+    expect(await commandOf(opencode)).toEqual(['opencode', 'run', '--auto', 'p']);
+  });
+});

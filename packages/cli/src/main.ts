@@ -307,14 +307,22 @@ interface Parsed {
   readonly tui: boolean;
   readonly discussionDir: string | undefined;
   readonly permissions: readonly string[];
-  readonly allowFullAccess: 'run_option' | 'page' | undefined;
+  readonly allowFullAccess: 'run_option' | 'page' | 'terminal' | undefined;
   readonly help: boolean;
 }
 
 function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
   // `--allow-full-access=page` is what the server passes after its own confirmation (specs/agent-permissions, AC-05).
-  const fromPage = rawArgs.includes('--allow-full-access=page');
-  const args = rawArgs.map((arg) => (arg === '--allow-full-access=page' ? '--allow-full-access' : arg));
+  const provenance = rawArgs.includes('--allow-full-access=page')
+    ? 'page'
+    : rawArgs.includes('--allow-full-access=terminal')
+      ? 'terminal'
+      : undefined;
+  const args = rawArgs.map((arg) =>
+    arg === '--allow-full-access=page' || arg === '--allow-full-access=terminal'
+      ? '--allow-full-access'
+      : arg,
+  );
   let result: ReturnType<typeof parseWith>;
   try {
     result = parseWith(args);
@@ -352,7 +360,7 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
     tui: values.tui === true,
     discussionDir: values['discussion-dir'],
     permissions: values.permissions ?? [],
-    allowFullAccess: values['allow-full-access'] === true ? (fromPage ? 'page' : 'run_option') : undefined,
+    allowFullAccess: values['allow-full-access'] === true ? (provenance ?? 'run_option') : undefined,
     help: values.help === true,
   };
 }
@@ -1010,6 +1018,8 @@ async function runInDashboard(
 ): Promise<number> {
   // The child has no terminal, so the parent asks about steps at `full` and hands the child the acknowledgement (AC-05).
   const forwarded = args.filter((arg) => arg !== '--tui');
+  // Only a workflow that cannot be read is left to the run itself, which reports it; a refused or unconfirmed gate stops here.
+  let loaded: { workflow: WorkflowDefinition; runners: PermissionRunners } | undefined;
   try {
     const plugins = await loadPlugins(parsed.plugins, io.cwd);
     const { parser, runners } = await createEngine({
@@ -1019,16 +1029,19 @@ async function runInDashboard(
       logger,
       logSinks: logger,
     });
-    const workflow = await loadWorkflow(parser, parsed, io);
-    const gate = await permissionGate(parsed, workflow, runners, io);
+    loaded = { workflow: await loadWorkflow(parser, parsed, io), runners };
+  } catch {
+    loaded = undefined;
+  }
+  if (loaded !== undefined) {
+    const gate = await permissionGate(parsed, loaded.workflow, loaded.runners, io);
     if (typeof gate === 'number') {
       return gate;
     }
+    // The child cannot ask, so it is told who did, and records it.
     if (gate.acknowledged === 'terminal') {
-      forwarded.push('--allow-full-access');
+      forwarded.push('--allow-full-access=terminal');
     }
-  } catch {
-    // A workflow that cannot be read is reported by the run itself; nothing is acknowledged for it here.
   }
   return runWithDashboard(
     forwarded,

@@ -1,7 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { Readable, Writable } from 'node:stream';
+import { PassThrough, Readable, Writable } from 'node:stream';
 import { describe, expect, it } from 'vitest';
 import { main } from '../src/index.js';
 import { captureIo, makeTempDir, writePlugin, writeWorkflow } from './support.js';
@@ -205,5 +205,48 @@ describe('validate and plan (AC-07, AC-08)', () => {
     expect(plan.stdout()).toContain(
       "FULL ACCESS: this step's agent can change anything and run anything and nobody approves it",
     );
+  });
+});
+
+describe('run --tui (AC-05)', () => {
+  async function dashboard(answer: string, permissions: string, extra: string[] = []) {
+    const { dir, plugin, file } = await setup(permissions);
+    const captured = captureIo(dir);
+    const stdin = new PassThrough();
+    stdin.end(answer);
+    const startedWith: string[][] = [];
+    const io = {
+      ...captured.io,
+      terminal: { stdin, stdout: new PassThrough() },
+      startRun: ((args: readonly string[]) => {
+        startedWith.push([...args]);
+        return {
+          exited: Promise.resolve(0),
+          stderr: () => '',
+          cancel: () => undefined,
+          kill: () => undefined,
+          release: () => undefined,
+        };
+      }) as never,
+      loadTui: async () => ({ tui: { watch: async () => ({ quit: 'close' as const, code: 0 }) } }),
+    };
+    const code = await main(['run', file, '--plugin', plugin, '--tui', ...extra], io);
+    return { code, startedWith, err: captured.stderr() };
+  }
+
+  it('asks in the parent on a yes and tells the child who acknowledged', async () => {
+    const r = await dashboard('y\n', FULL);
+    expect(r.startedWith.flat()).toContain('--allow-full-access=terminal');
+  });
+
+  it('does not start the child on anything but a yes', async () => {
+    const r = await dashboard('n\n', FULL);
+    expect(r.code).toBe(2);
+    expect(r.startedWith).toEqual([]);
+  });
+
+  it('adds nothing for a workflow with no step at full', async () => {
+    const r = await dashboard('', EDIT);
+    expect(r.startedWith.flat().some((arg) => arg.startsWith('--allow-full-access'))).toBe(false);
   });
 });

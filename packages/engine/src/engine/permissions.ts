@@ -15,6 +15,7 @@ import {
   PermissionLevel as Level,
   PERMISSION_ORDER,
   permissionCapabilitiesOf,
+  SHELL_RUNNER,
   unsupportedBy,
 } from '@indaba/core';
 import { planForStep } from './chain.js';
@@ -62,8 +63,10 @@ export type PermissionFinding =
   | { readonly severity: 'note'; readonly code: 'bound_no_effect'; readonly stepId: string };
 
 /** Agent steps only: a shell step and a debate step have no permissions of their own (AC-03, AC-19). */
-export function isAgentStep(step: StepDefinition): boolean {
-  return !isShellStep(step) && !isConsensusStep(step);
+export function isAgentStep(step: StepDefinition, workflow?: WorkflowDefinition): boolean {
+  const role = step.role === undefined ? undefined : workflow?.roles[step.role];
+  const runner = step.runner ?? role?.runner;
+  return runner !== SHELL_RUNNER && !isShellStep(step) && !isConsensusStep(step);
 }
 
 function chainOf(
@@ -99,7 +102,7 @@ export function checkPermissions(
 ): PermissionFinding[] {
   const findings: PermissionFinding[] = [];
   for (const step of workflow.steps) {
-    if (!isAgentStep(step)) {
+    if (!isAgentStep(step, workflow)) {
       continue;
     }
     const chain = chainOf(step, workflow, runners);
@@ -107,8 +110,11 @@ export function checkPermissions(
 
     if (current.kind === 'default') {
       for (const { name, runner } of chain) {
-        // A runner that cannot act has no default worth stating.
-        if (permissionCapabilitiesOf(runner).some((c) => c.note === 'cannot_act')) {
+        // A runner that cannot act has no default worth stating, unless the step gives it tools (AC-18).
+        if (
+          !hasMcp(step, workflow) &&
+          permissionCapabilitiesOf(runner).some((c) => c.note === 'cannot_act')
+        ) {
           continue;
         }
         findings.push({ severity: 'fact', code: 'default', stepId: step.id, runner: name });
@@ -176,7 +182,7 @@ export function fullAccessSteps(
   runners: PermissionRunners,
 ): readonly { readonly stepId: string; readonly runners: readonly string[] }[] {
   return workflow.steps
-    .filter((step) => isAgentStep(step) && step.permissions?.level === Level.Full)
+    .filter((step) => isAgentStep(step, workflow) && step.permissions?.level === Level.Full)
     .map((step) => ({
       stepId: step.id,
       runners: chainOf(step, workflow, runners).map((c) => c.name),
@@ -241,7 +247,7 @@ export function applyRunBounds(
     const target = workflow.steps.find((s) => s.id === named.step);
     if (target === undefined) {
       errors.push(`--permissions: the workflow has no step "${named.step}"`);
-    } else if (!isAgentStep(target)) {
+    } else if (!isAgentStep(target, workflow)) {
       errors.push(
         `--permissions: step "${named.step}" is not an agent step, so it has no permissions to bound`,
       );
@@ -249,7 +255,7 @@ export function applyRunBounds(
   }
 
   const steps = workflow.steps.map((step) => {
-    if (!isAgentStep(step)) {
+    if (!isAgentStep(step, workflow)) {
       return step;
     }
     const own = bounds.filter((b) => b.step === step.id).map((b) => b.level);

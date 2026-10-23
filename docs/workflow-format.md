@@ -216,7 +216,7 @@ permissions: { level: full }                                      # no limit fro
   acts with its own rights.
 - The scope guard sees only what git shows in the step's working tree. It does not see a command that ran, a path git ignores, or a write
   outside the tree, and it does not hold `terminal`.
-- The runner's flags for a level come after any `extraArgs`, so an embedder's flags cannot widen it.
+- When a level is written, the permission flags an embedder put in a runner's `extraArgs` are dropped and the level's own flags are used, so `extraArgs` cannot widen it.
 - `antigravity` run headless refuses a tool that needs a permission and still exits 0. With a declared output missing (or no change in the
   working tree), the step fails with a fixed reason instead of passing.
 - `full` is acknowledged once per run: `indaba run` lists the steps and asks at a terminal, or refuses to start without one unless

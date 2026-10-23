@@ -8,7 +8,7 @@ import {
   WorkflowValidationError,
 } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
-import { applyRunBounds, parseWorkflow, WorkflowValidator } from '../src/index.js';
+import { applyRunBounds, checkPermissions, parseWorkflow, WorkflowValidator } from '../src/index.js';
 import { FakeRunner, harness, makeGitRepo } from './support.js';
 
 const rows = (modes: Partial<Record<PermissionLevel, EnforcementMode>>): PermissionCapability[] =>
@@ -192,5 +192,47 @@ describe('the validator at full', () => {
       workflowWith('    permissions:\n      level: edit\n      fs:\n        write: ["a/**"]\n'),
     );
     expect(new WorkflowValidator().warnings(edit).length).toBeGreaterThan(0);
+  });
+});
+
+describe('role-based shell steps and tool servers (AC-01, AC-18)', () => {
+  const lookup = (runner: FakeRunner) => ({ has: (name: string) => name === runner.name, get: () => runner });
+
+  it('does not treat a step that reaches the shell runner through its role as an agent step', () => {
+    const wf = {
+      ...parseWorkflow(workflowWith('')),
+      roles: { w: { name: 'w', runner: 'shell', mcp: [] } },
+    };
+    expect(checkPermissions(wf, lookup(new Capable('shell', everything)))).toEqual([]);
+    expect(
+      applyRunBounds(wf, [{ level: PermissionLevel.Read }], lookup(new Capable('shell', everything))).workflow
+        .steps[0],
+    ).toBe(wf.steps[0]);
+  });
+
+  it('states the default of an API runner when the step is given tools', () => {
+    const table: PermissionCapability[] = (['read', 'edit', 'full'] as const).map((level) => ({
+      level,
+      mode: EnforcementMode.Native,
+      scope: level === 'full' ? EnforcementScope.None : EnforcementScope.Guard,
+      note: 'cannot_act',
+    }));
+    const plain = parseWorkflow(workflowWith(''));
+    expect(checkPermissions(plain, lookup(new Capable('cap', table)))).toEqual([]);
+    const withTools = parseWorkflow(`version: "1.0"
+name: t
+mcp_servers:
+  fs: {command: server}
+roles:
+  w: {runner: cap}
+steps:
+  - id: s
+    role: w
+    goal: g
+    mcp: [fs]
+`);
+    expect(checkPermissions(withTools, lookup(new Capable('cap', table)))).toEqual([
+      { severity: 'fact', code: 'default', stepId: 's', runner: 'cap' },
+    ]);
   });
 });

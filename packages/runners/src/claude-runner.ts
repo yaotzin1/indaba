@@ -2,7 +2,7 @@ import type { RunRequest } from '@indaba/core';
 import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions, PreparedCommand } from './abstract-cli-runner.js';
 import { McpConfigWriter } from './mcp.js';
-import { fullAccess, nativeWithGuard } from './permissions.js';
+import { fullAccess, nativeWithGuard, withoutPermissionFlags } from './permissions.js';
 
 export interface ClaudeRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -62,7 +62,13 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
     const permission =
       request.permissionLevel === undefined
         ? (this.extraArgs ?? ['--permission-mode', 'acceptEdits'])
-        : [...(this.extraArgs ?? []), ...this.levelArguments(request.permissionLevel)];
+        : [
+            ...withoutPermissionFlags(this.extraArgs ?? [], {
+              valued: ['--permission-mode'],
+              bare: ['--dangerously-skip-permissions', '--allow-dangerously-skip-permissions'],
+            }),
+            ...this.levelArguments(request.permissionLevel),
+          ];
     const command = [this.binary, '-p', request.prompt, ...permission];
     if (mcpConfigFile !== undefined) {
       command.push('--mcp-config', mcpConfigFile, '--strict-mcp-config');

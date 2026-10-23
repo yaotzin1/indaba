@@ -2,7 +2,7 @@ import type { RunRequest } from '@indaba/core';
 import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
 import { McpConfigWriter } from './mcp.js';
-import { nativeWithGuard, unsupported } from './permissions.js';
+import { nativeWithGuard, unsupported, withoutPermissionFlags } from './permissions.js';
 
 export interface CodexRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -50,7 +50,13 @@ export class CodexRunner extends AbstractCliRunner implements McpCapable {
   private permissionArguments(request: RunRequest): readonly string[] {
     return request.permissionLevel === undefined
       ? (this.extraArgs ?? ['--sandbox', 'workspace-write'])
-      : [...(this.extraArgs ?? []), ...this.levelArguments(request.permissionLevel)];
+      : [
+          ...withoutPermissionFlags(this.extraArgs ?? [], {
+            valued: ['--sandbox', '--ask-for-approval', '-s', '-a'],
+            bare: ['--full-auto', '--dangerously-bypass-approvals-and-sandbox'],
+          }),
+          ...this.levelArguments(request.permissionLevel),
+        ];
   }
 
   protected command(request: RunRequest): readonly string[] {

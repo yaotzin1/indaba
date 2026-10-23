@@ -1,7 +1,7 @@
 import type { RunRequest } from '@indaba/core';
 import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
-import { afterOnly, fullAccess, unsupported } from './permissions.js';
+import { afterOnly, fullAccess, unsupported, withoutPermissionFlags } from './permissions.js';
 
 export interface OpenCodeRunnerOptions extends CliRunnerOptions {
   readonly binary?: string;
@@ -48,8 +48,12 @@ export class OpenCodeRunner extends AbstractCliRunner implements McpCapable {
     const command = [
       this.binary,
       'run',
-      ...this.extraArgs,
-      ...(request.permissionLevel === undefined ? [] : this.levelArguments(request.permissionLevel)),
+      ...(request.permissionLevel === undefined
+        ? this.extraArgs
+        : [
+            ...withoutPermissionFlags(this.extraArgs, { valued: [], bare: ['--auto'] }),
+            ...this.levelArguments(request.permissionLevel),
+          ]),
     ];
     if (request.model !== undefined) {
       command.push('--model', request.model);

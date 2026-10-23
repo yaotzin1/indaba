@@ -4,6 +4,10 @@ import type { PermissionFinding } from '@indaba/engine';
 const RUNNER_DEFAULTS: Readonly<Record<string, string>> = {
   'claude-code': 'edits are accepted without asking',
   codex: 'it may change files in its workspace',
+  acp: 'Indaba refuses edits, deletes and commands that the block does not allow',
+  antigravity: 'Indaba adds no permission argument, so the agent applies its own',
+  opencode: 'Indaba adds no permission argument, so the agent applies its own',
+  cursor: 'Indaba adds no permission argument, so the agent applies its own',
 };
 
 /** The words for the note ids that runners declare (C-10: the front end owns its words). */
@@ -37,7 +41,7 @@ export function describePermissionFinding(finding: PermissionFinding): string {
       return `${step}: its mcp servers act with their own rights, whatever the level`;
     case 'default':
       return `${step}: no level is written, so the built-in default of the ${finding.runner} runner applies (${
-        RUNNER_DEFAULTS[finding.runner] ?? 'it adds no permission argument'
+        RUNNER_DEFAULTS[finding.runner] ?? 'Indaba cannot describe what it allows'
       }), not a level you chose; add permissions with a level to choose, for example permissions: { level: edit, fs: { write: ["src/**"] } }`;
     case 'full':
       return `${step}: FULL ACCESS: this step's agent can change anything and run anything and nobody approves it (runners: ${finding.runners.join(', ')})`;

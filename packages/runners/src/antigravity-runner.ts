@@ -1,7 +1,7 @@
 import type { RunRequest } from '@indaba/core';
 import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions } from './abstract-cli-runner.js';
-import { denialWindows, fullAccess, nativeWithGuard } from './permissions.js';
+import { denialWindows, fullAccess, nativeWithGuard, withoutPermissionFlags } from './permissions.js';
 
 /** The message `agy -p` prints, and exits 0, when a tool needed a permission that headless mode cannot ask for (observed 2026-10-23). */
 const REFUSED = /required the \S+ permission that headless mode cannot prompt for/;
@@ -63,8 +63,15 @@ export class AntigravityRunner extends AbstractCliRunner implements McpCapable {
   protected command(request: RunRequest): readonly string[] {
     const command = [
       this.binary,
-      ...this.extraArgs,
-      ...(request.permissionLevel === undefined ? [] : this.levelArguments(request.permissionLevel)),
+      ...(request.permissionLevel === undefined
+        ? this.extraArgs
+        : [
+            ...withoutPermissionFlags(this.extraArgs, {
+              valued: ['--mode'],
+              bare: ['--dangerously-skip-permissions'],
+            }),
+            ...this.levelArguments(request.permissionLevel),
+          ]),
     ];
     if (request.model !== undefined) {
       command.push('--model', request.model);
