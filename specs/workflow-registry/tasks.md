@@ -24,5 +24,5 @@ Ordered by dependency. Each task brings its tests. Run `pnpm qa` after each grou
 
 - [x] **T-08** `docs/getting-started.md`, `docs/extending.md` (`registerRegistry`), `README.md`,
   `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`, `docs/roadmap.md`.
-- [ ] **T-09** The gates of `workflow.ai.yml`, `pnpm e2e`, `pnpm smoke`; per-file coverage; CI on the three systems.
+- [x] **T-09** The gates of `workflow.ai.yml`, `pnpm e2e`, `pnpm smoke`; per-file coverage; CI on the three systems (green on #69).
 - [x] **T-10** `review.md`.

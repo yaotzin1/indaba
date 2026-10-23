@@ -1,6 +1,6 @@
 # Self-review: The workflow registry, slice 1
 
-> **Status**: done, 2026-10-23, before CI. Stages run: 1 (spec rewritten with the decisions), 2 (the maintainer's four
+> **Status**: done, 2026-10-23. Stages run: 1 (spec rewritten with the decisions), 2 (the maintainer's four
 > answers, C-01 to C-03 and C-07, and C-04 to C-11 resolved), 3 (`api-surface.md` rewritten, `plan.md`), 4
 > (`tasks.md`), 5 (the audit in `plan.md`), 6 (tests with each part), 7 (below), 8 (this review). Two stage 6 findings
 > went back to the contract and the spec, recorded there: the confined read moves with the walk (amendment), and a root
@@ -66,7 +66,7 @@ New files, statements / branches: `engine/registry/file-registry.ts` 94.9 / 89.9
 `files.ts` 90.5 / 87.0 (moved code; its edge cases are covered by the command line's race tests), `cli/workflows.ts`
 97.1 / 91.5.
 
-Not run here: Windows and macOS, which CI runs on the pull request. The `main()` tests write nothing outside their
+CI on #69: Agent instruction set, Track and deliverables, Dependency audit, and Verify on ubuntu, windows and macOS all passed. The `main()` tests write nothing outside their
 temporary folder on any system (macOS reads the configuration folder from the real home, so those tests only scan).
 
 ## Known gaps
