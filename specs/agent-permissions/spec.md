@@ -4,7 +4,8 @@
 > **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
 > **Semver impact**: minor (an optional `permissions.level`, `permissions` on a role and in `defaults`, a runner capability contract, new span attributes, new
 > run options). Nothing that exists changes behaviour in this release: the two hard-coded runner defaults stay until a step writes a level, and their removal is a
-> labelled breaking change of a later minor (C-01).
+> labelled breaking change of a later minor (C-01). One exception, stated in the CHANGELOG: the parser ignores unknown keys, so a `permissions` block that a file already carries
+> on a role or in `defaults` was inert and now takes effect.
 > **Builds on**: the `permissions` block of [`docs/workflow-format.md`](../../docs/workflow-format.md#permissions) and the
 > `diff_within_scope` guard it adds; [`specs/agent-conversation`](../agent-conversation/spec.md) (the channel and the person's
 > answers; needed only by the later level `ask`, C-05); [`specs/web-app-editing-forms`](../web-app-editing-forms/spec.md)
@@ -62,25 +63,28 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - [ ] AC-01. `permissions` (a step's block) gains an optional `level`, and the block becomes valid on a role and in `defaults`. The three places
   are **not merged**: the effective block is the one of the step if it has one, else the role's, else `defaults`'s, whole. (The parser cannot
   tell an absent `fs` from an empty one, and a weaker layer must never widen a stronger one.) A run option may lower the effective level but
-  never raise it (AC-12). A block with no `level` keeps working as before (AC-13).
+  never raise it (AC-12). A block with no `level` keeps working as before (AC-13). Resolution applies **only to agent steps**: a `shell` step and a debate's participants never receive a role's or
+  `defaults`'s block (AC-03, AC-19). Every place that reads a step's permissions today (`effectiveGuards`, the runner call, `summaryOfUse`, the validator, `plan`) reads the resolved block (`api-surface.md`).
 - [ ] AC-02. The levels are:
-  - `read`: the agent may read; it may not change files or run commands.
+  - `read`: the agent may read; it may not change files or run commands. A runner that has no mode of its own for it (only the check after the step) does not offer it (C-03).
   - `edit`: the agent may change files that match `fs.write`, and run commands only if `terminal: allow`; anything else is refused.
   - `ask`: reserved for a later version (AC-09). Writing it is an error that says so.
   - `full`: no limit from Indaba and no approval asked. The author chose it (AC-04).
 - [ ] AC-03. For a block that **writes** a `level`: `edit` requires a non-empty `fs.write` ("edit needs the folders it may change"); `read` forbids `fs.write` and
   `terminal: allow`; `full` forbids `fs` and `terminal` (AC-04). These rules are checked on the block as written, never on a merged result. A block that does not
-  write a `level` is not held to them (AC-13). A level on a `shell` step is an error: shell steps run the commands the author wrote. A level on a step whose runners are
-  API-only (they cannot touch files) is allowed and satisfied by `native`.
-- [ ] AC-04. `full` does not add the `diff_within_scope` guard, is shown by `plan`, `validate`, the dashboard and the page in plain words ("this
+  write a `level` is not held to them (AC-13). A level on a `shell` step is an error: shell steps run the commands the author wrote; a `defaults` or role block is simply not applied to them (AC-01). A level on a step whose runners are
+  API-only and that has no `mcp` list (AC-18) is allowed and satisfied by `native`.
+- [ ] AC-04. `full` does not add the `diff_within_scope` guard, sends the runner no `fs`/`terminal` limits (for `acp`: the gate allows every request and its file server does not limit writes, so the agent's
+  own tools and the gate both act freely; `request.permissionLevel` is the one channel, and `decidePermission` takes the level), is described as `full` and never as "write nothing" by `summaryOfUse` and the trace views, is shown by `plan`, `validate`, the dashboard and the page in plain words ("this
   step's agent can change anything and run anything and nobody approves it"), and is never the effect of an absent field (AC-08).
 - [ ] AC-05. A run whose effective permissions include `full` on any step asks the person, once per run, before the first step, at a terminal: it names
   the steps and the runner of each and waits for a yes. Without a terminal the run refuses to start with a usage error naming the steps, unless
-  the run option `--allow-full-access` is given (which is the person's acknowledgement). The page's Run action lists the same steps in its confirmation
-  **every time it starts a run, whether or not the file's hash was confirmed before**, and passes `--allow-full-access` to the child only after that
-  confirmation (`web-app-actions` AC-13 is amended, C-05). The acknowledgement is recorded on the task span as `indaba.permissions.full_acknowledged`
-  (`terminal`, `run_option` or `page`). It never carries over to another run.
-- [ ] AC-06. Answerers, advisors, panel members and a decider (`agent-conversation` AC-53, `review-gate`) always run at `read`, whatever any
+  the run option `--allow-full-access` is given (which is the person's acknowledgement). The page's Run action lists the same steps in its confirmation **every time it starts a run, whether or not the file's hash was confirmed before**. The request of `POST /runs` gains
+  `fullAccessConfirmedHash` (the content hash the person saw, with the steps listed); a run whose file has a `full` step and no matching value is refused with `409 full_access_required` carrying the
+  step list (the `RunSummaryOfUse` of `confirm.ts` gains `fullAccessSteps`), and with a matching value the server starts the child with `--allow-full-access=page` (`web-app-actions` AC-03 and AC-13 are
+  amended). When `indaba run` re-spawns itself for the dashboard, the parent asks at the terminal and the child receives `--allow-full-access`. The acknowledgement is recorded on the task span as
+  `indaba.permissions.full_acknowledged` (`terminal`, `run_option` for the bare flag, `page` for the value `page`). It never carries over to another run.
+- [ ] AC-06. **Applies when `agent-conversation` and `review-gate` are implemented; it has no test in this release.** Answerers, advisors, panel members and a decider (`agent-conversation` AC-53, `review-gate`) always run at `read`, whatever any
   `defaults`, role or run option says. Their block is set by the engine for the call and is not resolved from the layers of AC-01.
 
 **What a runner can do, and what is checked when**
@@ -88,8 +92,11 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - [ ] AC-07. A runner declares, per level, its mode and the scope it can hold, through the contract `PermissionCapable` (`api-surface.md`); the built-in table is in C-03. A step that
   writes a level is checked against **every runner in its chain** (the list of fallbacks): a level that any of them cannot honour (`unsupported`) is an error naming the runner, the level
   and, in plain words, why. The check needs the registry of runners, so it is made by `validate`, `plan` and at the start of a run, and by the editor's check when it has the catalog
-  (AC-16); the parser, which has no runners, does not make it. The runner turns a written level into its own arguments, which come first, and its `extraArgs` (embedders only) come
-  after, as today. The two legacy defaults (C-01) apply only to a step that writes no level and are replaced, not added to, by a written one.
+  (AC-16); the parser, which has no runners, does not make it. The runner turns a written level into its own arguments, which come **last**: `[...extraArgs, ...levelArgs]`, so that an embedder's `extraArgs` can never widen a written level (the CLIs take the last
+  occurrence of a flag). Today `extraArgs` replaces a runner's legacy default; with a written level it is kept and the level wins. The two legacy defaults (C-01) apply only to a step that writes no level and are replaced, not added to, by a written one.
+  **What the guard holds.** The scope guard reads the tracked and the untracked, not-ignored paths of the step's working tree after the step (`git status`). It does not see a command that ran, a path git ignores
+  (`dist/`, `node_modules/`) or a write outside the working tree, so it holds the `fs.write` globs only for paths git shows and does not hold `terminal` at all. A level whose meaning depends on holding `terminal` or on stopping
+  the agent while it works is offered only by a runner whose own mode does so (C-03): otherwise it is `unsupported`; and `edit` on a runner whose commands are not limited carries the note id `commands_not_limited` (AC-17).
 - [ ] AC-08. **A step that writes no level keeps its runner's behaviour of today**: `claude-code` starts with `--permission-mode acceptEdits`, `codex` with `--sandbox workspace-write`, the others with
   no permission argument, `acp` refuses what a missing block refuses. Indaba does not hide it: `plan` and `validate` state, for every agent step with no level, "this step uses the built-in default of
   the <runner> runner (<what it allows>), not a level you chose; add `permissions` with a `level` to choose", with the one-line example of C-01. A later labelled minor makes an absent block `read`
@@ -102,19 +109,21 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 
 - [ ] AC-11. A runner declares `permissionDenied(output)`, which recognises, from the agent's final output, that a permission it needed was refused in
   headless mode (for `antigravity`: the message quoted in section 1). A step fails with a fixed reason that names the level in force and the block to
-  change only when the runner recognises the message, the exit code is 0, **and** the level is `read` or `edit` with a declared output missing or the
-  step wrote nothing it was asked to (so a reviewer that quotes the message is not failed). The text of the agent's message is not copied into the reason
+  change only when the runner recognises the message, the exit code is 0, **and** a level is in force (`read`, `edit`, or a step on the runner's default, where the reason names "the <runner> default") **and** a declared output is missing or, when the step declares no outputs, the
+  worktree diff is empty (so a reviewer that quotes the message is not failed). It is evaluated for each attempt, for the runner of the chain that ran it. The message the runner recognises is the one
+  observed from `agy -p` on 2026-10-23 (section 1), kept as a test fixture built from fragments. The text of the agent's message is not copied into the reason
   or any span. A step that failed this way is an ordinary failure for `on_failure`. A built-in CLI runner that cannot recognise a refusal says so in `plan`
   ("a refused permission cannot be told from success for this runner"); no front end implies otherwise.
 
 **Run options, compatibility and guards**
 
-- [ ] AC-12. `indaba run --permissions <level>` (optionally `<step>=<level>`, repeatable) sets an upper bound for this run: the effective level is the lower
-  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. A bound that does not
-  apply to a step is a usage error naming the step and why: `edit` over a block with no `fs.write` (use `read`); a step with no level takes the bound as its level (a bound of `read` over a step with no block gives it the `read` arguments), a bound on a step that does not exist,
-  a bound that a runner of the step's chain cannot honour. A bound of `read` is always applicable and is the dry-run switch.
+- [ ] AC-12. `indaba run --permissions <level>` (optionally `<step>=<level>`, repeatable) sets an upper bound for this run: for a step that **writes** a level, the effective level is the lower
+  of the file's and the option's, in the order `read` < `edit` < `full`. It can never raise a level and never writes the file. Lowering `edit` to `read` drops its `fs.write` and the implied guard then allows no change at all.
+  A step with no level (the runner's default) is affected only by a bound of `read`, which gives it the `read` arguments; any other bound over it changes nothing, and `plan` says so for the step. A bound applies to agent
+  steps only. A usage error names the step and why when: the named step does not exist or is not an agent step; or a runner of the step's chain cannot honour the resulting level (`--permissions read` is the dry-run switch
+  where every runner offers `read`).
 - [ ] AC-13. A block with no `level` is read as before and **behaves as before**: its implied level (`edit` if `fs.write` is non-empty, `read` otherwise) selects nothing new, the runner keeps the behaviour of
-  AC-08, and the ACP gate and the guard act as they do today. The implied level is used only to describe the step in `plan` and to apply a run bound (AC-12).
+  AC-08, and the ACP gate and the guard act as they do today. The implied level is used only to describe the step in `plan`.
 - [ ] AC-14. For a block that writes a `level`, a declared `diff_within_scope` guard no longer replaces the one the block implies (`chain.ts`): both apply at `read` and `edit`, so a loose declared
   guard cannot weaken the author's `fs.write`. At `full` neither is added unless declared. A block with no level keeps today's rule (AC-13).
 
@@ -134,8 +143,15 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
   `level: full` (it keeps the guard). Switching presets deletes the keys the new shape forbids, one edit per path. Any block that matches none is *Custom* and is kept
   as it is.
 - [ ] AC-17. When the person picks a level that the selected runner cannot honour, the editor refuses it in plain words from the note id of AC-16; where the mode or the scope
-  is not `native`/`acp` it shows the qualifier ("checked after the step, not while it works"). Choosing *Full access* shows the sentence of AC-04. The form still writes no
+  is not `native`/`acp` it shows the qualifier ("checked after the step, not while it works") and, for the note id `commands_not_limited`, "commands the agent runs are not limited". Choosing *Full access* shows the sentence of AC-04. The form still writes no
   level unless the person picks one.
+
+**Other ways an agent can act, and the debate**
+
+- [ ] AC-18. An MCP server a step lists (`mcp`) acts with its own rights, whatever the level. A step that writes `read` and has a non-empty `mcp` list is an error ("a read-only agent that is
+  given a tool server is not read-only"); one that writes `edit` gets a note in `plan` and `validate`; at `full` there is none. A step on an API-only runner counts as unable to act only when it has no `mcp` list.
+- [ ] AC-19. The participants of a consensus step ignore role and `defaults` blocks and get no permissions block, as today (`planForRole`): this release does not change what they may do. A role at `full` that only a
+  debate uses does not enter the list of AC-05. Making them `read` belongs to the release that removes the defaults (C-01).
 
 ## 4. Non-goals
 
@@ -146,7 +162,7 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - Anything that depends on the agent mesh (debates, consensus, a panel). Answerers, advisors and panel members of other specs always run at `read` (AC-06) whether or not that feature is installed.
 - Remembering a decision across runs.
 - Choosing the level for the author. Indaba states facts about enforcement and does not recommend a level.
-- Permissions of a debate's participants beyond AC-06: they are bound to `read` as answerers are, and a debate step has no permissions block of its own.
+- Permissions of a debate's participants: unchanged in this release (AC-19); making them `read` belongs to the release that removes the defaults (C-01).
 
 ## 5. Behaviour on failure
 
@@ -161,13 +177,14 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 | an agent is refused a permission in headless mode and exits 0 | the step fails with the fixed reason, if the runner recognises it (AC-11) |
 | the agent writes outside `fs.write` anyway (CLI runner at `read` or `edit`) | the guard fails the step after it ran (AC-14); the files stay in the worktree |
 | `--permissions` names a level above the file's | the lower one is used; no error |
-| `--permissions edit` on a block with no `fs.write` | usage error naming the step (AC-12) |
+| `--permissions` names a step that is missing or not an agent step, or the lowered level is unsupported by a runner of its chain | usage error naming the step (AC-12) |
+| a step with a non-empty `mcp` list | `read`: error; `edit`: a note in `plan`/`validate` (AC-18) |
 | a plugin runner declares no `PermissionCapable` | it supports no level; a step that writes a level and can use it is an error (C-04) |
 | an answerer, advisor or panel member of another spec | always `read` (AC-06) |
 
 ## 6. Security and data handling
 
-- The level is the author's, and nothing widens it: not the runner, not a weaker layer (the three places are not merged, AC-01), not a run option (AC-12), not the agent, not an answerer or
+- The level is the author's, and nothing widens it: not the runner, not a weaker layer (the three places are not merged, AC-01), not a run option (AC-12: it only lowers a written level), not the agent, not an answerer or
   panel (always `read`, AC-06). A model's text never changes a level.
 - `full` is deliberate and visible: a plain sentence in four places (AC-04), a once-per-run acknowledgement (AC-05) and a trace attribute. It cannot be turned on by a run option, by a
   weaker layer over a stronger one, or by the editor without the person choosing it. A workflow downloaded, copied from the registry or generated that contains `full` is stopped by the
@@ -175,15 +192,15 @@ the globs (C-03); the globs and `terminal: deny` are held for it by the guard on
 - For a command-line runner, the scope (the `fs.write` globs and `terminal: deny`) is held by the guard **after** the step, and the mode confines the agent only to its workspace (AC-07,
   C-03). The agent may have written, or run a command, before the check. The `isolation: git_worktree` rule of the existing documentation still applies and `validate` still warns without it.
   This spec claims no more than that.
+- An MCP server acts with its own rights, whatever the level (AC-18). The scope guard sees only what git shows in the working tree (AC-07).
 - A step that writes no level keeps a runner default that may allow edits; `plan` says so for every such step (AC-08), so the absence of a choice is visible, not silent.
 - A refused permission is reported with a fixed reason and the level, never with the agent's text (AC-11, AC-15).
 - No secret, path or command text is in a span, event or log line (AC-15).
 
 ## 7. Where it lives
 
-- `@indaba/core` (pure): `PermissionLevel`, `PermissionMode`-style enforcement words, `PermissionCapability`, `PermissionCapable`, `StepPermissions.level` and the
-  optional members (C-09), `resolvePermissions` (AC-01), `impliedLevel` (AC-13), `lowerLevel` (AC-12), `unsupportedBy` (AC-07), `describeEnforcement` (structured, C-10),
-  `RunRequest.permissionLevel`.
+- `@indaba/core` (pure): `PermissionLevel`, `PermissionMode`-style enforcement words, `PermissionCapability`, `PermissionCapable`, `StepPermissions.level`, `resolvePermissions` (AC-01), `impliedLevel` (AC-13), `lowerLevel` (AC-12), `unsupportedBy` (AC-07), `describeEnforcement` (structured, C-10),
+  `RunRequest.permissionLevel`, `Describes` gaining an optional `permissions` member for runners (C-11).
 - `@indaba/engine`: parser (the field, role and `defaults` blocks), the checks at `validate`/`plan`/run start with the registry, the guard rule (AC-04, AC-14), the
   `plan`/`validate` text, the `full` acknowledgement hook, `--permissions` resolution, the answerers' `read` (AC-06).
 - `@indaba/runners`: every built-in runner implements `PermissionCapable` (the arguments for a written level and `permissionDenied`); the `full` path of `decidePermission`. The two hard-coded
@@ -206,22 +223,23 @@ All of these are **recommended; the maintainer confirms**.
   `terminal`) and is kept. `ask` will be a level, not a flag, because it changes who decides.
 - **C-03. The built-in table.** What is **verified** was read from the installed CLI on 2026-10-23 with `--help`; what is marked *confirm* must be checked against the CLI
   (and, for what a flag does, run) at implementation, and a level whose argument cannot be confirmed is `unsupported`, never a guess. The scope of a command-line runner is
-  `guard` at every level but `full`; the mode only confines the agent to its workspace or mode.
+  `guard` at every level but `full`; the mode only confines the agent to its workspace or mode. `codex` at `edit` runs commands inside its sandbox whatever `terminal` says: it carries the note
+  `commands_not_limited` too.
 
   | Runner | `read` | `edit` | `ask` | `full` |
   | :--- | :--- | :--- | :--- | :--- |
   | `claude-code` | native, `--permission-mode plan` (the mode exists; *confirm* that it refuses writes) | native, `--permission-mode acceptEdits` (as today) | unsupported (`--permission-prompts host` is a later piece) | native, `--permission-mode bypassPermissions` (exists) |
   | `antigravity` | native, `--mode plan` (the flag exists; *confirm* the meaning) | native, `--mode accept-edits` (the flag exists; a write headless was observed to depend on it; *confirm* by a run) | unsupported | native, `--dangerously-skip-permissions` (exists) |
   | `codex` | native, `--sandbox read-only` (*confirm*) | native, `--sandbox workspace-write` (as today) | unsupported | native, `--sandbox danger-full-access` (*confirm*) |
-  | `opencode` | after (no read-only argument found in `--help`) | after | unsupported | native, `--auto` (exists) |
-  | `cursor` | after | after | unsupported | unsupported until an argument is confirmed |
+  | `opencode` | unsupported (no read-only argument; the guard cannot stop a command) | after, note `commands_not_limited` | unsupported | native, `--auto` (exists) |
+  | `cursor` | unsupported | after, note `commands_not_limited` | unsupported | unsupported until an argument is confirmed |
   | `acp` | acp | acp | acp | acp (the gate allows every request, never "always") |
-  | API runners (`openrouter`, OpenAI-compatible) | native (they cannot act) | native | unsupported | native |
+  | API runners (`openrouter`, OpenAI-compatible) | native (they cannot act, unless the step has `mcp`: AC-18) | native | unsupported | native |
   | `shell` | not applicable (AC-03) | | | |
 
-  For `opencode` and `cursor` no read-only or edit-only argument was found in `--help`, so their `read` and `edit` have mode `after`: the runner is started with no permission
-  argument and only the guard checks, after the step. That is allowed and `plan` says so (AC-07, AC-17); an author who needs the agent stopped while it works uses `acp` with
-  `agent: opencode`, which the documentation already recommends. `antigravity` also has `--sandbox` ("terminal restrictions"), not used here; its runner comment, which says
+  For `opencode` and `cursor` no read-only or edit-only argument was found in `--help`. Their `read` is therefore `unsupported` (the guard cannot hold "no commands", AC-07): a step that writes `read` on them is an error that says so
+  and names `acp` with `agent: opencode` as the way, which the documentation already recommends. Their `edit` has mode `after`: the runner is started with no permission argument and only the guard checks, after the step, which `plan` says
+  with the note `commands_not_limited` (AC-17). `antigravity` also has `--sandbox` ("terminal restrictions"), not used here; its runner comment, which says
   that edits are auto-approved, is wrong for headless mode and is corrected in the same change.
   The `ask` column is the design for the later version (C-05); in this version `ask` is reserved and no column entry is used.
 - **C-04. A plugin runner** that does not implement `PermissionCapable` supports no level: a step that names a level and can use it is an error, and a step with no block gets
@@ -246,6 +264,8 @@ All of these are **recommended; the maintainer confirms**.
   a minor.
 - **C-10. Words belong to the front end.** Core returns structured descriptions (a runner, a level, a mode, a scope, a note id), the CLI renders them in English, and the page renders
   them from its message catalogue (`web-app-actions` AC-14).
+- **C-11. The catalog member.** `catalogOf` reads only `Describes.describe()` (a name and a description) and rebuilds each entry. `Describes` gains an optional `permissions` member that only runners provide, and `clean()` keeps it. The new
+  member is additive and optional, so `catalog` stays at `1`; the comment in `engine/editor/catalog.ts` ("a change of shape raises it") is amended to say an optional member does not. The maintainer confirms this reading.
 
 ## Artifacts not written
 

@@ -65,6 +65,8 @@ export const MAX_DENIAL_WINDOW: 4096;                          // C-07
 /** `StepPermissions` gains one optional member. The three existing members keep their types and the parser's filling (C-09). */
 //   readonly level?: PermissionLevel;
 
+/** `Describes` (the catalog source) gains, for runners only, `permissions?: Readonly<Record<PermissionLevel, { mode, scope, note }>>`; `catalogOf` and `clean()` keep it (spec C-11). */
+
 /** `RunRequest` gains the level the step wrote, or the one a run bound gave it (AC-12). Absent for a step with no level. Runners that do not implement PermissionCapable ignore it. */
 //   readonly permissionLevel?: PermissionLevel;
 
@@ -86,11 +88,14 @@ export function effectiveLevel(
 /** AC-12: the lower of two levels. */
 export function lowerLevel(a: PermissionLevel, b: PermissionLevel): PermissionLevel;
 
-/** AC-12: apply a run bound to a step's effective block; an error names why it does not apply. */
+/**
+ * AC-12: apply a run bound. A written level is lowered (`edit` to `read` drops `fs.write`, so the implied guard allows no change); a step with no level takes only a bound of `read`;
+ * any other bound over it returns the block unchanged with `changed: false` so that `plan` can say so. An error names why it does not apply (a missing or non-agent step).
+ */
 export function applyBound(
   permissions: StepPermissions | undefined,
   bound: PermissionLevel,
-): { readonly permissions: StepPermissions | undefined; readonly level: PermissionLevel } | { readonly error: string };
+): { readonly permissions: StepPermissions | undefined; readonly level: PermissionLevel | undefined; readonly changed: boolean } | { readonly error: string };
 
 /** AC-07: what a step's chain of runners cannot honour. Empty means every runner in the chain honours the level. */
 export function unsupportedBy(
@@ -120,16 +125,20 @@ not in this surface; they belong to the later spec (spec C-05).
   validates what it can without runners: the unknown or reserved level, the combinations of AC-03 on the block as written, a level on a `shell` step.
 - `checkPermissions(workflow, registry)` makes the checks that need runners (AC-07: every runner of the chain for a written level; the `full` list; the facts of AC-08 for steps with no level). It is called by `validate`, `plan` and at the start of a run, not by `parseWorkflow`. The editor's check resource calls it
   when it has the catalog.
+- Resolution (AC-01) happens once per agent step and its result is handed to every reader that reads `step.permissions` today: `effectiveGuards(step, resolved)` (chain.ts; it has no workflow argument today),
+  `runAgent` (step-executor.ts), `summaryOfUse` (run-control/confirm.ts, which also gains `fullAccessSteps`), the validator's warnings, and `plan` in the CLI. `planForRole` is unchanged (AC-19).
 - `effectiveGuards` (chain.ts) adds the implied `diff_within_scope` guard **in addition to** a declared one for a block that writes a level `read` or `edit` (AC-14), and none at `full`. A block with no level keeps today's rule.
-- Answerers, advisors, panel members and a decider are called with a block set by the engine at `read` (AC-06).
-- The acknowledgement of `full` (AC-05) is a function the composition root gives the engine: `acknowledgeFullAccess(steps): Promise<'terminal' | 'run_option' | 'page' | 'refused'>`.
+- Answerers, advisors, panel members and a decider are called with a block set by the engine at `read` (AC-06; applies when those features land).
+- `checkPermissions` also reports AC-18 (a step at `read` with `mcp`, an error; at `edit`, a note).
+- The acknowledgement of `full` (AC-05) is a function the composition root gives the engine: `acknowledgeFullAccess(steps): Promise<'terminal' | 'run_option' | 'page' | 'refused'>`. The flag is `--allow-full-access[=page]`; the server
+  passes `=page` after its confirmation, and the parent of the dashboard child asks at the terminal and passes the bare flag.
   A run with no such function and a `full` step refuses to start.
 
 ## `@indaba/runners`
 
-Every built-in runner implements `PermissionCapable` with the table of spec C-03. For a step that writes a level a runner builds its arguments as `[...levelArgs, ...extraArgs]` and does **not** use its
+Every built-in runner implements `PermissionCapable` with the table of spec C-03. For a step that writes a level a runner builds its arguments as `[...extraArgs, ...levelArgs]` (the level is last, so it wins) and does **not** use its
 legacy default; for a step with no level it behaves as today: `ClaudeCodeRunner` keeps `['--permission-mode', 'acceptEdits']` and `CodexRunner` keeps `['--sandbox', 'workspace-write']` (spec C-01; their
-removal is the next labelled minor). The comment of `AntigravityRunner` that edits are auto-approved is corrected. `AcpRunner`'s `decidePermission` gains the `full` path (allow every request, never "always").
+removal is the next labelled minor). The comment of `AntigravityRunner` that edits are auto-approved is corrected. `AcpRunner`'s `decidePermission` gains a `level` parameter and the `full` path (allow every request, never "always"; the file server does not limit writes at `full`, AC-04).
 
 ## Workflow file
 
@@ -140,16 +149,14 @@ removal is the next labelled minor). The comment of `AntigravityRunner` that edi
 
 A parse error names the field path and why for: an unknown level; `edit` written without a non-empty `fs.write`; `read` written with `fs.write` or `terminal: allow`;
 `full` written with `fs` or `terminal`; a level on a `shell` step; `level: ask` or `timeout_seconds` (reserved, with the message of AC-09). At `validate`/`plan`/run start: a written level that a runner
-of the chain cannot honour (the runner, the level, the reason in plain words), and the facts of the spec (agent steps with no level and the default their runner applies, `full` steps).
-`full` written with `fs` or `terminal`; a level on a `shell` step; `level: ask` or `timeout_seconds` (reserved, with the message of AC-09). At `validate`/`plan`/run start: a written level that a runner
-of the chain cannot honour (the runner, the level, the reason in plain words), and the facts of the spec (agent steps with no level and the default their runner applies, `full` steps).
+of the chain cannot honour (the runner, the level, the reason in plain words), `read` with `mcp`, and the facts of the spec (agent steps with no level and the default their runner applies, `full` steps).
 
 ## CLI
 
 | Option | Meaning |
 | :--- | :--- |
 | `indaba run --permissions [<step>=]<level>` (repeatable) | an upper bound for this run; never raises a level (AC-12); a usage error when it does not apply to a step |
-| `indaba run --allow-full-access` | the person's acknowledgement of AC-05 for a run with no terminal |
+| `indaba run --allow-full-access[=page]` | the person's acknowledgement of AC-05 for a run with no terminal; `=page` is passed by the server after its confirmation |
 | `indaba plan`, `indaba validate` | per step: the level or "the <runner> default", the mode and scope for each runner in the chain with the qualifier of AC-17, the `full` sentence (AC-04), the default fact of AC-08 |
 | `indaba catalog` | each runner entry gains `permissions: Record<PermissionLevel, { mode, scope, note }>` (AC-16) |
 
@@ -172,7 +179,7 @@ New attributes: minor. (The event `PermissionDecided` belongs to the later `ask`
 //   readonly permissions?: Readonly<Record<PermissionLevel, { readonly mode: EnforcementMode; readonly scope: EnforcementScope; readonly note: string }>>;
 ```
 
-The web contract version moves by a minor. The form writes `permissions.level` through the existing edit resources, deleting the keys a preset forbids with one edit per path
+`POST /runs` gains the optional body field `fullAccessConfirmedHash` and a response `409 full_access_required` with the `full` steps; `RunSummaryOfUse` gains `fullAccessSteps`. The web contract version moves by a minor. The form writes `permissions.level` through the existing edit resources, deleting the keys a preset forbids with one edit per path
 (AC-16). The page's Run confirmation lists the `full` steps every time and passes `--allow-full-access` only after it (AC-05). The words (the refusal, the qualifier, the `full`
 sentence) are in the page's message catalogue, keyed by the `note` ids.
 
@@ -180,8 +187,8 @@ sentence) are in the page's message catalogue, keyed by the `note` ids.
 
 - `web-app-editing-forms`: AC-09 (the presets) maps to the levels and the old-style display (AC-16); the form shows the refusal and the qualifier (AC-17); the "Not set" help text, which says
   other runners are not limited, is replaced by the default fact of AC-08.
-- `web-app-actions`: AC-13 (confirmations) gains the `full` list every time (AC-05).
-- `workflow-editor`: the schema gains `permissions.level`, role and `defaults` permissions; the catalog gains the map.
+- `web-app-actions`: AC-03 (the body of `POST /runs`) gains `fullAccessConfirmedHash` and the 409; AC-13 (confirmations) gains the `full` list every time (AC-05).
+- `workflow-editor`: the schema gains `permissions.level`, role and `defaults` permissions; the catalog gains the map (C-11); the comment on `catalog: 1` in `engine/editor/catalog.ts` is amended.
 - `docs/workflow-format.md`: the Permissions section (the level, the table of C-03, what a step with no level does, the guard rule, the sentence about the scope being checked after the step).
 - `docs/getting-started.md`: the runner table says what each runner does with each level.
 - Not in this release: `agent-conversation` (the four deferrals that `ask` reverses), the README and the examples (they change in the release that removes the defaults, C-01).
