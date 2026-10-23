@@ -54,15 +54,17 @@ describe('the built CLI: validate and plan', () => {
     const example = join(examplesDir, 'task-pipeline.workflow.ai.yml');
 
     const validate = await runCli(['validate', example], cwd);
-    expect(validate).toMatchObject({
-      code: 0,
-      stdout: 'indaba-task-pipeline is valid (4 steps, 3 roles).\n',
-      stderr: '',
-    });
+    expect(validate.code).toBe(0);
+    expect(validate.stderr).toBe('');
+    expect(validate.stdout.startsWith('indaba-task-pipeline is valid (4 steps, 3 roles).\n')).toBe(true);
+    // A step with no level is told which default its runner applies (specs/agent-permissions, AC-08).
+    expect(validate.stdout).toContain('permissions: step "code": no level is written');
 
     const plan = await runCli(['plan', example], cwd);
     expect(plan.code).toBe(0);
-    expect(plan.stdout.split('\n').filter((line) => line !== '')).toEqual([
+    expect(
+      plan.stdout.split('\n').filter((line) => line !== '' && !line.startsWith('permissions: ')),
+    ).toEqual([
       '1. rfc [architect]',
       '2. code [implementer] (after rfc)',
       '3. verify [shell: pnpm test && pnpm typecheck] (after code)',
