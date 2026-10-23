@@ -141,7 +141,7 @@ function fake(options: {
     release: () => {
       for (const go of held.splice(0)) go();
     },
-    contract: async () => ({ contractVersion: '1.3.0' }),
+    contract: async () => ({ contractVersion: '1.4.0' }),
     runs: never,
     run: never,
     followRun: never,

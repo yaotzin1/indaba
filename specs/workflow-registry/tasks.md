@@ -26,3 +26,14 @@ Ordered by dependency. Each task brings its tests. Run `pnpm qa` after each grou
   `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md`, `docs/roadmap.md`.
 - [x] **T-09** The gates of `workflow.ai.yml`, `pnpm e2e`, `pnpm smoke`; per-file coverage; CI on the three systems (green on #69).
 - [x] **T-10** `review.md`.
+
+## Slice 2
+
+- [x] **T-11** `WorkflowSummary` gains `tags`, `hidden`, `lastRun`; `CONTRACT_VERSION` `1.4.0`; the server's id shape.
+- [x] **T-12** `run-control/finder.ts`: `createWorkflowFinder` over a registry, scan at most every 30 s, exact ids, no
+  missing entries; step 2's scan as the default finder.
+- [x] **T-13** The run control and the store take the finder; `main.ts` gives `indaba ui` one finder per set of roots.
+- [x] **T-14** The panel: tags, last run, Show hidden, the list again on window focus; messages.
+- [x] **T-15** End to end: `indaba ui` lists by registry ids, annotations from `indaba workflows` show, run and edit by
+  the new id.
+- [ ] **T-16** Docs, gates, CI, `review.md` (slice 2 section).

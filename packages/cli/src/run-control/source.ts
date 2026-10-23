@@ -11,14 +11,9 @@ import {
 import { sanitize } from '@indaba/engine';
 import type { UiWorkflowStore } from '../server-loader.js';
 import { contentHash } from './confirm.js';
+import { type ListedWorkflow, scanFinder, type WorkflowFinder } from './finder.js';
 import { type ProblemSources, problemsOf as problemsOfText } from './problems.js';
-import {
-  type FoundWorkflow,
-  MAX_WORKFLOW_BYTES,
-  readWorkflow,
-  scanRoots,
-  UnreadableWorkflow,
-} from './scan.js';
+import { type FoundWorkflow, MAX_WORKFLOW_BYTES, readWorkflow, UnreadableWorkflow } from './scan.js';
 
 /**
  * A refusal of the workflow store. The server recognises it by `name` and `code`, as it does `RunControlError`, because
@@ -37,6 +32,8 @@ export class WorkflowStoreError extends Error {
 
 export interface WorkflowStoreOptions extends ProblemSources {
   readonly roots: readonly string[];
+  /** Where the workflows are found: the registry's finder in `indaba ui`; step 2's scan when absent (spec C-13). */
+  readonly finder?: WorkflowFinder;
   /** This process's id, for the name of the temporary file of a save. */
   readonly pid: number;
   readonly logger?: Logger;
@@ -73,8 +70,9 @@ export function createWorkflowStore(options: WorkflowStoreOptions): UiWorkflowSt
     throw new WorkflowStoreError(code, message, detail);
   };
 
-  const find = async (id: string): Promise<FoundWorkflow> => {
-    const found = (await scanRoots(options.roots)).found.find((f) => f.id === id);
+  const finder = options.finder ?? scanFinder(options.roots);
+  const find = async (id: string): Promise<ListedWorkflow> => {
+    const found = await finder.find(id);
     return found ?? refuse('workflow_not_found', 'no workflow has this id');
   };
 
@@ -109,9 +107,9 @@ export function createWorkflowStore(options: WorkflowStoreOptions): UiWorkflowSt
       return {
         workflow: {
           id: found.id,
-          name: name ?? sanitize(nameOf(found.path)),
+          name: sanitize(found.entry?.name ?? name ?? nameOf(found.path)),
           path: found.path,
-          project: basename(found.root),
+          project: found.entry?.project ?? basename(found.root),
           valid: problems.length === 0,
           problems: problems.map((p) => p.message),
         },

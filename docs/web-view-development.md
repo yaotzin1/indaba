@@ -226,7 +226,9 @@ Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are t
    to a status and plain words, and the page maps the code (never the status) to a message from `messages.actions`.
    The server recognises the error by name and code, not class, because the command line does not import the optional
    `@indaba/server`.
-4. **The command line does the work** in `packages/cli/src/run-control/`: the bounded scan, the confirmation store in
+4. **The command line does the work** in `packages/cli/src/run-control/`: the workflows of the registry through
+   `finder.ts` (one `FileWorkflowRegistry` per set of roots, scanned at most every 30 seconds; without a registry, step 2's
+   bounded scan and ids), the confirmation store in
    the user's configuration folder, the run copy, one `indaba run` child per run through `createRunStarter`, and stop
    (cancel, a grace period, then `kill()` of the process tree). Its tests use a fake `RunStarter`, never a real agent.
 5. **The end-to-end test** (`packages/cli/e2e/ui-run.e2e.test.ts`) runs the built CLI with shell steps only.

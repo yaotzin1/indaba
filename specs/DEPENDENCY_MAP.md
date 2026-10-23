@@ -104,7 +104,7 @@ gantt
     run-blackboard         :active, 2026-10-11, 2026-10-16
     workflow-inputs        :active, 2026-10-11, 2026-10-16
     workspace-without-git  :active, 2026-10-11, 2026-10-16
-    workflow-registry      :active, 2026-10-12, 2026-10-24
+    workflow-registry      :done, 2026-10-23, 1d
     question-contract      :active, 2026-10-23, 2026-10-24
     review-gate            :active, 2026-10-23, 2026-10-24
     single-step-run        :active, 2026-10-12, 2026-10-16
@@ -137,7 +137,7 @@ gantt
 | `web-app-actions` | Implemented (merged, #59), except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
 | `web-app-editing-core` | Implemented (merged, #60), except the real-browser check (see its `review.md`) | `@indaba/core` (source types), `@indaba/server` (`WorkflowStore`, three resources), `@indaba/web` (the source view), `indaba` (`run-control/source.ts`). No dependency added |
 | `web-app-editing-forms` | Implemented on `feat/web-app-editing-forms`, except the real-browser check (see its `review.md`) | `@indaba/core` (edit and editor types, `WorkflowProblem.path`), `@indaba/server` (`WorkflowEditor`, two resources), `@indaba/web` (the form), `indaba` (`run-control/editor.ts`, `problems.ts`). No dependency added |
-| `workflow-registry` | Slice 1 on `feat/workflow-registry` (contract, file store, `indaba workflows`); slice 2 (`indaba ui` and the page) to do | `@indaba/core` (contract, `PluginHost.registerRegistry`), `@indaba/engine` (`FileWorkflowRegistry`, the walk of workflow files), `indaba` (`workflows`). No dependency added |
+| `workflow-registry` | Implemented: slice 1 (#69, contract, file store, `indaba workflows`) and slice 2 (`feat/workflow-registry-ui`, `indaba ui` and the page) | `@indaba/core` (contract, `PluginHost.registerRegistry`), `@indaba/engine` (`FileWorkflowRegistry`, the walk of workflow files), `indaba` (`workflows`). No dependency added |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
 | `acp-agent-install` | Not started (specified) | `@indaba/core` (registry types), `@indaba/runners` (installer, store), `indaba` (`agents`, the consent prompt) |

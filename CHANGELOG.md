@@ -17,6 +17,13 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **`indaba ui` lists the workflow registry** (minor; track `feature`; spec `specs/workflow-registry`, slice 2). The Run a
+  workflow panel lists the registry of the served folders by the registry's ids: each workflow with the name, project
+  and tags set by `indaba workflows annotate` and its last run (state, when, cost); hidden ones behind a toggle; the list
+  asked for again when the window gains focus, the folders scanned at most every 30 seconds; a deleted file is not
+  offered. `WorkflowSummary` in `@indaba/core` gains optional `tags`, `hidden` and `lastRun`; `@indaba/server` takes a
+  workflow id of 16 or 32 hexadecimal characters; `CONTRACT_VERSION` is `1.4.0`. No dependency added.
+
 - **The workflow registry and `indaba workflows`** (minor; track `feature`; spec `specs/workflow-registry`, slice 1).
   `indaba workflows list | scan | add | annotate | remove | copy` lists the workflow files of the current folder and of
   folders you add (kept in `<user config>/indaba/workflow-roots.json`), each valid or with its first problem, its last
