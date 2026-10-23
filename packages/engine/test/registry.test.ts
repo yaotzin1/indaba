@@ -77,7 +77,10 @@ async function run(root: string, trace: string, name: string, at: string): Promi
       events: [],
     },
   ];
-  await writeFile(join(dir, `${trace}.events.jsonl`), records.map((r) => `${serializeRecord(r)}\n`).join(''));
+  const file = join(dir, `${trace}.events.jsonl`);
+  await writeFile(file, records.map((r) => `${serializeRecord(r)}\n`).join(''));
+  // The reader orders runs by the file's time; set it, so two files written in the same instant keep their order.
+  await utimes(file, new Date(at), new Date(at));
 }
 
 describe('a scan (AC-04 to AC-07)', () => {
