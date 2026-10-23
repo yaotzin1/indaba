@@ -295,6 +295,9 @@ port". The PHP prototype that preceded them was never published.
 
 ### Fixed
 
+- A `retry_step` no longer fails the run when a step that does not depend on the target sits after it (patch; track `fix`). The
+  loop moved back to the target and then tried to run that completed, unreset step again, which the state machine refuses
+  (`Step "x" cannot move from COMPLETED to RUNNING`). A completed step that was not reset is now skipped.
 - `WorkflowDocument.set` into an empty `{}` map no longer respaces the whole file (patch; track `fix`; spec
   `specs/workflow-editor`, AC-04). The edit now splices only its own text, as every other edit does.
 - A run with no model call says so (patch; track `fix`). The cost in the header and the plain status line read
