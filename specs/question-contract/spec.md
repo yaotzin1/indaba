@@ -9,8 +9,8 @@
 > the record of who answered; merged to `main` as a draft in pull request 68) and
 > [`specs/run-blackboard`](../run-blackboard/spec.md) (the `BOARD` line grammar the contract sits next to; also not
 > implemented yet).
-> **Used by, not part of**: the `review-gate` spec that follows (a review request is the same contract with a different
-> kind) and the UI step that lets a person answer in a page.
+> **Same principle as, not used by**: the `review-gate` spec (a person is shown what they can answer in one move; a gate has its
+> own request type) and the UI step that lets a person answer in a page.
 
 ---
 
