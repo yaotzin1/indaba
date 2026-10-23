@@ -1,7 +1,18 @@
 import { type WorkflowEdit, WorkflowValidationError } from '@indaba/core';
-import { catalogOf, parseWorkflow, WorkflowParser, workflowJsonSchema } from '@indaba/engine';
-import { describe, expect, it } from 'vitest';
+import {
+  catalogOf,
+  parseWorkflow,
+  WorkflowDocument,
+  WorkflowParser,
+  workflowJsonSchema,
+} from '@indaba/engine';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { createWorkflowEditor } from '../src/run-control/editor.js';
+import { problemsOf } from '../src/run-control/problems.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 /** specs/web-app-editing-forms, T-04 and T-05: the editor of `indaba ui` over the real document and parser. */
 
@@ -161,5 +172,44 @@ describe('the editor of indaba ui (AC-02, AC-03, AC-08)', () => {
         }),
       ).toThrow(TypeError);
     }
+  });
+
+  it('lets an error of the document that is not a refusal through, from a read or an edit', () => {
+    vi.spyOn(WorkflowDocument, 'parse').mockImplementationOnce(() => {
+      throw new RangeError('a defect in the reader');
+    });
+    expect(() => edit()).toThrow(RangeError);
+    vi.spyOn(WorkflowDocument.prototype, 'set').mockImplementationOnce(() => {
+      throw new RangeError('a defect in the writer');
+    });
+    expect(() => edit({ op: 'set', path: ['name'], value: 'x' })).toThrow(RangeError);
+  });
+});
+
+describe('the problems of a text, for the store and the editor (AC-04)', () => {
+  const diagnose = (text: string) => new WorkflowParser().diagnose(text);
+
+  it('gives a problem that cannot be placed its path only', () => {
+    expect(problemsOf({ parse: parseWorkflow, diagnose }, '').problems).toEqual([
+      { message: expect.any(String), path: '$' },
+    ]);
+  });
+
+  it('turns a failure of the parser that is not a validation into one sentence', () => {
+    const failing = (thrown: unknown) =>
+      problemsOf(
+        {
+          parse: () => {
+            throw thrown;
+          },
+          diagnose,
+        },
+        'x',
+      );
+    expect(failing(new Error('the reader broke'))).toEqual({
+      problems: [{ message: 'the reader broke' }],
+      name: undefined,
+    });
+    expect(failing('a string').problems).toEqual([{ message: 'a string' }]);
   });
 });

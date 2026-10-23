@@ -1,4 +1,11 @@
-import type { WorkflowProblem, WorkflowSummary } from '@indaba/core';
+import type {
+  EditorResponse,
+  JsonObject,
+  WorkflowEdit,
+  WorkflowPath,
+  WorkflowProblem,
+  WorkflowSummary,
+} from '@indaba/core';
 import {
   createElement as h,
   type KeyboardEvent,
@@ -10,7 +17,9 @@ import {
   useState,
 } from 'react';
 import { ApiFailure, type Client, type Failure } from '../client.js';
+import { lineOfPath } from '../form-model.js';
 import { messages } from '../messages.js';
+import { FormView } from './FormView.js';
 import { RunPanel } from './RunPanel.js';
 import { hrefOf, isPlainClick, type Navigate } from './router.js';
 
@@ -63,6 +72,13 @@ interface Loaded {
 }
 
 type Status = 'idle' | 'checking' | 'saving';
+
+type View = 'form' | 'source';
+
+/** What the form shows: the document of one text, or why the form cannot read it. */
+type Model =
+  | { readonly kind: 'value'; readonly text: string; readonly value: JsonObject }
+  | { readonly kind: 'unreadable'; readonly text: string; readonly reason: string };
 
 function Problems(props: {
   readonly problems: readonly WorkflowProblem[];
@@ -120,6 +136,21 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
     { readonly text: string; readonly contentHash: string } | undefined
   >(undefined);
   const [running, setRunning] = useState(false);
+  // The form (specs/web-app-editing-forms): what it is built from, which view is shown, and what it last read.
+  const [info, setInfo] = useState<EditorResponse | undefined | 'none'>(undefined);
+  const [view, setView] = useState<View>('form');
+  const [model, setModel] = useState<Model | undefined>(undefined);
+  const [editRefusal, setEditRefusal] = useState<string | undefined>(undefined);
+  const [revision, setRevision] = useState(0);
+  // The text as typed, at once, for an edit's answer to know whether the draft changed under it.
+  const textRef = useRef('');
+  // The text whose problems are shown; the check of a draft is skipped for it (an edit already answered them).
+  const problemsFor = useRef<string | undefined>(undefined);
+  const edits = useRef<Promise<void>>(Promise.resolve());
+  const reading = useRef<string | undefined>(undefined);
+  // The view is chosen once, when the first read of the text answers: the form when it can read it (spec C-03).
+  const chosen = useRef(false);
+  const pendingLine = useRef<{ readonly line: number; readonly column: number } | undefined>(undefined);
   const editor = useRef<HTMLTextAreaElement | null>(null);
   const gutter = useRef<HTMLDivElement | null>(null);
   const escaped = useRef(false);
@@ -128,12 +159,59 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
   const checkTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
 
   const dirty = loaded !== undefined && text !== loaded.savedText;
+  const hasForm = info !== undefined && info !== 'none';
+  // The view on the screen: the source whenever this server has no form.
+  const shown: View = hasForm ? view : 'source';
   // Stable, because the Run panel asks about a start again whenever this changes.
   const openRun = useCallback(
     (runId: string) => navigate({ name: 'run', runId, step: undefined }),
     [navigate],
   );
   const closeRun = useCallback(() => setRunning(false), []);
+  const changeText = useCallback((next: string) => {
+    textRef.current = next;
+    setText(next);
+  }, []);
+
+  // Edits go one at a time, each on the text the one before returned; an answer for a draft that has changed since is
+  // dropped (spec section 5).
+  const applyEdits = useCallback(
+    (list: readonly WorkflowEdit[]) => {
+      edits.current = edits.current.then(async () => {
+        const sent = textRef.current;
+        setStatus((s) => (s === 'saving' ? s : 'checking'));
+        try {
+          const answer = await client.editWorkflow(sent, list);
+          if (textRef.current !== sent) {
+            return;
+          }
+          setRevision((r) => r + 1);
+          if (answer.kind === 'edited') {
+            problemsFor.current = answer.text;
+            changeText(answer.text);
+            setModel({ kind: 'value', text: answer.text, value: answer.value });
+            setProblems(answer.problems);
+            setEditRefusal(undefined);
+          } else if (answer.kind === 'not_editable') {
+            setModel({ kind: 'unreadable', text: sent, reason: answer.message });
+          } else {
+            setEditRefusal(answer.message);
+          }
+          if (!chosen.current) {
+            chosen.current = true;
+            setView(answer.kind === 'not_editable' ? 'source' : 'form');
+          }
+        } catch (error) {
+          if (error instanceof ApiFailure) {
+            onFatal(error.failure);
+          }
+        } finally {
+          setStatus((s) => (s === 'checking' ? 'idle' : s));
+        }
+      });
+    },
+    [client, onFatal, changeText],
+  );
 
   useEffect(() => {
     let current = true;
@@ -148,7 +226,8 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
           savedHash: source.contentHash,
           savedProblems: source.problems,
         });
-        setText(source.text);
+        changeText(source.text);
+        problemsFor.current = source.text;
         setProblems(source.problems);
       },
       (error: unknown) => {
@@ -162,10 +241,48 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
         }
       },
     );
+    client.editor().then(
+      (found) => {
+        if (current) {
+          setInfo(found ?? 'none');
+        }
+      },
+      () => {
+        // A server that cannot describe its form still edits the source.
+        if (current) {
+          setInfo('none');
+        }
+      },
+    );
     return () => {
       current = false;
     };
-  }, [client, workflowId, onFatal]);
+  }, [client, workflowId, onFatal, changeText]);
+
+  // The form reads the draft whenever it is shown on a text it has not read: at the start, and after the source view.
+  useEffect(() => {
+    if (loaded === undefined || info === undefined || info === 'none') {
+      return;
+    }
+    if ((view !== 'form' && chosen.current) || model?.text === text || reading.current === text) {
+      return;
+    }
+    reading.current = text;
+    applyEdits([]);
+  }, [loaded, info, view, model, text, applyEdits]);
+
+  // After "show in the source view", the caret goes to the line once the editor is on the screen.
+  useEffect(() => {
+    const place = pendingLine.current;
+    const area = editor.current;
+    if (place === undefined || area === null) {
+      return;
+    }
+    pendingLine.current = undefined;
+    const at = offsetOf(area.value, place.line, place.column);
+    area.focus();
+    area.setSelectionRange(at, at);
+  });
 
   // The page asks before leaving while there are unsaved changes; the browser asks before the tab closes.
   useEffect(() => {
@@ -187,7 +304,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
 
   // A draft is checked after a pause; only the latest answer is shown, so a slow early one never wins.
   useEffect(() => {
-    if (loaded === undefined || text === loaded.savedText) {
+    if (loaded === undefined || text === loaded.savedText || problemsFor.current === text) {
       return;
     }
     const timer = setTimeout(() => {
@@ -200,6 +317,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
           if (mine !== checks.current) {
             return;
           }
+          problemsFor.current = text;
           setProblems(found ?? []);
           setStatus((s) => (s === 'checking' ? 'idle' : s));
         },
@@ -233,6 +351,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
           setStatus('idle');
           if (answer.kind === 'saved') {
             checks.current += 1;
+            problemsFor.current = toSave;
             setConflict(undefined);
             setLoaded({
               ...loaded,
@@ -269,7 +388,27 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
     }
   };
 
+  const showSource = (line: number | undefined, column = 1): void => {
+    pendingLine.current = { line: line ?? 1, column };
+    setView('source');
+  };
+  const showPath = (path: WorkflowPath): void => {
+    const ids =
+      model?.kind === 'value' && Array.isArray(model.value.steps)
+        ? model.value.steps.map((step) =>
+            typeof step === 'object' && step !== null && !Array.isArray(step) && typeof step.id === 'string'
+              ? step.id
+              : undefined,
+          )
+        : [];
+    showSource(lineOfPath(text, path, ids));
+  };
+
   const goTo = (problem: WorkflowProblem): void => {
+    if (shown === 'form') {
+      showSource(problem.line, problem.column);
+      return;
+    }
     const area = editor.current;
     if (area === null || problem.line === undefined || problem.column === undefined) {
       return;
@@ -291,7 +430,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       const start = area.selectionStart;
       const end = area.selectionEnd;
       const next = `${text.slice(0, start)}  ${text.slice(end)}`;
-      setText(next);
+      changeText(next);
       // After React has written the new value.
       requestAnimationFrame(() => area.setSelectionRange(start + 2, start + 2));
       return;
@@ -329,6 +468,29 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
             ? messages.editor.status.saved
             : messages.editor.status.savedWithProblems;
   const lines = lineCount(text);
+  const formArea = (): ReturnType<typeof h> => {
+    if (info === undefined || info === 'none' || model === undefined || model.text !== text) {
+      return h('p', { role: 'status', className: 'muted' }, messages.form.reading);
+    }
+    if (model.kind === 'unreadable') {
+      return h(
+        'section',
+        { className: 'panel', role: 'alert' },
+        h('p', null, messages.form.unavailable(model.reason)),
+        h('button', { type: 'button', onClick: () => showSource(undefined) }, messages.form.viewSource),
+      );
+    }
+    return h(FormView, {
+      value: model.value,
+      info,
+      problems,
+      refusal: editRefusal,
+      revision,
+      onEdit: applyEdits,
+      onShowSource: showPath,
+      confirm,
+    });
+  };
 
   return h(
     'div',
@@ -366,10 +528,13 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
                 onClick: () => {
                   checks.current += 1;
                   setLoaded({ ...loaded, savedText: conflict.text, savedHash: conflict.contentHash });
-                  setText(conflict.text);
+                  changeText(conflict.text);
                   setConflict(undefined);
                   void client.checkWorkflow(conflict.text).then(
-                    (found) => setProblems(found ?? []),
+                    (found) => {
+                      problemsFor.current = conflict.text;
+                      setProblems(found ?? []);
+                    },
                     () => undefined,
                   );
                 },
@@ -383,36 +548,63 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
             ),
           ),
         ),
-    h('label', { htmlFor: 'source-text', className: 'source-label' }, messages.editor.textLabel),
-    h('p', { id: 'source-keys', className: 'muted small' }, messages.editor.keysHelp),
-    h(
-      'div',
-      { className: 'source-editor' },
-      h(
-        'div',
-        { ref: gutter, className: 'source-gutter', 'aria-hidden': true },
-        ...Array.from({ length: lines }, (_, i) => h('span', { key: i }, String(i + 1))),
-      ),
-      h('textarea', {
-        id: 'source-text',
-        ref: editor,
-        className: 'source-text',
-        value: text,
-        spellCheck: false,
-        autoCapitalize: 'off',
-        autoComplete: 'off',
-        wrap: 'off',
-        rows: Math.max(12, Math.min(lines + 1, 40)),
-        'aria-describedby': 'source-keys source-status',
-        onChange: (event: { readonly target: { readonly value: string } }) => setText(event.target.value),
-        onKeyDown,
-        onScroll: () => {
-          if (gutter.current !== null && editor.current !== null) {
-            gutter.current.scrollTop = editor.current.scrollTop;
-          }
-        },
-      }),
-    ),
+    hasForm
+      ? h(
+          'div',
+          { className: 'view-switch', role: 'group', 'aria-label': messages.form.viewLabel },
+          ...(['form', 'source'] as const).map((which) =>
+            h(
+              'button',
+              {
+                key: which,
+                type: 'button',
+                'aria-pressed': shown === which,
+                className: shown === which ? 'selected' : undefined,
+                onClick: () => setView(which),
+              },
+              which === 'form' ? messages.form.viewForm : messages.form.viewSource,
+            ),
+          ),
+        )
+      : null,
+    shown === 'form' ? formArea() : null,
+    shown === 'form'
+      ? null
+      : h('label', { htmlFor: 'source-text', className: 'source-label' }, messages.editor.textLabel),
+    shown === 'form'
+      ? null
+      : h('p', { id: 'source-keys', className: 'muted small' }, messages.editor.keysHelp),
+    shown === 'form'
+      ? null
+      : h(
+          'div',
+          { className: 'source-editor' },
+          h(
+            'div',
+            { ref: gutter, className: 'source-gutter', 'aria-hidden': true },
+            ...Array.from({ length: lines }, (_, i) => h('span', { key: i }, String(i + 1))),
+          ),
+          h('textarea', {
+            id: 'source-text',
+            ref: editor,
+            className: 'source-text',
+            value: text,
+            spellCheck: false,
+            autoCapitalize: 'off',
+            autoComplete: 'off',
+            wrap: 'off',
+            rows: Math.max(12, Math.min(lines + 1, 40)),
+            'aria-describedby': 'source-keys source-status',
+            onChange: (event: { readonly target: { readonly value: string } }) =>
+              changeText(event.target.value),
+            onKeyDown,
+            onScroll: () => {
+              if (gutter.current !== null && editor.current !== null) {
+                gutter.current.scrollTop = editor.current.scrollTop;
+              }
+            },
+          }),
+        ),
     h(Problems, { problems, onGo: goTo }),
     h(
       'div',

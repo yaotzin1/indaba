@@ -17,6 +17,20 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Edit a workflow as a form in `indaba ui`** (minor; track `feature`; spec `specs/web-app-editing-forms`, step 3b of
+  `specs/web-app`). The workflow screen has **Form** and **Source**, two views of one draft; the form comes first when the
+  file can be read. Its fields are read from the workflow's JSON Schema and its choices from the catalog and the file:
+  the name, each role's runner and model, and every field of a step but `agent` and `guards`, with presets for what a
+  step's agent may change (read only, edit only these folders, full access). Each change is one edit of its path, so the
+  file's comments and layout stay; steps can be added, removed and moved; a problem is shown at its field. New in
+  `@indaba/core` (types only): `JsonValue`, `JsonObject`, `WorkflowPath`, `WorkflowEdit`, `EditWorkflowRequest`,
+  `WorkflowEditResponse`, `WorkflowNotEditable`, `WorkflowEditRefused`, `CatalogEntry`, `EditorCatalog`,
+  `EditorResponse`, and `path` on `WorkflowProblem`. New in `@indaba/server`: `WorkflowEditor`, `WorkflowEditorError`,
+  `MAX_EDITS`, `MAX_PATH_PARTS`, `MAX_KEY_LENGTH`, `MAX_VALUE_DEPTH`, `ServerOptions.workflowEditor`,
+  `GET /api/v1/editor` and `POST /api/v1/workflows/edit`; the check and save answers carry `path` on their problems.
+  `CONTRACT_VERSION` is `1.3.0`. The page's first view of a workflow is the form when it can be read (it was the text).
+  No dependency added.
+
 - **Descriptions, and `indaba catalog`** (minor; track `feature`; spec `specs/workflow-editor`, part 3).
   `Runner`, `Guard` and `Adjudicator` in `@indaba/core` may carry an optional `description`, one line a wizard shows
   next to the name; every built-in has one (this also delivers `specs/debate-arbiter` T16). `Described` is exported;

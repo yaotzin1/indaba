@@ -115,6 +115,11 @@ function fakeClient(options: {
       client.checks.push(text);
       return options.check === undefined ? undefined : options.check(text);
     },
+    // A server without the form's editor (specs/web-app-editing-forms): these tests are of the source view.
+    editor: async () => undefined,
+    editWorkflow: async () => {
+      throw new Error('not in this test');
+    },
     followRun(_id, handlers, signal) {
       runHandlers = handlers;
       handlers.onState('live');

@@ -1195,6 +1195,138 @@ ul.workflows > li.invalid {
   border-left-width: 4px;
 }
 
+/* ---------- The form of a workflow (specs/web-app-editing-forms) ---------- */
+.view-switch {
+  display: inline-flex;
+  margin: 16px 0 4px;
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-item);
+  overflow: hidden;
+}
+.view-switch button {
+  border: 0;
+  border-radius: 0;
+  padding: 8px 18px;
+}
+.view-switch button + button {
+  border-left: 1px solid var(--line-strong);
+}
+.view-switch button.selected {
+  background: var(--brand);
+  color: var(--brand-ink);
+}
+.form {
+  display: grid;
+  gap: 16px;
+  margin-top: 12px;
+}
+.form-section h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+.key {
+  font: 400 0.8rem / 1 var(--mono);
+  color: var(--muted);
+}
+.form textarea {
+  font: 0.92rem / 1.45 var(--mono);
+  color: var(--ink);
+  background: var(--well);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--r-item);
+  padding: 7px 10px;
+  min-width: 0;
+  flex: 1 1 16rem;
+  max-width: 40rem;
+  resize: vertical;
+}
+.form .field.has-problem textarea {
+  border-color: var(--fail);
+  background: var(--fail-bg);
+}
+.field-label {
+  font-weight: 600;
+}
+fieldset.group,
+fieldset.permissions {
+  margin: 10px 0 0;
+  padding: 4px 14px 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-item);
+  min-width: 0;
+}
+fieldset.group > legend,
+fieldset.permissions > legend {
+  padding: 0 6px;
+  font-weight: 700;
+}
+fieldset.permissions.has-problem {
+  border-color: var(--fail);
+}
+fieldset.step {
+  border-color: var(--line-strong);
+  border-left: 4px solid var(--brand);
+}
+.preset {
+  padding: 6px 0;
+}
+.preset label {
+  font-weight: 600;
+}
+.preset .field-help {
+  margin-left: 1.7em;
+}
+.choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+}
+.choice {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+}
+.step-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+.step-pick {
+  font-family: var(--mono);
+  font-weight: 600;
+}
+.step-pick.selected {
+  background: var(--brand-wash);
+  border-color: var(--brand);
+}
+.step-flag {
+  color: var(--fail);
+  font-family: var(--sans);
+  font-weight: 600;
+}
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 8px 0;
+}
+.form-problems {
+  padding: 8px 14px;
+  border-left: 4px solid var(--fail);
+  border-radius: var(--r-item);
+  background: var(--fail-bg);
+}
+.form-problem-list {
+  margin: 4px 0 0;
+  padding-left: 1.2em;
+}
+
 /* ---------- Narrow screens ---------- */
 @media (max-width: 480px) {
   .narrow-hide {

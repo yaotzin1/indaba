@@ -1,0 +1,672 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://indaba.dev/schema/workflow-1.0.json",
+  "title": "Indaba workflow file",
+  "description": "The structure of an Indaba workflow file (docs/workflow-format.md). Rules across fields are not stated here: a role a step names must exist, a dependency must name a step, no cycle, a step needs a role or a runner, step ids are unique, a runner or guard type must be registered. `indaba validate` and WorkflowParser.diagnose report those.",
+  "type": "object",
+  "required": ["version", "name"],
+  "properties": {
+    "version": {
+      "const": "1.0",
+      "description": "Must be \"1.0\"."
+    },
+    "name": {
+      "type": "string",
+      "pattern": "\\S",
+      "description": "Non-empty string; names the trace (indaba.task <name>)."
+    },
+    "artifacts": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          },
+          "description": "Map of name to a path string. Names a path once so steps can refer to it."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "roles": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "description": "A role: who runs a step and with which model.",
+            "required": ["runner"],
+            "properties": {
+              "runner": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "\\S"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string",
+                      "pattern": "\\S"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                  }
+                ],
+                "description": "The runner that executes the role, or a list of runners in priority order: an API runner such as openrouter, acp, claude-code, codex, antigravity, cursor, opencode, or the name of a runner a plugin registers."
+              },
+              "agent": {
+                "anyOf": [
+                  {
+                    "description": "For the acp runner: the agent to start, a preset name (claude, codex, gemini, opencode) or a mapping with a preset or a command: [program, arg, ...] and optionally auth, the agent’s own id for how to log in. Other runners ignore it.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "preset": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "A preset name."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "command": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "The program and its arguments."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "auth": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The agent’s own id for how to log in."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": ["preset"],
+                            "properties": {
+                              "preset": {
+                                "type": "string",
+                                "description": "A preset name."
+                              }
+                            }
+                          },
+                          {
+                            "required": ["command"],
+                            "properties": {
+                              "command": {
+                                "type": "array",
+                                "minItems": 1,
+                                "description": "The program and its arguments."
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "model": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "Passed to the runner as its model. API runners require one."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mcp": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "mcp_servers names that every step of the role may use."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "description": "Map of role name to a role. Needed by any step that uses role."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "steps": {
+      "anyOf": [
+        {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id"],
+            "properties": {
+              "id": {
+                "type": "string",
+                "pattern": "\\S",
+                "description": "Unique, matching [A-Za-z0-9_-]+."
+              },
+              "role": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "A key of roles. The step is an agent step run by the role’s runner and model."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "runner": {
+                "anyOf": [
+                  {
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string",
+                          "pattern": "\\S"
+                        },
+                        "minItems": 1,
+                        "uniqueItems": true
+                      }
+                    ],
+                    "description": "A runner, or a list of runners in priority order, named directly. shell makes a shell step. With both a role and a runner, the step’s runner is used and the role still supplies the model."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "agent": {
+                "anyOf": [
+                  {
+                    "description": "For the acp runner: overrides the role’s agent.",
+                    "anyOf": [
+                      {
+                        "type": "string",
+                        "pattern": "\\S"
+                      },
+                      {
+                        "type": "object",
+                        "properties": {
+                          "preset": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "A preset name."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "command": {
+                            "anyOf": [
+                              {
+                                "type": "array",
+                                "items": {
+                                  "type": "string"
+                                },
+                                "description": "The program and its arguments."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "auth": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "description": "The agent’s own id for how to log in."
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        },
+                        "anyOf": [
+                          {
+                            "required": ["preset"],
+                            "properties": {
+                              "preset": {
+                                "type": "string",
+                                "description": "A preset name."
+                              }
+                            }
+                          },
+                          {
+                            "required": ["command"],
+                            "properties": {
+                              "command": {
+                                "type": "array",
+                                "minItems": 1,
+                                "description": "The program and its arguments."
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "permissions": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "What the step’s agent may touch.",
+                    "properties": {
+                      "fs": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "properties": {
+                              "read": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Globs the agent may read; empty or absent: not restricted."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "write": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "description": "Globs the agent may change; empty or absent: nothing."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "terminal": {
+                        "anyOf": [
+                          {
+                            "enum": ["allow", "deny"],
+                            "description": "Whether the agent may run commands: allow or deny (default deny)."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "goal": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The instruction given to the agent (interpolated). Empty for a shell step."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "depends_on": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of step ids that must complete first. A step may not depend on itself."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "input_artifacts": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Paths the agent is told to read first (interpolated)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "outputs": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Paths the step must create (interpolated). Missing after the step is a failure."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "commands": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "List of command lines (interpolated), run in order; the first non-zero exit fails the step. Only a shell step may have them, and it must have at least one."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "guards": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "required": ["type"],
+                      "properties": {
+                        "type": {
+                          "type": "string",
+                          "pattern": "\\S",
+                          "description": "The guard type: git_diff_empty, diff_within_scope, or one a plugin registers."
+                        },
+                        "paths": {
+                          "anyOf": [
+                            {
+                              "type": "array",
+                              "items": {
+                                "type": "string"
+                              },
+                              "description": "Paths the guard looks at (interpolated)."
+                            },
+                            {
+                              "type": "null"
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "description": "Checks run after the step succeeds."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "isolation": {
+                "anyOf": [
+                  {
+                    "enum": ["none", "git_worktree"],
+                    "description": "none (default) or git_worktree."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "on_failure": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "What to do when the step fails.",
+                    "required": ["action"],
+                    "properties": {
+                      "action": {
+                        "enum": ["retry_step", "escalate", "fail"],
+                        "description": "retry_step, escalate or fail."
+                      },
+                      "target": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "description": "For retry_step: the step to run again: the failing step itself or one of its ancestors."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "max_retries": {
+                        "type": "integer",
+                        "description": "For retry_step: an integer of at least 1 (default 0, which is invalid for retry_step)."
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "consensus_with": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Roles that debate with this step’s role."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "decision_type": {
+                "anyOf": [
+                  {
+                    "enum": ["consensus", "majority"],
+                    "description": "consensus (every participant agrees) or majority (more than half)."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "arbiter": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9_-]+$",
+                    "description": "Who settles a debate that failed: human, or the name of an adjudicator a plugin registers. Only on a debate step."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mcp": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "mcp_servers names this step may use, in addition to its role’s."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "mcp_policy": {
+                "anyOf": [
+                  {
+                    "enum": ["required", "optional"],
+                    "description": "required or optional; overrides defaults.mcp_policy for this step."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "description": "A list with at least one step."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "mcp_servers": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "description": "A Model Context Protocol server: exactly one of command (a local process; args and env are optional) or url (an http or https endpoint).",
+            "properties": {
+              "command": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The program of a local server."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "args": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Its arguments."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "env": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "description": "Variables it starts with."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "url": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "description": "The http or https endpoint of a remote server."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            }
+          },
+          "description": "Map of server name to a Model Context Protocol server."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "defaults": {
+      "anyOf": [
+        {
+          "type": "object",
+          "description": "Only defaults.mcp_policy is read.",
+          "properties": {
+            "mcp_policy": {
+              "anyOf": [
+                {
+                  "enum": ["required", "optional"],
+                  "description": "required (the default) or optional."
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "type": "null"
+        }
+      ]
+    }
+  }
+}

@@ -57,7 +57,7 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 
 ### 3b. Forms from the schema (`specs/web-app-editing-forms`)
 
-> Specified 2026-10-23. Edits go to the command line (`POST /api/v1/workflows/edit`), because the page takes only types
+> Implemented on `feat/web-app-editing-forms` (2026-10-23). Edits go to the command line (`POST /api/v1/workflows/edit`), because the page takes only types
 > from `@indaba/core` and the parser imports Node modules (its C-01).
 
 - The step panel and the workflow header render fields from `workflowJsonSchema()` and the catalog (runners, guard types,

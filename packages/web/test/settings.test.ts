@@ -110,6 +110,8 @@ function settingsClient(options: {
     workflowSource: never,
     saveWorkflowSource: never,
     checkWorkflow: async () => undefined,
+    editor: async () => undefined,
+    editWorkflow: never,
     async loggingSettings() {
       const s = 'settings' in options ? options.settings : answer();
       if (s !== undefined && 'kind' in s) throw new ApiFailure(s);
