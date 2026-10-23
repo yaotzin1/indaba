@@ -26,6 +26,7 @@ import {
   type WorkflowParser,
   WorkflowStatus,
   WorkflowValidator,
+  workflowJsonSchema,
   writeLoggingConfig,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
@@ -111,6 +112,7 @@ Commands:
   report [run]      Gather the log, trace and environment of a run into a folder to attach to an issue
   settings          Show or change the logging settings of the project (indaba.config)
   ui                Open the web view of the runs on this machine
+  schema            Print the JSON Schema of the workflow file
 
 Options:
   -h, --help        Show help
@@ -123,6 +125,11 @@ Run "indaba <command> --help" for the options of one command.
 ${LOG_OPTIONS_USAGE}`;
 
 const COMMAND_USAGE: Readonly<Record<string, string>> = {
+  schema: `Usage: indaba schema
+
+Print the JSON Schema (draft 2020-12) of the workflow file, for an editor or a form. It states the structure only:
+rules across fields (a role must exist, no cycle, a runner must be registered) are what indaba validate checks.
+`,
   validate: `Usage: indaba validate [file] [--plugin <specifier>]...
 
 Validate a workflow file and print every problem found.
@@ -387,6 +394,20 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
         }),
       }),
     );
+  }
+  if (command === 'schema') {
+    return logged(command, io.cwd, logOptions, io, async (logger) => {
+      if (args.length === 1 && (args[0] === '--help' || args[0] === '-h')) {
+        io.stdout.write(commandUsage('schema'));
+        return EXIT_OK;
+      }
+      if (args.length > 0) {
+        return usageError(io, `Unexpected argument: ${args[0] ?? ''}.`, 'schema');
+      }
+      io.stdout.write(`${JSON.stringify(workflowJsonSchema(), null, 2)}\n`);
+      logger.info('cli.schema', 'the schema was printed');
+      return EXIT_OK;
+    });
   }
   if (command === 'report') {
     return logged(command, io.cwd, logOptions, io, (logger) => reportCommand(args, io, logger, logOptions));

@@ -45,6 +45,7 @@ export {
   WorkflowDocument,
   WorkflowDocumentError,
 } from './editor/document.js';
+export { workflowJsonSchema } from './editor/schema.js';
 export type { RunnerPlan } from './engine/chain.js';
 export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';
 export type { RunnerLookup, Speaker } from './engine/mcp.js';
