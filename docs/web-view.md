@@ -194,8 +194,8 @@ copies they left under `.indaba/run-inputs/`.
 ## Edit a workflow
 
 **Edit** next to a workflow in the Run a workflow panel opens it at an address of its own (`/workflows/<id>`), so a
-reload opens it again. It works for a workflow with problems too: that is where they get fixed. **Form** and **Source**
-switch between two views of the same draft; what you change in one is in the other.
+reload opens it again. It works for a workflow with problems too: that is where they get fixed. **Form**, **Graph** and
+**Source** switch between three views of the same draft; what you change in one is in the others.
 
 ### As a form
 
@@ -221,6 +221,20 @@ The form is shown first when the file can be read as a workflow; otherwise the s
   the rest at the top of the form. All of them are also listed under the form, as in the source view.
 - **What the form does not edit** (artifacts, MCP servers, an agent, guards, a key the format does not know) is named,
   with a button that opens the source view at it.
+
+### As a graph
+
+- **The canvas** lays out the steps of your draft left to right (top to bottom below 640 px) using the same graph as a
+  run: solid arrows for `depends_on` ("waits for") and dashed red routes for `on_failure: retry_step`. Each card shows the
+  step's id, its runner or debate roles, its permission rule or command count, and whether it has problems or missing
+  references.
+- **Bricks** on the left add an **Agent step**, an **API step**, a **Shell step** or a **Debate**, or set what happens if
+  the selected step fails (**Retry a step**, **Escalate**, **Fail**). Every brick works when clicked or activated with
+  **Enter** or **Space**, and can also be dragged onto the canvas or onto a step card.
+- **Connections and step settings** on the right show the selected step's **Move up**, **Move down** and **Remove**
+  actions (or press **Delete** on a focused step node), each step it waits for with a **Disconnect** button (including any
+  missing step marked `no such step`), its failure route with a **Clear on failure** button, and all of the step's
+  fields. You can also drag between handles on the canvas to add a dependency or retry route.
 
 ### As text
 
@@ -305,7 +319,6 @@ Messages in the Run a workflow panel:
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
 published `@indaba/server`, so `indaba ui` works from npm; naming, tagging and hiding a workflow from the page (today
 with `indaba workflows annotate`); "run this step" and a form for a workflow's inputs; answering
-an agent's questions; applying or discarding a run's changes; forms and the graph as an editor (positions for every
-problem come with them).
+an agent's questions; applying or discarding a run's changes.
 
 Working on the page itself: [web-view-development.md](web-view-development.md).

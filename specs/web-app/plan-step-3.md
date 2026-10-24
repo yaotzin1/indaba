@@ -70,10 +70,13 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 
 ### 3c. The graph as an editor (`specs/web-app-editing-graph`)
 
+> Implemented on `feat/web-app-editing-graph` (2026-10-24).
+
 - The edit mode of the one graph component (C-13): a palette of step kinds, drag to add, connect to set `depends_on`,
   delete, reorder, through `addStep`, `removeStep`, `moveStep`; a deleted step leaves a visible dangling reference rather
   than a silent repair (the editor's AC-03).
-- Layout stays deterministic (dagre); an edit never moves unrelated nodes.
+- Layout stays deterministic (dagre); editing a step's non-structural fields or `on_failure` never moves any node, while
+  adding, removing or reordering a step or changing `depends_on` re-ranks the graph deterministically (`specs/web-app-editing-graph` C-06).
 - A keyboard path for every pointer action (AC-20 of the parent spec): this is the hard part, and the reason 3c comes
   after 3b. React Flow's keyboard support is partial; each gap is a task, not a hope.
 

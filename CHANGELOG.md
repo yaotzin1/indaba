@@ -17,6 +17,16 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Edit a workflow on the graph in `indaba ui`** (patch; track `feature`; spec `specs/web-app-editing-graph`, step 3c of
+  `specs/web-app`; `@indaba/web`). The workflow editor screen (`/workflows/{id}`) gains **Graph** alongside **Form** and
+  **Source** on the same draft. `buildWorkflowGraph` in `@indaba/web` lays out the draft's steps deterministically with
+  `@dagrejs/dagre` (left to right, or top to bottom below 640 px) and keeps dangling `depends_on` and `on_failure.target`
+  references visible on the step card and in the **Connections** panel without silent repair. A **Bricks** palette adds
+  an **Agent step**, **API step**, **Shell step** or **Debate**, or sets **Retry a step**, **Escalate** or **Fail** on the
+  selected step, by click/Enter or drag-and-drop; handles on addressable steps connect `depends_on` (`out` to `in`) and
+  `retry_step` (`fail-out` to `fail-in`); the side panel edits the selected step's connections, order and schema-driven
+  fields through the sequential edit queue. No public API or dependency changed.
+
 - **Agent permissions in the page and the editor** (minor; track `feature`; spec `specs/agent-permissions`, T-14; `@indaba/core`, `@indaba/engine`,
   `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web`; web contract 1.5.0). `indaba catalog` and the editor's catalog gain, per runner,
   `permissions: { read, edit, full }`, each with a `mode`, a `scope` and a `note` id (optional, so `catalog` stays `1`); a runner that does not

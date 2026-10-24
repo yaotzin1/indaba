@@ -70,7 +70,7 @@ export function idOf(prefix: string, path: WorkflowPath): string {
 
 const labelOf = (key: string): string => words.labels[key] ?? key;
 
-interface FieldContext {
+export interface FieldContext {
   readonly placed: PlacedProblems;
   readonly revision: number;
   readonly onEdit: (edits: readonly WorkflowEdit[]) => void;
@@ -532,7 +532,7 @@ function FieldView(props: { readonly field: Field; readonly context: FieldContex
   }
 }
 
-function ProblemList(props: {
+export function ProblemList(props: {
   readonly title: string;
   readonly problems: readonly WorkflowProblem[];
 }): ReactElement | null {
@@ -551,7 +551,10 @@ function ProblemList(props: {
   );
 }
 
-function MemberFields(props: { readonly member: Member; readonly context: FieldContext }): ReactElement {
+export function MemberFields(props: {
+  readonly member: Member;
+  readonly context: FieldContext;
+}): ReactElement {
   const { member, context } = props;
   if (!member.mapping) {
     return h('p', { className: 'muted' }, words.notMapping);
