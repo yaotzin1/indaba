@@ -38,7 +38,7 @@ import {
 } from './workflow-store.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.4.0';
+export const CONTRACT_VERSION = '1.5.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
@@ -435,6 +435,22 @@ function startRefusal(error: Refusal): { status: number; error: ApiError } | und
         } as ApiError,
       };
     }
+    case 'full_access_required': {
+      const contentHash = error.detail?.contentHash;
+      const steps = error.detail?.steps;
+      if (typeof contentHash !== 'string' || !Array.isArray(steps)) {
+        return undefined;
+      }
+      return {
+        status: 409,
+        error: {
+          code: error.code,
+          message: 'Some steps of this workflow have full access. Confirm them before it runs.',
+          contentHash,
+          steps,
+        } as ApiError,
+      };
+    }
     case 'not_saved':
       return {
         status: 409,
@@ -827,6 +843,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     // Only these two fields are read; anything else in the body (a task id, a path) is ignored (AC-03).
     const workflowId = fieldOf(body, 'workflowId');
     const confirmedHash = fieldOf(body, 'confirmedHash');
+    const fullAccessConfirmedHash = fieldOf(body, 'fullAccessConfirmedHash');
     if (typeof workflowId !== 'string' || workflowId === '' || workflowId.length > MAX_WORKFLOW_ID) {
       refuse(req, res, 400, { code: 'bad_request', message: 'The request does not name a workflow.' });
       return;
@@ -841,8 +858,21 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       });
       return;
     }
-    const request: StartRunRequest =
-      confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash };
+    if (
+      fullAccessConfirmedHash !== undefined &&
+      (typeof fullAccessConfirmedHash !== 'string' || !CONTENT_HASH.test(fullAccessConfirmedHash))
+    ) {
+      refuse(req, res, 400, {
+        code: 'bad_request',
+        message: 'The confirmation sent is not one this server gave.',
+      });
+      return;
+    }
+    const request: StartRunRequest = {
+      workflowId,
+      ...(confirmedHash === undefined ? {} : { confirmedHash }),
+      ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
+    };
     try {
       const started = await runs.start(request);
       sendJson(res, 202, started);

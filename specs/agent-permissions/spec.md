@@ -1,6 +1,6 @@
 # Specification: Agent permissions (what an agent may do without asking, chosen by the author)
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
+> **Status**: Implemented for core, engine, runners, the command line, the server and the page (the level `ask` and the removal of the runner defaults are later specs).
 > **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
 > **Semver impact**: minor (an optional `permissions.level`, `permissions` on a role and in `defaults`, a runner capability contract, new span attributes, new
 > run options). Nothing that exists changes behaviour in this release: the two hard-coded runner defaults stay until a step writes a level, and their removal is a

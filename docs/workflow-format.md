@@ -220,7 +220,10 @@ permissions: { level: full }                                      # no limit fro
 - `antigravity` run headless refuses a tool that needs a permission and still exits 0. With a declared output missing (or no change in the
   working tree), the step fails with a fixed reason instead of passing.
 - `full` is acknowledged once per run: `indaba run` lists the steps and asks at a terminal, or refuses to start without one unless
-  `--allow-full-access` is given. `indaba run --permissions [<step>=]<level>` only **lowers** levels for one run (a step with no level takes only
+  `--allow-full-access` is given. In `indaba ui` the Run confirmation lists the steps every time a run starts, even for a file confirmed before.
+- `indaba catalog` says, per runner and level, the mode, the scope and a note id; the editor reads it, so it refuses a level the step's runner cannot hold
+  and says when a level is only checked after the step. The form's presets write `{ level: read }`, `{ level: edit, fs: { write: [...] } }` and `{ level: full }`;
+  a block with no level is still shown under its old preset name, marked old style. `indaba run --permissions [<step>=]<level>` only **lowers** levels for one run (a step with no level takes only
   `read`); it never writes the file.
 
 #### Shell steps

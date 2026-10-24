@@ -53,7 +53,10 @@ them: **Run** a whole workflow and **Stop** a run the server started.
   workflow as `indaba run --workdir <root> --task-id <startId> -- <path>` in a process of its own, with an argument array
   and no shell, **with `cwd` set to the root** and `<path>` relative to it (`loadWorkflow` resolves the file against the
   process's working directory, not against `--workdir`). It answers `202` with a `startId` before the run ends. A test
-  with two roots proves each child starts in its own.
+  with two roots proves each child starts in its own. *Amended by `agent-permissions` AC-05:* the body may also carry
+  `fullAccessConfirmedHash`, the content hash the person saw listed with the steps whose agent has `full` access; a file with
+  such a step and no matching value is refused with `409 full_access_required` (the steps in the answer), and with a matching
+  value the child is started with `--allow-full-access=page`. The value is a hash, never a task id, a path or a flag.
 - [x] AC-04. The first run of content the person has not confirmed is refused with `409 confirmation_required` carrying
   a summary of what it will use and the `contentHash` it describes. The same request with `confirmedHash` equal to that
   hash starts it and records the confirmation. Content that changed between the summary and the start is `409` again
@@ -99,7 +102,9 @@ them: **Run** a whole workflow and **Stop** a run the server started.
 - [x] AC-13. The Runs screen has a **Run a workflow** button that opens the list of workflows (name, path, valid or not
   and why). Choosing one shows the confirmation of AC-04 when asked for, then starts the run and, when `GET /starts/{id}`
   reports the trace id, opens its Run screen. The Run screen has a **Stop** button while `canStop`, which names the run
-  and asks before it acts.
+  and asks before it acts. *Amended by `agent-permissions` AC-05:* when the file has a step at `full` access, the confirmation
+  lists those steps in plain words **every time a run starts**, whether or not the file's hash was confirmed before, and the
+  press that starts the run is the person's acknowledgement.
 - [ ] AC-14. Every new control is reachable with the keyboard, labelled, announced when its state changes, usable at
   320 px, and its words come from the message catalogue. A refusal (`429`, `409`, `422`, a start that fails) is shown in
   plain words with the next action, never as a status code.

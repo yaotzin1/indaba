@@ -17,8 +17,20 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Agent permissions in the page and the editor** (minor; track `feature`; spec `specs/agent-permissions`, T-14; `@indaba/core`, `@indaba/engine`,
+  `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web`; web contract 1.5.0). `indaba catalog` and the editor's catalog gain, per runner,
+  `permissions: { read, edit, full }`, each with a `mode`, a `scope` and a `note` id (optional, so `catalog` stays `1`); a runner that does not
+  implement `PermissionCapable` is listed as unable to hold any level. The permissions field of the form offers the levels: *Read only* writes
+  `{ level: read }`, *Edit only these folders* `{ level: edit, fs: { write } }`, *Full access* `{ level: full }`, switching presets is one edit per path and
+  removes the keys the new shape forbids, a level the runner of the step cannot hold is refused in plain words, and a level only checked after the step
+  or an `edit` whose commands are not limited says so. A block written before levels existed is still shown under its preset's name, marked old style,
+  and is rewritten only when changed; the old Full access is not `level: full`. `POST /runs` accepts `fullAccessConfirmedHash` and answers
+  `409 full_access_required` with the steps whose agent has `full` access, **every time** a run starts, whether or not the file was confirmed before; with
+  the hash the server starts the child with `--allow-full-access=page`. `RunSummaryOfUse` gains `fullAccessSteps`. The Run confirmation lists those
+  steps. New in `@indaba/core`: `permissionMapOf`, `CatalogPermissions`, `FullAccessStep`, `FullAccessRequired`. No dependency added.
+
 - **Agent permissions: `permissions.level`** (minor; track `feature`; spec `specs/agent-permissions`, core, engine, runners and CLI; the page
-  and the editor presets are not part of this change). A `permissions` block gains `level` (`read`, `edit`, `full`) and is valid on a role and in
+  and the editor presets are the entry above). A `permissions` block gains `level` (`read`, `edit`, `full`) and is valid on a role and in
   `defaults` (the step's, else the role's, else `defaults`'s, whole). Each runner turns a written level into its own arguments, placed after
   `extraArgs`; `validate`, `plan` and run start refuse a level a runner of the chain cannot hold and state, for a step with no level, the
   built-in default its runner applies. `indaba run --permissions [<step>=]<level>` lowers levels for one run; `--allow-full-access` acknowledges

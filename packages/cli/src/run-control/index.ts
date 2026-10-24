@@ -236,7 +236,11 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
     }
   };
 
-  const launch = async (found: FoundWorkflow, buffer: Buffer): Promise<StartRunResponse> => {
+  const launch = async (
+    found: FoundWorkflow,
+    buffer: Buffer,
+    fullAccessPage: boolean,
+  ): Promise<StartRunResponse> => {
     const startId = `web-${options.ids()}`;
     if (!START_ID.test(startId)) {
       refuse('start_failed', 'the generated start id has the wrong shape');
@@ -265,6 +269,8 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
           found.root,
           '--task-id',
           startId,
+          // Only after the person saw the `full` steps listed for this content (specs/agent-permissions, AC-05).
+          ...(fullAccessPage ? ['--allow-full-access=page'] : []),
           '--',
           `${RUN_INPUTS.split('\\').join('/')}/${startId}.yml`,
         ],
@@ -365,7 +371,15 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
             return refuse('not_saved', 'the confirmation could not be saved');
           }
         }
-        return await launch(found, buffer);
+        // The `full` steps are listed every time a run starts, whether or not this file was confirmed before (AC-05).
+        const fullSteps = summaryOfUse(workflow).fullAccessSteps;
+        if (fullSteps.length > 0 && request.fullAccessConfirmedHash !== hash) {
+          return refuse('full_access_required', 'confirm the steps that have full access', {
+            contentHash: hash,
+            steps: fullSteps,
+          });
+        }
+        return await launch(found, buffer, fullSteps.length > 0);
       } finally {
         reserved -= 1;
       }

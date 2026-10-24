@@ -270,9 +270,9 @@ describe('the editor resources (AC-01 to AC-03)', () => {
     }
   });
 
-  it('says the contract version 1.4.0', async () => {
+  it('says the contract version 1.5.0', async () => {
     await start();
-    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.4.0' });
+    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.5.0' });
   });
 });
 

@@ -7,9 +7,11 @@ import {
   effectiveLevel,
   isPermissionCapable,
   lowerLevel,
+  NOT_OFFERED_NOTE,
   type PermissionCapability,
   PermissionLevel,
   permissionCapabilitiesOf,
+  permissionMapOf,
   type Runner,
   RunResult,
   resolvePermissions,
@@ -158,5 +160,38 @@ describe('unsupportedBy and describeEnforcement', () => {
       checkedOnlyAfter: false,
     });
     expect(describeEnforcement('a', { ...ok, mode: 'after', scope: 'acp' }).checkedOnlyAfter).toBe(true);
+  });
+});
+
+describe('permissionMapOf (the catalog map, AC-16)', () => {
+  it('lists all three levels, and a level the runner does not declare is unsupported', () => {
+    const read: PermissionCapability = {
+      level: 'read',
+      mode: 'native',
+      scope: 'guard',
+      note: 'cli_confines_workspace_only',
+    };
+    const map = permissionMapOf(
+      runner({
+        permissionCapabilities: () => [read],
+        permissionDenied: () => false,
+        canRecogniseDenial: false,
+      }),
+    );
+    expect(map.read).toEqual({ mode: 'native', scope: 'guard', note: 'cli_confines_workspace_only' });
+    expect(map.edit).toEqual({ mode: 'unsupported', scope: 'none', note: NOT_OFFERED_NOTE });
+    expect(map.full).toEqual({ mode: 'unsupported', scope: 'none', note: NOT_OFFERED_NOTE });
+  });
+
+  it('gives a runner without the contract no level, and never throws', () => {
+    const map = permissionMapOf(runner());
+    expect(Object.values(map).every((entry) => entry.mode === 'unsupported')).toBe(true);
+    const broken = runner({
+      permissionCapabilities: () => {
+        throw new Error('boom');
+      },
+      permissionDenied: () => false,
+    });
+    expect(permissionMapOf(broken).read.mode).toBe('unsupported');
   });
 });

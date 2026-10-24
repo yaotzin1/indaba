@@ -80,7 +80,10 @@ does not drift from `indaba validate`.
   access** (`fs.write: ["**"]`, `terminal: allow`), and **Not set** (no `permissions` key). `fs.read` is kept as it is. A
   value that matches none is **Custom**, shown with its fields, never changed unless the person picks a preset. The form
   says, in words from `docs/workflow-format.md`, that a goal's sentence is not a rule and that the `diff_within_scope`
-  guard checks the change after the step.
+  guard checks the change after the step. *Amended by `agent-permissions` AC-16, AC-17:* the presets write `{ level: read }`,
+  `{ level: edit, fs: { write } }` and `{ level: full }`; the old shapes keep their names, marked old style, until changed;
+  switching presets is one edit per path; a level the step's runner cannot hold is refused from the catalog's note id; "Not set"
+  states that each runner keeps its own default instead of claiming others are not limited.
 - [x] AC-10. **Steps.** The form lists the steps in file order. **Add a step** appends one, or puts it after the step
   shown, with an id no other step has (`step-1`, `step-2`, and so on) and the runner `shell` left for the person to change;
   **Remove** asks first and leaves other steps' `depends_on` as they are, so `problems` names the dangling reference

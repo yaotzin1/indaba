@@ -1,5 +1,6 @@
 import type {
   CatalogEntry,
+  CatalogPermissionsView,
   EditorCatalog,
   JsonObject,
   JsonValue,
@@ -30,9 +31,16 @@ export type FieldKind =
   | { readonly kind: 'list' }
   | { readonly kind: 'multi'; readonly choices: readonly Choice[] }
   | { readonly kind: 'group'; readonly fields: readonly Field[] }
-  | { readonly kind: 'permissions' }
+  /** `runners`: those the step may run on, in order, each with what the catalog says of its levels (AC-16). */
+  | { readonly kind: 'permissions'; readonly runners: readonly RunnerLevels[] }
   /** Not rendered: edited in the source view (AC-07). `why` says what it holds. */
   | { readonly kind: 'source'; readonly why: SourceReason };
+
+/** A runner a step may run on, and what each permission level means for it; undefined when the catalog does not say. */
+export interface RunnerLevels {
+  readonly runner: string;
+  readonly levels: CatalogPermissionsView | undefined;
+}
 
 export type SourceReason = 'not_in_form' | 'unknown_key' | 'other_shape';
 
@@ -257,7 +265,12 @@ export function contextOf(value: JsonObject, catalog: EditorCatalog): Context {
 }
 
 /** A field with the choices the catalog and the document give (AC-06), by where it is in the file. */
-function refine(field: Field, context: Context, stepId: string | undefined): Field {
+function refine(
+  field: Field,
+  context: Context,
+  stepId: string | undefined,
+  runners: readonly RunnerLevels[] = [],
+): Field {
   const { kind } = field;
   const [first, , key] = field.path;
   const inStep = first === 'steps' && field.path.length === 3;
@@ -285,7 +298,7 @@ function refine(field: Field, context: Context, stepId: string | undefined): Fie
     return { ...field, kind: { kind: 'multi', choices: multiOf(context.roles, field.value) } };
   }
   if (kind.kind === 'group' && inStep && key === 'permissions') {
-    return { ...field, kind: { kind: 'permissions' } };
+    return { ...field, kind: { kind: 'permissions', runners } };
   }
   if (kind.kind === 'group' && inStep && key === 'on_failure') {
     return {
@@ -337,17 +350,44 @@ export function roleMembers(schema: Schema, value: JsonObject, context: Context)
   });
 }
 
+/** The runner names of a value that is one name or a list of names. */
+function runnerNames(value: JsonValue | undefined): readonly string[] {
+  if (typeof value === 'string') {
+    return [value];
+  }
+  return Array.isArray(value) ? strings(value) : [];
+}
+
+/**
+ * The runners a step may run on, in order: its own, else its role's, each with what the catalog says of its levels. The
+ * form never decides which runner can do what (AC-16): a runner the catalog does not describe has no levels here.
+ */
+function runnersOf(
+  step: JsonValue | undefined,
+  roles: JsonObject | undefined,
+  catalog: EditorCatalog,
+): readonly RunnerLevels[] {
+  const own = runnerNames(valueAt(step, 'runner'));
+  const role = typeof valueAt(step, 'role') === 'string' ? roles?.[String(valueAt(step, 'role'))] : undefined;
+  const names = own.length > 0 ? own : runnerNames(valueAt(role, 'runner'));
+  return names.map((runner) => ({
+    runner,
+    levels: catalog.runners.find((entry) => entry.name === runner)?.permissions,
+  }));
+}
+
 /** The steps of a document in file order, each with its fields and their choices. */
 export function stepMembers(schema: Schema, value: JsonObject, context: Context): readonly Member[] {
   const steps = listAt(value, 'steps') ?? [];
   const member = memberSchema(schema, 'steps');
   return steps.map((step, index) => {
     const id = stringAt(step, 'id');
+    const runners = runnersOf(step, objectAt(value, 'roles'), context.catalog);
     return {
       name: id ?? '',
       index,
       mapping: isObject(step),
-      fields: fieldsOf(member, step, ['steps', index]).map((f) => refine(f, context, id)),
+      fields: fieldsOf(member, step, ['steps', index]).map((f) => refine(f, context, id, runners)),
     };
   });
 }
@@ -410,12 +450,23 @@ export function placeProblems(
 /** The permissions presets of the parent's C-16, and what is none of them. */
 export type Preset = 'none' | 'read_only' | 'folders' | 'full' | 'custom';
 
-/** Which preset a step's permissions are: exactly one, or custom (spec C-04). A missing `terminal` is its default, deny. */
+/**
+ * Which preset a step's permissions are: exactly one, or custom (spec C-04). A missing `terminal` is its default, deny.
+ * A block that writes a `level` is a preset only when it is the shape the preset writes (specs/agent-permissions, AC-16);
+ * one that does not is read as before.
+ */
 export function presetOf(permissions: JsonValue | undefined): Preset {
   if (permissions === undefined || permissions === null) {
     return 'none';
   }
-  if (!isObject(permissions) || Object.keys(permissions).some((k) => k !== 'fs' && k !== 'terminal')) {
+  if (
+    !isObject(permissions) ||
+    Object.keys(permissions).some((k) => k !== 'fs' && k !== 'terminal' && k !== 'level')
+  ) {
+    return 'custom';
+  }
+  const level = valueAt(permissions, 'level');
+  if (level !== undefined && level !== null && level !== 'read' && level !== 'edit' && level !== 'full') {
     return 'custom';
   }
   const fs = valueAt(permissions, 'fs');
@@ -434,6 +485,24 @@ export function presetOf(permissions: JsonValue | undefined): Preset {
   }
   const globs = Array.isArray(write) ? strings(write) : [];
   const terminal = valueAt(permissions, 'terminal');
+  if (level === 'full') {
+    // `full` names no folders and no terminal rule (AC-03).
+    return (fs === undefined || fs === null) && (terminal === undefined || terminal === null)
+      ? 'full'
+      : 'custom';
+  }
+  if (level === 'read') {
+    return globs.length === 0 && (terminal === undefined || terminal === null || terminal === 'deny')
+      ? 'read_only'
+      : 'custom';
+  }
+  if (level === 'edit') {
+    return globs.length > 0 &&
+      !globs.includes('**') &&
+      (terminal === undefined || terminal === null || terminal === 'deny')
+      ? 'folders'
+      : 'custom';
+  }
   if (terminal === 'allow') {
     return globs.length === 1 && globs[0] === '**' ? 'full' : 'custom';
   }
@@ -446,14 +515,33 @@ export function presetOf(permissions: JsonValue | undefined): Preset {
   return globs.includes('**') ? 'custom' : 'folders';
 }
 
+/**
+ * Whether a block is shown under a preset's name but has no `level`: the old shape (AC-16). The old Full access
+ * (`write: ["**"]`, `terminal: allow`) is one of these, and is not the level `full`: it keeps the guard.
+ */
+export function isOldStyle(permissions: JsonValue | undefined): boolean {
+  const preset = presetOf(permissions);
+  return (
+    isObject(permissions) &&
+    valueAt(permissions, 'level') === undefined &&
+    (preset === 'read_only' || preset === 'folders' || preset === 'full')
+  );
+}
+
+/** The level a preset writes. */
+export function levelOfPreset(preset: 'read_only' | 'folders' | 'full'): 'read' | 'edit' | 'full' {
+  return preset === 'read_only' ? 'read' : preset === 'folders' ? 'edit' : 'full';
+}
+
 /** The globs a step may change, as its permissions list them. */
 export function writeGlobs(permissions: JsonValue | undefined): readonly string[] {
   return strings(listAt(objectAt(permissions, 'fs'), 'write'));
 }
 
 /**
- * The permissions of a preset, keeping what the step lets its agent read (spec C-04); undefined for "not set", which
- * removes the key. `folders` are the globs of "edit only these folders".
+ * The permissions of a preset, as a whole block, keeping what the step lets its agent read (spec C-04); undefined for
+ * "not set", which removes the key. `folders` are the globs of "edit only these folders". The shapes are the ones of
+ * AC-16: `{ level: read }`, `{ level: edit, fs: { write } }`, `{ level: full }`.
  */
 export function presetValue(
   preset: Exclude<Preset, 'custom'>,
@@ -465,10 +553,91 @@ export function presetValue(
   }
   const read = valueAt(objectAt(current, 'fs'), 'read');
   const keepRead = Array.isArray(read) ? { read } : {};
+  const hasRead = Object.keys(keepRead).length > 0;
   if (preset === 'full') {
-    return { fs: { ...keepRead, write: ['**'] }, terminal: 'allow' };
+    return { level: 'full' };
   }
-  return { fs: { ...keepRead, write: preset === 'folders' ? [...folders] : [] }, terminal: 'deny' };
+  if (preset === 'read_only') {
+    return hasRead ? { level: 'read', fs: keepRead } : { level: 'read' };
+  }
+  return { level: 'edit', fs: { ...keepRead, write: [...folders] } };
+}
+
+/**
+ * The edits that make a block a preset, one per path, so the rest of the file stays as it was written: the level is
+ * set and the keys the new shape forbids are removed (AC-16). A block that is not a mapping is replaced whole.
+ */
+export function presetEdits(
+  preset: Exclude<Preset, 'custom'>,
+  current: JsonValue | undefined,
+  path: WorkflowPath,
+  folders: readonly string[],
+): readonly WorkflowEdit[] {
+  if (preset === 'none') {
+    return [{ op: 'remove', path }];
+  }
+  if (!isObject(current)) {
+    const value = presetValue(preset, current, folders);
+    return value === undefined ? [{ op: 'remove', path }] : [{ op: 'set', path, value }];
+  }
+  const edits: WorkflowEdit[] = [{ op: 'set', path: [...path, 'level'], value: levelOfPreset(preset) }];
+  const fs = valueAt(current, 'fs');
+  const fsIsMapping = isObject(fs);
+  if (preset === 'folders') {
+    edits.push(
+      fsIsMapping
+        ? { op: 'set', path: [...path, 'fs', 'write'], value: [...folders] }
+        : { op: 'set', path: [...path, 'fs'], value: { write: [...folders] } },
+    );
+  } else if (fs !== undefined) {
+    const onlyWrite = fsIsMapping && Object.keys(fs).every((k) => k === 'write');
+    if (preset === 'full' || !fsIsMapping || onlyWrite) {
+      edits.push({ op: 'remove', path: [...path, 'fs'] });
+    } else if (valueAt(fs, 'write') !== undefined) {
+      edits.push({ op: 'remove', path: [...path, 'fs', 'write'] });
+    }
+  }
+  if (valueAt(current, 'terminal') !== undefined) {
+    edits.push({ op: 'remove', path: [...path, 'terminal'] });
+  }
+  return edits;
+}
+
+/** What the catalog says of a level on the runners of a step (AC-17). */
+export type LevelCheck =
+  | { readonly kind: 'unknown' }
+  | { readonly kind: 'refused'; readonly runner: string; readonly note: string }
+  | {
+      readonly kind: 'ok';
+      /** Per runner: whether the folders are only checked after the step, and whether commands are not limited. */
+      readonly runners: readonly {
+        readonly runner: string;
+        readonly checkedAfter: boolean;
+        readonly commandsNotLimited: boolean;
+      }[];
+    };
+
+/**
+ * Whether every runner of a step can hold `level`, from the catalog and nowhere else (AC-16, AC-17). A runner the catalog
+ * says nothing about (an older server) makes the answer `unknown`, and the form then refuses nothing.
+ */
+export function checkLevel(runners: readonly RunnerLevels[], level: 'read' | 'edit' | 'full'): LevelCheck {
+  if (runners.length === 0 || runners.some((r) => r.levels === undefined)) {
+    return { kind: 'unknown' };
+  }
+  const found: { runner: string; checkedAfter: boolean; commandsNotLimited: boolean }[] = [];
+  for (const { runner, levels } of runners) {
+    const capability = levels?.[level];
+    if (capability === undefined || capability.mode === 'unsupported') {
+      return { kind: 'refused', runner, note: capability?.note ?? 'not_offered' };
+    }
+    found.push({
+      runner,
+      checkedAfter: capability.mode === 'after' || capability.scope === 'guard',
+      commandsNotLimited: capability.note === 'commands_not_limited',
+    });
+  }
+  return { kind: 'ok', runners: found };
 }
 
 /** The id of a new step: `step-N` with the smallest N no step has (spec C-05). */

@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import type { EditorCatalog, JsonObject, WorkflowProblem } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import {
+  checkLevel,
   contextOf,
   entryEdit,
   entryText,
@@ -10,11 +11,13 @@ import {
   fieldsOf,
   headerFields,
   integerOf,
+  isOldStyle,
   lineOfPath,
   linesOf,
   nextStepId,
   pathText,
   placeProblems,
+  presetEdits,
   presetOf,
   presetValue,
   roleMembers,
@@ -143,7 +146,7 @@ describe('the fields of the form, from the schema (AC-06, AC-07)', () => {
       ],
     });
     expect(byKey(fields, 'consensus_with').kind).toMatchObject({ kind: 'multi', choices: [{}, {}] });
-    expect(byKey(fields, 'permissions').kind).toEqual({ kind: 'permissions' });
+    expect(byKey(fields, 'permissions').kind).toMatchObject({ kind: 'permissions' });
     expect(byKey(fields, 'guards').kind).toEqual({ kind: 'source', why: 'not_in_form' });
     // A value of a shape the form does not edit goes to the source view, never rewritten.
     expect(byKey(fields, 'commands').kind).toEqual({ kind: 'source', why: 'other_shape' });
@@ -260,26 +263,174 @@ describe('the permissions presets (AC-09, C-04)', () => {
     }
   });
 
-  it('writes a preset, keeping what the step may read', () => {
+  it('writes a preset with its level, keeping what the step may read (specs/agent-permissions, AC-16)', () => {
     const current = { fs: { read: ['docs/**'], write: ['x'] }, terminal: 'allow' };
     expect(presetValue('none', current, [])).toBeUndefined();
-    expect(presetValue('read_only', current, [])).toEqual({
-      fs: { read: ['docs/**'], write: [] },
-      terminal: 'deny',
-    });
+    expect(presetValue('read_only', current, [])).toEqual({ level: 'read', fs: { read: ['docs/**'] } });
+    expect(presetValue('read_only', undefined, [])).toEqual({ level: 'read' });
     expect(presetValue('folders', undefined, ['src/**'])).toEqual({
+      level: 'edit',
       fs: { write: ['src/**'] },
-      terminal: 'deny',
     });
-    expect(presetValue('full', current, [])).toEqual({
-      fs: { read: ['docs/**'], write: ['**'] },
-      terminal: 'allow',
-    });
+    expect(presetValue('full', current, [])).toEqual({ level: 'full' });
     for (const preset of ['read_only', 'folders', 'full'] as const) {
       expect(presetOf(presetValue(preset, current, ['src/**']))).toBe(preset);
     }
     expect(writeGlobs(current)).toEqual(['x']);
     expect(writeGlobs(undefined)).toEqual([]);
+  });
+
+  it('reads a block with a level as the preset it is, and any other shape as custom', () => {
+    expect(presetOf({ level: 'read' })).toBe('read_only');
+    expect(presetOf({ level: 'read', fs: { read: ['docs/**'] }, terminal: 'deny' })).toBe('read_only');
+    expect(presetOf({ level: 'edit', fs: { write: ['src/**'] } })).toBe('folders');
+    expect(presetOf({ level: 'full' })).toBe('full');
+    for (const custom of [
+      { level: 'read', fs: { write: ['src/**'] } },
+      { level: 'read', terminal: 'allow' },
+      { level: 'edit' },
+      { level: 'edit', fs: { write: ['src/**'] }, terminal: 'allow' },
+      { level: 'edit', fs: { write: ['**'] } },
+      { level: 'full', fs: { write: ['**'] } },
+      { level: 'full', terminal: 'allow' },
+      { level: 'sometimes' },
+    ]) {
+      expect(presetOf(custom), JSON.stringify(custom)).toBe('custom');
+    }
+  });
+
+  it('shows the old shapes under their names, marked old style, and the old full access is not the level full', () => {
+    const oldFull = { fs: { write: ['**'] }, terminal: 'allow' };
+    expect(presetOf(oldFull)).toBe('full');
+    expect(isOldStyle(oldFull)).toBe(true);
+    expect(isOldStyle({ fs: { write: ['src/**'] } })).toBe(true);
+    expect(isOldStyle({ fs: { write: [] }, terminal: 'deny' })).toBe(true);
+    expect(isOldStyle({ level: 'full' })).toBe(false);
+    expect(isOldStyle({ level: 'edit', fs: { write: ['src/**'] } })).toBe(false);
+    expect(isOldStyle(undefined)).toBe(false);
+    expect(isOldStyle({ fs: { write: ['**'] }, network: 'x' })).toBe(false);
+  });
+
+  it('switches presets with one edit per path, removing the keys the new shape forbids', () => {
+    const path = ['steps', 0, 'permissions'];
+    const old = { fs: { read: ['docs/**'], write: ['src/**'] }, terminal: 'allow' };
+    expect(presetEdits('read_only', old, path, [])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'read' },
+      { op: 'remove', path: [...path, 'fs', 'write'] },
+      { op: 'remove', path: [...path, 'terminal'] },
+    ]);
+    expect(presetEdits('full', old, path, [])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'full' },
+      { op: 'remove', path: [...path, 'fs'] },
+      { op: 'remove', path: [...path, 'terminal'] },
+    ]);
+    expect(presetEdits('folders', { level: 'read' }, path, ['src/**'])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'edit' },
+      { op: 'set', path: [...path, 'fs'], value: { write: ['src/**'] } },
+    ]);
+    expect(presetEdits('folders', old, path, ['lib/**'])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'edit' },
+      { op: 'set', path: [...path, 'fs', 'write'], value: ['lib/**'] },
+      { op: 'remove', path: [...path, 'terminal'] },
+    ]);
+    // Only a write list: the whole fs goes. Something odd in fs goes too.
+    expect(presetEdits('read_only', { fs: { write: ['x'] } }, path, [])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'read' },
+      { op: 'remove', path: [...path, 'fs'] },
+    ]);
+    expect(presetEdits('read_only', { fs: 'all' }, path, [])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'read' },
+      { op: 'remove', path: [...path, 'fs'] },
+    ]);
+    expect(presetEdits('read_only', { level: 'full' }, path, [])).toEqual([
+      { op: 'set', path: [...path, 'level'], value: 'read' },
+    ]);
+    // Nothing there, or not a mapping: the block is written whole; "not set" removes the key.
+    expect(presetEdits('full', undefined, path, [])).toEqual([{ op: 'set', path, value: { level: 'full' } }]);
+    expect(presetEdits('read_only', 'odd', path, [])).toEqual([
+      { op: 'set', path, value: { level: 'read' } },
+    ]);
+    expect(presetEdits('none', old, path, [])).toEqual([{ op: 'remove', path }]);
+  });
+
+  it('checks a level against the runners of a step from the catalog alone (AC-16, AC-17)', () => {
+    const native = { mode: 'native', scope: 'guard', note: 'plan_mode' } as const;
+    const levels = {
+      read: native,
+      edit: { mode: 'after', scope: 'guard', note: 'commands_not_limited' },
+      full: { mode: 'native', scope: 'none', note: 'bypass_permissions' },
+    } as const;
+    const noRead = {
+      ...levels,
+      read: { mode: 'unsupported', scope: 'none', note: 'no_read_only_argument' },
+    } as const;
+    expect(checkLevel([{ runner: 'a', levels }], 'read')).toEqual({
+      kind: 'ok',
+      runners: [{ runner: 'a', checkedAfter: true, commandsNotLimited: false }],
+    });
+    expect(checkLevel([{ runner: 'a', levels }], 'edit')).toEqual({
+      kind: 'ok',
+      runners: [{ runner: 'a', checkedAfter: true, commandsNotLimited: true }],
+    });
+    expect(checkLevel([{ runner: 'a', levels }], 'full')).toEqual({
+      kind: 'ok',
+      runners: [{ runner: 'a', checkedAfter: false, commandsNotLimited: false }],
+    });
+    // Any runner of the chain that cannot hold it refuses it, naming that runner and the note.
+    expect(
+      checkLevel(
+        [
+          { runner: 'a', levels },
+          { runner: 'b', levels: noRead },
+        ],
+        'read',
+      ),
+    ).toEqual({ kind: 'refused', runner: 'b', note: 'no_read_only_argument' });
+    // A catalog that says nothing (an older server), or no runner at all, refuses nothing.
+    expect(checkLevel([{ runner: 'a', levels: undefined }], 'read')).toEqual({ kind: 'unknown' });
+    expect(checkLevel([], 'full')).toEqual({ kind: 'unknown' });
+  });
+
+  it('gives a step the runners of its own list, else of its role, with what the catalog says', () => {
+    const levels = {
+      read: { mode: 'native', scope: 'guard', note: 'x' },
+      edit: { mode: 'native', scope: 'guard', note: 'x' },
+      full: { mode: 'native', scope: 'none', note: 'x' },
+    } as const;
+    const withLevels: EditorCatalog = {
+      ...catalog,
+      runners: [
+        { name: 'shell', description: '' },
+        { name: 'acp', description: '', permissions: levels },
+        { name: 'codex', description: '', permissions: levels },
+      ],
+    };
+    const doc: JsonObject = {
+      version: '1.0',
+      name: 'x',
+      roles: { writer: { runner: ['acp', 'codex'] }, odd: 'not a mapping' },
+      steps: [
+        { id: 'a', role: 'writer', goal: 'g' },
+        { id: 'b', runner: 'codex', role: 'writer', goal: 'g' },
+        { id: 'c', role: 'odd', goal: 'g' },
+        { id: 'd', runner: 'shell', commands: ['x'] },
+        { id: 'e', runner: 'ghost', goal: 'g' },
+      ],
+    };
+    const kinds = stepMembers(schema, doc, contextOf(doc, withLevels)).map((member) => {
+      const kind = byKey(member.fields, 'permissions').kind;
+      return kind.kind === 'permissions' ? kind.runners.map((r) => [r.runner, r.levels !== undefined]) : [];
+    });
+    expect(kinds).toEqual([
+      [
+        ['acp', true],
+        ['codex', true],
+      ],
+      [['codex', true]],
+      [],
+      [['shell', false]],
+      [['ghost', false]],
+    ]);
   });
 });
 

@@ -126,13 +126,30 @@ export const messages = {
       legend: 'What the agent may change',
       none: 'Not set',
       noneHelp:
-        'No rule in the file: the acp runner refuses edits and commands, and other runners are not limited.',
+        'No level in the file: each runner keeps its own built-in default, which is not a level you chose and may let the agent change files or run commands. Pick a level to choose; indaba plan says what each runner does.',
       read_only: 'Read only',
       read_onlyHelp: 'The agent may change nothing and run no command.',
       folders: 'Edit only these folders',
       foldersHelp: 'The agent may change files matching these globs and run no command.',
       full: 'Full access',
-      fullHelp: 'The agent may change any file and run commands.',
+      fullHelp: "This step's agent can change anything and run anything and nobody approves it.",
+      oldStyle:
+        'old style: written as folders and a terminal rule, with no level. It is rewritten when you change it.',
+      oldStyleFull:
+        'old style: every folder and the terminal, with no level. It keeps the guard that checks the folders after the step; the level Full access does not.',
+      refused: (runner: string, reason: string): string => `${runner} cannot do this: ${reason}`,
+      checkedAfter: (runner: string): string =>
+        `${runner}: the folders are checked after the step, not while it works.`,
+      commandsNotLimited: (runner: string): string => `${runner}: commands the agent runs are not limited.`,
+      // The reasons are keyed by the note ids of the catalog (AC-16); the page owns the words.
+      reasons: {
+        argument_unconfirmed: 'Indaba has not confirmed how to ask it for this level.',
+        no_read_only_argument:
+          'it has no way to run read-only that Indaba can hold while it works. The acp runner with the same agent can.',
+        not_offered: 'it does not say it can hold this level.',
+        cannot_act: 'it cannot act.',
+      } as Readonly<Record<string, string>>,
+      reasonOther: 'it cannot hold this level.',
       custom: 'Custom',
       customHelp:
         'A rule the presets do not describe; it is kept as it is. Change it in the source view, or pick a preset.',
@@ -209,6 +226,14 @@ export const messages = {
     limit:
       'This covers only what the workflow file declares. It does not cover scripts a command calls, indaba.config, plugins, or what an agent then does with its own tools.',
     confirmRun: 'Run it',
+    fullTitle: (name: string): string => `${name} has steps with full access`,
+    fullHeading: 'Steps with full access',
+    fullLead:
+      'You are asked every time, even when you ran this file before. These steps run with no limit from Indaba and nobody approves what their agent does.',
+    fullSentence: "this step's agent can change anything and run anything and nobody approves it",
+    fullStep: (stepId: string, runners: readonly string[]): string =>
+      runners.length === 0 ? stepId : `${stepId} (${runners.join(', ')})`,
+    fullRun: 'Run it with full access',
     back: 'Back to the list',
     starting: (name: string): string => `Starting ${name}...`,
     startingNote: 'The run opens as soon as it has written its first record.',

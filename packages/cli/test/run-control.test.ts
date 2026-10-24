@@ -768,3 +768,97 @@ describe('summaryOfUse at the level full (specs/agent-permissions AC-04)', () =>
     ]);
   });
 });
+
+const FULL_WORKFLOW = `version: "1.0"
+name: wide
+roles:
+  coder:
+    runner: [claude-code, codex]
+steps:
+  - id: prepare
+    runner: shell
+    commands:
+      - node -e "process.exit(0)"
+  - id: build
+    role: coder
+    goal: build it
+    permissions:
+      level: full
+`;
+
+describe('the steps at full access (specs/agent-permissions AC-05)', () => {
+  it('lists them with the runners of their chain, and only agent steps', () => {
+    const summary = summaryOfUse(parseWorkflow(FULL_WORKFLOW));
+    expect(summary.fullAccessSteps).toEqual([{ stepId: 'build', runners: ['claude-code', 'codex'] }]);
+    expect(summaryOfUse(parseWorkflow(WORKFLOW)).fullAccessSteps).toEqual([]);
+  });
+
+  it('lists a step that gets the level from its role, and one that gets it from defaults', () => {
+    const viaRole = parseWorkflow(
+      'version: "1.0"\nname: r\nroles:\n  w:\n    runner: codex\n    permissions: {level: full}\nsteps:\n  - id: s\n    role: w\n    goal: g\n',
+    );
+    expect(summaryOfUse(viaRole).fullAccessSteps).toEqual([{ stepId: 's', runners: ['codex'] }]);
+    const viaDefaults = parseWorkflow(
+      'version: "1.0"\nname: d\ndefaults:\n  permissions: {level: full}\nroles:\n  w: {runner: codex}\nsteps:\n  - id: s\n    role: w\n    goal: g\n  - id: t\n    runner: shell\n    commands: [x]\n',
+    );
+    expect(summaryOfUse(viaDefaults).fullAccessSteps).toEqual([{ stepId: 's', runners: ['codex'] }]);
+  });
+
+  it('asks every time, even for a file confirmed before, and starts the child only with the hash it was shown', async () => {
+    const root = await project({ 'wide.workflow.ai.yml': FULL_WORKFLOW });
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const workflow = (await control.list()).workflows[0];
+    if (workflow === undefined) {
+      throw new Error('no workflow listed');
+    }
+    // The first run asks to confirm the content, and lists the full steps in it.
+    const first = await control.start({ workflowId: workflow.id }).catch((e: unknown) => e);
+    expect(first).toMatchObject({ code: 'confirmation_required' });
+    const hash = String((first as RunControlError).detail?.contentHash);
+    expect(
+      ((first as RunControlError).detail?.use as { fullAccessSteps: unknown } | undefined)?.fullAccessSteps,
+    ).toEqual([{ stepId: 'build', runners: ['claude-code', 'codex'] }]);
+    expect(runs).toHaveLength(0);
+    const asked = await control
+      .start({ workflowId: workflow.id, confirmedHash: hash })
+      .catch((e: unknown) => e);
+    expect(asked).toMatchObject({ code: 'full_access_required' });
+    expect((asked as RunControlError).detail).toEqual({
+      contentHash: hash,
+      steps: [{ stepId: 'build', runners: ['claude-code', 'codex'] }],
+    });
+    expect(runs).toHaveLength(0);
+
+    // A hash that is not the content's is no confirmation.
+    await expect(
+      control.start({ workflowId: workflow.id, fullAccessConfirmedHash: 'f'.repeat(64) }),
+    ).rejects.toMatchObject({ code: 'full_access_required' });
+    expect(runs).toHaveLength(0);
+
+    const started = await control.start({ workflowId: workflow.id, fullAccessConfirmedHash: hash });
+    expect(runs[0]?.args).toEqual([
+      'run',
+      '--workdir',
+      root,
+      '--task-id',
+      started.startId,
+      '--allow-full-access=page',
+      '--',
+      `.indaba/run-inputs/${started.startId}.yml`,
+    ]);
+    // It does not carry over: the next start asks again.
+    await expect(control.start({ workflowId: workflow.id })).rejects.toMatchObject({
+      code: 'full_access_required',
+    });
+  });
+
+  it('never passes the flag for a file with no step at full access', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const { workflow, hash } = await confirmAndStart(control);
+    await control.start({ workflowId: workflow.id, fullAccessConfirmedHash: hash });
+    expect(runs.every((run) => !run.args.some((arg) => arg.startsWith('--allow-full-access')))).toBe(true);
+  });
+});

@@ -416,13 +416,11 @@ describe('permissions presets (AC-09)', () => {
     const readOnly = (await screen.findByLabelText('Read only')) as HTMLInputElement;
     expect(readOnly.checked).toBe(true);
     fireEvent.click(screen.getByLabelText('Full access'));
+    // One edit per path: the level is set and the key full access forbids is removed (AC-16).
     await waitFor(() =>
       expect(lastEdit(client)).toEqual([
-        {
-          op: 'set',
-          path: ['steps', 0, 'permissions'],
-          value: { fs: { read: ['docs/**'], write: ['**'] }, terminal: 'allow' },
-        },
+        { op: 'set', path: ['steps', 0, 'permissions', 'level'], value: 'full' },
+        { op: 'remove', path: ['steps', 0, 'permissions', 'fs'] },
       ]),
     );
     fireEvent.click(screen.getByLabelText('Edit only these folders'));
@@ -450,6 +448,141 @@ describe('permissions presets (AC-09)', () => {
     expect(custom.disabled).toBe(true);
     expect(client.edits.every((e) => e.edits.length === 0)).toBe(true);
     expect(screen.getByRole('button', { name: 'Show permissions in the source view' })).toBeTruthy();
+  });
+});
+
+describe('permissions levels by runner (specs/agent-permissions, AC-16, AC-17)', () => {
+  const level = (mode: string, scope: string, note: string) => ({ mode, scope, note });
+  const permissions = {
+    cli: {
+      read: level('native', 'guard', 'plan_mode'),
+      edit: level('native', 'guard', 'commands_not_limited'),
+      full: level('native', 'none', 'bypass_permissions'),
+    },
+    limited: {
+      read: level('unsupported', 'none', 'no_read_only_argument'),
+      edit: level('after', 'guard', 'commands_not_limited'),
+      full: level('unsupported', 'none', 'argument_unconfirmed'),
+    },
+    gate: {
+      read: level('acp', 'acp', 'gate'),
+      edit: level('acp', 'acp', 'gate'),
+      full: level('acp', 'none', 'gate_allows_all'),
+    },
+  };
+  const info = (...names: (keyof typeof permissions)[]): EditorResponse => ({
+    ...INFO,
+    catalog: {
+      ...INFO.catalog,
+      runners: names.map((name) => ({ name, description: '', permissions: permissions[name] })) as never,
+    },
+  });
+  const docOf = (runner: JsonValue, block?: JsonValue) =>
+    textOf({
+      version: '1.0',
+      name: 'site',
+      steps: [{ id: 'a', runner, goal: 'g', ...(block === undefined ? {} : { permissions: block }) }],
+    });
+
+  it('refuses a level the runner cannot hold, in words from the note id, and writes nothing', async () => {
+    const client = fake({ text: docOf('limited'), info: info('limited') });
+    open(client);
+    const readOnly = (await screen.findByLabelText('Read only')) as HTMLInputElement;
+    expect(readOnly.disabled).toBe(true);
+    expect(
+      screen.getByText(/limited cannot do this: it has no way to run read-only that Indaba can hold/),
+    ).toBeTruthy();
+    expect((screen.getByLabelText('Full access') as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByText(/limited cannot do this: Indaba has not confirmed how to ask it/)).toBeTruthy();
+    // The level it can hold, after the step only, is offered.
+    const folders = screen.getByLabelText('Edit only these folders') as HTMLInputElement;
+    expect(folders.disabled).toBe(false);
+    fireEvent.click(folders);
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'set', path: ['steps', 0, 'permissions'], value: { level: 'edit', fs: { write: ['src/**'] } } },
+      ]),
+    );
+    expect(client.edits.every((e) => e.edits.every((edit) => edit.op !== 'remove'))).toBe(true);
+  });
+
+  it('shows the qualifier for a level only checked after the step, and for commands not limited', async () => {
+    const client = fake({
+      text: docOf('limited', { level: 'edit', fs: { write: ['src/**'] } }),
+      info: info('limited'),
+    });
+    open(client);
+    await screen.findByLabelText('Edit only these folders');
+    expect(
+      screen.getByText('limited: the folders are checked after the step, not while it works.'),
+    ).toBeTruthy();
+    expect(screen.getByText('limited: commands the agent runs are not limited.')).toBeTruthy();
+  });
+
+  it('holds a level against every runner of the step’s chain, naming the one that cannot', async () => {
+    const client = fake({ text: docOf(['cli', 'limited']), info: info('cli', 'limited') });
+    open(client);
+    const readOnly = (await screen.findByLabelText('Read only')) as HTMLInputElement;
+    expect(readOnly.disabled).toBe(true);
+    expect(screen.getAllByText(/limited cannot do this/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/cli cannot do this/)).toBeNull();
+  });
+
+  it('takes the runner of the role when the step names none', async () => {
+    const text = textOf({
+      version: '1.0',
+      name: 'site',
+      roles: { w: { runner: 'limited' } },
+      steps: [{ id: 'a', role: 'w', goal: 'g' }],
+    });
+    const client = fake({ text, info: info('limited') });
+    open(client);
+    expect(((await screen.findByLabelText('Read only')) as HTMLInputElement).disabled).toBe(true);
+  });
+
+  it('says what Full access means when it is the level, and refuses nothing when the catalog says nothing', async () => {
+    const client = fake({ text: docOf('gate', { level: 'full' }), info: info('gate') });
+    open(client);
+    expect(((await screen.findByLabelText('Full access')) as HTMLInputElement).checked).toBe(true);
+    expect(
+      screen.getAllByText("This step's agent can change anything and run anything and nobody approves it.")
+        .length,
+    ).toBeGreaterThan(0);
+    cleanup();
+    // An older server sends no map: nothing is disabled.
+    const older = fake({ text: docOf('limited') });
+    open(older);
+    expect(((await screen.findByLabelText('Read only')) as HTMLInputElement).disabled).toBe(false);
+  });
+
+  it('marks an old-style block, the old full access among them, and leaves it as it is until it is changed', async () => {
+    const client = fake({
+      text: docOf('gate', { fs: { write: ['**'] }, terminal: 'allow' }),
+      info: info('gate'),
+    });
+    open(client);
+    expect(((await screen.findByLabelText('Full access')) as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByText(/old style: every folder and the terminal, with no level/)).toBeTruthy();
+    expect(client.edits.every((e) => e.edits.length === 0)).toBe(true);
+    fireEvent.click(screen.getByLabelText('Read only'));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'set', path: ['steps', 0, 'permissions', 'level'], value: 'read' },
+        { op: 'remove', path: ['steps', 0, 'permissions', 'fs'] },
+        { op: 'remove', path: ['steps', 0, 'permissions', 'terminal'] },
+      ]),
+    );
+    await waitFor(() => expect(screen.queryByText(/old style/)).toBeNull());
+  });
+
+  it('shows the default of the runner, not a claim that others are not limited, for a step with no level', async () => {
+    const client = fake({ text: docOf('cli'), info: info('cli') });
+    open(client);
+    await screen.findByLabelText('Not set');
+    expect(
+      screen.getByText(/each runner keeps its own built-in default, which is not a level you chose/),
+    ).toBeTruthy();
+    expect(screen.queryByText(/other runners are not limited/)).toBeNull();
   });
 });
 

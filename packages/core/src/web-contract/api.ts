@@ -90,12 +90,25 @@ export interface RunSummaryOfUse {
   readonly permissions: readonly string[];
   /** Steps that need a person (`arbiter: human`); they end escalated, because the run has no terminal. */
   readonly needsPerson: readonly string[];
+  /** The steps whose agent has `full` access, with the runners of their chain (specs/agent-permissions, AC-05). */
+  readonly fullAccessSteps: readonly FullAccessStep[];
+}
+
+/** One step at the level `full`: the page lists these in its confirmation every time it starts a run. */
+export interface FullAccessStep {
+  readonly stepId: string;
+  readonly runners: readonly string[];
 }
 
 export interface StartRunRequest {
   readonly workflowId: string;
   /** The `contentHash` of a `confirmation_required` answer, to confirm that content. */
   readonly confirmedHash?: string;
+  /**
+   * The `contentHash` of the file whose `full` steps the person saw listed (specs/agent-permissions, AC-05). A file with
+   * a `full` step and no matching value is refused with `full_access_required`.
+   */
+  readonly fullAccessConfirmedHash?: string;
 }
 
 export interface StartRunResponse {
@@ -107,6 +120,13 @@ export interface ConfirmationRequired extends ApiError {
   readonly code: 'confirmation_required';
   readonly contentHash: string;
   readonly use: RunSummaryOfUse;
+}
+
+/** `409`: the file has a step at the level `full` and the person has not seen it listed (AC-05). */
+export interface FullAccessRequired extends ApiError {
+  readonly code: 'full_access_required';
+  readonly contentHash: string;
+  readonly steps: readonly FullAccessStep[];
 }
 
 export interface StartStatusResponse {
@@ -224,10 +244,22 @@ export interface WorkflowEditRefused extends ApiError {
   readonly path?: string;
 }
 
+/** What one permission level means for one runner: enforcement words and a note id, never English (AC-16). */
+export interface CatalogPermissionView {
+  readonly mode: 'native' | 'acp' | 'after' | 'none' | 'unsupported';
+  readonly scope: 'acp' | 'guard' | 'none';
+  readonly note: string;
+}
+
+/** `CatalogPermissions` of the extension contracts, as the page receives it. */
+export type CatalogPermissionsView = Readonly<Record<'read' | 'edit' | 'full', CatalogPermissionView>>;
+
 /** A name and one line, as the catalog lists a runner, a guard type or an arbiter. */
 export interface CatalogEntry {
   readonly name: string;
   readonly description: string;
+  /** Runners only: what each level means for this runner, as ids a front end puts in words (AC-16). */
+  readonly permissions?: CatalogPermissionsView;
 }
 
 /** What this installation offers a workflow: `Catalog` of `@indaba/engine`, version 1, as the page receives it. */

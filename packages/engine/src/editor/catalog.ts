@@ -1,17 +1,31 @@
-import { DecisionType, type Described, FailureAction, Isolation, McpPolicy } from '@indaba/core';
+import {
+  type CatalogPermission,
+  type CatalogPermissions,
+  DecisionType,
+  type Described,
+  EnforcementMode,
+  EnforcementScope,
+  FailureAction,
+  Isolation,
+  McpPolicy,
+  NOT_OFFERED_NOTE,
+  type PermissionLevel,
+} from '@indaba/core';
 import { sanitize } from '../trace/sanitize.js';
 
 /** The longest description a catalog carries; longer is cut (api-surface, "Defaults introduced"). */
 export const MAX_DESCRIPTION = 200;
+/** The longest permission note id a catalog carries (a plugin's is cut). */
+const MAX_NOTE = 64;
 
 /**
  * What this installation offers a workflow (specs/workflow-editor, AC-12): the names a wizard can choose from, plugins
  * included, each with one line, and the enumerated values of the format. `catalog` is the shape's version; a change of
- * shape is a major for its readers and raises it.
+ * shape is a major for its readers and raises it; an optional member does not (specs/agent-permissions, C-11).
  */
 export interface Catalog {
   readonly catalog: 1;
-  readonly runners: readonly Described[];
+  readonly runners: readonly DescribedEntry[];
   readonly guards: readonly Described[];
   readonly arbiters: readonly Described[];
   /** Empty until specs/voter-arbiter (spec C-01). */
@@ -28,9 +42,14 @@ export interface Catalog {
   };
 }
 
+/** A name and line, and for a runner what each permission level means for it (AC-16). */
+export interface DescribedEntry extends Described {
+  readonly permissions?: CatalogPermissions;
+}
+
 /** Anything that can list what it holds: the registries of an engine bundle. */
 export interface Describes {
-  describe(): readonly Described[];
+  describe(): readonly DescribedEntry[];
 }
 
 /**
@@ -44,12 +63,33 @@ export interface CatalogSources {
 }
 
 /** A name and line from a plugin, as a screen may show them: no control sequence, one line, a bounded length. */
-function clean(entry: Described): Described {
+function clean(entry: DescribedEntry): DescribedEntry {
   const line = sanitize(entry.description).replace(/\s+/g, ' ').trim();
-  return {
+  const base = {
     name: sanitize(entry.name),
     description: line.length > MAX_DESCRIPTION ? `${line.slice(0, MAX_DESCRIPTION - 1)}…` : line,
   };
+  return entry.permissions === undefined
+    ? base
+    : { ...base, permissions: cleanPermissions(entry.permissions) };
+}
+
+const MODES: readonly string[] = Object.values(EnforcementMode);
+const SCOPES: readonly string[] = Object.values(EnforcementScope);
+
+/** What a plugin says of its levels, rebuilt: only the known words and a note that is one clean token (a plugin is not trusted). */
+function cleanPermissions(permissions: CatalogPermissions): CatalogPermissions {
+  const one = (level: PermissionLevel): CatalogPermission => {
+    const given: CatalogPermission | undefined = permissions[level];
+    if (given === undefined || !MODES.includes(given.mode) || !SCOPES.includes(given.scope)) {
+      return { mode: EnforcementMode.Unsupported, scope: EnforcementScope.None, note: NOT_OFFERED_NOTE };
+    }
+    const note = sanitize(given.note)
+      .replace(/[^a-z0-9_]/g, '')
+      .slice(0, MAX_NOTE);
+    return { mode: given.mode, scope: given.scope, note: note === '' ? NOT_OFFERED_NOTE : note };
+  };
+  return { read: one('read'), edit: one('edit'), full: one('full') };
 }
 
 /** The catalog of what `sources` hold, for `indaba catalog` or a server that calls it in-process (AC-13). */

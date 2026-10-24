@@ -19,6 +19,7 @@ import {
 } from 'react';
 import {
   type Choice,
+  checkLevel,
   contextOf,
   entryEdit,
   entryText,
@@ -26,6 +27,8 @@ import {
   fieldPaths,
   headerFields,
   integerOf,
+  isOldStyle,
+  levelOfPreset,
   linesOf,
   type Member,
   nextStepId,
@@ -33,8 +36,9 @@ import {
   type Preset,
   pathText,
   placeProblems,
+  presetEdits,
   presetOf,
-  presetValue,
+  type RunnerLevels,
   roleMembers,
   stepMembers,
   writeGlobs,
@@ -346,9 +350,14 @@ export const FOLDER_PLACEHOLDER = 'src/**';
 const PRESETS: readonly Exclude<Preset, 'custom'>[] = ['none', 'read_only', 'folders', 'full'];
 
 /** What a step's agent may change, as the presets of the parent's C-16 (AC-09). */
-function PermissionsField(props: { readonly field: Field; readonly context: FieldContext }): ReactElement {
-  const { field, context } = props;
+function PermissionsField(props: {
+  readonly field: Field;
+  readonly runners: readonly RunnerLevels[];
+  readonly context: FieldContext;
+}): ReactElement {
+  const { field, runners, context } = props;
   const preset = presetOf(field.value);
+  const oldStyle = isOldStyle(field.value);
   const id = idOf('f', field.path);
   const globs = writeGlobs(field.value);
   const shownGlobs = globs.join('\n');
@@ -356,11 +365,16 @@ function PermissionsField(props: { readonly field: Field; readonly context: Fiel
   const problems = context.placed.byField.get(pathText(field.path)) ?? [];
   const choose = (next: Exclude<Preset, 'custom'>): void => {
     // A step that edits folders keeps its globs; another one starts from a placeholder the person changes (spec C-10).
-    const value = presetValue(next, field.value, preset === 'folders' ? globs : [FOLDER_PLACEHOLDER]);
-    context.onEdit([
-      value === undefined ? { op: 'remove', path: field.path } : { op: 'set', path: field.path, value },
-    ]);
+    // One edit per path: the level is set and the keys the new shape forbids are removed (AC-16).
+    context.onEdit(
+      presetEdits(next, field.value, field.path, preset === 'folders' ? globs : [FOLDER_PLACEHOLDER]),
+    );
   };
+  // What each runner of the step can hold, from the catalog (AC-16, AC-17).
+  const checks = (option: Preset) =>
+    option === 'none' || option === 'custom' ? undefined : checkLevel(runners, levelOfPreset(option));
+  const reasonOf = (note: string): string => words.permissions.reasons[note] ?? words.permissions.reasonOther;
+  const current = checks(preset);
   const options = preset === 'custom' ? [...PRESETS, 'custom' as const] : PRESETS;
   return h(
     'fieldset',
@@ -382,7 +396,7 @@ function PermissionsField(props: { readonly field: Field; readonly context: Fiel
             name: id,
             value: option,
             checked: preset === option,
-            disabled: option === 'custom',
+            disabled: option === 'custom' || (preset !== option && checks(option)?.kind === 'refused'),
             'aria-describedby': `${id}-${option}-help`,
             onChange: () => {
               if (option !== 'custom') {
@@ -397,8 +411,39 @@ function PermissionsField(props: { readonly field: Field; readonly context: Fiel
           { id: `${id}-${option}-help`, className: 'field-help muted' },
           words.permissions[`${option}Help`],
         ),
+        (() => {
+          const check = checks(option);
+          return check?.kind === 'refused'
+            ? h(
+                'p',
+                { className: 'field-problem' },
+                words.permissions.refused(check.runner, reasonOf(check.note)),
+              )
+            : null;
+        })(),
+        preset === option && oldStyle
+          ? h(
+              'p',
+              { className: 'field-help muted' },
+              option === 'full' ? words.permissions.oldStyleFull : words.permissions.oldStyle,
+            )
+          : null,
       ),
     ),
+    current?.kind === 'ok' && !oldStyle
+      ? h(
+          'ul',
+          { className: 'field-help muted' },
+          ...current.runners.flatMap((r) => [
+            r.checkedAfter
+              ? h('li', { key: `${r.runner}-after` }, words.permissions.checkedAfter(r.runner))
+              : null,
+            r.commandsNotLimited
+              ? h('li', { key: `${r.runner}-commands` }, words.permissions.commandsNotLimited(r.runner))
+              : null,
+          ]),
+        )
+      : null,
     preset === 'folders'
       ? h(
           'div',
@@ -474,7 +519,7 @@ function FieldView(props: { readonly field: Field; readonly context: FieldContex
     case 'group':
       return h(GroupField, { field, fields: kind.fields, context });
     case 'permissions':
-      return h(PermissionsField, { field, context });
+      return h(PermissionsField, { field, runners: kind.runners, context });
     case 'fixed':
       return h(FieldShell, {
         field,

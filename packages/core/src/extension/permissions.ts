@@ -225,3 +225,35 @@ export function describeEnforcement(
       capability.mode === EnforcementMode.After || capability.scope === EnforcementScope.Guard,
   };
 }
+
+/** What the catalog says of one level of one runner (AC-16): the enforcement words and a note id, no English. */
+export interface CatalogPermission {
+  readonly mode: EnforcementMode;
+  readonly scope: EnforcementScope;
+  readonly note: string;
+}
+
+/** Every level, so a front end never has to guess which runner can do what (AC-16, C-11). */
+export type CatalogPermissions = Readonly<Record<PermissionLevel, CatalogPermission>>;
+
+/** The note of a level a runner does not declare. */
+export const NOT_OFFERED_NOTE = 'not_offered';
+
+/**
+ * AC-16: the levels of a runner as the catalog lists them. A level the runner does not declare (or a runner that is not
+ * `PermissionCapable`) is `unsupported` (C-04), so the map always has all three.
+ */
+export function permissionMapOf(runner: Runner): CatalogPermissions {
+  const declared = permissionCapabilitiesOf(runner);
+  const entry = (level: PermissionLevel): CatalogPermission => {
+    const found = declared.find((capability) => capability.level === level);
+    return found === undefined
+      ? { mode: EnforcementMode.Unsupported, scope: EnforcementScope.None, note: NOT_OFFERED_NOTE }
+      : { mode: found.mode, scope: found.scope, note: found.note };
+  };
+  return {
+    [PermissionLevel.Read]: entry(PermissionLevel.Read),
+    [PermissionLevel.Edit]: entry(PermissionLevel.Edit),
+    [PermissionLevel.Full]: entry(PermissionLevel.Full),
+  };
+}
