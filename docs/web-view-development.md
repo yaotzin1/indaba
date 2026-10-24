@@ -34,14 +34,15 @@ Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and n
 | `client.ts` | Every request: the token as a header, the contract check, the streams read with `fetch` and resumed after a drop |
 | `sse.ts` | The Server-Sent Events parser the streams use (`EventSource` cannot send a header) |
 | `session.ts` | Reading the token from `#token=` and removing it from the address |
-| `graph-model.ts` | A run to nodes and edges, laid out left to right by `@dagrejs/dagre`. Pure |
+| `graph-model.ts` | A run or a workflow draft to nodes and edges, laid out left to right by `@dagrejs/dagre`, plus pure helpers for graph brick and connection edits |
 | `format.ts`, `status.ts` | Durations, money, tokens, times; a state's symbol, word and colour class. Pure |
 | `cost.ts` | The cost of a step and the rows of a run's cost table, added up the way the engine's reducer adds up the run's. Pure |
 | `messages.ts` | Every string the page shows |
 | `styles.css` | The tokens of both themes and every rule; the `--gw-*` mapping for the grids |
 | `ui/App.ts` | Header, theme switch, the screen the address names, the messages that replace a screen |
 | `ui/RunsScreen.ts`, `ui/RunScreen.ts` | The two screens |
-| `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph, the selected step, the step list |
+| `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph (view mode for a run, edit mode for a workflow draft), the selected step, the step list |
+| `ui/FormView.ts`, `ui/GraphView.ts`, `ui/SourceScreen.ts` | The three views of a workflow draft (Form, Graph, Source) and the shared edit queue |
 | `ui/CostTable.ts`, `ui/Discussion.ts` | The cost of each step that called a model; a debate's kept messages, loaded when opened |
 | `ui/router.ts`, `ui/theme.ts`, `ui/parts.ts` | The address, the theme, small shared parts |
 | `ui/stale.ts`, `ui/media.ts` | Whether what is shown is the last known state (the app provides it, every chip and card reads it); a media query as a hook, for the graph's direction below 640 px |

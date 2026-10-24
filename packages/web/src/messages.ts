@@ -244,6 +244,7 @@ export const messages = {
   form: {
     viewLabel: 'Show the workflow as',
     viewForm: 'Form',
+    viewGraph: 'Graph',
     viewSource: 'Source',
     unavailable: (reason: string): string => `The form is not available: ${reason}`,
     reading: 'Reading the workflow...',
@@ -348,6 +349,92 @@ export const messages = {
       decision_type: 'Decided by',
       arbiter: 'Arbiter',
     } as Readonly<Record<string, string>>,
+  },
+
+  /** The graph of a workflow in edit mode (specs/web-app-editing-graph). */
+  graph: {
+    unavailable: (reason: string): string => `The graph is not available: ${reason}`,
+    paletteLabel: 'Bricks',
+    paletteTitle: 'Bricks',
+    paletteLead: 'Drag onto the canvas or a step, or press Enter on one.',
+    stepsHeading: 'Steps',
+    failureHeading: 'If the selected step fails',
+    bricks: {
+      agent: {
+        title: 'Agent step',
+        detail: 'an agent from the catalog, with a goal',
+      },
+      api: {
+        title: 'API step',
+        detail: 'a model call over HTTP, read-only',
+      },
+      shell: {
+        title: 'Shell step',
+        detail: 'commands, first failure stops',
+      },
+      debate: {
+        title: 'Debate',
+        detail: 'two or more roles until they agree',
+      },
+      retry_step: {
+        title: 'Retry a step',
+        detail: 'go back to a step, up to n times',
+      },
+      escalate: {
+        title: 'Escalate',
+        detail: 'end the run as escalated',
+      },
+      fail: {
+        title: 'Fail',
+        detail: 'end the run as failed',
+      },
+    },
+    canvasTitle: 'Canvas',
+    canvasLabel: 'The steps of this workflow as a graph',
+    canvasHelp:
+      'Select a step to change its settings on the right. Drag from a step handle to another step to say it waits for it, or from the failure handle to say where a failure leads. Every action is also in the panel on the right.',
+    emptyCanvas: 'No steps yet. Choose a step brick on the left to add the first step.',
+    settingsLabel: 'Step settings',
+    noStepSelected: 'Select a step on the canvas or add one from the bricks.',
+    connectionsHeading: 'Connections',
+    waitsForNone: 'Waits for no other step (runs first).',
+    waitsForItem: (id: string, missing: boolean): string =>
+      missing ? `Waits for ${id} (no such step)` : `Waits for ${id}`,
+    disconnect: 'Disconnect',
+    disconnectLabel: (fromId: string, stepId: string): string =>
+      `Disconnect ${stepId} from waiting for ${fromId}`,
+    failureRoute: (
+      action: string,
+      target: string | undefined,
+      missing: boolean,
+      max: number | undefined,
+    ): string =>
+      action === 'retry_step'
+        ? `On failure: retry ${target ?? '?'}${missing ? ' (no such step)' : ''}${max !== undefined && max >= 1 ? `, up to ${max}` : ''}`
+        : `On failure: ${action}`,
+    clearFailure: 'Clear on failure',
+    clearFailureLabel: (stepId: string): string => `Clear on_failure of step ${stepId}`,
+    card: {
+      noId: '(no id)',
+      role: (name: string): string => `role: ${name}`,
+      debate: (roles: readonly string[]): string =>
+        roles.length === 0 ? 'debate' : `debate (${roles.join(' + ')})`,
+      commands: (n: number): string => (n === 0 ? 'no commands' : n === 1 ? '1 command' : `${n} commands`),
+      readOnly: 'read-only',
+      writes: (globs: readonly string[]): string => `writes ${globs.join(', ')}`,
+      fullAccess: 'full access',
+      oldStyleFull: 'old style full access',
+      customPermissions: 'custom permissions',
+      runnerDefault: 'runner default',
+      hasProblems: 'has problems',
+      missingDep: (ids: readonly string[]): string => `missing: ${ids.join(', ')}`,
+      missingRetry: (id: string): string => `retry missing: ${id}`,
+      retriedBy: (ids: readonly string[]): string => `runs again if ${ids.join(', ')} fails`,
+      edgeRetry: (source: string, target: string, max: number): string =>
+        `if ${source} fails: run ${target} again${max >= 1 ? `, up to ${max}` : ''}`,
+      ariaStep: (id: string, runner: string, rule: string, problems: boolean): string =>
+        `${id}${runner === '' ? '' : `, ${runner}`}${rule === '' ? '' : `, ${rule}`}${problems ? ', has problems' : ''}. Edit step.`,
+    },
   },
 
   /** The Run a workflow panel and Stop (specs/web-app-actions). */

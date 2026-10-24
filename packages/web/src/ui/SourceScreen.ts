@@ -20,6 +20,7 @@ import { ApiFailure, type Client, type Failure } from '../client.js';
 import { lineOfPath } from '../form-model.js';
 import { messages } from '../messages.js';
 import { FormView } from './FormView.js';
+import { GraphView, type QueuedEdit } from './GraphView.js';
 import { RunPanel } from './RunPanel.js';
 import { hrefOf, isPlainClick, type Navigate } from './router.js';
 
@@ -73,7 +74,7 @@ interface Loaded {
 
 type Status = 'idle' | 'checking' | 'saving';
 
-type View = 'form' | 'source';
+type View = 'form' | 'graph' | 'source';
 
 /** What the form shows: the document of one text, or why the form cannot read it. */
 type Model =
@@ -144,6 +145,8 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
   const [revision, setRevision] = useState(0);
   // The text as typed, at once, for an edit's answer to know whether the draft changed under it.
   const textRef = useRef('');
+  // The latest parsed document value from the edit queue, so queued graph edits resolve step indices up to date (AC-10).
+  const valueRef = useRef<JsonObject | undefined>(undefined);
   // The text whose problems are shown; the check of a draft is skipped for it (an edit already answered them).
   const problemsFor = useRef<string | undefined>(undefined);
   const edits = useRef<Promise<void>>(Promise.resolve());
@@ -176,9 +179,21 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
   // Edits go one at a time, each on the text the one before returned; an answer for a draft that has changed since is
   // dropped (spec section 5).
   const applyEdits = useCallback(
-    (list: readonly WorkflowEdit[]) => {
+    (queued: QueuedEdit) => {
       edits.current = edits.current.then(async () => {
         const sent = textRef.current;
+        let list: readonly WorkflowEdit[];
+        if (typeof queued === 'function') {
+          if (valueRef.current === undefined) {
+            return;
+          }
+          list = queued(valueRef.current);
+          if (list.length === 0) {
+            return;
+          }
+        } else {
+          list = queued;
+        }
         setStatus((s) => (s === 'saving' ? s : 'checking'));
         try {
           const answer = await client.editWorkflow(sent, list);
@@ -188,11 +203,13 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
           setRevision((r) => r + 1);
           if (answer.kind === 'edited') {
             problemsFor.current = answer.text;
+            valueRef.current = answer.value;
             changeText(answer.text);
             setModel({ kind: 'value', text: answer.text, value: answer.value });
             setProblems(answer.problems);
             setEditRefusal(undefined);
           } else if (answer.kind === 'not_editable') {
+            valueRef.current = undefined;
             setModel({ kind: 'unreadable', text: sent, reason: answer.message });
           } else {
             setEditRefusal(answer.message);
@@ -259,12 +276,12 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
     };
   }, [client, workflowId, onFatal, changeText]);
 
-  // The form reads the draft whenever it is shown on a text it has not read: at the start, and after the source view.
+  // The form or graph reads the draft whenever it is shown on a text it has not read: at the start, and after the source view.
   useEffect(() => {
     if (loaded === undefined || info === undefined || info === 'none') {
       return;
     }
-    if ((view !== 'form' && chosen.current) || model?.text === text || reading.current === text) {
+    if ((view === 'source' && chosen.current) || model?.text === text || reading.current === text) {
       return;
     }
     reading.current = text;
@@ -405,7 +422,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
   };
 
   const goTo = (problem: WorkflowProblem): void => {
-    if (shown === 'form') {
+    if (shown !== 'source') {
       showSource(problem.line, problem.column);
       return;
     }
@@ -468,7 +485,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
             ? messages.editor.status.saved
             : messages.editor.status.savedWithProblems;
   const lines = lineCount(text);
-  const formArea = (): ReturnType<typeof h> => {
+  const structuredArea = (which: 'form' | 'graph'): ReturnType<typeof h> => {
     if (info === undefined || info === 'none' || model === undefined || model.text !== text) {
       return h('p', { role: 'status', className: 'muted' }, messages.form.reading);
     }
@@ -476,11 +493,17 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       return h(
         'section',
         { className: 'panel', role: 'alert' },
-        h('p', null, messages.form.unavailable(model.reason)),
+        h(
+          'p',
+          null,
+          which === 'graph'
+            ? messages.graph.unavailable(model.reason)
+            : messages.form.unavailable(model.reason),
+        ),
         h('button', { type: 'button', onClick: () => showSource(undefined) }, messages.form.viewSource),
       );
     }
-    return h(FormView, {
+    const common = {
       value: model.value,
       info,
       problems,
@@ -489,7 +512,8 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       onEdit: applyEdits,
       onShowSource: showPath,
       confirm,
-    });
+    };
+    return which === 'graph' ? h(GraphView, common) : h(FormView, common);
   };
 
   return h(
@@ -552,7 +576,7 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
       ? h(
           'div',
           { className: 'view-switch', role: 'group', 'aria-label': messages.form.viewLabel },
-          ...(['form', 'source'] as const).map((which) =>
+          ...(['form', 'graph', 'source'] as const).map((which) =>
             h(
               'button',
               {
@@ -562,19 +586,23 @@ export function SourceScreen(props: SourceScreenProps): ReactElement {
                 className: shown === which ? 'selected' : undefined,
                 onClick: () => setView(which),
               },
-              which === 'form' ? messages.form.viewForm : messages.form.viewSource,
+              which === 'form'
+                ? messages.form.viewForm
+                : which === 'graph'
+                  ? messages.form.viewGraph
+                  : messages.form.viewSource,
             ),
           ),
         )
       : null,
-    shown === 'form' ? formArea() : null,
-    shown === 'form'
+    shown === 'form' || shown === 'graph' ? structuredArea(shown) : null,
+    shown !== 'source'
       ? null
       : h('label', { htmlFor: 'source-text', className: 'source-label' }, messages.editor.textLabel),
-    shown === 'form'
+    shown !== 'source'
       ? null
       : h('p', { id: 'source-keys', className: 'muted small' }, messages.editor.keysHelp),
-    shown === 'form'
+    shown !== 'source'
       ? null
       : h(
           'div',

@@ -868,3 +868,277 @@ describe('the screen around the form (spec section 5)', () => {
     expect(client.edits).toEqual([]);
   });
 });
+
+describe('the graph editor (specs/web-app-editing-graph)', () => {
+  it('switches between Form, Graph and Source on one draft, re-reads Source into Graph, and jumps from a problem to Source (AC-01)', async () => {
+    const client = fake({
+      problems: () => [{ message: 'Bad command', path: '$.steps[0].commands', line: 5, column: 3 }],
+    });
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    expect(screen.getByRole('button', { name: 'Graph' }).getAttribute('aria-pressed')).toBe('true');
+    expect(await screen.findByRole('group', { name: 'Step build' })).toBeTruthy();
+
+    // Clicking a problem with a line number in Graph jumps to Source (AC-01).
+    fireEvent.click(screen.getByRole('button', { name: /Go to line 5/ }));
+    const area = (await screen.findByLabelText('The workflow file')) as HTMLTextAreaElement;
+
+    // Edit in Source, then switch straight back to Graph (AC-01).
+    const changed = TEXT.replace('"goal": "Write it."', '"goal": "Changed in source."');
+    fireEvent.change(area, { target: { value: changed } });
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    await waitFor(() => expect(client.edits[client.edits.length - 1]).toEqual({ text: changed, edits: [] }));
+    fireEvent.click(screen.getByRole('button', { name: /^write/ }));
+    expect((await field(/^Goal/)).value).toBe('Changed in source.');
+  });
+
+  it('says why the graph is not available when the file cannot be read as a document (AC-01)', async () => {
+    const client = fake({ text: 'steps: [' });
+    open(client);
+    await screen.findByLabelText('The workflow file');
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Source' }).getAttribute('aria-pressed')).toBe('true'),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      expect.stringContaining('The graph is not available: invalid YAML'),
+    );
+  });
+
+  it('adds step bricks and failure bricks by click/keyboard and by drag-and-drop (AC-05, AC-06)', async () => {
+    const client = fake({});
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    await screen.findByRole('group', { name: 'Step build' });
+
+    const palette = screen.getByRole('complementary', { name: 'Bricks' });
+    fireEvent.click(within(palette).getByRole('button', { name: /Agent step/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'addStep', step: { id: 'step-1', runner: 'acp' }, after: 'build' },
+      ]),
+    );
+    expect(await screen.findByRole('group', { name: 'Step step-1' })).toBeTruthy();
+
+    fireEvent.click(within(palette).getByRole('button', { name: /API step/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'addStep', step: { id: 'step-2', runner: 'acp' }, after: 'step-1' },
+      ]),
+    );
+
+    fireEvent.click(within(palette).getByRole('button', { name: /Shell step/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'addStep', step: { id: 'step-3', runner: 'shell' }, after: 'step-2' },
+      ]),
+    );
+
+    fireEvent.click(within(palette).getByRole('button', { name: /Debate/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        {
+          op: 'addStep',
+          step: { id: 'step-4', role: 'writer', decision_type: 'consensus' },
+          after: 'step-3',
+        },
+      ]),
+    );
+
+    // Apply failure bricks to the selected step (`step-4`).
+    fireEvent.click(within(palette).getByRole('button', { name: /Retry a step/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        {
+          op: 'set',
+          path: ['steps', 4, 'on_failure'],
+          value: { action: 'retry_step', target: 'step-4', max_retries: 3 },
+        },
+      ]),
+    );
+
+    fireEvent.click(within(palette).getByRole('button', { name: /Escalate/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'set', path: ['steps', 4, 'on_failure'], value: { action: 'escalate' } },
+      ]),
+    );
+
+    // Drag and drop a failure brick onto the `build` step card on the canvas.
+    const failBrick = within(palette).getByRole('button', { name: /^Fail/ });
+    const dataTransfer = {
+      data: new Map<string, string>(),
+      effectAllowed: 'none',
+      setData(type: string, val: string) {
+        this.data.set(type, val);
+      },
+      getData(type: string) {
+        return this.data.get(type) ?? '';
+      },
+    };
+    fireEvent.dragStart(failBrick, { dataTransfer });
+    const buildCard = document.querySelector('.step-card .name[title="build"]')?.closest('.step-card');
+    expect(buildCard).toBeTruthy();
+    fireEvent.dragOver(buildCard as Element, { dataTransfer });
+    fireEvent.drop(buildCard as Element, { dataTransfer });
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'set', path: ['steps', 0, 'on_failure'], value: { action: 'fail' } },
+      ]),
+    );
+  });
+
+  it('disconnects depends_on (including dangling ids) and clears on_failure, move/removes steps, and handles Delete on a focused node (AC-04, AC-08, AC-09)', async () => {
+    const client = fake({
+      text: textOf({
+        ...DOC,
+        steps: [
+          { id: 'build', runner: 'shell', commands: ['npm run build'] },
+          {
+            id: 'write',
+            role: 'writer',
+            goal: 'Write it.',
+            depends_on: ['build', 'ghost'],
+            on_failure: { action: 'retry_step', target: 'missing-step', max_retries: 2 },
+          },
+        ],
+      }),
+    });
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    const nav = await screen.findByRole('navigation', { name: 'Steps of this workflow' });
+    fireEvent.click(within(nav).getByRole('button', { name: /^write/ }));
+
+    // Dangling dependency and dangling retry target are shown and can be disconnected/cleared (AC-04, AC-08).
+    expect(await screen.findByText('Waits for ghost (no such step)')).toBeTruthy();
+    expect(screen.getByText('On failure: retry missing-step (no such step), up to 2')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect write from waiting for ghost' }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([{ op: 'set', path: ['steps', 1, 'depends_on'], value: ['build'] }]),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear on_failure of step write' }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([{ op: 'remove', path: ['steps', 1, 'on_failure'] }]),
+    );
+
+    // Move `write` up, then delete `build` with the Delete key on its canvas card (AC-09).
+    fireEvent.click(screen.getByRole('button', { name: 'Move up' }));
+    await waitFor(() => expect(lastEdit(client)).toEqual([{ op: 'moveStep', id: 'write' }]));
+
+    const buildCard = document.querySelector('.step-card .name[title="build"]')?.closest('.step-card');
+    expect(buildCard).toBeTruthy();
+    fireEvent.keyDown(buildCard as Element, { key: 'Delete' });
+    await waitFor(() => expect(lastEdit(client)).toEqual([{ op: 'removeStep', id: 'build' }]));
+    // Removing `build` leaves `write` with `build` as a visible dangling dependency (AC-04).
+    expect(await screen.findByText('Waits for build (no such step)')).toBeTruthy();
+  });
+
+  it('resolves queued edits against the latest value when two actions fire back-to-back (AC-10)', async () => {
+    const client = fake({
+      text: textOf({
+        ...DOC,
+        steps: [
+          { id: 'a', runner: 'shell', commands: ['echo a'] },
+          { id: 'b', runner: 'shell', commands: ['echo b'], depends_on: ['a'] },
+          { id: 'c', runner: 'shell', commands: ['echo c'], depends_on: ['a', 'b'] },
+        ],
+      }),
+    });
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    const nav = await screen.findByRole('navigation', { name: 'Steps of this workflow' });
+    fireEvent.click(within(nav).getByRole('button', { name: /^c/ }));
+    await screen.findByRole('group', { name: 'Step c' });
+
+    // Hold server responses and fire two disconnects on `c` back-to-back: the second must see the first's result and remove `depends_on`.
+    client.hold = true;
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect c from waiting for a' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Disconnect c from waiting for b' }));
+    await act(async () => client.release());
+    await act(async () => client.release());
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([{ op: 'remove', path: ['steps', 2, 'depends_on'] }]),
+    );
+  });
+
+  it('drops a brick onto an empty canvas, moves a step down, disables actions on a step without an id, and shows refusals', async () => {
+    const client = fake({
+      text: textOf({ version: '1.0', name: 'empty', steps: [] }),
+      refuse: (edit) => (edit.op === 'moveStep' ? 'cannot move' : undefined),
+    });
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    expect(
+      await screen.findByText('No steps yet. Choose a step brick on the left to add the first step.'),
+    ).toBeTruthy();
+
+    const emptyCanvas = screen.getByRole('group', { name: 'The steps of this workflow as a graph' });
+    const dataTransfer = {
+      data: new Map<string, string>([['text/plain', 'shell']]),
+      effectAllowed: 'copy',
+      setData(type: string, val: string) {
+        this.data.set(type, val);
+      },
+      getData(type: string) {
+        return this.data.get(type) ?? '';
+      },
+    };
+    fireEvent.dragOver(emptyCanvas, { dataTransfer });
+    fireEvent.drop(emptyCanvas, { dataTransfer });
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([{ op: 'addStep', step: { id: 'step-1', runner: 'shell' } }]),
+    );
+
+    const palette = screen.getByRole('complementary', { name: 'Bricks' });
+    fireEvent.click(within(palette).getByRole('button', { name: /Shell step/ }));
+    await waitFor(() =>
+      expect(lastEdit(client)).toEqual([
+        { op: 'addStep', step: { id: 'step-2', runner: 'shell' }, after: 'step-1' },
+      ]),
+    );
+
+    const nav = await screen.findByRole('navigation', { name: 'Steps of this workflow' });
+    fireEvent.click(within(nav).getByRole('button', { name: /^step-1/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Move down' }));
+    expect(await screen.findByRole('alert')).toHaveProperty(
+      'textContent',
+      'That change was not made: cannot move',
+    );
+  });
+
+  it('selects the second of two duplicate-id steps and disables move/remove/bricks on it (AC-04)', async () => {
+    const client = fake({
+      text: textOf({
+        ...DOC,
+        steps: [
+          { id: 'dup', runner: 'shell', commands: ['echo first'] },
+          {
+            id: 'dup',
+            runner: 'shell',
+            commands: ['echo second'],
+            on_failure: { action: 'retry_step', target: 'dup' },
+          },
+        ],
+      }),
+    });
+    open(client);
+    await field(/^Name/);
+    fireEvent.click(screen.getByRole('button', { name: 'Graph' }));
+    const nav = await screen.findByRole('navigation', { name: 'Steps of this workflow' });
+    const picks = within(nav).getAllByRole('button', { name: 'dup' });
+    expect(picks).toHaveLength(2);
+    fireEvent.click(picks[1] as HTMLElement);
+    expect(picks[1]?.getAttribute('aria-current')).toBe('step');
+    expect((await field(/^Commands/)).value).toBe('echo second');
+    expect(screen.getByText('Give this step a unique id to move or remove it here.')).toBeTruthy();
+    expect(screen.getByText('On failure: retry dup (no such step)')).toBeTruthy();
+  });
+});

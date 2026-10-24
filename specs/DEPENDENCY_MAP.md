@@ -93,6 +93,7 @@ gantt
     web-app-actions        :done, 2026-10-22, 1d
     web-app-editing-core   :done, 2026-10-22, 1d
     web-app-editing-forms  :done, 2026-10-23, 1d
+    web-app-editing-graph  :done, 2026-10-24, 1d
     web-app-registry       :active, 2026-10-24, 1d
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
@@ -133,11 +134,12 @@ gantt
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |
 | `logging` | Implemented, except the web Settings screen (T-12, `feat/web-app-logging`) | `@indaba/core` (contract, settings, redaction), `@indaba/engine` (file, GELF and HTTP-JSON sinks, `indaba.config`, the event bridge), `@indaba/runners` (process and HTTP records), `@indaba/tui` (the Settings screen), `indaba` (the composition root, `report`, `settings`). No dependency added |
-| `web-app` | In progress: delivery step 1 (the server, the page, Runs and Run, `indaba ui`) and the Settings screen are merged; step 2 has its first slice in `web-app-actions`; step 3 (editing) has 3a (`web-app-editing-core`) and 3b (`web-app-editing-forms`), planned in `plan-step-3.md` | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server`, `@indaba/web` (private), `indaba` (`ui`) |
+| `web-app` | In progress: delivery step 1 (the server, the page, Runs and Run, `indaba ui`) and the Settings screen are merged; step 2 has its first slice in `web-app-actions`; step 3 (editing) has 3a (`web-app-editing-core`), 3b (`web-app-editing-forms`) and 3c (`web-app-editing-graph`), planned in `plan-step-3.md` | `@indaba/core` (contract types, `RunState.structure`), `@indaba/engine` (`indaba.workflow.structure`), `@indaba/server`, `@indaba/web` (private), `indaba` (`ui`) |
 | `web-app-actions` | Implemented (merged, #59), except the real-browser check at 320 px (see its `review.md`) | `@indaba/core` (contract types, `canStop`), `@indaba/server` (`RunControl`, three resources, `Origin` required on writes), `@indaba/web` (Run a workflow panel, Stop), `indaba` (`run-control/`, `kill()` of the run child). No dependency added |
 | `web-app-editing-core` | Implemented (merged, #60), except the real-browser check (see its `review.md`) | `@indaba/core` (source types), `@indaba/server` (`WorkflowStore`, three resources), `@indaba/web` (the source view), `indaba` (`run-control/source.ts`). No dependency added |
 | `web-app-registry` | Implemented on `feat/web-app-registry-screens`, except the real-browser check (see its `review.md`) | `@indaba/core` (registry view types), `@indaba/engine` (`isWorkflowFileName`), `@indaba/server` (`RegistryControl`, seven resources), `@indaba/web` (the Workflows screen and its dialogs), `indaba` (`run-control/registry.ts`, `roots.ts`; `indaba ui` covers the per-user folders). No dependency added |
 | `web-app-editing-forms` | Implemented on `feat/web-app-editing-forms`, except the real-browser check (see its `review.md`) | `@indaba/core` (edit and editor types, `WorkflowProblem.path`), `@indaba/server` (`WorkflowEditor`, two resources), `@indaba/web` (the form), `indaba` (`run-control/editor.ts`, `problems.ts`). No dependency added |
+| `web-app-editing-graph` | Implemented on `feat/web-app-editing-graph`, except the real-browser check (see its `review.md`) | `@indaba/web` (`buildWorkflowGraph`, brick and connection edit helpers, edit mode on `RunGraph`, `GraphView`, **Graph** in `SourceScreen`). No dependency added |
 | `workflow-registry` | Implemented: slice 1 (#69, contract, file store, `indaba workflows`) and slice 2 (`feat/workflow-registry-ui`, `indaba ui` and the page) | `@indaba/core` (contract, `PluginHost.registerRegistry`), `@indaba/engine` (`FileWorkflowRegistry`, the walk of workflow files), `indaba` (`workflows`). No dependency added |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
