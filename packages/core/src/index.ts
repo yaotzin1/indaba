@@ -14,6 +14,8 @@ export type { McpCapable } from './extension/mcp.js';
 export { isMcpCapable, McpCapability, mcpCapabilityOf } from './extension/mcp.js';
 export type {
   BoundResult,
+  CatalogPermission,
+  CatalogPermissions,
   ChainEntry,
   EffectiveLevel,
   EnforcementDescription,
@@ -29,8 +31,10 @@ export {
   isPermissionCapable,
   lowerLevel,
   MAX_DENIAL_WINDOW,
+  NOT_OFFERED_NOTE,
   PERMISSION_ORDER,
   permissionCapabilitiesOf,
+  permissionMapOf,
   resolvePermissions,
   unsupportedBy,
 } from './extension/permissions.js';
@@ -123,6 +127,8 @@ export type {
   ApiError,
   AttemptView,
   CatalogEntry,
+  CatalogPermissionsView,
+  CatalogPermissionView,
   CheckWorkflowRequest,
   ConfirmationRequired,
   ContractResponse,
@@ -133,6 +139,8 @@ export type {
   EditorCatalog,
   EditorResponse,
   EditWorkflowRequest,
+  FullAccessRequired,
+  FullAccessStep,
   JsonObject,
   JsonValue,
   RunCost,

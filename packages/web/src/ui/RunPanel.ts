@@ -1,4 +1,4 @@
-import type { RunSummaryOfUse, WorkflowListResponse, WorkflowSummary } from '@indaba/core';
+import type { FullAccessStep, RunSummaryOfUse, WorkflowListResponse, WorkflowSummary } from '@indaba/core';
 import {
   createElement as h,
   type KeyboardEvent,
@@ -46,6 +46,12 @@ type View =
       readonly contentHash: string;
       readonly use: RunSummaryOfUse;
     }
+  | {
+      readonly name: 'full_access';
+      readonly workflow: WorkflowSummary;
+      readonly contentHash: string;
+      readonly steps: readonly FullAccessStep[];
+    }
   | { readonly name: 'starting'; readonly workflow: WorkflowSummary; readonly startId: string }
   | { readonly name: 'failed'; readonly workflow: WorkflowSummary; readonly reason: string }
   | {
@@ -59,6 +65,31 @@ const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), [tabin
 
 function refusalOf(code: string): { readonly message: string; readonly next: string } {
   return messages.actions.refusals[code] ?? messages.actions.refusals.other ?? { message: '', next: '' };
+}
+
+/** The steps whose agent has full access, in the plain words of AC-04; nothing when there are none. */
+function fullAccessSection(steps: readonly FullAccessStep[]): ReactElement | null {
+  if (steps.length === 0) {
+    return null;
+  }
+  return h(
+    'section',
+    { className: 'use warn', role: 'alert' },
+    h('h4', null, messages.actions.fullHeading),
+    h('p', null, messages.actions.fullLead),
+    h(
+      'ul',
+      null,
+      ...steps.map((step, i) =>
+        h(
+          'li',
+          { key: i },
+          h('code', null, messages.actions.fullStep(step.stepId, step.runners)),
+          `: ${messages.actions.fullSentence}`,
+        ),
+      ),
+    ),
+  );
 }
 
 function List(props: {
@@ -267,12 +298,16 @@ export function RunPanel(props: RunPanelProps): ReactElement {
     };
   }, [view, client, pollMs, onOpenRun, fail]);
 
-  const start = (workflow: WorkflowSummary, confirmedHash?: string): void => {
+  const start = (
+    workflow: WorkflowSummary,
+    confirmedHash?: string,
+    fullAccessConfirmedHash?: string,
+  ): void => {
     if (busy) {
       return;
     }
     setBusy(true);
-    client.startRun(workflow.id, confirmedHash).then(
+    client.startRun(workflow.id, confirmedHash, fullAccessConfirmedHash).then(
       (answer) => {
         if (!mounted.current) {
           return;
@@ -280,6 +315,10 @@ export function RunPanel(props: RunPanelProps): ReactElement {
         setBusy(false);
         if (answer.kind === 'confirm') {
           setView({ name: 'confirm', workflow, contentHash: answer.contentHash, use: answer.use });
+          return;
+        }
+        if (answer.kind === 'full_access') {
+          setView({ name: 'full_access', workflow, contentHash: answer.contentHash, steps: answer.steps });
           return;
         }
         if (answer.kind === 'refused') {
@@ -369,6 +408,7 @@ export function RunPanel(props: RunPanelProps): ReactElement {
             ),
             h('p', null, messages.actions.needsPersonNote),
           ),
+      fullAccessSection(use.fullAccessSteps),
       h('p', { className: 'note' }, messages.actions.limit),
       h(
         'div',
@@ -379,9 +419,34 @@ export function RunPanel(props: RunPanelProps): ReactElement {
             type: 'button',
             className: 'primary',
             disabled: busy,
-            onClick: () => start(workflow, contentHash),
+            // What was listed above, full access included, is what the person confirms (AC-05).
+            onClick: () =>
+              start(workflow, contentHash, use.fullAccessSteps.length > 0 ? contentHash : undefined),
           },
           messages.actions.confirmRun,
+        ),
+        h('button', { type: 'button', onClick: backToList, disabled: busy }, messages.actions.back),
+      ),
+    );
+  } else if (view.name === 'full_access') {
+    const { workflow, steps, contentHash } = view;
+    body = h(
+      'div',
+      null,
+      h('h3', { tabIndex: -1, 'data-autofocus': 'full_access' }, messages.actions.fullTitle(workflow.name)),
+      fullAccessSection(steps),
+      h(
+        'div',
+        { className: 'dialog-actions' },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'primary',
+            disabled: busy,
+            onClick: () => start(workflow, undefined, contentHash),
+          },
+          messages.actions.fullRun,
         ),
         h('button', { type: 'button', onClick: backToList, disabled: busy }, messages.actions.back),
       ),

@@ -16,6 +16,7 @@ import {
   CursorRunner,
   OpenCodeRunner,
   OpenRouterRunner,
+  RunnerRegistry,
   ShellRunner,
 } from '../src/index.js';
 import { FakeSpawner, TMP } from './support.js';
@@ -225,5 +226,34 @@ describe('extraArgs can never widen a written level (AC-07)', () => {
     const opencode = (spawner: FakeSpawner) =>
       new OpenCodeRunner({ spawner, usePty: false, extraArgs: ['--auto'] });
     expect(await commandOf(opencode)).toEqual(['opencode', 'run', '--auto', 'p']);
+  });
+});
+
+describe('RunnerRegistry.describe: the permission map the catalog carries (AC-16)', () => {
+  const registry = RunnerRegistry.withDefaults({});
+  const entries = registry.describe();
+  const of = (name: string) => entries.find((entry) => entry.name === name)?.permissions;
+
+  it('gives every runner all three levels', () => {
+    expect(entries.length).toBeGreaterThan(0);
+    for (const entry of entries) {
+      expect(Object.keys(entry.permissions).sort()).toEqual(['edit', 'full', 'read']);
+    }
+  });
+
+  it('says what each runner can do, from the runner itself and not from a table in a front end', () => {
+    expect(of('claude-code')?.read.mode).toBe('native');
+    expect(of('opencode')?.read.mode).toBe('unsupported');
+    expect(of('opencode')?.edit).toMatchObject({ mode: 'after', note: 'commands_not_limited' });
+    expect(of('acp')?.read.mode).toBe('acp');
+  });
+
+  it('gives a runner that does not implement the contract no level', () => {
+    const plain = new RunnerRegistry().register({
+      name: 'plain',
+      description: 'No contract.',
+      run: () => Promise.reject(new Error('not run')),
+    });
+    expect(plain.describe()[0]?.permissions.edit.mode).toBe('unsupported');
   });
 });

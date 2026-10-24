@@ -419,6 +419,7 @@ describe('the client: Run and Stop (T-15)', () => {
     commands: ['build: npm test'],
     permissions: ['build: x'],
     needsPerson: [],
+    fullAccessSteps: [],
   };
   const WORKFLOW = {
     id: 'w1',
@@ -470,6 +471,75 @@ describe('the client: Run and Stop (T-15)', () => {
       url: '/api/v1/runs',
       headers: { Authorization: `Bearer ${TOKEN}`, 'Content-Type': 'application/json' },
     });
+  });
+
+  it('sends the hash of the full-access confirmation, and reads the 409 that asks for it (AC-05)', async () => {
+    const bodies: string[] = [];
+    const steps = [{ stepId: 'build', runners: ['claude-code', 'codex'] }];
+    const replies = fakeFetch([
+      json({ code: 'full_access_required', message: 'm', contentHash: 'h'.repeat(64), steps }, 409),
+      json(
+        { code: 'full_access_required', message: 'm', contentHash: 'h'.repeat(64), steps: [{ stepId: 3 }] },
+        409,
+      ),
+      json({ startId: 'web-2' }, 202),
+      json({ startId: 'web-3' }, 202),
+    ]);
+    const fetching = replies.fetch;
+    const client = createClient({
+      token: TOKEN,
+      fetch: (async (input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(String(init?.body));
+        return fetching(input, init);
+      }) as typeof fetch,
+    });
+    expect(await client.startRun('w1')).toEqual({
+      kind: 'full_access',
+      contentHash: 'h'.repeat(64),
+      steps,
+    });
+    expect(await client.startRun('w1')).toEqual({
+      kind: 'refused',
+      code: 'full_access_required',
+      problems: [],
+    });
+    expect(await client.startRun('w1', undefined, 'h'.repeat(64))).toEqual({
+      kind: 'started',
+      startId: 'web-2',
+    });
+    expect(await client.startRun('w1', 'a'.repeat(64), 'b'.repeat(64))).toEqual({
+      kind: 'started',
+      startId: 'web-3',
+    });
+    expect(JSON.parse(bodies[0] ?? '')).toEqual({ workflowId: 'w1' });
+    expect(JSON.parse(bodies[2] ?? '')).toEqual({
+      workflowId: 'w1',
+      fullAccessConfirmedHash: 'h'.repeat(64),
+    });
+    expect(JSON.parse(bodies[3] ?? '')).toEqual({
+      workflowId: 'w1',
+      confirmedHash: 'a'.repeat(64),
+      fullAccessConfirmedHash: 'b'.repeat(64),
+    });
+  });
+
+  it('reads a summary from a server that sends no list of full-access steps as having none', async () => {
+    const { fullAccessSteps: _omitted, ...older } = USE;
+    const replies = fakeFetch([
+      json({ code: 'confirmation_required', message: 'm', contentHash: 'h'.repeat(64), use: older }, 409),
+      json(
+        {
+          code: 'confirmation_required',
+          message: 'm',
+          contentHash: 'h'.repeat(64),
+          use: { ...USE, fullAccessSteps: 'x' },
+        },
+        409,
+      ),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    expect(await client.startRun('w1')).toEqual({ kind: 'confirm', contentHash: 'h'.repeat(64), use: USE });
+    expect(await client.startRun('w1')).toMatchObject({ kind: 'refused' });
   });
 
   it('treats a missing token as fatal and a dead server as unreachable, on every write', async () => {
@@ -650,6 +720,34 @@ describe('the form’s calls (specs/web-app-editing-forms, T-08)', () => {
       });
     }
     expect(await failureOf(client.editor())).toEqual({ kind: 'unauthorized' });
+  });
+
+  it('keeps the permission map of a runner when it is whole, and drops one it cannot read (AC-16)', async () => {
+    const level = { mode: 'native', scope: 'guard', note: 'plan_mode' };
+    const whole = { read: level, edit: level, full: { mode: 'native', scope: 'none', note: 'x' } };
+    const runners = [
+      { name: 'good', description: 'g', permissions: whole },
+      { name: 'part', description: 'p', permissions: { read: level } },
+      { name: 'word', description: 'w', permissions: { ...whole, edit: { ...level, mode: 'sudo' } } },
+      {
+        name: 'note',
+        description: 'n',
+        permissions: { ...whole, full: { mode: 'none', scope: 'none', note: 7 } },
+      },
+      { name: 'text', description: 't', permissions: 'all' },
+      { name: 'bare', description: 'b' },
+    ];
+    const replies = fakeFetch([json({ schema: SCHEMA, catalog: { ...CATALOG, runners } })]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    const info = await client.editor();
+    expect(info?.catalog.runners).toEqual([
+      { name: 'good', description: 'g', permissions: whole },
+      { name: 'part', description: 'p' },
+      { name: 'word', description: 'w' },
+      { name: 'note', description: 'n' },
+      { name: 'text', description: 't' },
+      { name: 'bare', description: 'b' },
+    ]);
   });
 
   it('edits a draft, and reads a text the form cannot read and a refused edit as answers', async () => {

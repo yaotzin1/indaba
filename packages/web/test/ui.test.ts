@@ -55,7 +55,11 @@ function fakeClient(options: {
   readonly discussion?: DiscussionView | 'none' | 'fail';
   readonly canStop?: boolean;
   readonly workflows?: WorkflowListResponse;
-  readonly startRun?: (workflowId: string, confirmedHash: string | undefined) => StartAnswer | undefined;
+  readonly startRun?: (
+    workflowId: string,
+    confirmedHash: string | undefined,
+    fullAccessConfirmedHash: string | undefined,
+  ) => StartAnswer | undefined;
   readonly startStatus?: (call: number) => StartStatusResponse;
   readonly stopRun?: StopAnswer;
   readonly source?: WorkflowSourceResponse | Failure;
@@ -88,9 +92,18 @@ function fakeClient(options: {
     async workflows() {
       return options.workflows;
     },
-    async startRun(workflowId, confirmedHash) {
-      client.starts.push(confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash });
-      return options.startRun?.(workflowId, confirmedHash) ?? { kind: 'started', startId: 'web-1' };
+    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash) {
+      client.starts.push({
+        workflowId,
+        ...(confirmedHash === undefined ? {} : { confirmedHash }),
+        ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
+      });
+      return (
+        options.startRun?.(workflowId, confirmedHash, fullAccessConfirmedHash) ?? {
+          kind: 'started',
+          startId: 'web-1',
+        }
+      );
     },
     async startStatus(startId) {
       client.statuses.push(startId);
@@ -843,6 +856,7 @@ describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
     commands: ['build: npm test', 'role coder: my-agent --serve'],
     permissions: ['build: runner default (unrestricted)'],
     needsPerson: ['argue'],
+    fullAccessSteps: [],
   };
   const HASH = 'f'.repeat(64);
 
@@ -972,6 +986,48 @@ describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
     expect(screen.queryByRole('dialog')).toBeNull();
     expect(client.starts).toEqual([{ workflowId: 'w1' }, { workflowId: 'w1', confirmedHash: HASH }]);
     expect(client.statuses.length).toBe(3);
+  });
+
+  it('lists the steps with full access every time, and sends the hash only after they were shown (AC-05)', async () => {
+    const steps = [{ stepId: 'build', runners: ['claude-code', 'codex'] }];
+    const client = runnable({
+      // A file confirmed before: only the full-access list stands between the press and the run.
+      startRun: (_id, _hash, fullHash) =>
+        fullHash === undefined ? { kind: 'full_access', contentHash: HASH, steps } : undefined,
+    });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    await within(dialog).findByRole('heading', { name: 'demo has steps with full access' });
+    expect(within(dialog).getByText('build (claude-code, codex)').tagName).toBe('CODE');
+    expect(within(dialog).getByRole('alert').textContent).toContain(
+      "this step's agent can change anything and run anything and nobody approves it",
+    );
+    expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run it with full access' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+    expect(client.starts).toEqual([
+      { workflowId: 'w1' },
+      { workflowId: 'w1', fullAccessConfirmedHash: HASH },
+    ]);
+  });
+
+  it('shows the full-access steps in the first-run confirmation and confirms both in one press (AC-05)', async () => {
+    const use = { ...USE, fullAccessSteps: [{ stepId: 'build', runners: ['codex'] }] };
+    const client = runnable({
+      startRun: (_id, hash) => (hash === undefined ? { kind: 'confirm', contentHash: HASH, use } : undefined),
+    });
+    const { dialog } = await openPanel(client);
+    fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+    await within(dialog).findByRole('heading', { name: 'Before demo runs for the first time' });
+    expect(within(dialog).getByText('build (codex)')).toBeTruthy();
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Run it' }));
+    await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+    expect(client.starts.at(-1)).toEqual({
+      workflowId: 'w1',
+      confirmedHash: HASH,
+      fullAccessConfirmedHash: HASH,
+    });
   });
 
   it('sends one start for a double click (AC-07)', async () => {
@@ -1226,7 +1282,13 @@ describe('the source view (T-10, T-11, AC-09 to AC-13)', () => {
           ? {
               kind: 'confirm',
               contentHash: HASH,
-              use: { runners: ['shell'], commands: [], permissions: [], needsPerson: [] },
+              use: {
+                runners: ['shell'],
+                commands: [],
+                permissions: [],
+                needsPerson: [],
+                fullAccessSteps: [],
+              },
             }
           : undefined,
     });

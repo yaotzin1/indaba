@@ -1,5 +1,5 @@
-import type { Described, Logger, Runner } from '@indaba/core';
-import { RunnerUnavailableError } from '@indaba/core';
+import type { CatalogPermissions, Described, Logger, Runner } from '@indaba/core';
+import { permissionMapOf, RunnerUnavailableError } from '@indaba/core';
 import { AcpRunner, type AuthChooser } from './acp-runner.js';
 import { AntigravityRunner } from './antigravity-runner.js';
 import { ClaudeRunner } from './claude-runner.js';
@@ -63,11 +63,15 @@ export class RunnerRegistry {
     return [...this.runners.keys()];
   }
 
-  /** Each runner's name with its description, `""` when it has none, in the order they were registered. */
-  describe(): Described[] {
+  /**
+   * Each runner's name with its description, `""` when it has none, in the order they were registered, and what each
+   * permission level means for it (specs/agent-permissions, AC-16). A runner that declares none supports no level.
+   */
+  describe(): (Described & { readonly permissions: CatalogPermissions })[] {
     return [...this.runners.values()].map((runner) => ({
       name: runner.name,
       description: runner.description ?? '',
+      permissions: permissionMapOf(runner),
     }));
   }
 

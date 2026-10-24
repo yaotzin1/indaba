@@ -57,7 +57,7 @@ export function workflowJsonSchema(): Readonly<Record<string, unknown>>;   // dr
 
 export interface Catalog {
   readonly catalog: 1;
-  readonly runners: readonly Described[];
+  readonly runners: readonly (Described & { readonly permissions?: CatalogPermissions })[];   // agent-permissions C-11: optional, so `catalog` stays 1
   readonly guards: readonly Described[];
   readonly arbiters: readonly Described[];
   readonly voters: readonly Described[];                    // empty until specs/voter-arbiter

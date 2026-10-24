@@ -16,7 +16,7 @@ export interface RunControl {
   /**
    * Starts the workflow `workflowId` names. Resolves with the start id, or rejects with a {@link RunControlError} whose
    * `code` is `workflow_not_found`, `workflow_invalid` (detail: problems), `confirmation_required` (detail: contentHash,
-   * use), `too_many_runs`, `not_saved` or `start_failed`.
+   * use), `full_access_required` (detail: contentHash, steps), `too_many_runs`, `not_saved` or `start_failed`.
    */
   start(request: StartRunRequest): Promise<StartRunResponse>;
   /** `undefined` for an id this control never issued. */

@@ -1,6 +1,8 @@
 export type {
   ApiError,
   CatalogEntry,
+  CatalogPermissionsView,
+  CatalogPermissionView,
   CheckWorkflowRequest,
   ConfirmationRequired,
   ContractResponse,
@@ -11,6 +13,8 @@ export type {
   EditorCatalog,
   EditorResponse,
   EditWorkflowRequest,
+  FullAccessRequired,
+  FullAccessStep,
   JsonObject,
   JsonValue,
   RunListResponse,

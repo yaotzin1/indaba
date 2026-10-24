@@ -48,3 +48,12 @@ level whose argument cannot be confirmed is `unsupported`.
 - The meaning of `claude --permission-mode plan` and `agy --mode plan` as read-only was not tested.
 - `ask` is deferred (C-05); AC-06 depends on `agent-conversation` and `review-gate` being implemented.
 - A debate's participants keep today's behaviour (AC-19) until the release that removes the defaults.
+
+## The page and the editor (T-14)
+
+- **Where the capability data comes from.** `RunnerRegistry.describe()` reads each runner through `permissionMapOf` (core), `catalogOf` keeps the map and rebuilds it from known words only (a plugin's mode, scope
+  or note is not trusted), and the page reads it from the catalog. A test in `packages/web/test/layers.test.ts` fails if a TypeScript file of the page names a built-in runner (AC-16).
+- **`full` is asked every time.** `POST /runs` refuses with `409 full_access_required` when the file has a step at `full` and `fullAccessConfirmedHash` is not the file's hash, also for a file confirmed before; only
+  a matching hash starts the child with `--allow-full-access=page`. The hash is validated as a hash and nothing else of the body reaches the child's arguments (AC-05).
+- **Older peers.** A server that sends no `fullAccessSteps` reads as no step at `full` on the page, and a catalog without a map makes the form refuse nothing. Both are stated in `client.ts`.
+- **Not done in this slice:** the real-browser check of the new dialog and the form (no browser was driven; the tests run under happy-dom), and the `getting-started.md` runner table.

@@ -1,9 +1,11 @@
 import type {
   ApiError,
+  CatalogPermissionsView,
   ContractResponse,
   DiscussionView,
   EditorCatalog,
   EditorResponse,
+  FullAccessStep,
   JsonObject,
   JsonValue,
   LoggingSettingsResponse,
@@ -82,6 +84,7 @@ export interface RunView {
 export type StartAnswer =
   | { readonly kind: 'started'; readonly startId: string }
   | { readonly kind: 'confirm'; readonly contentHash: string; readonly use: RunSummaryOfUse }
+  | { readonly kind: 'full_access'; readonly contentHash: string; readonly steps: readonly FullAccessStep[] }
   | { readonly kind: 'refused'; readonly code: string; readonly problems: readonly string[] };
 
 /** What saving a workflow's text gave: saved, a conflict with the version on disk, or a refusal by its code. */
@@ -113,8 +116,15 @@ export interface Client {
   run(id: string): Promise<RunView>;
   /** The workflows the server can start, or undefined when it does not start runs (specs/web-app-actions). */
   workflows(): Promise<WorkflowListResponse | undefined>;
-  /** Asks to start a workflow by its id; with the hash of a confirmation the person gave, confirms that content. */
-  startRun(workflowId: string, confirmedHash?: string): Promise<StartAnswer>;
+  /**
+   * Asks to start a workflow by its id; with the hash of a confirmation the person gave, confirms that content. The
+   * second hash says the person saw the steps with full access listed for that content (specs/agent-permissions, AC-05).
+   */
+  startRun(
+    workflowId: string,
+    confirmedHash?: string,
+    fullAccessConfirmedHash?: string,
+  ): Promise<StartAnswer>;
   /** Where a start is: starting, running with its trace id, or failed with its reason. */
   startStatus(startId: string): Promise<StartStatusResponse>;
   /** Asks a run this server started to stop, as Ctrl+C would. */
@@ -261,14 +271,33 @@ function isWorkflowSummary(value: unknown): value is WorkflowSummary {
   );
 }
 
-function isSummaryOfUse(value: unknown): value is RunSummaryOfUse {
-  return (
-    isRecord(value) &&
-    isStrings(value.runners) &&
-    isStrings(value.commands) &&
-    isStrings(value.permissions) &&
-    isStrings(value.needsPerson)
-  );
+function isFullAccessStep(value: unknown): value is FullAccessStep {
+  return isRecord(value) && typeof value.stepId === 'string' && isStrings(value.runners);
+}
+
+function isFullAccessSteps(value: unknown): value is readonly FullAccessStep[] {
+  return Array.isArray(value) && value.every(isFullAccessStep);
+}
+
+/** A server older than the list of full-access steps sends none: that reads as no step at full access. */
+function summaryOfUse(value: unknown): RunSummaryOfUse | undefined {
+  if (
+    !isRecord(value) ||
+    !isStrings(value.runners) ||
+    !isStrings(value.commands) ||
+    !isStrings(value.permissions) ||
+    !isStrings(value.needsPerson) ||
+    (value.fullAccessSteps !== undefined && !isFullAccessSteps(value.fullAccessSteps))
+  ) {
+    return undefined;
+  }
+  return {
+    runners: value.runners,
+    commands: value.commands,
+    permissions: value.permissions,
+    needsPerson: value.needsPerson,
+    fullAccessSteps: value.fullAccessSteps ?? [],
+  };
 }
 
 function isProblem(value: unknown): value is WorkflowProblem {
@@ -308,6 +337,47 @@ function isCatalog(value: unknown): value is EditorCatalog {
   const values = ['decisionTypes', 'isolation', 'failureActions', 'mcpPolicies', 'promptAdditions'];
   const of = value.values;
   return lists.every((key) => isEntries(value[key])) && values.every((key) => isStrings(of[key]));
+}
+
+const MODES: readonly unknown[] = ['native', 'acp', 'after', 'none', 'unsupported'];
+const SCOPES: readonly unknown[] = ['acp', 'guard', 'none'];
+
+function isPermissionView(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    MODES.includes(value.mode) &&
+    SCOPES.includes(value.scope) &&
+    typeof value.note === 'string'
+  );
+}
+
+/**
+ * What the catalog says of the levels of a runner (specs/agent-permissions, AC-16), or nothing when it is not all three
+ * levels in the shape of the contract: the form then refuses nothing, rather than act on a map it cannot read.
+ */
+function permissionsOf(value: unknown): CatalogPermissionsView | undefined {
+  if (
+    !isRecord(value) ||
+    !isPermissionView(value.read) ||
+    !isPermissionView(value.edit) ||
+    !isPermissionView(value.full)
+  ) {
+    return undefined;
+  }
+  return value as unknown as CatalogPermissionsView;
+}
+
+/** The catalog as the page uses it: each runner keeps its permission map only when the map can be read. */
+function readCatalog(value: EditorCatalog): EditorCatalog {
+  return {
+    ...value,
+    runners: value.runners.map((entry) => {
+      const permissions = permissionsOf((entry as { permissions?: unknown }).permissions);
+      return permissions === undefined
+        ? { name: entry.name, description: entry.description }
+        : { name: entry.name, description: entry.description, permissions };
+    }),
+  };
 }
 
 const problemsIn = (value: unknown): readonly WorkflowProblem[] =>
@@ -570,22 +640,32 @@ export function createClient(options: ClientOptions): Client {
       };
     },
 
-    async startRun(workflowId, confirmedHash) {
-      const answer = await post(
-        '/runs',
-        confirmedHash === undefined ? { workflowId } : { workflowId, confirmedHash },
-      );
+    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash) {
+      const answer = await post('/runs', {
+        workflowId,
+        ...(confirmedHash === undefined ? {} : { confirmedHash }),
+        ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
+      });
       const body = answer.body;
       if (answer.status === 202 && isRecord(body) && typeof body.startId === 'string') {
         return { kind: 'started', startId: body.startId };
       }
+      const use = isRecord(body) ? summaryOfUse(body.use) : undefined;
       if (
         isRecord(body) &&
         body.code === 'confirmation_required' &&
         typeof body.contentHash === 'string' &&
-        isSummaryOfUse(body.use)
+        use !== undefined
       ) {
-        return { kind: 'confirm', contentHash: body.contentHash, use: body.use };
+        return { kind: 'confirm', contentHash: body.contentHash, use };
+      }
+      if (
+        isRecord(body) &&
+        body.code === 'full_access_required' &&
+        typeof body.contentHash === 'string' &&
+        isFullAccessSteps(body.steps)
+      ) {
+        return { kind: 'full_access', contentHash: body.contentHash, steps: body.steps };
       }
       return { kind: 'refused', code: isApiError(body) ? body.code : 'other', problems: problemsOf(body) };
     },
@@ -650,7 +730,7 @@ export function createClient(options: ClientOptions): Client {
       if (!isRecord(body) || !isJsonObject(body.schema) || !isCatalog(body.catalog)) {
         throw new ApiFailure({ kind: 'server', message: 'The server sent a form this page cannot read.' });
       }
-      return { schema: body.schema, catalog: body.catalog };
+      return { schema: body.schema, catalog: readCatalog(body.catalog) };
     },
 
     async editWorkflow(text, edits) {

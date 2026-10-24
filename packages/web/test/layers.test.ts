@@ -105,3 +105,27 @@ describe('web layering (AC-01)', () => {
     expect(manifest).not.toHaveProperty('peerDependencies');
   });
 });
+
+describe('the page knows no runner by name (specs/agent-permissions, AC-16)', () => {
+  it('names none of the built-in runners in a TypeScript file: what each can do comes from the catalog', () => {
+    // Built from fragments, so this file is not itself a hit.
+    const names = [
+      'claude' + '-code',
+      'code' + 'x',
+      'anti' + 'gravity',
+      'open' + 'code',
+      'cur' + 'sor',
+      'open' + 'router',
+    ];
+    const hits = sourceFiles(srcOf('web')).flatMap((file) => {
+      if (!file.endsWith('.ts')) {
+        return [];
+      }
+      const text = readFileSync(file, 'utf8');
+      return names
+        .filter((name) => text.includes(name))
+        .map((name) => `${relative(srcOf('web'), file)}: ${name}`);
+    });
+    expect(hits).toEqual([]);
+  });
+});

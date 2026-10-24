@@ -56,3 +56,50 @@ describe('describe() on the registries', () => {
     ]);
   });
 });
+
+describe('catalogOf: the permission map of a runner (specs/agent-permissions, AC-16, C-11)', () => {
+  const entry = (permissions: unknown) =>
+    list([{ name: 'r', description: 'A runner.', permissions } as never]) as never;
+  const sources = (runners: never) => ({
+    runners,
+    guards: list([]),
+    adjudicators: list([]),
+  });
+
+  it('keeps the map, and an entry without one stays as it was', () => {
+    const permissions = {
+      read: { mode: 'native', scope: 'guard', note: 'cli_confines_workspace_only' },
+      edit: { mode: 'after', scope: 'guard', note: 'commands_not_limited' },
+      full: { mode: 'none', scope: 'none', note: 'unlimited' },
+    };
+    expect(catalogOf(sources(entry(permissions))).runners).toEqual([
+      { name: 'r', description: 'A runner.', permissions },
+    ]);
+    expect(catalogOf(sources(list([{ name: 'bare', description: '' }]) as never)).runners).toEqual([
+      { name: 'bare', description: '' },
+    ]);
+  });
+
+  it('rebuilds what a plugin sent: unknown words become unsupported, a note is one clean token', () => {
+    const esc = String.fromCharCode(27);
+    const catalog = catalogOf(
+      sources(
+        entry({
+          read: { mode: 'sudo', scope: 'guard', note: 'x' },
+          edit: { mode: 'native', scope: 'guard', note: `Bad Note!${esc}[2J<b>` },
+          // `full` missing altogether
+        }),
+      ),
+    );
+    const permissions = catalog.runners[0]?.permissions;
+    expect(permissions?.read).toEqual({ mode: 'unsupported', scope: 'none', note: 'not_offered' });
+    expect(permissions?.edit).toEqual({ mode: 'native', scope: 'guard', note: 'adoteb' });
+    expect(permissions?.full).toEqual({ mode: 'unsupported', scope: 'none', note: 'not_offered' });
+  });
+
+  it('cuts a very long note', () => {
+    const long = { mode: 'native', scope: 'guard', note: 'a'.repeat(500) };
+    const catalog = catalogOf(sources(entry({ read: long, edit: long, full: long })));
+    expect(catalog.runners[0]?.permissions?.read.note.length).toBe(64);
+  });
+});

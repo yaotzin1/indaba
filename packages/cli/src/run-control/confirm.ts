@@ -2,12 +2,14 @@ import { createHash } from 'node:crypto';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import {
+  type FullAccessStep,
+  PermissionLevel,
   type RunSummaryOfUse,
   SHELL_RUNNER,
   type StepDefinition,
   type WorkflowDefinition,
 } from '@indaba/core';
-import { sanitize } from '@indaba/engine';
+import { isAgentStep, planForStep, sanitize } from '@indaba/engine';
 
 /** How many confirmed versions of one workflow are kept; the oldest goes first. */
 export const MAX_HASHES_PER_WORKFLOW = 10;
@@ -58,6 +60,7 @@ export function summaryOfUse(workflow: WorkflowDefinition): RunSummaryOfUse {
   const commands: string[] = [];
   const permissions: string[] = [];
   const needsPerson: string[] = [];
+  const fullAccessSteps: FullAccessStep[] = [];
   const seen = new Set<string>();
   const runner = (name: string): void => {
     if (!seen.has(name)) {
@@ -100,6 +103,12 @@ export function summaryOfUse(workflow: WorkflowDefinition): RunSummaryOfUse {
               `terminal ${declared.terminal}`,
       ),
     );
+    if (isAgentStep(step, workflow) && declared?.level === PermissionLevel.Full) {
+      fullAccessSteps.push({
+        stepId: item(step.id),
+        runners: planForStep(step, workflow).names.map(item),
+      });
+    }
     if (step.arbiter === 'human') {
       needsPerson.push(item(step.id));
     }
@@ -114,6 +123,7 @@ export function summaryOfUse(workflow: WorkflowDefinition): RunSummaryOfUse {
     commands: bounded(commands),
     permissions: bounded(permissions),
     needsPerson: bounded(needsPerson),
+    fullAccessSteps: fullAccessSteps.slice(0, MAX_USE_ITEMS),
   };
 }
 

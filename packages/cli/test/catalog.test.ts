@@ -26,7 +26,11 @@ const PLUGIN = `export default {
 
 interface CatalogJson {
   catalog: number;
-  runners: { name: string; description: string }[];
+  runners: {
+    name: string;
+    description: string;
+    permissions?: Record<string, { mode: string; scope: string; note: string }>;
+  }[];
   guards: { name: string; description: string }[];
   arbiters: { name: string; description: string }[];
   voters: unknown[];
@@ -79,6 +83,17 @@ describe('indaba catalog', () => {
     expect(shell?.description).toContain('through the system shell');
   });
 
+  it('carries, per built-in runner and level, the mode, the scope and a note id, for the page (AC-16)', async () => {
+    const { out } = await run(['catalog', '--json'], await makeTempDir());
+    const catalog = JSON.parse(out) as CatalogJson;
+    for (const runner of catalog.runners) {
+      expect(Object.keys(runner.permissions ?? {}).sort()).toEqual(['edit', 'full', 'read']);
+    }
+    const claude = catalog.runners.find((r) => r.name === 'claude-code');
+    expect(claude?.permissions?.read?.mode).toBe('native');
+    expect(catalog.runners.find((r) => r.name === 'opencode')?.permissions?.read?.mode).toBe('unsupported');
+  });
+
   it('prints it as text for a person', async () => {
     const { code, out } = await run(['catalog'], await makeTempDir());
     expect(code).toBe(0);
@@ -94,8 +109,15 @@ describe('indaba catalog', () => {
     const { code, out } = await run(['catalog', '--json', '--plugin', './p.mjs'], dir);
     expect(code).toBe(0);
     const catalog = JSON.parse(out) as CatalogJson;
-    expect(catalog.runners).toContainEqual({ name: 'described', description: 'A runner from a plugin.' });
-    expect(catalog.runners).toContainEqual({ name: 'bare', description: '' });
+    // A plugin runner that does not implement PermissionCapable supports no level (spec C-04).
+    const none = { mode: 'unsupported', scope: 'none', note: 'not_offered' };
+    const noLevel = { read: none, edit: none, full: none };
+    expect(catalog.runners).toContainEqual({
+      name: 'described',
+      description: 'A runner from a plugin.',
+      permissions: noLevel,
+    });
+    expect(catalog.runners).toContainEqual({ name: 'bare', description: '', permissions: noLevel });
     const loud = catalog.runners.find((r) => r.name === 'loud')?.description ?? '';
     expect(loud).not.toContain(esc);
     expect(loud).not.toContain('\n');

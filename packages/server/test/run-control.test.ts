@@ -199,8 +199,8 @@ const post = (path: string, extra: SendOptions = {}) => send(path, { method: 'PO
 describe('the run resources over HTTP', () => {
   it('says the contract version', async () => {
     await start();
-    expect(CONTRACT_VERSION).toBe('1.4.0');
-    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.4.0' });
+    expect(CONTRACT_VERSION).toBe('1.5.0');
+    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.5.0' });
   });
 
   it('lists the workflows the control found (AC-01)', async () => {
@@ -268,11 +268,45 @@ describe('the run resources over HTTP', () => {
 
   it('asks for a confirmation with the hash and the summary of use (AC-04)', async () => {
     await start();
-    const use = { runners: ['shell'], commands: ['npm test'], permissions: ['build: x'], needsPerson: [] };
+    const use = {
+      runners: ['shell'],
+      commands: ['npm test'],
+      permissions: ['build: x'],
+      needsPerson: [],
+      fullAccessSteps: [],
+    };
     refusal = new RunControlError('confirmation_required', 'x', { contentHash: HASH, use });
     const answer = await post('/api/v1/runs', json({ workflowId: 'w1' }));
     expect(answer.status).toBe(409);
     expect(answer.body).toMatchObject({ code: 'confirmation_required', contentHash: HASH, use });
+  });
+
+  it('hands on the hash of the full-access confirmation, beside the other one (AC-05)', async () => {
+    await start();
+    const other = 'e'.repeat(64);
+    const answer = await post(
+      '/api/v1/runs',
+      json({
+        workflowId: 'w1',
+        confirmedHash: HASH,
+        fullAccessConfirmedHash: other,
+        allow: '--allow-full-access',
+      }),
+    );
+    expect(answer.status).toBe(202);
+    expect(calls.starts).toEqual([{ workflowId: 'w1', confirmedHash: HASH, fullAccessConfirmedHash: other }]);
+  });
+
+  it('answers 409 full_access_required with the steps, and takes no word of the control’s own (AC-05)', async () => {
+    await start();
+    const steps = [{ stepId: 'build', runners: ['claude-code'] }];
+    refusal = new RunControlError('full_access_required', 'secret /home/a', { contentHash: HASH, steps });
+    const answer = await post('/api/v1/runs', json({ workflowId: 'w1' }));
+    expect(answer.status).toBe(409);
+    expect(answer.body).toMatchObject({ code: 'full_access_required', contentHash: HASH, steps });
+    expect(JSON.stringify(answer.body)).not.toMatch(/secret|\/home/);
+    refusal = new RunControlError('full_access_required', 'x');
+    expect((await post('/api/v1/runs', json({ workflowId: 'w1' }))).status).toBe(500);
   });
 
   it('treats an unknown refusal, or a confirmation without its detail, as a fault of the server', async () => {
@@ -416,6 +450,9 @@ describe('hostile input (T-08, AC-16)', () => {
       [json({ workflowId: 'w1', confirmedHash: 'not hex' }), 400],
       [json({ workflowId: 'w1', confirmedHash: HASH.toUpperCase() }), 400],
       [json({ workflowId: 'w1', confirmedHash: 64 }), 400],
+      [json({ workflowId: 'w1', fullAccessConfirmedHash: 'not hex' }), 400],
+      [json({ workflowId: 'w1', fullAccessConfirmedHash: HASH.toUpperCase() }), 400],
+      [json({ workflowId: 'w1', fullAccessConfirmedHash: 64 }), 400],
     ];
     for (const [body, status] of bodies) {
       expect((await post('/api/v1/runs', body)).status).toBe(status);
