@@ -41,6 +41,22 @@ export type {
   WorkflowSummary,
 } from './api.js';
 export type {
+  RegistryAddRootRequest,
+  RegistryAddRootResponse,
+  RegistryAnnotateRequest,
+  RegistryCopyRequest,
+  RegistryCopyResponse,
+  RegistryEntryView,
+  RegistryListResponse,
+  RegistryOriginView,
+  RegistryResolveRootRequest,
+  RegistryResolveRootResponse,
+  RegistryRootView,
+  RegistryScanReportView,
+  RegistryScanResponse,
+  RegistryStateView,
+} from './registry.js';
+export type {
   AttemptView,
   RunCost,
   RunnerView,

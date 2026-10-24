@@ -113,6 +113,27 @@ function fakeClient(options: {
       client.stops.push(runId);
       return options.stopRun ?? { kind: 'stopping' };
     },
+    async registry() {
+      return undefined;
+    },
+    async scanRegistry() {
+      return { kind: 'unavailable' };
+    },
+    async annotateEntry() {
+      return { kind: 'unavailable' };
+    },
+    async copyEntry() {
+      return { kind: 'unavailable' };
+    },
+    async removeEntry() {
+      return { kind: 'unavailable' };
+    },
+    async resolveFolder() {
+      return { kind: 'unavailable' };
+    },
+    async addFolder() {
+      return { kind: 'unavailable' };
+    },
     async workflowSource(id) {
       const source = options.source;
       if (source === undefined)

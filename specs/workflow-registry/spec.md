@@ -175,10 +175,13 @@ root and never an environment value. A copy writes with `wx` inside a root.
   folder and says so (stage 6 found it, 2026-10-23).
 - **C-12. The roots of `indaba ui` are its `--root` folders** (slice 2, 2026-10-23), as they were for step 2; the
   per-user list of added folders belongs to `indaba workflows`. A page that serves other folders is started with them.
+  *Amended 2026-10-24 by `web-app-registry` C-01 (maintainer): `indaba ui` covers its `--root` folders, then the per-user list
+  that still exists, so a folder imported from the page and one added by `indaba workflows add` are the same list.*
 - **C-13. A run control or store built without a registry keeps step 2's scan and ids** (an embedder, the tests of
   step 2 and 3a); `indaba ui` always gives it the registry.
 - **C-14. No annotating from the page in slice 2.** Names, tags and hiding are set with `indaba workflows annotate`;
   the page shows them. Editing them from the page is a later slice, with the registry's screens.
+  *Done 2026-10-24 in `specs/web-app-registry`: annotate, copy, import, remove and scan from the page.*
 - **C-10. Ids.** Sixteen random hexadecimal characters, made once when an entry appears and kept in the index; the
   command line generates them, the store takes a generator. Step 2's ids (a hash of the root's position and the path)
   change when the order of roots changes; slice 2 moves the page to these.

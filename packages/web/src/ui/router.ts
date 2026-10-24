@@ -9,6 +9,8 @@ export type Route =
   | { readonly name: 'run'; readonly runId: string; readonly step: string | undefined }
   | { readonly name: 'settings' }
   | { readonly name: 'workflow'; readonly workflowId: string }
+  /** The Workflows screen (specs/web-app-registry); `showHidden` is its Show hidden choice, kept in the address. */
+  | { readonly name: 'workflows'; readonly showHidden: boolean }
   | { readonly name: 'missing' };
 
 const SEGMENT = /^[A-Za-z0-9._-]{1,200}$/;
@@ -29,6 +31,9 @@ export function parseRoute(pathname: string, search: string): Route {
   }
   if (parts.length === 1 && parts[0] === 'settings') {
     return { name: 'settings' };
+  }
+  if (parts.length === 1 && parts[0] === 'workflows') {
+    return { name: 'workflows', showHidden: new URLSearchParams(search).get('hidden') === '1' };
   }
   if (parts.length === 2 && parts[0] === 'workflows') {
     const workflowId = decode(parts[1] ?? '');
@@ -53,6 +58,8 @@ export function hrefOf(route: Route): string {
       return '/';
     case 'settings':
       return '/settings';
+    case 'workflows':
+      return route.showHidden ? '/workflows?hidden=1' : '/workflows';
     case 'workflow':
       return `/workflows/${encodeURIComponent(route.workflowId)}`;
     case 'run':

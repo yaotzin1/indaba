@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { RegistryEntry, WorkflowRegistry } from '@indaba/core';
+import type { RegistryEntry, RegistryScanReport, WorkflowRegistry } from '@indaba/core';
 import { type FoundWorkflow, scanRoots } from './scan.js';
 
 /**
@@ -19,6 +19,19 @@ export interface WorkflowFinder {
   find(id: string): Promise<ListedWorkflow | undefined>;
 }
 
+/**
+ * The finder over a registry, with what the registry's screens need besides the workflows to offer (specs/web-app-registry):
+ * every entry, missing and hidden ones included, a scan on request, and a way to wait for a scan under way.
+ */
+export interface RegistryFinder extends WorkflowFinder {
+  /** Every entry of the registry, missing ones too, scanning first when the last scan is old. */
+  entries(): Promise<{ readonly entries: readonly RegistryEntry[]; readonly truncated: boolean }>;
+  /** Scans now (joining a scan under way) and says what it found. */
+  scanNow(): Promise<readonly RegistryScanReport[]>;
+  /** Resolves when no scan is under way. */
+  settled(): Promise<void>;
+}
+
 /** How old the last scan may be before the list scans again: a starting value (spec AC-14). */
 export const RESCAN_INTERVAL_MS = 30_000;
 /** How old the last scan may be before an id that is not found scans once more, for a file just added. */
@@ -31,20 +44,21 @@ export interface RegistryFinderOptions {
 }
 
 /** The finder over a registry: scan at most once per interval, list without missing files, look ids up exactly. */
-export function createWorkflowFinder(options: RegistryFinderOptions): WorkflowFinder {
+export function createWorkflowFinder(options: RegistryFinderOptions): RegistryFinder {
   const { registry, clock } = options;
   const interval = options.intervalMs ?? RESCAN_INTERVAL_MS;
   let lastScan: number | undefined;
   let truncated = false;
   // One scan at a time: a second caller waits for the one under way.
-  let scanning: Promise<void> | undefined;
+  let scanning: Promise<readonly RegistryScanReport[]> | undefined;
 
-  const scan = (): Promise<void> => {
+  const scan = (): Promise<readonly RegistryScanReport[]> => {
     scanning ??= registry
       .scan()
       .then((reports) => {
         truncated = reports.some((r) => r.truncated);
         lastScan = clock().getTime();
+        return reports;
       })
       .finally(() => {
         scanning = undefined;
@@ -66,6 +80,16 @@ export function createWorkflowFinder(options: RegistryFinderOptions): WorkflowFi
   const offered = (entry: RegistryEntry): boolean => entry.validation.state !== 'missing';
 
   return {
+    entries: async () => {
+      if (olderThan(interval)) {
+        await scan();
+      }
+      return { entries: await registry.list({ includeHidden: true }), truncated };
+    },
+    scanNow: scan,
+    settled: async () => {
+      await scanning?.catch(() => undefined);
+    },
     list: async () => {
       if (olderThan(interval)) {
         await scan();
