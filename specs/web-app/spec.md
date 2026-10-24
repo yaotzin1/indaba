@@ -88,6 +88,9 @@ engine.
   `apsw-gridwright-mui` (section 8 C-02). Columns: name, project, last result, last cost, last run, state, health. A row
   opens the workflow. Actions: new, edit, copy for another project, import (add a folder to the scan roots), remove from
   the list (never deletes the file). Import and new need no path typed into the page (section 6).
+  *Delivered in slices: the table, annotate, copy, import and remove are `specs/web-app-registry` (import takes one typed path that
+  the server resolves and shows back, as section 6 allows); New waits for the wizard (`workflow-editor` step 3d); the health column
+  waits for AC-14 and AC-15.*
 - [ ] AC-07. **Workflow** shows the graph (nodes are steps, edges are `depends_on`), laid out left to right. A node
   shows the step name, the runner, and its state colour **and** a text label (never colour alone). Selecting a node opens
   the inspector. Debate and review loops are drawn as a loop on the node, not as extra nodes.

@@ -2,9 +2,23 @@ import { execFileSync } from 'node:child_process';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { PassThrough, Readable, Writable } from 'node:stream';
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { main } from '../src/index.js';
 import { captureIo, makeTempDir, writePlugin, writeWorkflow } from './support.js';
+
+// A git hook hands GIT_DIR and GIT_INDEX_FILE to everything it starts, and from a linked worktree GIT_DIR is the real
+// repository: the git init below and the scope guard of the run would then work on it instead of the temporary project.
+const inherited = Object.entries(process.env).filter(([name]) => name.toUpperCase().startsWith('GIT_'));
+beforeAll(() => {
+  for (const [name] of inherited) {
+    delete process.env[name];
+  }
+});
+afterAll(() => {
+  for (const [name, value] of inherited) {
+    process.env[name] = value;
+  }
+});
 
 /** A plugin runner that declares every level and logs the level it was started with. */
 function capablePlugin(logFile: string): string {

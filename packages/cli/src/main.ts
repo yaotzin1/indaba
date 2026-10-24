@@ -70,12 +70,14 @@ import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
 import { CONFIRMATION_FILE } from './run-control/confirm.js';
 import { createWorkflowEditor } from './run-control/editor.js';
-import { createWorkflowFinder, type WorkflowFinder } from './run-control/finder.js';
+import type { WorkflowFinder } from './run-control/finder.js';
 import { createRunControl } from './run-control/index.js';
+import { createRegistryHub, type RegistryHub } from './run-control/registry.js';
 import { createWorkflowStore } from './run-control/source.js';
 import { runWithDashboard } from './run-tui.js';
 import type {
   ServerLoad,
+  UiRegistryControl,
   UiRunControl,
   UiSettingsBackend,
   UiSettingsState,
@@ -420,7 +422,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
   if (command === 'ui') {
     return logged(command, io.cwd, logOptions, io, async (logger) => {
       try {
-        const { runControl, workflowStore, workflowEditor } = await uiBackendsFor(io, logger);
+        const { runControl, workflowStore, workflowEditor, registry } = await uiBackendsFor(io, logger);
         return await ui(args, io, {
           logger,
           ...(io.loadServer === undefined ? {} : { loadServer: io.loadServer }),
@@ -428,6 +430,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
           ...(runControl === undefined ? {} : { runControl }),
           workflowStore,
           workflowEditor,
+          registry,
         });
       } catch (error) {
         const message = redact(error instanceof Error ? error.message : String(error), io.env);
@@ -634,6 +637,8 @@ interface UiBackends {
   readonly runControl?: (roots: readonly string[]) => UiRunControl;
   readonly workflowStore: (roots: readonly string[]) => UiWorkflowStore;
   readonly workflowEditor: UiWorkflowEditor;
+  /** The registry's screens (specs/web-app-registry); the finder of the store and the run control follows it. */
+  readonly registry: (roots: readonly string[]) => UiRegistryControl;
 }
 
 /**
@@ -654,29 +659,43 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
   const parse = (source: string) => parser.parse(source);
   const pid = io.pid ?? process.pid;
   const diagnose = (source: string) => parser.diagnose(source);
-  // One finder per set of roots, shared by the store and the run control, so they agree on ids and share the scan
-  // (specs/workflow-registry, slice 2).
+  // One registry hub per set of served roots, shared by the store, the run control and the registry's screens, so they
+  // agree on ids and share the scan (specs/workflow-registry, slice 2). It covers the served roots, then the per-user
+  // list of folders, and follows a folder the page adds (specs/web-app-registry, C-01).
   const clock = io.clock ?? (() => new Date());
-  const finders = new Map<string, WorkflowFinder>();
-  const finderFor = (roots: readonly string[]): WorkflowFinder => {
+  const folder = userConfigFolder(
+    process.platform,
+    { appData: io.env.APPDATA, xdgConfigHome: io.env.XDG_CONFIG_HOME },
+    homedir(),
+  );
+  const hubs = new Map<string, RegistryHub>();
+  const hubFor = (roots: readonly string[]): RegistryHub => {
     const key = JSON.stringify(roots);
-    const known = finders.get(key);
+    const known = hubs.get(key);
     if (known !== undefined) {
       return known;
     }
-    const finder = createWorkflowFinder({
-      registry: new FileWorkflowRegistry({
-        roots,
-        parse,
-        clock,
-        ids: () => randomBytes(8).toString('hex'),
-        logger,
-      }),
+    const hub = createRegistryHub({
+      roots,
+      rootsFile: join(folder, WORKFLOW_ROOTS_FILE),
+      pid,
+      createRegistry: (covered) =>
+        new FileWorkflowRegistry({
+          roots: covered,
+          parse,
+          clock,
+          ids: () => randomBytes(8).toString('hex'),
+          logger,
+        }),
       clock,
+      cwd: io.cwd,
+      logger,
     });
-    finders.set(key, finder);
-    return finder;
+    hubs.set(key, hub);
+    return hub;
   };
+  const finderFor = (roots: readonly string[]): WorkflowFinder => hubFor(roots).finder;
+  const registry = (roots: readonly string[]): UiRegistryControl => hubFor(roots).control;
   const workflowStore = (roots: readonly string[]) =>
     createWorkflowStore({ roots, finder: finderFor(roots), parse, diagnose, pid, logger });
   const workflowEditor = createWorkflowEditor({
@@ -687,17 +706,13 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
   });
   const starter = io.startRun;
   if (starter === undefined) {
-    return { workflowStore, workflowEditor };
+    return { workflowStore, workflowEditor, registry };
   }
-  const folder = userConfigFolder(
-    process.platform,
-    { appData: io.env.APPDATA, xdgConfigHome: io.env.XDG_CONFIG_HOME },
-    homedir(),
-  );
   const confirmationFile = join(folder, CONFIRMATION_FILE);
   return {
     workflowStore,
     workflowEditor,
+    registry,
     runControl: (roots) =>
       createRunControl({
         roots,

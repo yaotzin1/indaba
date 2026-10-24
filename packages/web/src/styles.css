@@ -1009,6 +1009,17 @@ button.danger:hover {
 .dialog [data-autofocus]:focus {
   outline: none;
 }
+/* The actions above a table of workflows (specs/web-app-registry). */
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 10px;
+  margin: 10px 0;
+}
+.toolbar .muted {
+  margin-right: 4px;
+}
 .dialog-actions {
   display: flex;
   flex-wrap: wrap;

@@ -27,6 +27,17 @@ port". The PHP prototype that preceded them was never published.
   `retry_step` (`fail-out` to `fail-in`); the side panel edits the selected step's connections, order and schema-driven
   fields through the sequential edit queue. No public API or dependency changed.
 
+- **The Workflows screen: the registry from the page** (minor; track `feature`; spec `specs/web-app-registry`; `@indaba/core`, `@indaba/engine`,
+  `indaba`, `@indaba/server`, `@indaba/web`; web contract 1.6.0). A **Workflows** item in the header opens a table (`apsw-gridwright`, already a
+  dependency) of every workflow the registry lists, hidden and missing ones included on request: name, project, tags, last result, last cost, last run and
+  state. From it a person edits an entry's name, project and tags, hides or shows it, copies it into another folder of the registry (and sees the places
+  to review), imports a folder by typing its path once and confirming the folder Indaba resolved it to, removes an entry that a scan would not list again
+  (never deleting a file), and scans on request. New resources `GET /api/v1/registry` and `POST /api/v1/registry/{scan, roots/resolve, roots, {id}/annotate,
+  {id}/copy, {id}/remove}`, served only when the command line supplies a `RegistryControl`; the server writes nothing itself. **Widened behaviour:** `indaba ui`
+  now also covers the folders of `indaba workflows add` (the per-user list), so a folder added on either side shows on the other, and a workflow of it can
+  be run from the page after its usual confirmation. New in `@indaba/core`: the `Registry*View` and `Registry*Request` types; in `@indaba/engine`:
+  `isWorkflowFileName`. No dependency added.
+
 - **Agent permissions in the page and the editor** (minor; track `feature`; spec `specs/agent-permissions`, T-14; `@indaba/core`, `@indaba/engine`,
   `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web`; web contract 1.5.0). `indaba catalog` and the editor's catalog gain, per runner,
   `permissions: { read, edit, full }`, each with a `mode`, a `scope` and a `note` id (optional, so `catalog` stays `1`); a runner that does not

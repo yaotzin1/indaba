@@ -102,6 +102,7 @@ describe('indaba ui', () => {
         loggingSettings: expect.anything(),
         workflowStore: expect.anything(),
         workflowEditor: expect.anything(),
+        registry: expect.anything(),
       },
     ]);
     // The editor of the form (specs/web-app-editing-forms): the schema, and the catalog with the arbiter human.
