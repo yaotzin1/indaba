@@ -199,8 +199,8 @@ const post = (path: string, extra: SendOptions = {}) => send(path, { method: 'PO
 describe('the run resources over HTTP', () => {
   it('says the contract version', async () => {
     await start();
-    expect(CONTRACT_VERSION).toBe('1.5.0');
-    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.5.0' });
+    expect(CONTRACT_VERSION).toBe('1.6.0');
+    expect((await send('/api/v1/contract')).body).toEqual({ contractVersion: '1.6.0' });
   });
 
   it('lists the workflows the control found (AC-01)', async () => {

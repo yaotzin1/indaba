@@ -9,6 +9,16 @@ import type {
   JsonObject,
   JsonValue,
   LoggingSettingsResponse,
+  RegistryAddRootResponse,
+  RegistryAnnotateRequest,
+  RegistryCopyRequest,
+  RegistryCopyResponse,
+  RegistryEntryView,
+  RegistryListResponse,
+  RegistryResolveRootResponse,
+  RegistryRootView,
+  RegistryScanReportView,
+  RegistryScanResponse,
   RunSnapshot,
   RunSummary,
   RunSummaryOfUse,
@@ -110,6 +120,15 @@ export type StopAnswer =
   | { readonly kind: 'ended' }
   | { readonly kind: 'refused'; readonly code: string };
 
+/**
+ * What a change to the registry gave: its answer, or a refusal by its code (the page words it). A server that does not
+ * offer the registry is `unavailable`.
+ */
+export type RegistryAnswer<T> =
+  | { readonly kind: 'ok'; readonly value: T }
+  | { readonly kind: 'refused'; readonly code: string }
+  | { readonly kind: 'unavailable' };
+
 export interface Client {
   contract(): Promise<ContractResponse>;
   runs(): Promise<readonly RunSummary[]>;
@@ -129,6 +148,21 @@ export interface Client {
   startStatus(startId: string): Promise<StartStatusResponse>;
   /** Asks a run this server started to stop, as Ctrl+C would. */
   stopRun(runId: string): Promise<StopAnswer>;
+  /**
+   * Every entry of the workflow registry and the folders it covers, or undefined when this server does not offer it
+   * (specs/web-app-registry).
+   */
+  registry(): Promise<RegistryListResponse | undefined>;
+  /** Scans every folder now and says what changed. */
+  scanRegistry(): Promise<RegistryAnswer<RegistryScanResponse>>;
+  annotateEntry(id: string, request: RegistryAnnotateRequest): Promise<RegistryAnswer<RegistryEntryView>>;
+  copyEntry(id: string, request: RegistryCopyRequest): Promise<RegistryAnswer<RegistryCopyResponse>>;
+  /** Takes an entry off the list; never deletes the file. */
+  removeEntry(id: string): Promise<RegistryAnswer<null>>;
+  /** What a typed path resolves to; nothing is added. */
+  resolveFolder(path: string): Promise<RegistryAnswer<RegistryResolveRootResponse>>;
+  /** Adds the folder the person confirmed, exactly as `resolveFolder` showed it. */
+  addFolder(folder: string): Promise<RegistryAnswer<RegistryAddRootResponse>>;
   /** The text of a workflow file (specs/web-app-editing-core). A refusal is an `ApiFailure` with the server's words. */
   workflowSource(workflowId: string): Promise<WorkflowSourceResponse>;
   /** Saves the text against the hash it was read with. */
@@ -247,7 +281,7 @@ function problemsOf(value: unknown): readonly string[] {
   return Array.isArray(list) ? list.filter((p): p is string => typeof p === 'string') : [];
 }
 
-function isRunSummary(value: unknown): value is RunSummary {
+export function isRunSummary(value: unknown): value is RunSummary {
   return (
     isRecord(value) &&
     typeof value.runId === 'string' &&
@@ -258,6 +292,64 @@ function isRunSummary(value: unknown): value is RunSummary {
 
 const isStrings = (value: unknown): value is readonly string[] =>
   Array.isArray(value) && value.every((item) => typeof item === 'string');
+
+const isCount0 = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isInteger(value) && value >= 0;
+
+function isRegistryEntry(value: unknown): value is RegistryEntryView {
+  if (
+    !isRecord(value) ||
+    typeof value.id !== 'string' ||
+    typeof value.name !== 'string' ||
+    typeof value.project !== 'string' ||
+    !isStrings(value.tags) ||
+    typeof value.hidden !== 'boolean' ||
+    typeof value.path !== 'string' ||
+    typeof value.rootId !== 'string' ||
+    typeof value.removable !== 'boolean' ||
+    !['scanned', 'added', 'created', 'copied'].includes(String(value.origin)) ||
+    (value.lastRun !== undefined && !isRunSummary(value.lastRun))
+  ) {
+    return false;
+  }
+  const validation = value.validation;
+  if (!isRecord(validation)) {
+    return false;
+  }
+  return (
+    validation.state === 'valid' ||
+    (validation.state === 'invalid' && typeof validation.message === 'string') ||
+    (validation.state === 'missing' && typeof validation.reason === 'string')
+  );
+}
+
+const isRegistryRoot = (value: unknown): value is RegistryRootView =>
+  isRecord(value) &&
+  typeof value.id === 'string' &&
+  typeof value.name === 'string' &&
+  typeof value.folder === 'string' &&
+  typeof value.readable === 'boolean';
+
+const isScanReport = (value: unknown): value is RegistryScanReportView =>
+  isRecord(value) &&
+  typeof value.rootId === 'string' &&
+  [value.found, value.added, value.changed, value.moved, value.missing, value.invalid].every(isCount0) &&
+  typeof value.truncated === 'boolean' &&
+  typeof value.recovered === 'boolean';
+
+/** A write to the registry that was not answered with its result: a refusal by its code, or a server without it. */
+function registryRefusal(answer: { readonly status: number; readonly body: unknown }): {
+  readonly kind: 'refused' | 'unavailable';
+  readonly code: string;
+} {
+  if (
+    answer.status === 405 ||
+    (answer.status === 404 && isApiError(answer.body) && answer.body.code === 'registry_unavailable')
+  ) {
+    return { kind: 'unavailable', code: 'registry_unavailable' };
+  }
+  return { kind: 'refused', code: isApiError(answer.body) ? answer.body.code : 'other' };
+}
 
 function isWorkflowSummary(value: unknown): value is WorkflowSummary {
   return (
@@ -767,6 +859,113 @@ export function createClient(options: ClientOptions): Client {
         return { kind: 'ended' };
       }
       return { kind: 'refused', code: isApiError(answer.body) ? answer.body.code : 'other' };
+    },
+
+    async registry() {
+      let body: unknown;
+      try {
+        body = await json('/registry');
+      } catch (error) {
+        if (error instanceof ApiFailure && error.failure.kind === 'not_found') {
+          return undefined;
+        }
+        throw error;
+      }
+      if (
+        !isRecord(body) ||
+        !Array.isArray(body.entries) ||
+        !body.entries.every(isRegistryEntry) ||
+        !Array.isArray(body.roots) ||
+        !body.roots.every(isRegistryRoot) ||
+        typeof body.truncated !== 'boolean'
+      ) {
+        throw new ApiFailure({ kind: 'server', message: 'The server sent a list this page cannot read.' });
+      }
+      return { entries: body.entries, roots: body.roots, truncated: body.truncated };
+    },
+
+    async scanRegistry() {
+      const answer = await post('/registry/scan');
+      const body = answer.body;
+      if (
+        answer.status === 200 &&
+        isRecord(body) &&
+        Array.isArray(body.reports) &&
+        body.reports.every(isScanReport)
+      ) {
+        return { kind: 'ok', value: { reports: body.reports } };
+      }
+      return registryRefusal(answer);
+    },
+
+    async annotateEntry(id, request) {
+      const answer = await post(`/registry/${encodeURIComponent(id)}/annotate`, request);
+      return answer.status === 200 && isRegistryEntry(answer.body)
+        ? { kind: 'ok', value: answer.body }
+        : registryRefusal(answer);
+    },
+
+    async copyEntry(id, request) {
+      const answer = await post(`/registry/${encodeURIComponent(id)}/copy`, request);
+      const body = answer.body;
+      if (
+        answer.status === 200 &&
+        isRecord(body) &&
+        isRegistryEntry(body.entry) &&
+        isStrings(body.toReview)
+      ) {
+        return { kind: 'ok', value: { entry: body.entry, toReview: body.toReview } };
+      }
+      return registryRefusal(answer);
+    },
+
+    async removeEntry(id) {
+      const answer = await post(`/registry/${encodeURIComponent(id)}/remove`);
+      return answer.status === 204 ? { kind: 'ok', value: null } : registryRefusal(answer);
+    },
+
+    async resolveFolder(path) {
+      const answer = await post('/registry/roots/resolve', { path });
+      const body = answer.body;
+      if (
+        answer.status === 200 &&
+        isRecord(body) &&
+        typeof body.folder === 'string' &&
+        typeof body.name === 'string' &&
+        typeof body.alreadyCovered === 'boolean' &&
+        isCount0(body.found) &&
+        typeof body.atLeast === 'boolean'
+      ) {
+        return {
+          kind: 'ok',
+          value: {
+            folder: body.folder,
+            name: body.name,
+            alreadyCovered: body.alreadyCovered,
+            found: body.found,
+            atLeast: body.atLeast,
+          },
+        };
+      }
+      return registryRefusal(answer);
+    },
+
+    async addFolder(folder) {
+      const answer = await post('/registry/roots', { folder });
+      const body = answer.body;
+      if (
+        answer.status === 200 &&
+        isRecord(body) &&
+        isRegistryRoot(body.root) &&
+        typeof body.alreadyCovered === 'boolean' &&
+        isScanReport(body.report)
+      ) {
+        return {
+          kind: 'ok',
+          value: { root: body.root, alreadyCovered: body.alreadyCovered, report: body.report },
+        };
+      }
+      return registryRefusal(answer);
     },
 
     followRun(id, handlers, signal) {

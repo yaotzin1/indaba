@@ -17,7 +17,7 @@ function code(name: string): string {
 
 describe('the web contract', () => {
   it('finds its sources', () => {
-    expect(files).toEqual(['api.ts', 'index.ts', 'run.ts']);
+    expect(files).toEqual(['api.ts', 'index.ts', 'registry.ts', 'run.ts']);
   });
 
   it.each(files)('%s declares types only: no value, no function, no class', (name) => {
@@ -35,6 +35,6 @@ describe('the web contract', () => {
   it('exports every shape through the index as a type', () => {
     const index = code('index.ts');
     expect(index).not.toMatch(/\bexport\s+\{/);
-    expect(index.match(/\bexport type\b/g)?.length).toBe(2);
+    expect(index.match(/\bexport type\b/g)?.length).toBe(3);
   });
 });

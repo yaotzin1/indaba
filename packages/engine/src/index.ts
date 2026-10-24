@@ -103,6 +103,7 @@ export { FileWorkflowRegistry } from './registry/file-registry.js';
 export type { WorkflowFile, WorkflowFileScan } from './registry/files.js';
 export {
   DEFAULT_WORKFLOW,
+  isWorkflowFileName,
   MAX_WORKFLOW_BYTES,
   readWorkflowFile,
   SCAN_MAX_DEPTH,

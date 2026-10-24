@@ -18,6 +18,7 @@ import { SettingsScreen } from './SettingsScreen.js';
 import { type LeaveGuard, SourceScreen } from './SourceScreen.js';
 import { StaleContext } from './stale.js';
 import { applyTheme, readTheme, type Store, saveTheme, THEMES, type Theme } from './theme.js';
+import { WorkflowsScreen } from './WorkflowsScreen.js';
 
 export interface AppProps {
   /** Undefined when the address carried no token: the page can only say how to get one. */
@@ -122,6 +123,8 @@ export function App(props: AppProps): ReactElement {
   const [canRun, setCanRun] = useState(false);
   // Whether this server opens workflow files for editing; asked once, like canRun.
   const [canEdit, setCanEdit] = useState(false);
+  // Whether this server offers the list of workflows (specs/web-app-registry); asked once, so no menu item leads nowhere.
+  const [canList, setCanList] = useState(false);
   // The notice that closing indaba ui stops its runs is shown until the first run of this session (AC-11).
   const [noticeSeen, setNoticeSeen] = useState(false);
   const onNoticeSeen = useCallback(() => setNoticeSeen(true), []);
@@ -147,6 +150,14 @@ export function App(props: AppProps): ReactElement {
             (list) => {
               if (current) {
                 setCanRun(list !== undefined);
+              }
+            },
+            () => undefined,
+          ),
+          client.registry().then(
+            (list) => {
+              if (current) {
+                setCanList(list !== undefined);
               }
             },
             () => undefined,
@@ -206,6 +217,12 @@ export function App(props: AppProps): ReactElement {
       navigate({ name: 'runs' });
     }
   };
+  const toWorkflows = (event: MouseEvent<HTMLAnchorElement>): void => {
+    if (isPlainClick(event)) {
+      event.preventDefault();
+      navigate({ name: 'workflows', showHidden: false });
+    }
+  };
   const toSettings = (event: MouseEvent<HTMLAnchorElement>): void => {
     if (isPlainClick(event)) {
       event.preventDefault();
@@ -218,6 +235,16 @@ export function App(props: AppProps): ReactElement {
     content = blockingOf(fatal ?? { kind: 'unauthorized' }, origin);
   } else if (route.name === 'settings') {
     content = h(SettingsScreen, { key: attempt, client, onFatal });
+  } else if (route.name === 'workflows') {
+    content = h(WorkflowsScreen, {
+      key: attempt,
+      client,
+      clock,
+      navigate,
+      onFatal,
+      showHidden: route.showHidden,
+      canOpen: canEdit,
+    });
   } else if (route.name === 'workflow') {
     content = h(SourceScreen, {
       key: `${route.workflowId}:${attempt}`,
@@ -286,6 +313,18 @@ export function App(props: AppProps): ReactElement {
           },
           messages.nav.runs,
         ),
+        canList || route.name === 'workflows'
+          ? h(
+              'a',
+              {
+                href: hrefOf({ name: 'workflows', showHidden: false }),
+                onClick: toWorkflows,
+                'aria-current':
+                  route.name === 'workflows' ? 'page' : route.name === 'workflow' ? 'true' : undefined,
+              },
+              messages.nav.workflows,
+            )
+          : null,
         h(
           'a',
           {
@@ -303,7 +342,7 @@ export function App(props: AppProps): ReactElement {
         : canRun
           ? h('span', { className: 'badge', title: messages.canRunTitle }, messages.canRun)
           : h('span', { className: 'badge', title: messages.readOnlyTitle }, messages.readOnly),
-      fatal === undefined && route.name !== 'settings'
+      fatal === undefined && route.name !== 'settings' && route.name !== 'workflows'
         ? h('span', { className: 'badge live', 'data-state': live, role: 'status' }, messages.live[live])
         : null,
       h(ThemeSwitch, { theme, onChange: changeTheme }),

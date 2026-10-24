@@ -1,5 +1,4 @@
-import { mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import {
   type Logger,
@@ -10,6 +9,9 @@ import {
   type WorkflowRegistry,
 } from '@indaba/core';
 import { sanitize } from '@indaba/engine';
+import { isFolder, readRoots, writeRoots } from './run-control/roots.js';
+
+export { readRoots, WORKFLOW_ROOTS_FILE, writeRoots } from './run-control/roots.js';
 
 /** `indaba workflows`: the workflow registry from the command line (specs/workflow-registry, AC-09 to AC-13). */
 
@@ -33,9 +35,6 @@ registry a plugin registers is the one used.
 `;
 
 export class WorkflowsUsageError extends Error {}
-
-/** The per-user list of added folders, in the user's configuration folder, beside the confirmations of indaba ui. */
-export const WORKFLOW_ROOTS_FILE = join('indaba', 'workflow-roots.json');
 
 const SUBCOMMANDS = ['list', 'scan', 'add', 'annotate', 'remove', 'copy'] as const;
 export type WorkflowsSubcommand = (typeof SUBCOMMANDS)[number];
@@ -174,36 +173,6 @@ function parse(args: readonly string[]) {
     },
   });
 }
-
-/** The folders a person added, from the per-user file; a file that is not a list of strings reads as empty. */
-export async function readRoots(file: string): Promise<readonly string[]> {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(await readFile(file, 'utf8'));
-  } catch {
-    return [];
-  }
-  return Array.isArray(parsed) ? parsed.filter((r): r is string => typeof r === 'string') : [];
-}
-
-/** Writes the per-user list of folders whole, through a temporary file. */
-export async function writeRoots(file: string, roots: readonly string[], pid: number): Promise<void> {
-  await mkdir(dirname(file), { recursive: true });
-  const temporary = `${file}.${pid}.tmp`;
-  try {
-    await writeFile(temporary, `${JSON.stringify(roots, null, 2)}\n`, { flag: 'w' });
-    await rename(temporary, file);
-  } catch (error) {
-    await rm(temporary, { force: true }).catch(() => undefined);
-    throw error;
-  }
-}
-
-const isFolder = (path: string): Promise<boolean> =>
-  stat(path).then(
-    (info) => info.isDirectory(),
-    () => false,
-  );
 
 export interface WorkflowsIo {
   readonly stdout: { write(text: string): unknown };

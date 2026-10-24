@@ -7,6 +7,7 @@ import type { Io } from './main.js';
 import {
   loadServer,
   type ServerLoad,
+  type UiRegistryControl,
   type UiRunControl,
   type UiSettingsBackend,
   type UiWorkflowEditor,
@@ -16,7 +17,8 @@ import {
 export const UI_USAGE = `Usage: indaba ui [options]
 
 Open the web view of the runs on this machine. It reads what runs write under .indaba/traces, and it can start a
-workflow of a --root and stop a run it started; each run is an indaba run of its own. Closing indaba ui stops the runs
+workflow of a --root (or of a folder you added with indaba workflows add, or imported on its Workflows screen) and stop
+a run it started; each run is an indaba run of its own. Closing indaba ui stops the runs
 it started. It can edit a workflow file of a --root, as a form or as text, and save it. Its Settings screen changes
 the logging section of indaba.config of the first --root (or the current folder).
 
@@ -48,6 +50,11 @@ export interface UiDeps {
   readonly workflowStore?: (roots: readonly string[]) => UiWorkflowStore;
   /** Editing a workflow as a form (specs/web-app-editing-forms). Without it, the page shows only the source view. */
   readonly workflowEditor?: UiWorkflowEditor;
+  /**
+   * The registry's screens, over the served roots and the per-user list of folders (specs/web-app-registry). Without it the
+   * page has no Workflows screen.
+   */
+  readonly registry?: (roots: readonly string[]) => UiRegistryControl;
 }
 
 class UiUsageError extends Error {}
@@ -177,6 +184,7 @@ export async function ui(args: readonly string[], io: Io, deps: UiDeps = {}): Pr
     ...(deps.runControl === undefined ? {} : { runs: deps.runControl(options.roots) }),
     ...(deps.workflowStore === undefined ? {} : { workflowStore: deps.workflowStore(options.roots) }),
     ...(deps.workflowEditor === undefined ? {} : { workflowEditor: deps.workflowEditor }),
+    ...(deps.registry === undefined ? {} : { registry: deps.registry(options.roots) }),
     logger: log,
   });
   // The server records its own address, without the token; here what the command was asked to serve.

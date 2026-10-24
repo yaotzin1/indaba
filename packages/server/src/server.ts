@@ -25,6 +25,16 @@ import {
 } from '@indaba/core';
 import { DISCUSSION_DIRECTORY, DiscussionStore, isRunId, sanitize } from '@indaba/engine';
 import { bearerOf, hostAllowed, originAllowed, SECURITY_HEADERS, tokenMatches } from './checks.js';
+import {
+  parseAddRoot,
+  parseAnnotate,
+  parseCopy,
+  parseResolveRoot,
+  REGISTRY_ID,
+  type RegistryControl,
+  RegistryControlError,
+  registryRefusal,
+} from './registry-control.js';
 import { MAX_CONCURRENT_RUNS, type RunControl, RunControlError } from './run-control.js';
 import { RunSource, stepOf } from './runs.js';
 import { defaultSleep, type Sleep, streamRun, streamServer } from './sse.js';
@@ -38,13 +48,15 @@ import {
 } from './workflow-store.js';
 
 /** The contract between the page and the server; the major is what the page checks. */
-export const CONTRACT_VERSION = '1.5.0';
+export const CONTRACT_VERSION = '1.6.0';
 
 const API = '/api/v1';
 const SETTINGS_PATH = `${API}/settings/logging`;
 const SINK_TEST_PATH = `${SETTINGS_PATH}/test`;
 const SETTINGS_CHECK_PATH = `${SETTINGS_PATH}/check`;
 const RUNS_PATH = `${API}/runs`;
+/** The registry's screens (specs/web-app-registry): the list, and the actions below it. */
+const REGISTRY_PATH = `${API}/registry`;
 /** `/api/v1/runs/{id}/stop`; the id is checked for shape when the request is handled, not here. */
 const STOP_PATH = /^\/api\/v1\/runs\/[^/]+\/stop$/;
 
@@ -137,6 +149,12 @@ export interface ServerOptions {
    * The command line supplies it; without it the editor resources answer 404 and the page shows only the source view.
    */
   readonly workflowEditor?: WorkflowEditor;
+  /**
+   * Listing, annotating, copying and removing the entries of the workflow registry, and adding a folder to it, from the
+   * page (specs/web-app-registry). The command line supplies it, so the server writes nothing itself; without it the
+   * registry resources answer 404.
+   */
+  readonly registry?: RegistryControl;
 }
 
 export interface ServerHandle {
@@ -232,7 +250,14 @@ function methodsOf(
   runs: boolean,
   store: boolean,
   editor: boolean,
+  registry: boolean,
 ): readonly string[] {
+  if (registry && path === REGISTRY_PATH) {
+    return ['GET'];
+  }
+  if (registry && path.startsWith(`${REGISTRY_PATH}/`)) {
+    return ['POST'];
+  }
   if (editor && path === EDIT_PATH) {
     return ['POST'];
   }
@@ -262,6 +287,16 @@ function lastEventId(req: IncomingMessage): number {
   const value = Array.isArray(header) ? header[0] : header;
   const parsed = value === undefined ? 0 : Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? parsed : 0;
+}
+
+/** A refusal of the registry control, recognised like {@link isRunControlError} by name and `code`. */
+function isRegistryControlError(error: unknown): error is Refusal {
+  return (
+    error instanceof RegistryControlError ||
+    (error instanceof Error &&
+      error.name === 'RegistryControlError' &&
+      typeof (error as { code?: unknown }).code === 'string')
+  );
 }
 
 /** A refusal of a workflow store, by name and `code` as well as class, for the reason {@link isRunControlError} gives. */
@@ -548,6 +583,10 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       sendJson(res, 200, body);
       return;
     }
+    if (head === 'registry') {
+      await handleRegistry(req, res, parts);
+      return;
+    }
     if (head === 'settings' && [SETTINGS_PATH, SINK_TEST_PATH, SETTINGS_CHECK_PATH].includes(path)) {
       await handleSettings(req, res, path);
       return;
@@ -796,6 +835,121 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     }
   };
 
+  const REGISTRY_UNAVAILABLE: ApiError = {
+    code: 'registry_unavailable',
+    message: 'This server does not offer the list of workflows.',
+  };
+
+  const handleRegistry = async (
+    req: IncomingMessage,
+    res: ServerResponse,
+    parts: readonly string[],
+  ): Promise<void> => {
+    const registry = options.registry;
+    if (registry === undefined) {
+      missing(req, res, REGISTRY_UNAVAILABLE);
+      return;
+    }
+    const [, second, third] = parts;
+    /** The parsed body of a write, or undefined once the refusal has been sent. */
+    const bodyOf = async <T>(
+      parse: (
+        body: unknown,
+      ) => { readonly ok: true; readonly value: T } | { readonly ok: false; readonly message: string },
+    ): Promise<T | undefined> => {
+      let body: unknown;
+      try {
+        body = await readJson(req);
+      } catch (error) {
+        if (error instanceof BodyProblem) {
+          refuse(req, res, error.status, error.error);
+          return undefined;
+        }
+        throw error;
+      }
+      const parsed = parse(body);
+      if (!parsed.ok) {
+        refuse(req, res, 400, { code: 'invalid_request', message: parsed.message });
+        return undefined;
+      }
+      return parsed.value;
+    };
+    try {
+      if (parts.length === 1) {
+        sendJson(res, 200, await registry.list());
+        return;
+      }
+      if (parts.length === 2 && second === 'scan') {
+        const scanned = await registry.scan();
+        log.info('server.registry', 'scanned', {
+          folders: scanned.reports.length,
+          found: scanned.reports.reduce((sum, r) => sum + r.found, 0),
+        });
+        sendJson(res, 200, scanned);
+        return;
+      }
+      if (second === 'roots' && parts.length === 3 && third === 'resolve') {
+        const request = await bodyOf(parseResolveRoot);
+        if (request !== undefined) {
+          const resolved = await registry.resolveRoot(request);
+          log.info('server.registry', 'folder resolved', { found: resolved.found });
+          sendJson(res, 200, resolved);
+        }
+        return;
+      }
+      if (second === 'roots' && parts.length === 2) {
+        const request = await bodyOf(parseAddRoot);
+        if (request !== undefined) {
+          const added = await registry.addRoot(request);
+          log.info('server.registry', 'folder added', {
+            rootId: added.root.id,
+            alreadyCovered: added.alreadyCovered,
+          });
+          sendJson(res, 200, added);
+        }
+        return;
+      }
+      if (parts.length === 3 && second !== undefined && REGISTRY_ID.test(second)) {
+        if (third === 'annotate') {
+          const request = await bodyOf(parseAnnotate);
+          if (request !== undefined) {
+            const entry = await registry.annotate(second, request);
+            log.info('server.registry', 'annotated', { id: second, members: Object.keys(request).join(',') });
+            sendJson(res, 200, entry);
+          }
+          return;
+        }
+        if (third === 'copy') {
+          const request = await bodyOf(parseCopy);
+          if (request !== undefined) {
+            const copied = await registry.copy(second, request);
+            log.info('server.registry', 'copied', { from: second, id: copied.entry.id });
+            sendJson(res, 200, copied);
+          }
+          return;
+        }
+        if (third === 'remove') {
+          await registry.remove(second);
+          log.info('server.registry', 'removed', { id: second });
+          res.writeHead(204, { ...SECURITY_HEADERS, 'Cache-Control': 'no-store' });
+          res.end();
+          return;
+        }
+      }
+      missing(req, res, NOT_FOUND);
+    } catch (error) {
+      if (!isRegistryControlError(error)) {
+        throw error;
+      }
+      const answer = registryRefusal(error.code);
+      if (answer === undefined) {
+        throw error;
+      }
+      log.info('server.registry', 'refused', { code: error.code, path: loggedPath(req.url) });
+      sendError(res, answer.status, answer.error);
+    }
+  };
+
   const RUNS_UNAVAILABLE: ApiError = {
     code: 'runs_unavailable',
     message: 'This server does not start runs.',
@@ -1027,6 +1181,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       options.runs !== undefined,
       options.workflowStore !== undefined,
       options.workflowEditor !== undefined,
+      options.registry !== undefined,
     );
     if (!allowed.includes(req.method ?? '')) {
       res.setHeader('Allow', allowed.join(', '));

@@ -191,6 +191,30 @@ seconds, then ends any that did not stop, with everything they started. The page
 `indaba ui` itself crashes, or is killed, its runs keep going without it; the next `indaba ui` in that project removes the
 copies they left under `.indaba/run-inputs/`.
 
+## Workflows
+
+**Workflows** in the header lists every workflow Indaba finds in the folders it looks in: the folder you started
+`indaba ui` in (or each `--root`), and the folders you added with `indaba workflows add` or imported here. A table
+shows each workflow's name, project, tags, last result, last cost, last run and state (valid, invalid with the first
+problem, or missing). The name opens the workflow. Sort by any column, search by name, project, tag or state, and
+choose one row to act on it:
+
+- **Edit details** changes the name, the project and the tags Indaba shows. They are kept by Indaba beside the files; the
+  file itself is never changed. Emptying a name or a project brings the default back (the workflow's own name, the
+  folder's name).
+- **Hide** takes a workflow out of the way; **Show hidden** brings the hidden ones back, and the choice is in the address.
+- **Copy to another project** puts a copy of the file in another folder of the list, under a name you choose or the
+  original's. It never overwrites a file, and it lists the places you will usually want to change in the copy (the
+  workflow's name, paths, commands). **Open the copy** goes to it.
+- **Import a folder** adds a folder to the places Indaba looks. Type its path once; Indaba shows the folder it leads to and
+  how many workflow files it found there, and adds nothing until you say **Add this folder**. Adding a folder also
+  means the page can run its workflows, each after the usual confirmation of what it uses. The folder joins the same list
+  as `indaba workflows add`, so both see it.
+- **Remove from the list** takes off a workflow that has gone missing, or one you added by path whose name Indaba would
+  not find by itself. It never deletes a file. For any other workflow, Hide is offered instead, because a scan would bring
+  it back.
+- **Scan again** looks at every folder now and says what changed.
+
 ## Edit a workflow
 
 **Edit** next to a workflow in the Run a workflow panel opens it at an address of its own (`/workflows/<id>`), so a
@@ -303,8 +327,8 @@ Messages in the Run a workflow panel:
 ## Not there yet
 
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
-published `@indaba/server`, so `indaba ui` works from npm; naming, tagging and hiding a workflow from the page (today
-with `indaba workflows annotate`); "run this step" and a form for a workflow's inputs; answering
+published `@indaba/server`, so `indaba ui` works from npm; a health column on the Workflows screen (it needs the health
+report); "run this step" and a form for a workflow's inputs; answering
 an agent's questions; applying or discarding a run's changes; forms and the graph as an editor (positions for every
 problem come with them).
 

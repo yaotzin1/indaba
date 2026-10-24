@@ -4,6 +4,16 @@ import type {
   Logger,
   LoggingSettings,
   LoggingSettingsResponse,
+  RegistryAddRootRequest,
+  RegistryAddRootResponse,
+  RegistryAnnotateRequest,
+  RegistryCopyRequest,
+  RegistryCopyResponse,
+  RegistryEntryView,
+  RegistryListResponse,
+  RegistryResolveRootRequest,
+  RegistryResolveRootResponse,
+  RegistryScanResponse,
   SaveWorkflowSourceRequest,
   SaveWorkflowSourceResponse,
   SinkSettings,
@@ -34,6 +44,22 @@ export interface UiServerOptions {
   readonly workflowStore?: UiWorkflowStore;
   /** Editing a draft as a form, and what the form is built from (specs/web-app-editing-forms). */
   readonly workflowEditor?: UiWorkflowEditor;
+  /** Listing, annotating, copying and removing registry entries, and adding a folder (specs/web-app-registry). */
+  readonly registry?: UiRegistryControl;
+}
+
+/**
+ * The shape of `RegistryControl` of `@indaba/server`, declared here because the package is optional. A refusal is an
+ * `Error` named `RegistryControlError` with a `code`.
+ */
+export interface UiRegistryControl {
+  list(): Promise<RegistryListResponse>;
+  scan(): Promise<RegistryScanResponse>;
+  annotate(id: string, request: RegistryAnnotateRequest): Promise<RegistryEntryView>;
+  copy(id: string, request: RegistryCopyRequest): Promise<RegistryCopyResponse>;
+  remove(id: string): Promise<void>;
+  resolveRoot(request: RegistryResolveRootRequest): Promise<RegistryResolveRootResponse>;
+  addRoot(request: RegistryAddRootRequest): Promise<RegistryAddRootResponse>;
 }
 
 /** The shape of `WorkflowEditor` of `@indaba/server`. A refusal is an `Error` named `WorkflowEditorError` with a `code`. */
