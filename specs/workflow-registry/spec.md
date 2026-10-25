@@ -111,7 +111,7 @@ use the registry (AC-14, AC-15).
 - **No access control.** A registry lists what a person can already read; permissions belong to the host process.
 - **No running of workflows.** The registry points at files; the engine runs them.
 - **No deleting of files.** A separate, confirmed action, not in this spec.
-- **No connected workflows** (workflows that depend on one another): a paid feature with its own spec, which uses this
+- **No connected workflows** (workflows that depend on one another): not part of this repository; it uses this
   contract's ids (`plan-step-3.md`).
 
 ## 5. Behaviour on failure

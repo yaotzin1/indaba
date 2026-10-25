@@ -3,7 +3,7 @@
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
 > **Stage entry**: 1 to 4 written (specify, clarify, tasks); the decisions in section 8 are recommended and the maintainer confirms them
 > **Semver impact**: minor (new optional server resources, a new optional panel, a new optional per-user profiles file, new span attributes; nothing that exists changes behaviour).
-> **Licence**: MIT, in this repository. The maintainer decided on 2026-10-23 that this is **not** a paid feature (see C-01 for the line against the paid wizard).
+> **Licence**: MIT, in this repository (the maintainer, 2026-10-23; see C-01 for the line against the wizard, which is not part of this repository).
 > **Builds on**: [`specs/workflow-editor`](../workflow-editor/spec.md) (the document and the edits), [`specs/web-app-editing-core`](../web-app-editing-core/spec.md) and
 > [`specs/web-app-editing-forms`](../web-app-editing-forms/spec.md) (the edit view), [`specs/question-contract`](../question-contract/spec.md) (how the assistant asks),
 > [`specs/agent-permissions`](../agent-permissions/spec.md) (the assistant runs at `read`).
@@ -108,14 +108,14 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 
 ## 4. Non-goals
 
-- A guided wizard with a fixed sequence of questions and templates for non-developers, and "execute a spec" or "review a spec" templates: that is the paid wizard (C-01). This assistant has no fixed sequence.
+- A guided wizard with a fixed sequence of questions and templates for non-developers, and "execute a spec" or "review a spec" templates: that is the wizard (C-01), not part of this repository. This assistant has no fixed sequence.
 - Choosing a model for the person, or shipping a model, a key or a default service.
 - Running the workflow, saving it, or starting anything: the person's actions only.
 - The assistant editing anything but the open draft: not a skill, not a spec, not another file, not `indaba.config`.
 - Remembering conversations across sessions, or learning from them.
 - Letting the model call tools, read the project, or browse (AC-10). Improving the proposal by letting the model run `validate` itself is not needed: the program does it (AC-12).
 - Authenticating the content of added documents, or judging whether they are safe. They are data, and AC-13 bounds the harm.
-- Workflows depending on other workflows (the paid connected workflows).
+- Workflows depending on other workflows (connected workflows, not part of this repository).
 
 ## 5. Behaviour on failure
 
@@ -156,9 +156,9 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 
 All of these are **recommended; the maintainer confirms**.
 
-- **C-01. Free assistant, paid wizard.** The maintainer decided on 2026-10-22 that editing is free and the wizard (a guided sequence with templates) is paid, and on 2026-10-23 that this assistant is free. The line: the assistant
+- **C-01. The assistant here, the wizard elsewhere.** The maintainer decided on 2026-10-22 that editing is built in this repository and the wizard (a guided sequence with templates) is not, and on 2026-10-23 that this assistant is built here. The line: the assistant
   is free-form, works on a draft that is already open, has no templates and no fixed questions, and is an option the person turns on with a model of their choice; the wizard creates a workflow through a fixed sequence for a person who
-  does not write files. If they ever overlap in a screen, the wizard uses this assistant's contracts, not the other way round, so nothing paid is needed to use the free feature.
+  does not write files. If they ever overlap in a screen, the wizard uses this assistant's contracts, not the other way round, so nothing outside this repository is needed to use the assistant.
 - **C-02. Why a closed list of edits.** A model asked to "give me the YAML" returns a whole file, which hides what changed and makes the high-impact check a text-diff problem. A list of the forms' own
   operations is small, can be shown edit by edit, and is classified by the program (AC-13).
 - **C-03. Why accept-all excludes the high-impact edits.** Without this, the first prompt-injected document would be a way to `full` access. This is the lesson of the reviews of `review-gate` and

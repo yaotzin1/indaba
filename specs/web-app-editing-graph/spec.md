@@ -162,7 +162,7 @@ for every pointer action (parent AC-20, `plan-step-3.md`).
 - **Editing `artifacts`, `mcp_servers`, `agent` or `guards` on the canvas.** Like in step 3b (AC-07), they are named in
   the step panel with a button that opens the **Source** view at their line; guard bricks and MCP bricks in sketch 5 are
   deferred to the slice that adds form editors for `guards` and `mcp_servers` (C-03).
-- **The paid wizard or templates** (step 3d) and **the workflow assistant** (`specs/workflow-assistant`).
+- **The wizard or templates** (step 3d, not part of this repository) and **the workflow assistant** (`specs/workflow-assistant`).
 
 ## 5. Behaviour on failure
 

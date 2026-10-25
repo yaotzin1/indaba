@@ -116,7 +116,7 @@ does not drift from `indaba validate`.
 - **Renaming a step everywhere.** Changing an id does not rewrite other steps' `depends_on` or `on_failure.target`: the
   editor never repairs silently, and `problems` shows what to change.
 - **Undo, a history, auto-save, merging** (the editor's non-goals stand). Drafts live in the page; a Save is a click.
-- **Inputs** (`specs/workflow-inputs`) and anything paid: the wizard and connected workflows.
+- **Inputs** (`specs/workflow-inputs`), and what is not part of this repository: the wizard and connected workflows.
 - **Running the edit in the browser.** The parser imports Node modules and the page takes only types from `@indaba/core`
   (its layering test); edits go to the command line like checks.
 

@@ -142,7 +142,7 @@ gantt
 | `web-app-editing-graph` | Implemented on `feat/web-app-editing-graph`, except the real-browser check (see its `review.md`) | `@indaba/web` (`buildWorkflowGraph`, brick and connection edit helpers, edit mode on `RunGraph`, `GraphView`, **Graph** in `SourceScreen`). No dependency added |
 | `workflow-registry` | Implemented: slice 1 (#69, contract, file store, `indaba workflows`) and slice 2 (`feat/workflow-registry-ui`, `indaba ui` and the page) | `@indaba/core` (contract, `PluginHost.registerRegistry`), `@indaba/engine` (`FileWorkflowRegistry`, the walk of workflow files), `indaba` (`workflows`). No dependency added |
 | `single-step-run` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
-| `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend) |
+| `agent-sandbox` | Not started (specified) | `@indaba/core` (contracts), `@indaba/engine`, `@indaba/runners`, `indaba` (container backend; a `vm` backend is a plugin, not in this repository) |
 | `acp-agent-install` | Not started (specified) | `@indaba/core` (registry types), `@indaba/runners` (installer, store), `indaba` (`agents`, the consent prompt) |
 | `debate-findings` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `ruling-channel` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
