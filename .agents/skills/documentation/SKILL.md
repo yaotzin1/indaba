@@ -36,6 +36,12 @@ Whenever code changes, update the site in the same pull request:
 - run `pnpm site` and open `_site/index.html` for anything visual; say in the report which pages changed, or why
   none needed to.
 
+## Nothing about paid plans
+
+This repository is public. Never write which features are paid, priced or part of a commercial edition, or plans
+about them, in any file, commit message or pull request; say only that a feature is not part of this repository
+(see `specs/PRIVATE.md`).
+
 ## Spec directories
 
 Required: `spec.md`, `api-surface.md`, `review.md`. Optional: `plan.md`, `tasks.md`, `data-model.md`,

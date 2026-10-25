@@ -114,11 +114,11 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
 - **Skills** (C-18) and **an assistant in the editor over ACP** (C-19): both marked "not decided" in the parent spec. They
   need `ruling-channel` and a conversation spec first. Nothing in 3a to 3d may assume them.
 - Copy for another project, import and remove (AC-06 of the parent): the registry's screens.
-- **Connected workflows** (the maintainer, 2026-10-22: wanted, as a **paid** feature). Workflows that depend on one
+- **Connected workflows** (the maintainer, 2026-10-22: not part of this repository). Workflows that depend on one
   another (one waits for another, one's outputs feed another's inputs) as a layer above single files: a separate file that
   names workflows by their registry id, so "one file per workflow" (decision 1) still holds. It needs
-  `workflow-registry` (stable ids) and `workflow-inputs`, and it gets its own spec, which decides where the line between
-  the MIT packages and the paid one runs (a separate package through the plugin contracts, not a fork of the engine).
+  `workflow-registry` (stable ids) and `workflow-inputs`. It is built outside this repository, as a separate package
+  through the plugin contracts, not a fork of the engine.
 
 ## Decisions to take before 3a
 
@@ -132,14 +132,12 @@ Each is a pull request that leaves the page useful (C-09), and each starts with 
    picks one, the first by default. Step 2's search finds such a file at once; the registry later indexes it where it
    is, with origin "created by the editor". 3a only replaces files that exist; this applies from 3d (and to any
    "save as" before it).
-3. **Is editing part of a paid edition?** Decided by the maintainer, 2026-10-22: **editing is free; the wizard is paid.**
-   - Free, in this MIT repository: 3a (source), 3b (forms), 3c (the graph as an editor), and the registry's screens.
-   - Paid, outside it: 3d (the wizard and its templates) and connected workflows (below).
-   - What follows: this repository is public and MIT, so nothing paid is built here, and what is merged here cannot be
-     taken back. The paid features live in a separate private package and reach the engine, the server and the page only
-     through contracts this repository publishes. The page has no way for another package to add a screen yet. That
-     extension point (a page plugin, or a second build that bundles the paid screens) is free work in this repository,
-     specified before 3d. The paid package's spec says what it needs from it.
+3. **Which editing is built here?** Decided by the maintainer, 2026-10-22:
+   - In this MIT repository: 3a (source), 3b (forms), 3c (the graph as an editor), and the registry's screens.
+   - Outside it: 3d (the wizard and its templates) and connected workflows (below).
+   - What follows: a feature built outside this repository reaches the engine, the server and the page only through
+     contracts this repository publishes. The page has no way for another package to add a screen yet. That extension
+     point (a page plugin, or a second build that bundles more screens) is work in this repository, specified before 3d.
 
 ## Risks
 

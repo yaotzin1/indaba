@@ -75,7 +75,7 @@ does not carry to the next sketch, the real page keeps it).
    The full thread needs the board of `specs/run-blackboard` or a transcript kept under the run (T-21). Which, and may step 1
    ship with the summary only?
 9. **The editor.** Sketch 5 shows the graph as an editor with bricks. It is out of step 1; is the one-component approach (a view
-   mode now, an edit mode later) what you want, and is the list of bricks right? Whether editing is paid is not decided here.
+   mode now, an edit mode later) what you want, and is the list of bricks right? Which editing is built is not decided here.
 
 ## Answers (maintainer, 2026-10-21)
 

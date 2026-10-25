@@ -105,7 +105,7 @@ from the page.
 
 ## 4. Non-goals
 
-- **New workflow, and the wizard.** `workflow-editor` step 3d (paid, outside this repository). The New workflow button of
+- **New workflow, and the wizard.** `workflow-editor` step 3d (outside this repository). The New workflow button of
   sketch 6 is not built; no dead control is shown.
 - **Health** (AC-02 above), **connected workflows**, **a registry plugin for `indaba ui`** (it loads no plugins).
 - **Removing a root.** `indaba workflows` has no such command either; a person edits the per-user list.

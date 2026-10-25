@@ -67,4 +67,4 @@ Before applying anything, the three claims everything else rests on were checked
 | 21 | `AGENTS.md` was one character under the 12000 that antigravity reads, so its server row could not grow | Reworded within its old length |
 
 ## Still open
-- Product decisions for step 3 (one file or many, where a new workflow goes, whether editing is paid) are the maintainer's.
+- Product decisions for step 3 (one file or many, where a new workflow goes, which editing is built here) are the maintainer's.

@@ -64,8 +64,8 @@ and are replaced by what the first pull request actually took.
 5. Actions: run, stop, resume, run one step, answers and messages, apply or discard a change list.
 6. Editing: the wizard and editor of `specs/workflow-editor`, and copy for another project.
 
-Not scheduled until asked for: sign-in, a hosted service ([hosted-service.md](hosted-service.md)), and a VM sandbox
-backend (a plugin).
+Not scheduled until asked for: sign-in and a hosted service ([hosted-service.md](hosted-service.md)). A VM sandbox
+backend is not part of this repository: it is a plugin on the contract of Phase 5.
 
 ## Monday: Phase 0
 
@@ -132,6 +132,6 @@ These are open in the specifications and block the phases named.
 | Whether a run's attempts under variants may name different models | Phase 6 or later |
 | Whether the new `Isolation` value `copy` ships as a major in practice | Phase 4 |
 | Whether `StepState.SKIPPED` ships as a major in practice (single-step runs) | Phase 6 |
-| Docker and Podman as the first sandbox engines; the first `vm` backend as a plugin, later | Phase 5 |
+| Docker and Podman as the sandbox engines of this repository; a `vm` backend only as a plugin (decided 2026-10-25) | Phase 5 |
 | Whether to host at all, or to offer a self-hosted package | the hosted-service note |
 | Whether Phase 2's first decider scope is only "questions" | Phase 2 |

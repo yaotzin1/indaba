@@ -283,8 +283,8 @@ All recommendations; the maintainer confirms.
   designing a workflow by moving bricks from a palette onto the canvas (`specs/workflow-editor`, step 3 of C-09) is the same
   picture, not a second one. In view mode every step can be selected: its panel says what happened (runners, models, tokens,
   cost, tools, permissions, guards, output, tries), and what happens if it fails (retry which step, how many times, then
-  escalated or failed). The edit mode writes the workflow file and shows the messages of `indaba validate`. Whether editing is
-  part of a paid edition is a product decision this spec does not make. React Flow (C-01) supports both modes.
+  escalated or failed). The edit mode writes the workflow file and shows the messages of `indaba validate`. Which editing is
+  built is a product decision this spec does not make. React Flow (C-01) supports both modes.
 - **C-14. The graph needs the workflow's structure.** A run's trace records, for a step, only its id and attempt number. Which
   step waits for which (`depends_on`) and where a failure leads (`on_failure`) are in the workflow file, not in the trace, and the
   trace names the workflow but not the file. Recommendation: the engine records both when the run starts

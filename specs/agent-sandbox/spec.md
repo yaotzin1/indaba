@@ -216,9 +216,12 @@ All recommendations; the maintainer confirms.
   spawner that reimplements streaming and kill for each backend.
 - **C-02. `container` and `vm` are two kinds, not one.** A virtual machine gives a separate kernel and is what the hosted
   service needs for hostile tenants; a container is what a person on a laptop already has. The contract is the same,
-  so supporting `vm` means a backend, not a redesign. The built-in `vm` backend is not specified here: the first one
-  ships as a plugin (a lightweight VM through a tool the platform already offers) once the container path is used. Until
-  then `kind: vm` with no backend registered fails validation (AC-02), and the hosted-service note says which gap that is.
+  so supporting `vm` means a backend, not a redesign. **Decided by the maintainer (2026-10-25): the `container` backend
+  is built in this repository; the `vm` backend is not part of it.** A `vm` backend is a plugin that registers through
+  `registerSandbox` like any third party's, with no access a plugin lacks. What stays here, so a workflow is the same
+  file wherever it runs: the `vm` kind, the `SandboxBackend` contract, the policy (`minimum: vm` included) and the
+  validation. Without such a plugin, `kind: vm` fails validation (AC-02) and the message names the missing backend; it
+  never falls back to a container or the host.
 - **C-03. The image is generated; `image` is an escape hatch.** With no `image`, Indaba builds from its own definition
   (a small Linux base pinned by digest, the agents the steps need, a non-root user, `git` only if a step needs it).
   With `image`, Indaba uses the named image as is and installs nothing into it, and the person is told the agent must be
