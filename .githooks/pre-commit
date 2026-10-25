@@ -47,6 +47,10 @@ node scripts/security-audit.mjs --source >/dev/null 2>&1 \
     || fail "security audit found exploit-prone code -- run: node scripts/security-audit.mjs"
 pass "security audit"
 
+node scripts/build-site.mjs --check >/dev/null 2>&1 \
+    || fail "a page of docs/ is missing from the documentation site -- run: node scripts/build-site.mjs --check"
+pass "every page of docs/ is on the site"
+
 node --test scripts/*.test.mjs >/dev/null 2>&1 \
     || fail "script self-tests failed -- run: node --test scripts/*.test.mjs"
 pass "script self-tests"

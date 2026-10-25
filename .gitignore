@@ -18,3 +18,4 @@ coverage-tmp/
 
 # JetBrains IDE settings
 .idea/
+/_site/

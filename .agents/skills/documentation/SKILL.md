@@ -20,6 +20,22 @@ Documentation is part of the change. A feature whose docs lag is unfinished.
 | `AGENTS.md`, `CLAUDE.md` | agents | how to work here |
 | doc comments (TSDoc) | the person reading the code | the why, and what the types cannot express |
 
+## The documentation site (a must)
+
+docs/ is the site GitHub Pages serves: `scripts/build-site.mjs` renders it with the landing page, template,
+styles and animated illustration in `site/`, and `.github/workflows/pages.yml` publishes it from main.
+Whenever code changes, update the site in the same pull request:
+
+- every page under docs/ that describes what changed (a command, an option, a default, a workflow field,
+  an install step, a screen) says what the code now does; never leave a page describing removed behaviour;
+- a new page under docs/ goes into `PAGES` in `scripts/build-site.mjs` (`--check` fails the commit otherwise);
+- `docs/getting-started.md` keeps "What is on npm" true: the version under `latest` and `next`, and which
+  commands only a checkout of main has. Check with `npm view indaba dist-tags`;
+- if the landing page (`site/index.html`) or the illustration (`site/hero.svg`) states something the change
+  makes untrue, fix it too;
+- run `pnpm site` and open `_site/index.html` for anything visual; say in the report which pages changed, or why
+  none needed to.
+
 ## Spec directories
 
 Required: `spec.md`, `api-surface.md`, `review.md`. Optional: `plan.md`, `tasks.md`, `data-model.md`,

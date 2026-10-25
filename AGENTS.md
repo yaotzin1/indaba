@@ -147,6 +147,7 @@ all run on the host, on any OS; a missing `node_modules` fails the hook instead 
 - **Operating Cycle Mirrored Into AGENTS.md** — `node scripts/sync-agent-docs.mjs --check`
 - **Workflow Claims Match the Repository** — `node scripts/check-workflow.mjs`
 - **Security Audit (banned constructs, secrets, manifests, tsconfig, biome.json)** — `node scripts/security-audit.mjs --source`
+- **Every Page of docs/ Is on the Documentation Site** — `node scripts/build-site.mjs --check`
 - **Script Self-Tests** — `node --test scripts/*.test.mjs`
 - **Quality Gate (Biome, tsc strict, Vitest)** — `pnpm qa`
 - **Commit Declares Its Track and Matches It** — `node scripts/check-track.mjs`
@@ -171,7 +172,7 @@ One line each. The reason and what enforces it are in `.agents/rules/workflow_ru
 - Extension contracts live in @indaba/core, and built-ins get no privileged access.
 - One command, any OS.
 - Nothing is published or tagged unless the maintainer asks.
-- Repository documentation moves with the change: AGENTS.md, README.md, CHANGELOG.md and specs/DEPENDENCY_MAP.md whenever the public surface, the architecture or the release contents change, and the files under docs/ in...
+- Documentation moves with the change, and the docs site is a must.
 - Everything is tested, and coverage is at least 85% on statements, branches, functions and lines, measured by Vitest with the v8 provider over packages/*/src.
 - No invented numbers.
 
