@@ -58,6 +58,8 @@ pnpm qa
 
 - [ ] `README.md` updated, or not affected
 - [ ] `docs/` updated in this change for any workflow field, guard, runner option, CLI option or default
+- [ ] The documentation site (`docs/`, `site/`) says what the code now does; a new page is in `PAGES`, and
+      `docs/getting-started.md` still says correctly what is on npm (`pnpm site` builds it)
 - [ ] `CHANGELOG.md` entry added under Unreleased, or not needed on this track
 - [ ] `specs/DEPENDENCY_MAP.md` updated, or not affected
 - [ ] `workflow.ai.yml` edited and the sync scripts re-run, if the tracks, stages, gates or skills changed

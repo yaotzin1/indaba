@@ -23,6 +23,8 @@ npx indaba run workflow.ai.yml
 > `0.1.0-alpha.0`). The API is not stable below 1.0. To work on Indaba, run from a checkout (see
 > [Development](#development)).
 
+**Documentation:** [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indaba/), built from [`docs/`](docs/README.md).
+
 - **Deterministic pipelines.** A declarative workflow file is a DAG of steps with quality gates,
   filesystem guards and artifact handoffs. The engine, not a model, decides what runs next.
 - **Multi-agent cross-examination.** Roles are backed by different engines (Claude Code, Codex,

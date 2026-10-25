@@ -1,0 +1,188 @@
+<svg class="hero-art" viewBox="0 0 640 440" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hero-t hero-d">
+<title id="hero-t">How Indaba works</title>
+<desc id="hero-d">Six agents sit in a circle around a fire, the engine. Messages pass between them while they debate; when they agree, lines run from each agent to the fire and the decision drops into a run below. The run moves through spec, plan and code to a gate. The first time the gate fails, the run retries code with only the last failure, then passes the gate, review, and finishes.</desc>
+<defs>
+  <radialGradient id="hero-glow" cx="50%" cy="50%" r="50%">
+    <stop offset="0" class="h-glow-in"/>
+    <stop offset="1" class="h-glow-out"/>
+  </radialGradient>
+  <linearGradient id="hero-flame" x1="0" y1="1" x2="0" y2="0">
+    <stop offset="0" stop-color="#c2410c"/>
+    <stop offset=".6" stop-color="#f59e42"/>
+    <stop offset="1" stop-color="#ffd977"/>
+  </linearGradient>
+</defs>
+<text class="h-act" x="24" y="28">01 · the council debates</text>
+<text class="h-act" x="24" y="318">02 · the run</text>
+<circle class="h-ring" cx="320" cy="168" r="116"/>
+<circle class="h-ring-inner" cx="320" cy="168" r="58"/>
+<text class="h-status" x="320" y="34" text-anchor="middle" opacity="1">debating
+  <animate attributeName="opacity" values="1;1;0;0;1" keyTimes="0;0.24;0.25;0.97;1" dur="14s" repeatCount="indefinite"/>
+</text>
+<text class="h-status h-status-ok" x="320" y="34" text-anchor="middle" opacity="0">consensus
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.25;0.27;0.9;0.93;1" dur="14s" repeatCount="indefinite"/>
+</text>
+<line class="h-ray" x1="436" y1="168" x2="350" y2="168" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<line class="h-ray" x1="378" y1="268.4589" x2="335" y2="193.9808" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<line class="h-ray" x1="262" y1="268.4589" x2="305" y2="193.9808" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<line class="h-ray" x1="204" y1="168" x2="290" y2="168" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<line class="h-ray" x1="262" y1="67.5411" x2="305" y2="142.0192" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<line class="h-ray" x1="378" y1="67.5411" x2="335" y2="142.0192" stroke-dasharray="86" stroke-dashoffset="86" opacity="0">
+  <animate attributeName="stroke-dashoffset" values="86;86;0;0;86" keyTimes="0;0.25;0.31;0.95;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.249;0.25;0.5;0.56;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<circle class="h-pulse" cx="320" cy="168" r="30" opacity="0">
+  <animate attributeName="r" values="30;30;116;116" keyTimes="0;0.29;0.37;1" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;0.7;0;0" keyTimes="0;0.289;0.29;0.37;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<g transform="translate(320 168)">
+  <circle r="54" fill="url(#hero-glow)"/>
+  <g>
+    <animateTransform attributeName="transform" type="scale" values="1;1;1.28;1;1" keyTimes="0;0.27;0.31;0.4;1" dur="14s" repeatCount="indefinite"/>
+    <g class="h-flame">
+      <path d="M0 16 C-16 16 -19 2 -12 -8 C-9 -2 -6 -1 -5 -4 C-7 -14 -1 -22 4 -28 C3 -18 14 -12 14 0 C14 10 8 16 0 16 Z" fill="url(#hero-flame)"/>
+      <path d="M0 16 C-6 16 -8 9 -4 3 C-2 6 0 5 1 2 C5 6 6 10 5 13 C4 15 2 16 0 16 Z" fill="#fff1c7" opacity=".85"/>
+    </g>
+  </g>
+  <path class="h-logs" d="M-18 20 L18 13 M-18 13 L18 20"/>
+</g>
+<text class="h-cap" x="320" y="210" text-anchor="middle">engine</text>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M436 168 Q320 122 204 168" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="0s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="0s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M262 67.5411 Q359.8372 145 378 268.4589" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="0.38s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="0.38s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M262 268.4589 Q359.8372 191 378 67.5411" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="0.76s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="0.76s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M204 168 Q320 122 436 168" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="1.14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="1.14s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M378 268.4589 Q359.8372 145 262 67.5411" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="1.52s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="1.52s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M378 67.5411 Q359.8372 191 262 268.4589" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="1.9s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="1.9s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M436 168 Q372 77.9334 262 67.5411" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="2.28s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="2.28s" repeatCount="indefinite"/>
+</circle>
+<circle class="h-spark" r="3.6" opacity="0">
+  <animateMotion path="M204 168 Q314 178.3923 378 268.4589" keyPoints="0;1;1" keyTimes="0;0.085;1" calcMode="linear" dur="14s" begin="2.66s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;1;1;0;0" keyTimes="0;0.008;0.077;0.085;1" dur="14s" begin="2.66s" repeatCount="indefinite"/>
+</circle>
+<g class="h-agent" transform="translate(436 168)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="470" y="172" text-anchor="start">claude-code</text>
+<g class="h-agent" transform="translate(378 268.4589)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="395" y="301.9038" text-anchor="start">codex</text>
+<g class="h-agent" transform="translate(262 268.4589)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="245" y="301.9038" text-anchor="end">gemini</text>
+<g class="h-agent" transform="translate(204 168)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="170" y="172" text-anchor="end">shell</text>
+<g class="h-agent" transform="translate(262 67.5411)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="245" y="42.0962" text-anchor="end">openrouter</text>
+<g class="h-agent" transform="translate(378 67.5411)">
+  <circle class="h-seat" r="20"/>
+  <path class="h-body" d="M-11 12 C-11 2 -6 -1 0 -1 C6 -1 11 2 11 12 Z"/>
+  <circle class="h-body" cy="-8" r="6"/>
+</g>
+<text class="h-name" x="395" y="42.0962" text-anchor="start">cursor</text>
+<line class="h-decision" x1="320" y1="220" x2="320" y2="330" stroke-dasharray="110" stroke-dashoffset="110">
+  <animate attributeName="stroke-dashoffset" values="110;110;0;0;110" keyTimes="0;0.3;0.34;0.95;1" dur="14s" repeatCount="indefinite"/>
+</line>
+<rect class="h-rail" x="24" y="330" width="592" height="98" rx="14"/>
+<line class="h-edge" x1="64" y1="370" x2="576" y2="370"/>
+<path class="h-retry" d="M376 370 Q320 322 264 370"/>
+<text class="h-cap h-cap-retry" x="320" y="360" text-anchor="middle">retry</text>
+<circle class="h-node" cx="64" cy="370" r="11"/>
+<circle class="h-node-lit" cx="64" cy="370" r="11" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.34;0.346;0.95;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<text class="h-label" x="64" y="402" text-anchor="middle">spec</text>
+<circle class="h-node" cx="164" cy="370" r="11"/>
+<circle class="h-node-lit" cx="164" cy="370" r="11" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4148;0.4208;0.95;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<text class="h-label" x="164" y="402" text-anchor="middle">plan</text>
+<circle class="h-node" cx="264" cy="370" r="11"/>
+<circle class="h-node-lit" cx="264" cy="370" r="11" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.4896;0.4956;0.95;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<text class="h-label" x="264" y="402" text-anchor="middle">code</text>
+<g transform="translate(376 370)">
+  <rect class="h-node" x="-13" y="-13" width="26" height="26" transform="rotate(45)"/>
+  <rect class="h-node-fail" x="-13" y="-13" width="26" height="26" transform="rotate(45)" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5734;0.5794;0.6566;0.6666;1" dur="14s" repeatCount="indefinite"/>
+  </rect>
+  <rect class="h-node-ok" x="-13" y="-13" width="26" height="26" transform="rotate(45)" opacity="0">
+    <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.7504;0.7564;0.95;1" dur="14s" repeatCount="indefinite"/>
+  </rect>
+</g>
+<text class="h-gate-msg h-fail-text" x="376" y="421" text-anchor="middle" opacity="0">tests failed
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.5734;0.5794;0.7404;0.7504;1" dur="14s" repeatCount="indefinite"/>
+</text>
+<text class="h-gate-msg h-ok-text" x="376" y="421" text-anchor="middle" opacity="0">passed
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.7504;0.7564;0.95;1" dur="14s" repeatCount="indefinite"/>
+</text>
+<text class="h-label" x="376" y="402" text-anchor="middle">gate</text>
+<circle class="h-node" cx="476" cy="370" r="11"/>
+<circle class="h-node-lit" cx="476" cy="370" r="11" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.8252;0.8312;0.95;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<text class="h-label" x="476" y="402" text-anchor="middle">review</text>
+<circle class="h-node" cx="576" cy="370" r="11"/>
+<circle class="h-node-ok" cx="576" cy="370" r="11" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.9;0.906;0.95;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+<path class="h-check" d="M571 370 l3.5 3.5 l6.5 -7" opacity="0">
+  <animate attributeName="opacity" values="0;0;1;1;0" keyTimes="0;0.9;0.906;0.95;1" dur="14s" repeatCount="indefinite"/>
+</path>
+<text class="h-label" x="576" y="402" text-anchor="middle">done</text>
+<circle class="h-token" r="5.5" opacity="0">
+  <animateMotion path="M64 370 L376 370 Q320 322 264 370 L376 370 L576 370" keyPoints="0;0;1;1" keyTimes="0;0.34;0.9;1" calcMode="linear" dur="14s" repeatCount="indefinite"/>
+  <animate attributeName="opacity" values="0;0;1;1;0;0" keyTimes="0;0.335;0.34;0.9;0.92;1" dur="14s" repeatCount="indefinite"/>
+</circle>
+</svg>

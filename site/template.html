@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@@TITLE@@</title>
+<meta name="description" content="@@DESCRIPTION@@">
+<meta name="color-scheme" content="light dark">
+<link rel="icon" href="assets/indaba-mark.svg" type="image/svg+xml">
+<link rel="stylesheet" href="site/site.css">
+<script src="site/site.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to the content</a>
+<header class="bar">
+  <a class="brand" href="index.html"><img src="assets/indaba-mark.svg" alt="" width="30" height="30">Indaba</a>
+  <nav aria-label="Site">
+    <a href="getting-started.html"@@CUR:getting-started@@>Get started</a>
+    <a class="wide" href="workflow-format.html"@@CUR:workflow-format@@>Workflow format</a>
+    <a class="wide" href="web-view.html"@@CUR:web-view@@>Web view</a>
+    <a href="@@REPO@@">GitHub</a>
+    <button class="theme" type="button" data-theme-toggle aria-label="Colour theme: follows the system">Auto</button>
+  </nav>
+</header>
+@@BODY@@
+<footer class="foot">
+  <span>Indaba is MIT licensed. This site is built from <a href="@@REPO@@/tree/main/docs"><code>docs/</code></a>@@BUILT@@.</span>
+  <span><a href="@@REPO@@/issues">Report a problem</a></span>
+</footer>
+</body>
+</html>

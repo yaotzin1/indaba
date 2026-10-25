@@ -1,0 +1,21 @@
+# The first run of docs/getting-started.md: two shell steps, a check that fails once on purpose, and the
+# retry that fixes it. No API key, no agent, nothing installed but Node. Run it in an empty folder:
+#   npx indaba@next run hello.workflow.ai.yml
+version: "1.0"
+name: "hello-council"
+
+steps:
+  - id: "draft"
+    runner: "shell"
+    commands:
+      - node -e "require('fs').writeFileSync('draft.txt', 'hello from indaba')"
+
+  - id: "check"
+    depends_on: ["draft"]
+    runner: "shell"
+    commands:
+      - node -e "const fs=require('fs'); const again=fs.existsSync('.tried'); fs.writeFileSync('.tried', ''); if (!again) { console.error('first try fails on purpose'); process.exit(1) }"
+    on_failure:
+      action: "retry_step"
+      target: "draft"
+      max_retries: 2

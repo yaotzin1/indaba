@@ -1,0 +1,81 @@
+<main id="main">
+<section class="hero">
+  <div>
+    <p class="definition"><b>indaba</b> (Zulu, Xhosa) · <i>n.</i> a gathering where a matter is talked through until it is settled.</p>
+    <h1>Let your agents argue. <em>Ship what they agree on.</em></h1>
+    <p class="lede">Indaba is a deterministic engine for multi-agent AI workflows. It runs a graph of steps behind quality
+      gates, seats agents in a council that cross-examines until it reaches consensus, and records every token and
+      dollar as an OpenTelemetry trace.</p>
+    <div class="actions">
+      <a class="btn primary" href="getting-started.html">Get started</a>
+      <a class="btn" href="workflow-format.html">Read the workflow format</a>
+    </div>
+    <p class="install"><span>$ </span>npx indaba@next validate workflow.ai.yml</p>
+  </div>
+  <figure class="art">
+    @@HERO@@
+    <button class="theme art-pause" type="button" data-hero-pause aria-pressed="false">Pause</button>
+  </figure>
+</section>
+
+<section class="ideas" aria-label="What Indaba does">
+  <div class="idea">
+    <span class="num">01</span>
+    <h2>A graph with gates</h2>
+    <p>Steps run in a declared order. A guard (a command, a git diff, a file check) decides whether a step passed,
+      and a failure retries the target step with only the last failure, never the whole history.</p>
+  </div>
+  <div class="idea">
+    <span class="num">02</span>
+    <h2>A council, not a chorus</h2>
+    <p>Two or more agents review the same work and answer each other's points until they agree, or a human rules on
+      the transcript.</p>
+  </div>
+  <div class="idea">
+    <span class="num">03</span>
+    <h2>Any runner</h2>
+    <p>Agent CLIs, ACP agents, an OpenRouter model or a plain shell command behind one contract, each in its own git
+      worktree, with a fallback when the first transport is not there.</p>
+  </div>
+  <div class="idea">
+    <span class="num">04</span>
+    <h2>Every token counted</h2>
+    <p>A run is a trace, a step a span. Tokens and cost come from the provider or are marked unknown, never invented.
+      Follow it in the terminal or in the browser.</p>
+  </div>
+</section>
+
+<section class="split">
+  <div>
+    <h2>A workflow is one file you can read.</h2>
+    <p>Roles name the runner behind each agent. Steps say what to do, who checks it, and what happens when it fails.
+      <code>indaba validate</code> lists every problem at once, <code>indaba plan</code> shows the order, and
+      <code>indaba run</code> executes it.</p>
+    <p><a href="workflow-format.html">Every field of the format</a> ·
+      <a href="@@REPO@@/tree/main/examples">The examples</a></p>
+  </div>
+<pre><code><span># examples/review-debate.workflow.ai.yml</span>
+version: "1.0"
+name: "review-debate"
+
+roles:
+  claude:
+    runner: "claude-code"
+  antigravity:
+    runner: "antigravity"
+
+steps:
+  - id: "review_debate"
+    role: "claude"
+    consensus_with: ["antigravity"]
+    decision_type: "consensus"
+    arbiter: "human"
+    goal: &gt;-
+      Review src/core for correctness bugs and unclear design ...</code></pre>
+</section>
+
+<section class="map" aria-labelledby="map-h">
+  <h2 id="map-h">The documentation</h2>
+  @@DOCMAP@@
+</section>
+</main>

@@ -1,6 +1,8 @@
 # Documentation
 
-The repository's main README is the tour; these are the parts that need more room.
+The repository's main README is the tour; these are the parts that need more room. The same pages are the
+documentation site, [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indaba/), built by `pnpm site`
+(`scripts/build-site.mjs`) and published from `main`; a new page here is added to its navigation there.
 
 ## Using Indaba
 

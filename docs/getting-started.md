@@ -1,11 +1,67 @@
 # Getting started
 
 Indaba runs a workflow file: a graph of steps executed by agent CLIs, an LLM API or plain commands,
-with quality gates, retries and a trace of what happened. This page gets you from nothing to a run.
+with quality gates, retries and a trace of what happened. This page gets you from nothing to a run in a
+few minutes, with no API key and no agent installed.
 
-The `indaba` package is published as a preview, `0.1.0-alpha.0`. `npx indaba@next` downloads it; the
-commands below write `npx indaba`, which resolves to the same version for now. To work on Indaba itself,
-use a checkout of the repository (see "Running from a checkout" below).
+## What is on npm
+
+Indaba is a preview. What npm has today, and what only a checkout of the repository has:
+
+| | npm | A checkout of `main` |
+| :--- | :--- | :--- |
+| Version | `next`: `0.1.0-alpha.2` (2026-10-05). `latest`: `0.1.0-alpha.0` | everything merged since `0.1.0-alpha.2` |
+| `indaba validate`, `plan`, `run` | yes | yes |
+| `indaba watch`, `report`, `settings`, `schema`, `catalog`, `workflows` | no | yes |
+| `indaba ui` (the web view) | no: `@indaba/server` is not published | yes |
+| `--log-level`, `--log-dir`, `--tui`, `--permissions` | no | yes |
+| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.2` | yes |
+
+Always write `npx indaba@next`. Plain `npx indaba` resolves to `latest`, the older `0.1.0-alpha.0`. The rest of
+this page writes `npx indaba` for short; from a checkout, write `pnpm indaba` (see
+[Running from a checkout](#running-from-a-checkout)). The [CHANGELOG](../CHANGELOG.md) lists what `main` has gained.
+
+## Your first run
+
+Make an empty folder, save [`examples/hello.workflow.ai.yml`](../examples/hello.workflow.ai.yml) in it, and run it:
+
+```yaml
+version: "1.0"
+name: "hello-council"
+
+steps:
+  - id: "draft"
+    runner: "shell"
+    commands:
+      - node -e "require('fs').writeFileSync('draft.txt', 'hello from indaba')"
+
+  - id: "check"
+    depends_on: ["draft"]
+    runner: "shell"
+    commands:
+      - node -e "const fs=require('fs'); const again=fs.existsSync('.tried'); fs.writeFileSync('.tried', ''); if (!again) { console.error('first try fails on purpose'); process.exit(1) }"
+    on_failure:
+      action: "retry_step"
+      target: "draft"
+      max_retries: 2
+```
+
+```bash
+npx indaba@next validate hello.workflow.ai.yml   # hello-council is valid (2 steps, 0 roles).
+npx indaba@next plan hello.workflow.ai.yml       # 1. draft ... 2. check ... (after draft)
+npx indaba@next run hello.workflow.ai.yml
+```
+
+The run prints each step's state as it changes. `check` fails the first time, as it is written to, so its
+`on_failure` sends the run back to `draft` with only that failure; the second time `check` passes and the task
+ends `COMPLETED` with exit code 0. The commands are `node -e`, so the same file runs on Windows, macOS and Linux.
+
+What it left behind is under `.indaba/`: the trace of the run, the steps and the retry as OpenTelemetry spans
+(see [What a run leaves behind](#what-a-run-leaves-behind)). From here:
+
+- give a step a `role` backed by an agent or a model: [Runners](#runners) and [workflow-format.md](workflow-format.md);
+- let two agents debate a decision: [consensus steps](workflow-format.md#consensus-steps);
+- follow runs in a browser: [web-view.md](web-view.md) (from a checkout for now).
 
 ## Prerequisites
 
@@ -262,10 +318,10 @@ output goes to the files above, so `-v` has no effect with `--tui`.
 
 ## Running from a checkout
 
-Until a release is published, run the CLI from the repository:
+For everything that is not on npm yet (the table at the top), run the CLI from the repository:
 
 ```bash
-git clone <the repository> indaba
+git clone https://github.com/yaotzin1/indaba.git
 cd indaba
 pnpm install
 pnpm build
