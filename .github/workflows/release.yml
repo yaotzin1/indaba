@@ -77,10 +77,10 @@ jobs:
           DIST_TAG=latest
           case "$VERSION" in *-*) DIST_TAG=next ;; esac
           mkdir "$RUNNER_TEMP/tarballs"
-          for dir in core engine runners tui cli; do
+          for dir in core engine runners tui server cli; do
             (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
           done
-          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba; do
+          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba-server indaba; do
             npm stage publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
           done
 
