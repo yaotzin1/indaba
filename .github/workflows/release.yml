@@ -67,6 +67,8 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@^11.15.0
 
+      # @indaba/server 0.1.0-alpha.3 was published by hand to create the package; staging it again would fail.
+      # Put it back in both lists (and in the order, before indaba) for the next release.
       # pnpm pack rewrites the workspace: ranges to real versions; npm stage publish then authenticates
       # with the OIDC identity of this job and parks each tarball for approval. A version with a hyphen
       # (0.2.0-alpha.1) is a prerelease and goes to the next tag once approved. Approve core first:
@@ -77,10 +79,10 @@ jobs:
           DIST_TAG=latest
           case "$VERSION" in *-*) DIST_TAG=next ;; esac
           mkdir "$RUNNER_TEMP/tarballs"
-          for dir in core engine runners tui server cli; do
+          for dir in core engine runners tui cli; do
             (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
           done
-          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba-server indaba; do
+          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba; do
             npm stage publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
           done
 
