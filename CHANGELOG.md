@@ -15,6 +15,10 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.3] - 2026-10-26
+
+The third preview, published under the `next` tag. It adds `indaba ui` (the web view and `@indaba/server`, now staged by the release workflow too), permission levels, the Workflows screen and the graph editor, and the logging settings. Entries below are the detail.
+
 ### Added
 
 - **Edit a workflow on the graph in `indaba ui`** (patch; track `feature`; spec `specs/web-app-editing-graph`, step 3c of
