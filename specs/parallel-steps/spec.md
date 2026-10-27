@@ -1,8 +1,8 @@
 # Specification: Parallel steps (independent steps of a run work at the same time, and talk before they collide)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 2 (the maintainer confirmed C-01 to C-06 on 2026-10-27 and asked for the coordination, the review before
-> landing and the conflict conversation; C-07 to C-11 are recommendations the maintainer confirms)
+> **Stage entry**: 2 (the maintainer confirmed C-01 to C-10 on 2026-10-27 and asked for the coordination, the review before
+> landing and the conflict conversation; C-11 is a recommendation the maintainer confirms)
 > **Semver impact**: minor (optional workflow fields, a new engine option, a new section of `indaba.config`, a new CLI
 > option, new board kinds, one new span attribute; the default keeps today's behaviour; below 1.0). Provisional;
 > confirmed in `api-surface.md` at stage 3.
@@ -98,8 +98,8 @@ exactly today's.
   (variable), or a configuration error naming the key (file), as `logging` does for the level.
 - [ ] AC-02. The engine takes the resolved value as the option `maxParallelSteps` (default 1).
 - [ ] AC-03. A workflow may declare `max_parallel` at the top level. The limit of its run is the smaller of `max_parallel`
-  and the resolved value: a workflow lowers it, never raises it (C-02). A non-integer or a number below 1 fails
-  validation naming the field.
+  and the resolved value: a workflow lowers it, never raises it (C-02). `max_waits` (AC-13) follows the same rule. A
+  non-integer or a number below 1 in either fails validation naming the field.
 - [ ] AC-04. The Settings screens of the terminal dashboard and of the web view show the resolved limit and where it came
   from, and the web view's Settings can write `parallel.max_steps` to `indaba.config`.
 - [ ] AC-05. With a limit of 1 every run behaves exactly as today: same order, same workspace handling, same events,
@@ -127,7 +127,8 @@ exactly today's.
 - [ ] AC-13. A step whose intent meets a step that has passed stage 6 (it is forking, working, being checked, reviewed
   or landed but not yet `COMPLETED`) is put back to waiting. It is admitted again when that step is `COMPLETED`, and
   repeats its intent call then (it now sees the combined state and the board). Waiting frees its slot. A step put back
-  three times in a row is admitted alone, with nothing else admitted beside it, so it cannot starve (C-08).
+  `parallel.max_waits` times in a row (default 3) is admitted alone, with nothing else admitted beside it, so it cannot
+  starve (C-08). `max_waits` is set in `indaba.config` and lowered, never raised, by a workflow's `max_waits`.
 - [ ] AC-14. Steps admitted together whose intents meet form a *negotiation*: a debate under `specs/agent-mesh`, with
   each step's role as a participant, the intents as the topic, and the same round limit and stall detection as any
   debate. Each participant answers with its proposal of the split (which paths each step changes) and of each shared
@@ -137,8 +138,10 @@ exactly today's.
   section of its own.
 - [ ] AC-16. A negotiation that does not reach consensus goes to the arbiter as a failed debate does: the `arbiter` of
   the first of those steps in topological order, else the workflow's default, else the person (`debate-arbiter`). An
-  accept ruling posts the contract the ruling names; a reject, or no ruling, runs those steps one after another in
-  topological order instead of together, and records why (C-09).
+  accept ruling posts the contract the ruling names. A reject, or no ruling, asks the run's decider (the person, or the
+  agent the person promoted, `specs/agent-conversation`) what to do, with three answers: run those steps one after
+  another, run them in an order it names, or stop the run. Until `agent-conversation` is implemented, and when nobody
+  answers, those steps run one after another in topological order. The choice and who made it are recorded (C-09).
 - [ ] AC-17. A step's work may still go beyond its intent; nothing here blocks it. A `diff_within_scope` guard can be
   added by the author if the intent must hold (C-10).
 
@@ -266,18 +269,18 @@ Confirmed by the maintainer on 2026-10-27:
   word.
 - **C-05. Running steps finish after another step fails, and a step's review happens before it lands** (AC-21, AC-27).
 - **C-06. One run worktree, step worktrees forked from it**, with the stages of section 3.
-
-Recommendations; the maintainer confirms or changes each:
-
-- **C-07. Glob meets glob by literal prefix.** Deciding whether two globs can match a common path in general is more
-  than this needs; comparing the fixed part before the first wildcard is cheap, deterministic and errs towards
-  "they meet", which only costs a negotiation.
-- **C-08. Three times put back, then admitted alone.** Without a bound, a step that meets a long chain of others could
-  wait for the rest of the run. The number is a design choice, not a measurement.
-- **C-09. A failed negotiation with no ruling serialises those steps** rather than failing the run: they can still do
-  their work one after another, as they do today.
+- **C-07. Glob meets glob by literal prefix.** Comparing the fixed part before the first wildcard is cheap,
+  deterministic and errs towards "they meet", which only costs a negotiation.
+- **C-08. Put back at most `max_waits` times (default 3, configurable), then admitted alone.** Without a bound, a step
+  that meets a long chain of others could wait for the rest of the run. The default is a design choice, not a
+  measurement.
+- **C-09. A failed negotiation with no ruling goes to the decider** (the person or a promoted agent), who chooses to run
+  the steps one after another, in a given order, or to stop. Without an answer they run one after another.
 - **C-10. Intents are declarations, not fences.** An agent CLI's edits cannot be confined before they happen; landing
   and resolution catch what the intent missed, and `diff_within_scope` remains available to fence a step.
+
+Recommendation; the maintainer confirms or changes it:
+
 - **C-11. The intent call happens only when the limit is above 1.** With 1 there is no one to meet, and the call would
   cost a request per step for nothing.
 
@@ -298,7 +301,7 @@ Recommendations; the maintainer confirms or changes each:
 
 ## Artifacts not written
 
-- `plan.md`: stage 3, after C-07 to C-11 are confirmed.
+- `plan.md`: stage 3, after C-11 is confirmed.
 - `tasks.md`: stage 4, after the plan.
 - `data-model.md`: the `intent` and `contract` entries are board records and are added to `specs/run-blackboard`'s data
   model when this is planned; this spec adds no file of its own.

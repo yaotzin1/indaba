@@ -28,7 +28,7 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/core` (`mesh/intent.ts`) | function | `parseIntent(stepId: string, text: string): { readonly intent: Intent; readonly ignored: number }` |
 | `@indaba/core` (`mesh/intent.ts`) | interface | `Contract { readonly steps: readonly string[]; readonly paths: Readonly<Record<string, readonly string[]>>; readonly interfaces: readonly { readonly name: string; readonly shape: string }[]; readonly decidedBy: 'consensus' \| 'arbiter' }` |
 | `@indaba/core` (board kinds, `specs/run-blackboard`) | enum members | `BoardKind.Intent = 'intent'`, `BoardKind.Contract = 'contract'`, engine-written only |
-| `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.parallel?: { readonly maxSteps: number }` (from `parallel.max_steps`) |
+| `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.parallel?: { readonly maxSteps: number; readonly maxWaits: number }` (from `parallel.max_steps`, `parallel.max_waits`) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSteps?: number` (default 1) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `RunOptions.onStepOutput?: (stepId: string, chunk: string) => void` |
 | `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.fork(name: string): Promise<Workspace>` |
@@ -61,7 +61,8 @@ None.
 | workflow file | top-level `max_parallel` (integer, at least 1) | added |
 | workflow file | step field `touches` (list of paths or globs; shell steps) | added |
 | JSON schema (`indaba schema`) and catalog | `max_parallel`, `touches` | added, with descriptions |
-| `indaba.config` | section `parallel:` with `max_steps` | added |
+| `indaba.config` | section `parallel:` with `max_steps` and `max_waits` | added |
+| workflow file | top-level `max_waits` (integer, at least 1; lowers the configured value) | added |
 | environment | `INDABA_PARALLEL` | added |
 | CLI | `indaba run --parallel <n>`, `indaba ui --parallel <n>` | added |
 | CLI | `indaba plan` | prints the groups of spec AC-32 (added output; existing lines unchanged) |
@@ -79,7 +80,7 @@ None.
 | :--- | :--- | :--- |
 | the limit (`--parallel`, `INDABA_PARALLEL`, `parallel.max_steps`, `maxParallelSteps`) | (none: one at a time) | 1 |
 | `max_parallel` | (none) | unset: the resolved limit applies |
-| put back before admitted alone | (none) | 3 (a design choice, spec C-08) |
+| `parallel.max_waits` (put back before admitted alone) | (none) | 3 (a design choice, spec C-08) |
 
 ## Checks
 
