@@ -50,8 +50,9 @@ agent; who makes each decision is still the person's choice.
   is for.
 - **Not an editor or an IDE**, and not an agent itself: it drives agents and models you already have.
 - **Not a hosted service.** It runs on your machine, with your keys and your logins.
-- **Not a scheduler or a trigger platform** (run every morning, run when a file arrives), and no loops over lists
-  of items. These are not in the current plan and will be reconsidered if asked for.
+- **Not a scheduler or a trigger platform** (run every morning, run when a file arrives). This is not in the current
+  plan and will be reconsidered if asked for. Inside a run, a step can be repeated once per item a plan produces
+  (one agent per module), specified in `step-fanout`; a run started for each item of a list is not.
 - **Not an automatic merger.** Changes leave a run as a patch for a person or a named decider to apply. Inside a run,
   Indaba combines the changes of parallel steps in its own worktree; it never applies them to your checkout.
 
@@ -65,6 +66,7 @@ agent; who makes each decision is still the person's choice.
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
 | Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Specified: `parallel-steps` |
 | A role that owns part of the project (a core, a shared model); other agents ask it for changes instead of making them | Specified: `path-ownership` |
+| One step template run once per item the plan produces (one agent per module); plugins that add steps to a run | Specified: `step-fanout` |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |
 | Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |
