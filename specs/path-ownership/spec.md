@@ -1,7 +1,7 @@
 # Specification: Path ownership (a role owns part of the project; others ask it for changes)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 (the decisions in section 8 are recommendations the maintainer confirms)
+> **Stage entry**: 2 (the maintainer confirmed C-01 to C-04 on 2026-10-27)
 > **Semver impact**: minor (an optional workflow field, a new board kind, new span attributes and log records; a
 > workflow without `owners` behaves as today; below 1.0). Provisional; confirmed in `api-surface.md` at stage 3.
 > **Builds on**: [`specs/parallel-steps`](../parallel-steps/spec.md) (intents, landing, waiting, resolution),
@@ -139,7 +139,7 @@ then the step fails and nobody makes the change it needed.
 
 ## 8. Clarifications
 
-Recommendations; the maintainer confirms or changes each:
+Confirmed by the maintainer on 2026-10-27:
 
 - **C-01. Ownership belongs to roles, declared at the workflow level.** A role is the agent configuration that answers;
   tying ownership to a step would leave nobody to answer once that step is complete.
@@ -151,7 +151,7 @@ Recommendations; the maintainer confirms or changes each:
 
 ## Artifacts not written
 
-- `plan.md`: stage 3, after section 8 is confirmed and `parallel-steps` slice 3 is in.
+- `plan.md`: stage 3, once `parallel-steps` slice 3 is in.
 - `tasks.md`: stage 4, after the plan.
 - `data-model.md`: the request and answer are board records, added to `specs/run-blackboard`'s data model when planned.
 - `events.md`: no new event class.
