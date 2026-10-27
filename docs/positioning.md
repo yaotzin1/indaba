@@ -64,6 +64,7 @@ agent; who makes each decision is still the person's choice.
 | Debate between roles to consensus, a human arbiter, a committed decision ledger | Works (alpha) |
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
 | Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Specified: `parallel-steps` |
+| A role that owns part of the project (a core, a shared model); other agents ask it for changes instead of making them | Specified: `path-ownership` |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |
 | Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |

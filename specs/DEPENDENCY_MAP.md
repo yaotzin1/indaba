@@ -112,6 +112,7 @@ gantt
     agent-sandbox          :active, 2026-10-12, 2026-10-16
     agent-conversation     :active, 2026-10-22, 2026-10-23
     parallel-steps         :active, 2026-10-27, 1d
+    path-ownership         :active, 2026-10-27, 1d
 ```
 
 `desktop-app` was dropped and is left out of the chart.
@@ -161,6 +162,7 @@ gantt
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `parallel-steps` | Not started (specified; plan and tasks written, decisions C-01 to C-11 confirmed; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
+| `path-ownership` | Not started (specified; draft; builds on `parallel-steps` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
