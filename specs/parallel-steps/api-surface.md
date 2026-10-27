@@ -1,8 +1,8 @@
 # API surface contract: Parallel steps
 
-> **Provisional (stage 2).** Written with the specification so the surface can be reviewed with it. It becomes the
-> contract at stage 3, after the decisions in `spec.md` section 12 are confirmed; from then on it is immutable during
-> stage 6, and an implementation that finds it wrong stops and returns to stage 3.
+> **Immutable during stage 6.** Nothing locks this file; it holds because agents hold it. An implementation that finds
+> this wrong stops and returns to stage 3; it does not edit this file. Confirmed at stage 3 on 2026-10-27 against the
+> code on `main` (`WorkflowEngine`, `GitWorktree`, `GitWorktreeManager`, `PluginHost`, `ProjectConfig`).
 
 ## Semver classification
 
@@ -19,27 +19,37 @@ release raises the default, which ships as a labelled change (spec C-01).
 | Export (package, module) | Kind | Signature |
 | :--- | :--- | :--- |
 | `@indaba/core` (`workflow/model.ts`) | field | `WorkflowDefinition.maxParallel?: number` (from `max_parallel`) |
+| `@indaba/core` (`workflow/model.ts`) | field | `WorkflowDefinition.maxWaits?: number` (from `max_waits`) |
 | `@indaba/core` (`workflow/model.ts`) | field | `StepDefinition.touches?: readonly string[]` (from `touches`, shell steps only) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `admit(input: AdmitInput): readonly string[]`, pure: the step ids to admit now |
-| `@indaba/core` (`workflow/schedule.ts`) | interface | `AdmitInput { readonly order: readonly StepDefinition[]; readonly states: ReadonlyMap<string, StepStatus>; readonly running: ReadonlySet<string>; readonly waiting: ReadonlyMap<string, number>; readonly limit: number; readonly runsInProject: (step: StepDefinition) => boolean; readonly halted: boolean }` (`waiting`: times each step was put back) |
+| `@indaba/core` (`workflow/schedule.ts`) | interface | `AdmitInput { readonly order: readonly StepDefinition[]; readonly states: ReadonlyMap<string, StepStatus>; readonly running: ReadonlySet<string>; readonly waiting: ReadonlyMap<string, number>; readonly limit: number; readonly maxWaits: number; readonly runsInProject: (step: StepDefinition) => boolean; readonly halted: boolean }` (`waiting`: times each step was put back) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `meets(a: Intent, b: Intent): boolean` (spec AC-12) |
+| `@indaba/core` (`workflow/schedule.ts`) | function | `runsInProject(step: StepDefinition, isolated: ReadonlySet<string>): boolean`, today's rule (no isolation and no isolated dependency) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `parallelGroups(order: readonly StepDefinition[], limit: number, runsInProject: (step: StepDefinition) => boolean): readonly (readonly string[])[]` |
 | `@indaba/core` (`mesh/intent.ts`) | interface | `Intent { readonly stepId: string; readonly paths: readonly string[]; readonly provides: readonly { readonly name: string; readonly summary: string }[]; readonly needs: readonly string[] }` |
-| `@indaba/core` (`mesh/intent.ts`) | function | `parseIntent(stepId: string, text: string): { readonly intent: Intent; readonly ignored: number }` |
+| `@indaba/core` (`mesh/intent.ts`) | function | `parseIntent(stepId: string, text: string): { readonly intent: Intent; readonly ignored: number }`, reads at most the first 20,000 characters and at most 200 lines of each form (design choices) |
+| `@indaba/core` (`mesh/intent.ts`) | constant | `INTENT_INSTRUCTION: string`, the fixed instruction of the intent call |
+| `@indaba/core` (`mesh/intent.ts`) | function | `contractSection(contract: Contract): string`, the prompt section a work prompt carries |
+| `@indaba/core` (`mesh/intent.ts`) | interface | `NegotiationDecider { decide(request: { readonly steps: readonly string[]; readonly transcript: readonly AgentMessage[] }, signal?: AbortSignal): Promise<'sequence' \| { readonly order: readonly string[] } \| 'stop' \| null> }`; `null` means nobody answered |
 | `@indaba/core` (`mesh/intent.ts`) | interface | `Contract { readonly steps: readonly string[]; readonly paths: Readonly<Record<string, readonly string[]>>; readonly interfaces: readonly { readonly name: string; readonly shape: string }[]; readonly decidedBy: 'consensus' \| 'arbiter' }` |
 | `@indaba/core` (board kinds, `specs/run-blackboard`) | enum members | `BoardKind.Intent = 'intent'`, `BoardKind.Contract = 'contract'`, engine-written only |
-| `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.parallel?: { readonly maxSteps: number; readonly maxWaits: number }` (from `parallel.max_steps`, `parallel.max_waits`) |
+| `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.parallel: ResolvedParallel`, always present, defaults filled |
+| `@indaba/engine` (`config/project-config.ts`) | interface | `ResolvedParallel { readonly maxSteps: number; readonly maxWaits: number }` (from `parallel.max_steps`, `parallel.max_waits`; defaults 1 and 3) |
+| `@indaba/engine` (`config/project-config.ts`) | constant change | `PROJECT_CONFIG_SECTIONS` gains `'parallel'` |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSteps?: number` (default 1) |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxWaits?: number` (default 3) |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.negotiationDecider?: NegotiationDecider` (default: always `null`, so steps run one after another) |
+| `indaba` (`parallel.ts`) | constant | `PARALLEL_CONSEQUENCES: string`, the text of spec AC-04a |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `RunOptions.onStepOutput?: (stepId: string, chunk: string) => void` |
-| `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.fork(name: string): Promise<Workspace>` |
-| `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.land(child: Workspace): Promise<LandResult>` |
-| `@indaba/engine` (`workspace/workspace.ts`) | type | `LandResult = { readonly ok: true } \| { readonly ok: false; readonly conflicts: readonly ConflictHunk[] }`, paths project-relative |
+| `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.fork(name: string): Promise<Workspace>`: a worktree whose `HEAD` is a commit of this workspace's current state, so its `diff()` is its own change only |
+| `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.land(child: Workspace): Promise<LandResult>`: three-way apply of `child.diff()`; on success this workspace changes and nothing else is left; on conflict this workspace is unchanged and the result holds the conflicted landing workspace for the resolution |
+| `@indaba/engine` (`workspace/workspace.ts`) | type | `LandResult = { readonly ok: true } \| { readonly ok: false; readonly conflicts: readonly ConflictHunk[]; readonly workspace: Workspace }`, paths project-relative; the caller destroys `workspace` |
 | `@indaba/engine` (`workspace/workspace.ts`) | interface | `ConflictHunk { readonly path: string; readonly ours: string; readonly theirs: string }`, each text bounded and cleaned before it reaches a prompt |
 
 `Workspace` is an interface implemented in this repository by `GitWorktree` (and by the copy workspace of
 `specs/workspace-without-git` when that ships). Adding two methods to it breaks a third-party implementation; there is
-none outside this repository today, and `WorkspaceManager` is not a `PluginHost` extension point. To be confirmed at
-stage 3; if a public implementer is found, the methods move to a separate optional interface instead.
+none outside this repository today, and neither `Workspace` nor `WorkspaceManager` is a `PluginHost` extension point
+(`PluginHost` registers runners, guards, adjudicators and listeners). Confirmed: minor.
 
 Adding members to `BoardKind` is additive for readers that treat an unknown kind as unknown, which the board reader
 does (`specs/run-blackboard` AC-30).

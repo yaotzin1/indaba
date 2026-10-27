@@ -1,8 +1,8 @@
 # Specification: Parallel steps (independent steps of a run work at the same time, and talk before they collide)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 2 (the maintainer confirmed C-01 to C-11 on 2026-10-27 and asked for the coordination, the review before
-> landing and the conflict conversation; all decisions are confirmed)
+> **Stage entry**: stages 1 to 5 done (plan, tasks and analysis written); next is stage 6. The maintainer confirmed C-01
+> to C-11 on 2026-10-27 and asked for the coordination, the review before landing and the conflict conversation.
 > **Semver impact**: minor (optional workflow fields, a new engine option, a new section of `indaba.config`, a new CLI
 > option, new board kinds, one new span attribute; the default keeps today's behaviour; below 1.0). Provisional;
 > confirmed in `api-surface.md` at stage 3.
@@ -305,9 +305,7 @@ Confirmed by the maintainer on 2026-10-27:
 
 ## Artifacts not written
 
-- `plan.md`: stage 3, next.
-- `tasks.md`: stage 4, after the plan.
 - `data-model.md`: the `intent` and `contract` entries are board records and are added to `specs/run-blackboard`'s data
-  model when this is planned; this spec adds no file of its own.
+  model when slice 3 is implemented; this spec adds no file of its own.
 - `events.md`: no new event class; AC-30 and AC-31 say what changes in the stream and the trace.
 - `research.md`: no external research; the behaviour follows from the engine as it is.
