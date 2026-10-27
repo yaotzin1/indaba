@@ -160,7 +160,7 @@ gantt
 | `agent-permissions` | Implemented in `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server` and `@indaba/web` (the catalog map, the `full` confirmation of the page, the editor presets; web contract 1.5.0) (specified; draft; the level `ask` is reserved for a later spec; removing the runners' hard-coded defaults is a later labelled minor) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
-| `parallel-steps` | Not started (specified; draft; C-01 to C-10 confirmed, C-11 awaiting the maintainer; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
+| `parallel-steps` | Not started (specified; draft; decisions C-01 to C-11 confirmed; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what

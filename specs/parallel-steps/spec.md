@@ -1,8 +1,8 @@
 # Specification: Parallel steps (independent steps of a run work at the same time, and talk before they collide)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 2 (the maintainer confirmed C-01 to C-10 on 2026-10-27 and asked for the coordination, the review before
-> landing and the conflict conversation; C-11 is a recommendation the maintainer confirms)
+> **Stage entry**: 2 (the maintainer confirmed C-01 to C-11 on 2026-10-27 and asked for the coordination, the review before
+> landing and the conflict conversation; all decisions are confirmed)
 > **Semver impact**: minor (optional workflow fields, a new engine option, a new section of `indaba.config`, a new CLI
 > option, new board kinds, one new span attribute; the default keeps today's behaviour; below 1.0). Provisional;
 > confirmed in `api-surface.md` at stage 3.
@@ -102,6 +102,12 @@ exactly today's.
   non-integer or a number below 1 in either fails validation naming the field.
 - [ ] AC-04. The Settings screens of the terminal dashboard and of the web view show the resolved limit and where it came
   from, and the web view's Settings can write `parallel.max_steps` to `indaba.config`.
+- [ ] AC-04a. Parallel work is the person's choice, made knowing what it costs. Wherever the limit is set above 1 (the
+  Settings screens, the run panel of the web view) and at the start of every run whose limit is above 1 (`indaba run`,
+  `watch --plain`, the dashboard), Indaba states the consequences in a few lines: each agent step makes an extra intent
+  call, steps whose intentions meet hold a negotiation and may resolve conflicts (more calls and spend), each running
+  step uses a worktree of its own on disk, and a negotiation or conflict nobody can settle comes to the decider. The
+  text is the same everywhere and is part of the documentation.
 - [ ] AC-05. With a limit of 1 every run behaves exactly as today: same order, same workspace handling, same events,
   same trace file byte for byte apart from the root attribute of AC-31 (a test pins it).
 - [ ] AC-06. Ready steps are admitted in their topological position order (the order `DagBuilder` returns today), so
@@ -278,10 +284,8 @@ Confirmed by the maintainer on 2026-10-27:
   the steps one after another, in a given order, or to stop. Without an answer they run one after another.
 - **C-10. Intents are declarations, not fences.** An agent CLI's edits cannot be confined before they happen; landing
   and resolution catch what the intent missed, and `diff_within_scope` remains available to fence a step.
-
-Recommendation; the maintainer confirms or changes it:
-
-- **C-11. The intent call happens only when the limit is above 1.** With 1 there is no one to meet, and the call would
+- **C-11. Agents in parallel steps always talk; with a limit of 1 nobody does.** The person decides whether to work in
+  parallel and is told the consequences (AC-04a). When they do, coordination is not optional. The intent call happens only when the limit is above 1.** With 1 there is no one to meet, and the call would
   cost a request per step for nothing.
 
 ## 13. Where other specifications meet this one
@@ -301,7 +305,7 @@ Recommendation; the maintainer confirms or changes it:
 
 ## Artifacts not written
 
-- `plan.md`: stage 3, after C-11 is confirmed.
+- `plan.md`: stage 3, next.
 - `tasks.md`: stage 4, after the plan.
 - `data-model.md`: the `intent` and `contract` entries are board records and are added to `specs/run-blackboard`'s data
   model when this is planned; this spec adds no file of its own.
