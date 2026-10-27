@@ -63,7 +63,7 @@ agent; who makes each decision is still the person's choice.
 | Runners: API (OpenRouter and compatible), ACP agents, agent command lines (Claude Code, Codex, Cursor, Antigravity, OpenCode) with fallback between them | Works (alpha) |
 | Debate between roles to consensus, a human arbiter, a committed decision ledger | Works (alpha) |
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
-| Independent steps running at the same time, each in its own worktree, their changes combined for the steps after them | Specified: `parallel-steps` |
+| Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Specified: `parallel-steps` |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |
 | Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |
