@@ -12,6 +12,9 @@
 > [`specs/step-budgets`](../step-budgets/spec.md) and [`specs/ruling-channel`](../ruling-channel/spec.md) touch
 > the board and are described here only where they do. [`specs/workflow-editor`](../workflow-editor/spec.md)
 > will describe the new step field in its schema.
+> **Parallel steps**: under [`specs/parallel-steps`](../parallel-steps/spec.md) several steps post at once. The single
+> serialised writer and `seq` already order their posts; the digest a step receives is built when its call starts, so
+> it holds what other steps posted before that moment and nothing posted during the call.
 
 ---
 

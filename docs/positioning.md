@@ -43,13 +43,17 @@ agent; who makes each decision is still the person's choice.
 
 ## What it is not
 
-- **Not a cockpit for running many coding agents at once on a repository.** Indaba orchestrates a few agents that
-  examine each other, not a queue of parallel tasks.
+- **Not a pool of agents that never talk to each other.** Agents in a run work at the same time on the parts of a
+  project that do not depend on each other, each in its own isolated copy, and they share what they learn: they
+  debate, post notes and findings to the run's board, and their changes are combined for the steps that review or
+  integrate them. Running many unrelated tasks side by side, with nothing passing between them, is not what Indaba
+  is for.
 - **Not an editor or an IDE**, and not an agent itself: it drives agents and models you already have.
 - **Not a hosted service.** It runs on your machine, with your keys and your logins.
 - **Not a scheduler or a trigger platform** (run every morning, run when a file arrives), and no loops over lists
   of items. These are not in the current plan and will be reconsidered if asked for.
-- **Not an automatic merger.** Changes leave a step as a patch for a person or a named decider to apply.
+- **Not an automatic merger.** Changes leave a run as a patch for a person or a named decider to apply. Inside a run,
+  Indaba combines the changes of parallel steps in its own worktree; it never applies them to your checkout.
 
 ## Where each part stands
 
@@ -59,6 +63,7 @@ agent; who makes each decision is still the person's choice.
 | Runners: API (OpenRouter and compatible), ACP agents, agent command lines (Claude Code, Codex, Cursor, Antigravity, OpenCode) with fallback between them | Works (alpha) |
 | Debate between roles to consensus, a human arbiter, a committed decision ledger | Works (alpha) |
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
+| Independent steps running at the same time, each in its own worktree, their changes combined for the steps after them | Specified: `parallel-steps` |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |
 | Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |
