@@ -47,14 +47,14 @@ test('the audit names what leaks: sources, tests, specs, build info and secrets'
 });
 
 test('@indaba/server must carry its page, its script and the licences of what it bundles', () => {
-    const base = ['package.json', 'dist/index.js', 'dist/index.d.ts'];
+    const base = ['package.json', 'README.md', 'dist/index.js', 'dist/index.d.ts'];
     assert.deepEqual(auditFiles('@indaba/server', base).missing, ['page/index.html', 'page/THIRD-PARTY-LICENSES.txt', 'page/assets/*.js']);
     const page = [...base, 'page/index.html', 'page/THIRD-PARTY-LICENSES.txt', 'page/assets/index-x1.js', 'page/assets/a.woff2'];
     assert.deepEqual(auditFiles('@indaba/server', page), { leaks: [], missing: [] });
 });
 
 test('indaba must carry its bin', () => {
-    assert.deepEqual(auditFiles('indaba', ['package.json', 'dist/index.js']).missing, ['dist/bin.js']);
+    assert.deepEqual(auditFiles('indaba', ['package.json', 'README.md', 'dist/index.js']).missing, ['dist/bin.js']);
 });
 
 /** A tarball on disk with these files under package/. */
@@ -66,7 +66,7 @@ function tarball(files) {
 }
 
 const library = (name, dependencies = {}) =>
-    tarball({ 'package.json': JSON.stringify({ name, version: '1.2.3', dependencies }), 'dist/index.js': '', 'dist/index.d.ts': '' });
+    tarball({ 'package.json': JSON.stringify({ name, version: '1.2.3', dependencies }), 'README.md': '', 'dist/index.js': '', 'dist/index.d.ts': '' });
 
 test('the manifest a tarball would publish is read from it', () => {
     assert.equal(tarballManifest(library('@indaba/core')).name, '@indaba/core');
@@ -101,4 +101,8 @@ test('a complete release set with real ranges passes', () => {
     const core = library('@indaba/core');
     const engine = library('@indaba/engine', { '@indaba/core': '1.2.3' });
     assert.deepEqual(auditTarballs([core, engine], ['@indaba/core', '@indaba/engine'], '1.2.3'), []);
+});
+
+test('every published package must carry a README: it is the package page on npm', () => {
+    assert.deepEqual(auditFiles('@indaba/core', ['package.json', 'dist/index.js', 'dist/index.d.ts']).missing, ['README.md']);
 });

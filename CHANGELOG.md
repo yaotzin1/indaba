@@ -26,6 +26,10 @@ port". The PHP prototype that preceded them was never published.
 
 ### Documentation
 
+- **Every package has a README** (patch; track `chore`; `packages/*/README.md`, `scripts/smoke-pack.mjs`). The pages
+  of the packages on npm were empty. Each published package now carries a README: what it is, how to install it,
+  how it is used, and links to the documentation site. The runners' npm description names all of them. `pnpm smoke`
+  and the release's tarball audit now refuse a published package without a README.
 - **The documentation site matches 0.1.0-alpha.3** (patch; track `chore`; every page of `docs/`, `README.md`, the
   landing page). The pages still described 0.1.0-alpha.2 as the newest preview, the web view as unpublished and
   read-only, and most of phase 6 of the roadmap as planned. They now give the alpha.3 versions, the commands and
