@@ -17,7 +17,7 @@ documentation site, [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indab
 | [web-view.md](web-view.md) | You want to see your runs in a browser: opening the page, reading a run, what the states and costs mean, and how it keeps your work private |
 | [logging.md](logging.md) | You want to find what went wrong, change where logs go (`indaba.config`, Graylog, a collector), or report an issue with `indaba report` |
 | [extending.md](extending.md) | You want to add a runner, a guard type, an event listener or a log sink with a plugin |
-| [vision.md](vision.md) | You want the founding requirement: mission, modules, the runtime workflow contract. Kept verbatim, with a note on what the TypeScript port superseded |
+| [vision.md](vision.md) | You want the founding requirement: mission, modules, the runtime workflow contract, as built in TypeScript |
 
 ## Two kinds of `workflow.ai.yml`
 

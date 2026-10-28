@@ -53,7 +53,7 @@ export const PAGES = [
         items: [
             { file: 'roadmap.md', label: 'Roadmap', blurb: 'What is built in which order' },
             { file: 'hosted-service.md', label: 'Hosted service', blurb: 'What a hosted Indaba would need' },
-            { file: 'vision.md', label: 'Vision', blurb: 'The founding requirement, verbatim' },
+            { file: 'vision.md', label: 'Vision', blurb: 'The founding requirement: mission and modules' },
         ],
     },
     {

@@ -48,7 +48,7 @@ governance:
     - "GEMINI.md - generated, and it carries no rule of its own. Google documents no order between it and AGENTS.md, so neither may hold a rule the other lacks; it imports AGENTS.md and the order is then harmless."
     - "CLAUDE.md - Claude Code entry point. Imports AGENTS.md and may add tool-specific notes, never overrides."
     - "specs/<feature-name>/** - binding for one feature only, subordinate to everything above."
-    - "docs/vision.md - the founding requirement, kept verbatim. Everything above outranks it where they differ."
+    - "docs/vision.md - the founding requirement, retargeted to TypeScript (the PHP original is in git history). Everything above outranks it where they differ."
   conflict_resolution: "Stop. Correct the subordinate document, re-run the sync scripts, then continue. Never settle a conflict by following the subordinate text."
   sync_commands:
     - "node scripts/sync-agent-docs.mjs"

@@ -17,6 +17,11 @@ port". The PHP prototype that preceded them was never published.
 
 ### Documentation
 
+- **The vision page describes the TypeScript implementation** (patch; track `chore`; `docs/vision.md`). The page still
+  presented Indaba as PHP 8.4 with Symfony, PHPStan and Composer, under a supersession note. It now states the same
+  mission, modules and workflow contract as built: TypeScript for Node 22+, the pnpm packages, the current runners,
+  `pnpm test` in the example. The PHP original stays in git history, and the "kept verbatim" rule is retired.
+
 - **Pattern: a review debate** (patch; track `chore`; `docs/workflow-format.md`, `examples/review-debate.workflow.ai.yml`).
   A debate that reviews work ended `max_rounds_exceeded` although the reviewers agreed with each other, because
   `AGREEMENT` was defined as "the work is good" and they kept answering `CRITIQUE`. The docs (and so the docs site)
