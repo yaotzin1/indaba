@@ -38,7 +38,8 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/engine` (`config/project-config.ts`) | constant change | `PROJECT_CONFIG_SECTIONS` gains `'parallel'` |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSteps?: number` (default 1) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxWaits?: number` (default 3) |
-| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.negotiationDecider?: NegotiationDecider` (default: always `null`, so steps run one after another) |
+| `@indaba/core` (`extension/index.ts`) | method | `PluginHost.registerNegotiationDecider(decider: NegotiationDecider): void`; the last registration wins; with none, nobody answers and the steps run one after another |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.negotiationDecider?: NegotiationDecider`: how the composition root passes what the host registered, as `adjudicators` is passed today; not an extension point of its own |
 | `indaba` (`parallel.ts`) | constant | `PARALLEL_CONSEQUENCES: string`, the text of spec AC-04a |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `RunOptions.onStepOutput?: (stepId: string, chunk: string) => void` |
 | `@indaba/engine` (`workspace/workspace.ts`) | method | `Workspace.fork(name: string): Promise<Workspace>`: a worktree whose `HEAD` is a commit of this workspace's current state, so its `diff()` is its own change only |
@@ -51,8 +52,14 @@ release raises the default, which ships as a labelled change (spec C-01).
 none outside this repository today, and neither `Workspace` nor `WorkspaceManager` is a `PluginHost` extension point
 (`PluginHost` registers runners, guards, adjudicators and listeners). Confirmed: minor.
 
-Adding members to `BoardKind` is additive for readers that treat an unknown kind as unknown, which the board reader
-does (`specs/run-blackboard` AC-30).
+`PluginHost` gains `registerNegotiationDecider`. Under `specs/DEPENDENCY_MAP.md` ("What breaks what"), adding a
+method to `PluginHost` breaks no plugin, only another implementation of the host, of which the CLI's is the only one:
+below 1.0 a minor, named in the changelog.
+
+`BoardKind` gains `intent` and `contract`. The board's own readers treat an unknown kind as unknown (`run-blackboard`
+AC-30), but a third party switching over `BoardKind` exhaustively stops compiling: a major in practice, which below 1.0
+takes the next minor and is named in the changelog. If `run-blackboard` has not been released when this ships, the
+members are part of its first release and nothing breaks.
 
 ## Public symbols changed
 
@@ -78,7 +85,7 @@ None.
 | CLI | `indaba plan` | prints the groups of spec AC-32 (added output; existing lines unchanged) |
 | prompt | the intent instruction (`INTENT`, `PROVIDES`, `NEEDS` lines) and the contract section of a work prompt | added; the text is part of the contract once released |
 | board | entries of kind `intent` and `contract` | added |
-| span attributes | `indaba.workflow.max_parallel`, `indaba.workflow.max_parallel.source` on the root span | added |
+| span attributes | `indaba.workflow.max_parallel`, `indaba.workflow.max_parallel.source` on the root span; `indaba.land.sequence` on each landing span (spec AC-22) | added |
 | spans | child spans of a step for the intent call, the negotiation, the landing and the resolution | added (names fixed at stage 3 under the GenAI conventions) |
 | events | none | unchanged classes; events of different steps interleave (spec AC-30) |
 | filesystem | step and resolution worktrees under `.indaba/worktrees/` | added (naming confirmed at stage 3 against `GitWorktreeManager`) |

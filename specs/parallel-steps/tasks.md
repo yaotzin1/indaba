@@ -42,7 +42,8 @@ a setting, removed in T-15).
 ## Slice 3: intents and negotiation (needs `run-blackboard`)
 
 - [ ] T-11. `@indaba/core`: `intent.ts` (`Intent`, `Contract`, `parseIntent`, `INTENT_INSTRUCTION`, `contractSection`,
-  `NegotiationDecider`), `meets`, the two board kinds. Tests: parsing forms and bounds; meeting rules.
+  `NegotiationDecider`, `PluginHost.registerNegotiationDecider` and `RegistryPluginHost`), `meets`, the two board
+  kinds; changelog entries naming the `PluginHost` addition and the union members (`api-surface.md`). Tests: parsing forms and bounds; meeting rules.
 - [ ] T-12. `@indaba/engine`: the intent call, posting the intent, putting back with `maxWaits`, the negotiation through
   a synthetic debate, posting the contract, the decider seam with its default. Tests with fake participants.
 - [ ] T-13. Views: waiting steps, intents and contracts.

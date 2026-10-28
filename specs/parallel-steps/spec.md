@@ -146,8 +146,10 @@ exactly today's.
   the first of those steps in topological order, else the workflow's default, else the person (`debate-arbiter`). An
   accept ruling posts the contract the ruling names. A reject, or no ruling, asks the run's decider (the person, or the
   agent the person promoted, `specs/agent-conversation`) what to do, with three answers: run those steps one after
-  another, run them in an order it names, or stop the run. Until `agent-conversation` is implemented, and when nobody
-  answers, those steps run one after another in topological order. The choice and who made it are recorded (C-09).
+  another, run them in an order it names, or stop the run. The decider is registered through
+  `PluginHost.registerNegotiationDecider`; `agent-conversation` registers its own there when it ships. With none
+  registered, and when nobody answers, those steps run one after another in topological order. The choice and who
+  made it are recorded (C-09).
 - [ ] AC-17. A step's work may still go beyond its intent; nothing here blocks it. A `diff_within_scope` guard can be
   added by the author if the intent must hold (C-10).
 
@@ -161,7 +163,11 @@ exactly today's.
   it lands; the reviewers see the step's own diff, not the combined state. A step sent back by its review runs again in
   its own worktree and does not land. Landing happens only when the step is about to become `COMPLETED`.
 - [ ] AC-22. Landing applies the step's diff since its fork to the run worktree with a three-way apply. Steps land one at
-  a time, in the order they finish (C-04). The `patch` artifact is written after each landing.
+  a time, in the order they finish (C-04): the order in which the engine's pool observes their work settling (runner
+  done, guards and review passed). Steps the pool observes in the same turn of its loop land in topological position
+  order, as admission does (AC-06). That order is recorded on each landing span (`indaba.land.sequence`), so a run can
+  be replayed and a test that controls completion order with fake runners gets one landing order. The `patch`
+  artifact is written after each landing.
 - [ ] AC-23. A landing that conflicts changes nothing in the run worktree.
 - [ ] AC-24. A conflicting landing starts a *resolution* (stage 11) instead of failing the step:
   1. The engine forks a fresh worktree from the run worktree.
@@ -285,8 +291,9 @@ Confirmed by the maintainer on 2026-10-27:
 - **C-10. Intents are declarations, not fences.** An agent CLI's edits cannot be confined before they happen; landing
   and resolution catch what the intent missed, and `diff_within_scope` remains available to fence a step.
 - **C-11. Agents in parallel steps always talk; with a limit of 1 nobody does.** The person decides whether to work in
-  parallel and is told the consequences (AC-04a). When they do, coordination is not optional. The intent call happens only when the limit is above 1.** With 1 there is no one to meet, and the call would
-  cost a request per step for nothing.
+  parallel and is told the consequences (AC-04a). When they do, coordination is not optional. The intent call
+  happens only when the limit is above 1: with 1 there is no one to meet, and the call would cost a request per step
+  for nothing.
 
 ## 13. Where other specifications meet this one
 

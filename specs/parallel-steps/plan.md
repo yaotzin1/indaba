@@ -88,15 +88,19 @@ change to either guard.
   the step's goal, the board digest and `INTENT_INSTRUCTION`; read-only permission level for that call when
   `agent-permissions` offers one, otherwise the step's own level and a prompt that says not to edit. Its output is parsed
   by `parseIntent`; a shell step's intent is its `touches`. The call is a child span `indaba.step.intent`.
-- **Negotiation.** A synthetic debate `StepDefinition` built from the steps that meet: `id` `negotiate-<first>`,
+- **Negotiation.** A synthetic debate `StepDefinition` built from the steps that meet: `id` the first of `negotiate-<first>`,
+  `negotiate-<first>-2`, `negotiate-<first>-3`, ... that no step of the workflow (and no earlier synthetic step of the
+  run) uses, so it cannot collide with a declared id and is still deterministic;
   `role` of the first in order, `consensusWith` the others' roles, `goal` from the intents, `arbiter` of the first step
   or the workflow default. It runs through `StepExecutor.run` in the run worktree (read-only by instruction), so the
   transcript, the decision ledger, the arbiter and the redaction work as for any debate. The agreed contract is the last
   `PROPOSAL` the closing `AGREEMENT`s answered, parsed into a `Contract`; a proposal that does not parse is treated as
-  no agreement. A child span `indaba.step.negotiation` of each step involved.
-- **The decider after a failed negotiation (spec AC-16).** Until `agent-conversation` exists, the answer is the default
-  (one after another, topological order). The question is written as a seam: an injected `NegotiationDecider` with a
-  default implementation, replaced when `agent-conversation` lands.
+  no agreement. The debate runs once, under its own span; each step involved gets a child span
+  `indaba.step.negotiation` linked to it, so every participant's trace shows the negotiation, not only the first's.
+- **The decider after a failed negotiation (spec AC-16).** `PluginHost.registerNegotiationDecider`, stored by the
+  CLI's `RegistryPluginHost` and passed to the engine as `WorkflowEngineOptions.negotiationDecider`, exactly as
+  adjudicators are registered and passed today. With none registered the answer is the default (one after another,
+  topological order). `agent-conversation` registers its decider through the same call.
 - **Resolution.** The step's runner chain in the landing worktree with its own diff, the hunks, and the other step's
   intent, contract and board notes as fenced sections; then the guards; then a synthetic debate of the two roles over
   the combined diff, as for a negotiation.

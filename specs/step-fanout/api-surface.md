@@ -8,9 +8,10 @@
 
 **minor** (below 1.0).
 
-Reasoning: `for_each` is optional and a workflow without it runs as today. `PluginHost` gains one method: safe for
-callers, and the CLI's `RegistryPluginHost` is the only implementer in this repository, as with
-`registerAdjudicator`. The engine option and the events are additive.
+Reasoning: `for_each` is optional and a workflow without it runs as today. `PluginHost` gains one method; under
+`specs/DEPENDENCY_MAP.md` ("What breaks what") adding a method to `PluginHost` breaks no plugin, only another
+implementation of the host, of which the CLI's `RegistryPluginHost` is the only one: below 1.0 a minor, named in the
+changelog. The engine option, the configuration key and the CLI option are additive.
 
 ## Public symbols added
 
@@ -27,7 +28,7 @@ callers, and the CLI's `RegistryPluginHost` is the only implementer in this repo
 
 | Name | Before | After | Impact |
 | :--- | :--- | :--- | :--- |
-| `PluginHost` | four registration methods | gains `registerGraphExpander` | minor: callers unaffected; a third-party implementer of `PluginHost` must add it |
+| `PluginHost` | its registration methods | gains `registerGraphExpander` | plugins unaffected; another implementation of `PluginHost` must add it (the map's exception; changelog names it) |
 
 ## Removed or deprecated
 
@@ -41,6 +42,10 @@ None.
 | interpolation | `${{ item.<field> }}` in a template's goal, outputs, `touches` and guard parameters | added |
 | JSON schema and catalog | `for_each` | added, with its description |
 | span attributes | `indaba.fanout.items`, `indaba.fanout.digest` on the template's span | added |
+| `indaba.config` | `parallel.max_fan_out` | added |
+| environment | `INDABA_MAX_FAN_OUT` | added |
+| CLI | `indaba run --max-fan-out <n>`, `indaba ui --max-fan-out <n>` | added |
+| events | a warning for an empty list (spec AC-02a) | added |
 
 ## Defaults introduced or changed
 

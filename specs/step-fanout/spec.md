@@ -37,11 +37,18 @@ agent and worktree.
 ## 3. Acceptance criteria
 
 - [ ] AC-01. A step may declare `for_each: <artifact key>`. The artifact is a JSON or YAML list written by a step the
-  template depends on. Each item is a map with an `id` (`[a-z0-9-]{1,64}`) and string fields.
+  template depends on. Each item is a map with an `id` (`[a-z0-9-]{1,48}`) and string fields.
 - [ ] AC-02. When every dependency of the template is `COMPLETED`, the engine reads the list once, validates it (ids
   unique, at most `maxFanOut` items, default 8, a design choice), and adds one instance per item with the id
-  `<template>.<item id>`. A list that is missing, does not parse, breaks a rule or exceeds the cap fails the template
-  with a message naming the artifact and the rule.
+  `<template>-<item id>`, which passes the workflow format's step id rule (`[A-Za-z0-9_-]+`). An instance id that
+  equals a step id already in the workflow fails the template with a message naming both. A list that is missing,
+  does not parse, breaks a rule or exceeds the cap fails the template with a message naming the artifact and the rule.
+- [ ] AC-02a. An empty list (`[]`) is valid: the template completes with no instances, the steps that depend on it
+  become ready, and the run records a warning event and a log record naming the template and the artifact. A template
+  that must have work guards against it in the step that writes the list.
+- [ ] AC-02b. The cap is resolved like the parallel limit, strongest first: `--max-fan-out <n>` on `indaba run` and
+  `indaba ui`, the variable `INDABA_MAX_FAN_OUT`, `parallel.max_fan_out` in `indaba.config`, the default 8. A workflow
+  cannot raise it.
 - [ ] AC-03. `${{ item.<field> }}` in the template's goal, outputs, `touches` and guard parameters is replaced per
   instance. An unknown field is a run-time failure of that instance naming the field. Item values are untrusted: they
   are fenced in prompts and confined when they become paths.
@@ -50,7 +57,9 @@ agent and worktree.
 - [ ] AC-05. A step that depends on the template depends on every instance. The template is `COMPLETED` when every
   instance is, and fails as the first instance whose failure ends the run under `parallel-steps` AC-27.
 - [ ] AC-06. A retry that targets the template re-reads the list and re-creates the instances; instances that are
-  `COMPLETED` and whose item is unchanged are kept (C-02).
+  `COMPLETED` and whose item is unchanged are kept (C-02). An item is unchanged when an item with the same `id` is in
+  the new list and its canonical JSON (keys sorted, no whitespace) is byte for byte the same as the old one's.
+  Instances whose item is gone are not run again; the changes they landed stay in the run worktree.
 - [ ] AC-07. The trace records the list's digest and the instances created; the dashboard and the web view show the
   instances under their template.
 
@@ -87,8 +96,8 @@ in prompts, confined when used as paths, and never reach a command line.
 - **C-01. Read the list once, when the template is ready.** A plan that changes during the work is a new run.
 - **C-02. Keep completed instances on a retry when their item is unchanged.** Rebuilding six plugins because the plan
   added a seventh would waste the six.
-- **C-03. The cap is an engine setting, not a file field**, as the parallel limit is: what a machine can take is the
-  installation's choice.
+- **C-03. The cap is an installation setting, not a file field**, resolved as the parallel limit is (AC-02b): what a
+  machine can take is the installation's choice.
 
 ## 9. The extension point
 

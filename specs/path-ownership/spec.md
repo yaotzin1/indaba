@@ -70,6 +70,20 @@ then the step fails and nobody makes the change it needed.
   step's diff of those files, bounded, plus the step's goal. The step waits for the answer before it is `COMPLETED`.
 - [ ] AC-07. In a run with a limit of 1, AC-06 applies the same way: ownership does not need parallel steps.
 
+- [ ] AC-05a. The wait is bounded and cannot form a cycle:
+  - An owner call never waits on anything: it may change only its own paths (AC-10) and cannot send a request. A need
+    it cannot meet in its own paths is answered as a rejection with an `INSTEAD`. So no chain of requests can loop
+    back, whatever the owners and requesters are.
+  - A step sends at most 5 requests per intent call or landing (a design choice); further `REQUEST` lines are ignored,
+    counted and reported in the step's feedback.
+  - An owner call takes a slot under the parallel limit like any step. A step waiting for answers frees its slot, as a
+    step put back under `parallel-steps` AC-13 does, and an owner call with a request waiting is admitted before any
+    step in topological order. So a full set of slots cannot be held by steps all waiting for owners.
+  - Every owner call has the owner role's timeout. A step's wait therefore ends after at most the owner's queue ahead
+    of it times that timeout; an owner call that times out answers its request `failed` (AC-12 then applies).
+  - A step whose requests are all answered `failed` and not contested, or whose contest is rejected, fails with the
+    reason `change request to <owner> not granted: <reason>`, and its `on_failure` applies.
+
 **Answering**
 
 - [ ] AC-08. Requests to one owner are answered one at a time, in the order they were posted, by an *owner call*: the

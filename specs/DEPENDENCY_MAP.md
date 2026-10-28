@@ -172,7 +172,10 @@ gantt
 - Changing `Runner`, `RunRequest` or `RunResult` in core breaks every runner, the mesh participant
   and every plugin's runner: a major.
 - Changing `Guard`, `Plugin`, `PluginHost`, `Adjudicator` (including its `RulingRequest`) or `McpCapable`
-  breaks every plugin: a major.
+  breaks every plugin: a major. One exception, with its reason: **adding a method to `PluginHost`** breaks no plugin,
+  because plugins call the host and never implement it; it breaks only another implementation of `PluginHost`, and the
+  CLI's `RegistryPluginHost` is the only one. Below 1.0 such an addition is a minor, named in the changelog (precedent:
+  `registerAdjudicator` in `debate-arbiter`). Changing or removing a method is still a major.
 - Changing `Logger`, `LogRecord` or `LogSink`, or what the redaction removes, changes every plugin sink and every
   log a person sends: the record shape is a major; a redaction that removes more is a minor, one that removes less
   is a major.
@@ -181,7 +184,10 @@ gantt
   in the wild: a major.
 - Renaming a span attribute or an event breaks consumers' dashboards and listeners: a major.
 - Adding a member to a string-literal union (a step status, a failure action) breaks consumers who
-  switch over it exhaustively.
+  switch over it exhaustively. It is a major in practice; below 1.0 it takes the next minor and the changelog says so
+  (precedent: `Isolation.copy` in `workspace-without-git`). A union whose readers are required by their own spec to
+  treat an unknown member as unknown (the board's `BoardKind`, `run-blackboard` AC-30) is classified the same way:
+  the reader rule protects the shipped readers, not a third party's exhaustive switch.
 - A new runtime dependency changes every consumer's dependency tree; it is a recorded decision
   (`project.runtime_dependencies` and `project.optional_dependencies` in `workflow.ai.yml`). Today:
   `yaml` in the engine, `ink` and `react` in `@indaba/tui` (which only the optional dashboard loads), and optionally `node-pty` in the runners.
