@@ -49,8 +49,12 @@ executed the same way every time.
 
 ## 4. Non-goals
 
-- Dynamic graphs: steps are not added at run time.
-- Parallel step execution. Steps run in the topological order, one at a time, for now.
+- Dynamic graphs in this specification: steps are not added at run time. A step template run once per item a run
+  produces, and the extension point that lets a plugin add steps, are specified in
+  [`specs/step-fanout`](../step-fanout/spec.md), which replaces this non-goal when it ships.
+- Parallel step execution in this specification. Steps run in the topological order, one at a time. Running
+  independent steps at the same time is specified in [`specs/parallel-steps`](../parallel-steps/spec.md), which
+  replaces this non-goal when it ships.
 - Executing this repository's own development `workflow.ai.yml`. That file has a different schema
   and is read by Node scripts; dogfooding is a later goal.
 - A scheduler, a queue or persistence of runs.
