@@ -6,9 +6,8 @@ file; the cycle section below is generated from it.
 ## 1. What this project is
 
 Indaba is a deterministic orchestration, debate and observability engine for multi-agent AI
-workflows, in TypeScript for Node 22+, MIT licensed. The founding requirement is `docs/vision.md`
-(its PHP and Symfony references are superseded by `specs/typescript-port/`). It provides: a workflow
-DAG with quality gates, a mesh where agents cross-examine each other to consensus, unified runners
+workflows, in TypeScript for Node 22+, MIT licensed. The founding requirement is `docs/vision.md`.
+It provides: a workflow DAG with quality gates, a mesh where agents cross-examine each other to consensus, unified runners
 (agent CLIs, OpenRouter SSE, shell), git-worktree isolation, and OpenTelemetry GenAI traces with
 token and cost accounting. It is distributed as the npm packages `indaba` (the CLI), `@indaba/core`,
 `@indaba/engine`, `@indaba/runners`, the optional `@indaba/tui` and the optional `@indaba/server`.
@@ -113,7 +112,7 @@ editing anything under `.agents/skills/`, run `node scripts/sync-claude-skills.m
 4. GEMINI.md - generated, and it carries no rule of its own. Google documents no order between it and AGENTS.md, so neither may hold a rule the other lacks; it imports AGENTS.md and the order is then harmless.
 5. CLAUDE.md - Claude Code entry point. Imports AGENTS.md and may add tool-specific notes, never overrides.
 6. specs/<feature-name>/** - binding for one feature only, subordinate to everything above.
-7. docs/vision.md - the founding requirement, kept verbatim. Everything above outranks it where they differ.
+7. docs/vision.md - the founding requirement, retargeted to TypeScript (the PHP original is in git history). Everything above outranks it where they differ.
 
 On conflict: Stop. Correct the subordinate document, re-run the sync scripts, then continue. Never settle a conflict by following the subordinate text.
 

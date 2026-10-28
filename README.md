@@ -14,29 +14,31 @@ Windows, macOS and Linux. The name is Zulu for a gathering convened to resolve a
 reaching consensus.
 
 ```bash
-npx indaba validate workflow.ai.yml
-npx indaba plan workflow.ai.yml
-npx indaba run workflow.ai.yml
+npx indaba@next validate workflow.ai.yml
+npx indaba@next plan workflow.ai.yml
+npx indaba@next run workflow.ai.yml
 ```
 
-> **Status.** A preview: `0.1.0-alpha.2` is the newest published version (`npx indaba@next` runs it; `latest` is still
-> `0.1.0-alpha.0`). The API is not stable below 1.0. To work on Indaba, run from a checkout (see
+> **Status.** A preview: `0.1.0-alpha.3` (2026-10-26) is the newest published version (`npx indaba@next` runs it;
+> `latest` is still `0.1.0-alpha.0`). The API is not stable below 1.0. To work on Indaba, run from a checkout (see
 > [Development](#development)).
 
 **Documentation:** [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indaba/), built from [`docs/`](docs/README.md).
 
 - **Deterministic pipelines.** A declarative workflow file is a DAG of steps with quality gates,
   filesystem guards and artifact handoffs. The engine, not a model, decides what runs next.
-- **Multi-agent cross-examination.** Roles are backed by different engines (Claude Code, Codex,
-  Cursor, Antigravity, reasoning models over OpenRouter) and review each other through a blackboard
+- **Multi-agent cross-examination.** Roles are backed by different engines (ACP agents such as
+  Claude, Codex, Gemini and OpenCode; the Claude Code, Codex, Cursor, Antigravity and OpenCode CLIs; models over
+  OpenRouter or any OpenAI-compatible API) and review each other through a blackboard
   with a consensus arbiter, quorum rules and ping-pong detection.
-- **Isolation.** Implementation steps run in an ephemeral `git worktree`; the result leaves as a
-  patch artifact and the worktree is always removed.
+- **Isolation.** A step can run in an ephemeral `git worktree` (`isolation: git_worktree`); the result
+  leaves as a patch artifact and the worktree is always removed.
 - **Observability.** Every task is a trace; steps and LLM or tool calls are spans carrying
   OpenTelemetry GenAI attributes, token counts and USD cost where known, written to
   `.indaba/traces/<traceId>.jsonl`.
-- **A page to watch it in.** A local web view shows your runs and follows one live: the steps as a graph, what each
-  did, where a failure leads, and what it cost ([docs/web-view.md](docs/web-view.md); in progress, from a checkout).
+- **A page to watch it in.** A local web view (`indaba ui`) shows your runs and follows one live: the steps as a graph,
+  what each did, where a failure leads, and what it cost. It also starts and stops runs, lists your workflows, and edits
+  a workflow as a form, a graph or text ([docs/web-view.md](docs/web-view.md); from a checkout for now).
 - **Not only for code.** A step is an agent, an API call or a command, so a workflow can drive any
   tool reachable by `shell` or an MCP server: for example a media pipeline. Indaba ships no integration
   with any particular application.
@@ -87,17 +89,18 @@ All packages are ESM, ship their types, and need Node 22 or newer.
 Prerequisites: Node 22 and git, plus whichever agent CLIs your workflow uses, installed and logged in.
 
 ```bash
-npx indaba validate examples/task-pipeline.workflow.ai.yml
-npx indaba plan     examples/task-pipeline.workflow.ai.yml
-npx indaba run      examples/task-pipeline.workflow.ai.yml -w /path/to/project -v
+npx indaba@next validate examples/task-pipeline.workflow.ai.yml
+npx indaba@next plan     examples/task-pipeline.workflow.ai.yml
+npx indaba@next run      examples/task-pipeline.workflow.ai.yml -w /path/to/project -v
 ```
 
 In a clone of this repository `indaba` is not a command on your path. Run `pnpm install` and `pnpm build` once, then
 write `pnpm indaba <command>` wherever these pages say `npx indaba <command>`, for example
 `pnpm indaba run examples/task-pipeline.workflow.ai.yml --tui`.
 
-More in `examples/`: `transport-fallback.workflow.ai.yml` (API, ACP and CLI in one workflow) and
-`api-only.workflow.ai.yml` (the smallest one). A guided first run of this alpha is in
+More in `examples/`: `hello.workflow.ai.yml` (shell only, no key or agent; the first run of
+[getting-started](docs/getting-started.md)), `api-only.workflow.ai.yml`, `transport-fallback.workflow.ai.yml` (API, ACP
+and CLI in one workflow), `review-debate.workflow.ai.yml` (two agents debate a review) and `mcp.workflow.ai.yml`. A guided first run of this alpha is in
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
 
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no
@@ -127,12 +130,13 @@ A page on your own machine that lists your runs and follows one live: every step
 have not run yet), where a failure leads and how many retries are left, what each step did and printed, its tries, and
 the cost of each run and of each step, with anything unknown shown as unknown. It has light and dark themes, works with
 a keyboard and on a phone. It can run a workflow of the project (showing first what its file says it will use) and stop
-a run it started; closing it stops those runs. It opens a workflow file as a form or as text to fix and save it,
-checked as you go, without losing the file's comments. A run started in a terminal it only shows.
+a run it started; closing it stops those runs. It opens a workflow file as a form, a graph or text to fix and save it,
+checked as you go, without losing the file's comments. Its Workflows screen lists the workflows of your folders, and its
+Settings screen changes the logging settings. A run started in a terminal it only shows.
 
 Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
-the optional `@indaba/server` installed next to `indaba`; the page comes inside that package. Neither is in a published
-version yet, so for now run it from a checkout:
+the optional `@indaba/server` next to `indaba`; the page comes inside that package. `indaba ui` is in `0.1.0-alpha.3`,
+but `@indaba/server` cannot be installed from npm yet, so for now run it from a checkout:
 
 ```bash
 pnpm install && pnpm build
@@ -140,7 +144,7 @@ pnpm indaba ui                           # the runs of this folder (--root /path
 pnpm try:ui -- --demo                    # a throwaway run with a retry, no agent or key needed
 ```
 
-It is the first delivery step of [`specs/web-app`](specs/web-app/spec.md). [docs/web-view.md](docs/web-view.md) explains
+It covers the first delivery steps of [`specs/web-app`](specs/web-app/spec.md): runs, actions, the registry and editing. [docs/web-view.md](docs/web-view.md) explains
 the page and its safety model; [docs/web-view-development.md](docs/web-view-development.md) is for working on it.
 
 ## Runners
@@ -165,6 +169,9 @@ roles:
 | `antigravity` | `agy -p` | the `agy` CLI | last resort |
 | `cursor` | `cursor-agent -p` | the `cursor-agent` CLI | last resort |
 | `opencode` | `opencode run` | the `opencode` CLI | last resort; prefer `acp` with `agent: "opencode"` |
+
+A step's `permissions.level` (`read`, `edit`, `full`) is passed to each runner in its own terms; `indaba catalog` lists
+which levels each one can hold, and `indaba run --permissions` lowers them for one run.
 
 A runner is skipped for the next one only when it could not run at all (no key, program not found,
 endpoint unreachable). A runner that started and failed is a failed task, never retried elsewhere. See

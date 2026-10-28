@@ -38,13 +38,13 @@ export const PAGES = [
         group: 'Write workflows',
         items: [
             { file: 'workflow-format.md', label: 'Workflow format', blurb: 'Every field, guards, retries, MCP servers' },
-            { file: 'extending.md', label: 'Extending', blurb: 'Plugins: runners, guards, listeners, log sinks' },
+            { file: 'extending.md', label: 'Extending', blurb: 'Plugins: runners, guards, arbiters, listeners, log sinks, the registry' },
         ],
     },
     {
         group: 'Watch and debug runs',
         items: [
-            { file: 'web-view.md', label: 'Web view', blurb: 'indaba ui: your runs in a browser' },
+            { file: 'web-view.md', label: 'Web view', blurb: 'indaba ui: runs, workflows and editing in a browser' },
             { file: 'logging.md', label: 'Logging', blurb: 'Logs, Graylog, collectors, indaba report' },
         ],
     },
@@ -53,7 +53,7 @@ export const PAGES = [
         items: [
             { file: 'roadmap.md', label: 'Roadmap', blurb: 'What is built in which order' },
             { file: 'hosted-service.md', label: 'Hosted service', blurb: 'What a hosted Indaba would need' },
-            { file: 'vision.md', label: 'Vision', blurb: 'The founding requirement, verbatim' },
+            { file: 'vision.md', label: 'Vision', blurb: 'The founding requirement: mission and modules' },
         ],
     },
     {

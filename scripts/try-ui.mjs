@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Open the web view over the runs of a project, from a checkout, before `indaba ui` exists (specs/web-app, T-11).
+ * Open the web view over the runs of a project, from a checkout, read-only (specs/web-app, T-11). Kept for `--demo`;
+ * `pnpm indaba ui` serves the full page (Run and Stop, Workflows, the editor, Settings).
  *
  *   pnpm build
  *   pnpm try:ui                          the runs of the current folder
@@ -9,10 +10,10 @@
  *   pnpm try:ui -- --port 4173           a fixed port instead of a free one
  *
  * It starts the built @indaba/server over `<root>/.indaba/traces` with the built page of @indaba/web, prints the
- * address with its token, and keeps serving until Ctrl+C. Like the page itself it reads and never writes: it starts no
- * run, except the one `--demo` starts before serving. The demo needs no agent and no API key: its steps are `node`
+ * address with its token, and keeps serving until Ctrl+C. It gives the server no backend, so the page reads and never
+ * writes: it starts no run, except the one `--demo` starts before serving. The demo needs no agent and no API key: its steps are `node`
  * commands, so it behaves the same on Windows, macOS and Linux, and its `verify` step fails once so the run shows a
- * retry. Nothing here is part of `pnpm qa`; it is a way to look at the page, and `indaba ui` replaces it.
+ * retry. Nothing here is part of `pnpm qa`; it is a way to look at the page.
  */
 
 import { spawnSync } from 'node:child_process';

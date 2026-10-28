@@ -11,7 +11,7 @@ the part of it that belongs to one run into a folder you can attach to an issue.
 ## What is written, and where
 
 Records are JSON lines, one per line, in `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` of the project (for `run`, the
-`--workdir` one). Each record has `time`, `level`, `component` (such as `engine.step` or `runner.process`), a fixed
+`--workdir` one); a day whose file is full continues in `indaba-<yyyy-mm-dd>.<n>.log.jsonl`. Each record has `time`, `level`, `component` (such as `engine.step` or `runner.process`), a fixed
 `message`, and `fields`; when they exist, `context` holds `taskId`, `stepId` and `traceId`, and `pid` the process.
 
 | Recorded | Level | Holds |
@@ -125,17 +125,19 @@ screen shows whether that variable is set, never what it holds.
 Anywhere else, and with `--plain`, it prints the settings in use. `-w <dir>` names another project.
 
 `indaba ui` has the same screen at **Settings**, for the project of its first `--root`: each value with its default,
-checked by the server as you type, a test record per sink, and Save. It is the only thing the page can change; the
-server accepts that one write only with its token and only from its own page.
+checked by the server as you type, a test record per sink, and Save. Like every change the page makes (runs, workflow
+files, the list of workflows; see [web-view.md](web-view.md#safety)), the server accepts it only with its token and
+only from its own page.
 
 ## Reporting an issue: `indaba report`
 
 ```bash
-npx indaba report            # the latest run
-npx indaba report 3f2a91     # a run by the start of its id (indaba watch lists them)
+npx indaba@next report            # the latest run
+npx indaba@next report 3f2a91     # a run by the start of its id (indaba watch lists them)
 ```
 
-It writes a folder under `.indaba/reports/` (or `--out <dir>`) and prints what is in it:
+It writes a folder under `.indaba/reports/` (or `--out <dir>`) and prints what is in it; `-w <dir>` names another
+project:
 
 | File | Holds |
 | :--- | :--- |
