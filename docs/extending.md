@@ -1,11 +1,13 @@
 # Extending Indaba
 
-A runner, a guard type or an event listener is added from outside Indaba, as a plugin. A plugin is a
+A runner, a guard type, an arbiter, an event listener, a log sink or a workflow store is added from outside
+Indaba, as a plugin. A plugin is a
 module that default-exports an object with a `name` and a `register(host)` function. The contracts it
 implements (`Runner`, `Guard`, `Plugin`, `PluginHost`, the events) are defined in `@indaba/core`, so
 adding one never edits core, the engine or the runners.
 
-The built-in runners and the `git_diff_empty` guard are registered through the same registries a plugin
+The built-in runners, the `git_diff_empty` and `diff_within_scope` guards, the `human` arbiter and the
+OpenAI-compatible endpoints configured in the environment are registered through the same registries a plugin
 reaches. A plugin therefore has no less access than a built-in, and no more.
 
 ## The contract
@@ -13,6 +15,7 @@ reaches. A plugin therefore has no less access than a built-in, and no more.
 ```ts
 interface Plugin {
   readonly name: string;
+  readonly logSinks?: readonly LogSink[]; // optional; see Logging from a plugin
   register(host: PluginHost): void | Promise<void>;
 }
 
@@ -24,6 +27,9 @@ interface PluginHost {
     type: abstract new (...args: never[]) => E,
     listener: (event: E) => unknown,
   ): void;
+  readonly logger?: Logger; // optional; see Logging from a plugin
+  registerLogSink?(sink: LogSink): void; // optional; see Logging from a plugin
+  registerRegistry?(registry: WorkflowRegistry): void; // optional; see Replacing the workflow registry
 }
 
 interface Runner {
@@ -56,10 +62,12 @@ Behaviour worth knowing:
   child process behind.
 - A `Guard` returns `GuardResult.pass()` or `GuardResult.fail(message)`. It decides; it does not act.
   Resolve `guard.paths` against `workdir` and refuse any path that leaves it.
-- Registering a runner name or guard type that already exists replaces the earlier one.
-- Guard types are checked when a workflow is validated, against the guards registered, so a plugin's
-  guard type is a valid value in `workflow.ai.yml` once the plugin is loaded. Load the plugin for
-  `validate` and `plan` too.
+- Registering a runner name or guard type that already exists replaces the earlier one. An adjudicator name cannot
+  be registered twice: `register` throws `An adjudicator named "<name>" is already registered.`, so a plugin cannot
+  replace `human`.
+- Guard types and runner names are checked when a workflow is validated, against what is registered, so a
+  plugin's guard type or runner name is valid in `workflow.ai.yml` only once the plugin is loaded
+  (otherwise: `$.roles.speaker.runner "echo" is not a known runner`). Load the plugin for `validate` and `plan` too.
 - Listeners run in registration order, one at a time. A listener that throws is isolated: the run
   continues, and the error goes to the command line's listener-error handler, which prints
   `Listener failed: <message>` to stderr. A listener may be async.
@@ -70,8 +78,8 @@ Behaviour worth knowing:
   goes into a trace.
 
 Events you can listen to, all exported from `@indaba/core`: `StepStatusChanged` (`taskId`, `stepId`,
-`from`, `to`, optional `reason`), `SpanStarted` and `SpanEnded` (each carries a `span`). Names and
-payloads are public surface.
+`from`, `to`, optional `reason`), `SpanStarted` and `SpanEnded` (each carries a `span`), and `StepOutput` (`traceId`, `spanId`, `seq`, `text`: a
+chunk a runner streamed, not yet redacted). Names and payloads are public surface.
 
 ## A complete plugin
 
@@ -202,7 +210,7 @@ optional on `PluginHost`, so a host written before it existed still type-checks.
 
 ## Running with a plugin
 
-Pass `--plugin` to `validate`, `plan` and `run`. The option repeats, and the value is a file path
+Pass `--plugin` to `validate`, `plan`, `run`, `catalog` and `workflows`; `indaba ui` loads no plugins. The option repeats, and the value is a file path
 (relative paths resolve against the directory you run in) or an installed package name:
 
 ```bash
@@ -218,8 +226,9 @@ compiled first (or run under a loader you provide).
 
 `indaba` exports `createEngine({ projectDir, env, plugins })`, which wires the registries, the tracer and
 the engine, and registers the plugins you pass. Its result gives you the `engine`, the `parser`
-(validating against the same guard registry, so plugin guard types are valid), the `runners` and
-`guards` registries and the `events` dispatcher. Pass `logger` (built with `createLogger` from `@indaba/core`, with
+(validating against the same registries, so plugin guard types and runner names are valid), the `runners` and
+`guards` registries, the `adjudicators`, the MCP `planner`, the `events` dispatcher, and `workflowRegistry` when a
+plugin registered one. Pass `logger` (built with `createLogger` from `@indaba/core`, with
 your own sinks, or with `FileLogSink` from `@indaba/engine`) and the engine's events are logged through it and plugins
 receive it as `host.logger`; without one nothing is logged. Parsing a file and running it:
 
@@ -243,4 +252,14 @@ console.log(result.status);
 - Keep secrets out of what you return, trace or log.
 - Any new name a workflow can use (a runner, a guard type) is public surface of your plugin: version it.
 - A runner takes part in a priority list (`runner: [yours, "claude-code"]`) the same way a built-in does. `RunRequest.permissions` and `agent` are hints you may ignore (the `diff_within_scope` guard still applies). Report what is worth recording through `request.onEvent(name, attributes)`: names and counts only, never prompts, paths, file content or secrets.
+- A step that writes `permissions.level` is refused by `validate`, `plan` and the start of a run if a runner of its chain does not implement `PermissionCapable` and declare that level (see below).
 - To add an OpenAI-compatible API you do not need a plugin: set `INDABA_OPENAI_COMPAT_<NAME>_BASE_URL` (see [getting-started.md](getting-started.md#api-runners)). In code, `new OpenAiCompatibleRunner({ name, baseUrl, apiKey, ... })` from `@indaba/runners`, registered with `host.registerRunner`.
+
+## Saying what a runner supports
+
+A runner says what it supports by implementing optional interfaces from `@indaba/core`. `McpCapable.mcpCapability()`
+returns `injected`, `agent_managed` or `none`; a runner without it has no MCP, so a step that names servers is refused
+under `mcp_policy: required`. `PermissionCapable` has `permissionCapabilities()`, which lists for `read`, `edit` and
+`full` a `mode` (`native`, `acp`, `after`, `none`, `unsupported`), a `scope` (`acp`, `guard`, `none`) and a `note` id,
+plus `permissionDenied(output)` and `canRecogniseDenial`. A runner without it supports no level. `indaba catalog`
+lists each runner's levels, and `indaba plan` prints the MCP findings.

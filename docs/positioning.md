@@ -21,8 +21,8 @@ agent; who makes each decision is still the person's choice.
   checking, a media edit, a report. The work goes round a loop (do it, review it, revise it) until someone
   approves, with a limit on the loop.
 - **Developers and people who are not.** A folder does not have to be a git repository, and the interface should
-  not assume a terminal. Today you still need Node, and you write the workflow file by hand; a wizard and a web
-  view are planned, not built.
+  not assume a terminal. Today you still need Node. You write the workflow file by hand or edit it in the web
+  view (`indaba ui`) as a form, a graph or text.
 - **People who want to stay in charge without sitting watching.** You can take part in every decision, leave the
   agents to decide, or hand decisions to an agent you chose, and change your mind during the run.
 
@@ -64,6 +64,8 @@ agent; who makes each decision is still the person's choice.
 | Runners: API (OpenRouter and compatible), ACP agents, agent command lines (Claude Code, Codex, Cursor, Antigravity, OpenCode) with fallback between them | Works (alpha) |
 | Debate between roles to consensus, a human arbiter, a committed decision ledger | Works (alpha) |
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
+| Logs of every command, `indaba settings` and `indaba report` | Works (alpha) |
+| Permission levels for an agent (`read`, `edit`, `full`) mapped to each runner, lowered for one run with `--permissions` | Works (alpha) |
 | Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Specified: `parallel-steps` |
 | A role that owns part of the project (a core, a shared model); other agents ask it for changes instead of making them | Specified: `path-ownership` |
 | One step template run once per item the plan produces (one agent per module); plugins that add steps to a run | Specified: `step-fanout` |
@@ -71,9 +73,11 @@ agent; who makes each decision is still the person's choice.
 | Review loops with a verdict, shared run notes (blackboard) | Specified: `step-verdicts`, `run-blackboard` |
 | Folders that are not git repositories | Specified: `workspace-without-git` |
 | Talk to the models, choose who decides, shared skills and prompts, workflow inputs | Specified: `agent-conversation`, `workflow-inputs` |
-| Workflow editor, schema and catalog for a wizard; ruling channel for other front ends | Specified: `workflow-editor`, `ruling-channel` |
-| Local web view: the runs, and one run live as a graph with each step's details, tries, output and cost | Built, read-only, on the `feat/web-app` branch; opened with `indaba ui`, or `pnpm try:ui` for a demo ([web-view.md](web-view.md)) |
-| The rest of the web view (`indaba ui`): workflow list, inspector, health, actions; workflow registry; running one step | Specified: `web-app`, `workflow-registry`, `single-step-run` |
+| Editing a workflow file without losing its text, `indaba schema` and `indaba catalog` | Works (alpha) |
+| Ruling channel for other front ends | Specified: `ruling-channel` |
+| The workflow registry: `indaba workflows` and the Workflows screen of the web view | Works (alpha) |
+| Local web view (`indaba ui`): the runs, one run live as a graph with each step's details, tries, output and cost; Run and Stop; editing a workflow as a form, a graph or text; logging settings | Works (alpha), in `0.1.0-alpha.3`; `@indaba/server` cannot be installed from npm yet, so from a checkout, or `pnpm try:ui` for a demo ([web-view.md](web-view.md)) |
+| The rest of the web view: health, the inspector, running one step, answering an agent, applying or discarding a run's changes | Specified: `web-app`, `single-step-run` |
 | Running agents in a container, set up by Indaba itself | Specified: `agent-sandbox` |
 | Running agents in a virtual machine | Not part of this repository: a plugin on the `agent-sandbox` contract |
 | A hosted service that works on a connected repository | Not planned; what it would need is in [hosted-service.md](hosted-service.md). There is no desktop application |

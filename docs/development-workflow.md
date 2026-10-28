@@ -82,12 +82,14 @@ Run `node scripts/install-hooks.mjs` once in a clone. The hook (`.githooks/pre-c
 3. `node scripts/sync-agent-docs.mjs --check`
 4. `node scripts/check-workflow.mjs`
 5. `node scripts/security-audit.mjs --source`
-6. `node --test scripts/*.test.mjs`
-7. `pnpm qa` (Biome, `tsc` strict, Vitest with the coverage floor)
+6. `node scripts/build-site.mjs --check` (every page of `docs/` is on the documentation site)
+7. `node --test scripts/*.test.mjs`
+8. `pnpm qa` (Biome, `tsc` strict, Vitest with the coverage floor)
 
 and the `commit-msg` hook runs `node scripts/check-track.mjs`. A missing `node_modules` fails the hook instead of skipping the
 gate, and CI runs every gate again. `main` is protected: nothing is pushed to it, and a pull request merges when every check in
-`ci.required_checks` is green. `node scripts/check-workflow.mjs --remote` compares that list with the branch protection on
+`ci.required_checks` is green (`Agent instruction set`, `Track and deliverables`, `Dependency audit`, and `Verify on`
+`ubuntu-latest`, `windows-latest` and `macos-latest`). `node scripts/check-workflow.mjs --remote` compares that list with the branch protection on
 GitHub, and must be run after the CI file changes, because a commit cannot see branch protection.
 
 The security audit has no inline way around it: there is no suppression comment, and `@ts-ignore` and `biome-ignore` are
@@ -96,8 +98,9 @@ findings themselves. If it fires, the design changes.
 ## Changing the file
 
 The file and the scripts that read it are **protected paths** (`enforcement.protected_paths`): the workflow itself, the
-`check-*` and `sync-*` scripts, the hooks, the CI workflows, the compiler and linter configuration, the root and
-workspace manifests, and the layers tests. A commit that touches one carries a second trailer, so that weakening a check shows
+`check-*` and `sync-*` scripts, `validate-skills.mjs`, `security-audit.mjs`, `install-hooks.mjs` and `scripts/lib/`, the
+hooks, the CI workflows, `.claude/settings*.json`, the compiler, linter, Vitest and Stryker configuration, the root and
+workspace manifests, and the architecture and layers tests. A commit that touches one carries a second trailer, so that weakening a check shows
 in the history:
 
 ```
@@ -118,8 +121,8 @@ Two settings deserve care:
 - **`enforcement.baseline`** is the commit the track check starts after; earlier commits are not held to it. It is `"none"` only
   in a repository with no commit. Move it only on purpose, to a full hash.
 - **`project.runtime_dependencies`** and `optional_dependencies` are exactly the packages the manifests may depend on, apart from
-  links between workspace packages. A new runtime dependency needs the decision recorded in the feature's spec, and its licence
-  and its whole tree must be open source and MIT-compatible.
+  links between workspace packages. A new runtime dependency needs the decision recorded in the feature's spec (what it does, why
+  the standard library or an existing dependency cannot, its maintenance and licence), and `pnpm audit` must stay clean.
 
 ## Where the detail is
 

@@ -13,8 +13,8 @@ tests, including a test that starts a real child process and speaks ACP to it. T
 published schema, and the first run against a real agent may find differences. If you try one, a report
 is valuable (see the end).
 
-The features described here are in the repository first. Until a prerelease that contains them is
-published, run them from a checkout (below). The `0.1.0-alpha.0` on npm predates them.
+Everything on this page is in `0.1.0-alpha.3` (`npx indaba@next`); plain `npx indaba` still gives the older
+`0.1.0-alpha.0`. `pnpm try:agent` and the scripted ACP agent of step 2 need a checkout (below).
 
 ## Which transport, when
 
@@ -22,11 +22,11 @@ An agent can be reached three ways. Use the first that fits, and list the others
 
 | | API | ACP | CLI |
 | :--- | :--- | :--- | :--- |
-| Runners | `openrouter`, or an endpoint you configure | `acp` + `agent:` | `claude-code`, `codex`, `antigravity`, `cursor` |
+| Runners | `openrouter`, or an endpoint you configure | `acp` + `agent:` | `claude-code`, `codex`, `antigravity`, `cursor`, `opencode` |
 | Use it for | text work: specs, reviews, debate, consensus | an agent that **edits code** | a last resort |
 | Needs | a key (or a local server) | the agent program, logged in | the CLI, logged in |
-| Edits files itself | no, it returns text | yes, inside a worktree you scope | yes, unscoped |
-| Permissions | not applicable | per-request gate plus the scope guard | the scope guard only |
+| Edits files itself | no, it returns text | yes, inside a worktree you scope | yes; the scope guard checks after the step |
+| Permissions | not applicable | per-request gate plus the scope guard | the CLI's own mode for the `permissions.level` where it has one (`indaba catalog` lists them), plus the scope guard |
 | In the trace | tokens and cost | tool calls, permission decisions, context use | output |
 | Fragile when | the service is down | the agent's ACP command changes | the CLI's terminal output changes |
 
@@ -54,9 +54,11 @@ lists each runner and why.
 
 ### From a checkout
 
-You need Node 22 and git.
+You need Node 22, pnpm 9 (`corepack enable` provides it) and git.
 
 ```bash
+git clone https://github.com/yaotzin1/indaba.git
+cd indaba
 pnpm install
 pnpm build
 node packages/cli/dist/bin.js --version
@@ -164,7 +166,7 @@ The pieces, if you prefer to do it by hand:
    or you can name one with `auth:` in the workflow (see
    [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). An agent that is not
    logged in may only fail at its first model call, for example Gemini with a 403 "unregistered callers".
-2. Name it: `agent: claude`, `codex` or `gemini` (presets), or `agent: { command: [program, args...] }`.
+2. Name it: `agent: claude`, `codex`, `gemini` or `opencode` (presets), or `agent: { command: [program, args...] }`.
 3. Scope it, and run it in a worktree:
 
 ```yaml
@@ -174,6 +176,7 @@ steps:
     goal: "Implement the change."
     isolation: "git_worktree"
     permissions:
+      level: edit
       fs:
         read: ["src/**", "tests/**"]
         write: ["src/**"]
@@ -197,7 +200,8 @@ Things to know:
   certificate settings, and variables with the agent's own prefix (`ANTHROPIC_`, `OPENAI_`,
   `GEMINI_`...). Add more with `INDABA_ACP_PASS_ENV`.
 - With no `permissions` block, the `acp` runner refuses every edit, delete, move and command: a step
-  that must change files needs one.
+  that must change files needs one. `level: read` says the same explicitly; see
+  [Permission levels](getting-started.md#permission-levels).
 
 ### 5. A CLI as the last resort
 

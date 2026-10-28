@@ -19,9 +19,9 @@ made while building it). The repository's rules in [`workflow.ai.yml`](../workfl
 | :--- | :--- | :--- |
 | `packages/core/src/web-contract/` | The shapes the page and the server share: `RunSnapshot`, `RunSummary`, `StepView`, `StepStructure`, the request and response types. Declarations only | nothing |
 | `packages/engine/src/trace/` | Reading a run: `TraceReader`, the reducer that the dashboard and the page both use, `readStructure` for the recorded graph | core |
-| `packages/server/` | `startServer({ roots, staticDir, port?, token? })`: the API under `/api/v1`, the streams, the page's files. `defaultPageDirectory()` finds the page: its own `page/` in an installed package, `packages/web/dist` in a checkout | core, engine, `node:` |
+| `packages/server/` | `startServer({ roots, staticDir, port?, token?, discussionDirectories?, logger?, loggingSettings?, runs?, workflowStore?, workflowEditor?, registry? })`: the API under `/api/v1`, the streams, the page's files. `defaultPageDirectory()` finds the page: its own `page/` in an installed package, `packages/web/dist` in a checkout | core, engine, `node:` |
 | `packages/web/` | The page. **Private**: never published on its own. Vite builds it into `packages/web/dist`, which ships inside `@indaba/server` (see [Packaging](#packaging)) | its own files, the libraries below, `import type` from core |
-| `packages/cli/src/ui.ts` | `indaba ui`: loads `@indaba/server` lazily, asks it for the page, starts it, opens the browser | the server through `server-loader.ts`, never statically |
+| `packages/cli/src/ui.ts` | `indaba ui`: loads `@indaba/server` lazily, asks it for the page, starts it with the backends `main.ts` builds (logging settings, run control, workflow store and editor, registry), opens the browser | the server through `server-loader.ts`, never statically |
 
 Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and no other Indaba package at run time.
 `packages/web/test/layers.test.ts` and `packages/server/test/layers.test.ts` fail the build if that changes.
@@ -40,7 +40,10 @@ Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and n
 | `messages.ts` | Every string the page shows |
 | `styles.css` | The tokens of both themes and every rule; the `--gw-*` mapping for the grids |
 | `ui/App.ts` | Header, theme switch, the screen the address names, the messages that replace a screen |
-| `ui/RunsScreen.ts`, `ui/RunScreen.ts` | The two screens |
+| `form-model.ts`, `registry-model.ts`, `settings-model.ts` | The form's fields read from the schema, the rows of the Workflows screen, the state of the Settings screen. No React |
+| `ui/RunsScreen.ts`, `ui/RunScreen.ts`, `ui/WorkflowsScreen.ts`, `ui/SettingsScreen.ts` | The Runs, Run, Workflows and Settings screens |
+| `ui/RunPanel.ts` | The Run a workflow panel: the list, the confirmation, full access, starting |
+| `ui/WorkflowDialogs.ts`, `ui/Modal.ts` | The Workflows screen's dialogs (details, copy, import, remove) and the dialog that keeps focus inside |
 | `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph (view mode for a run, edit mode for a workflow draft), the selected step, the step list |
 | `ui/FormView.ts`, `ui/GraphView.ts`, `ui/SourceScreen.ts` | The three views of a workflow draft (Form, Graph, Source) and the shared edit queue |
 | `ui/CostTable.ts`, `ui/Discussion.ts` | The cost of each step that called a model; a debate's kept messages, loaded when opened |
@@ -104,7 +107,7 @@ words. Data from the run (step ids, runner names, output) is not a string of the
 
 ### State is the address
 
-The page keeps what a person expects to survive a reload in the address: the screen and `?step=` (spec C-05). Use
+The page keeps what a person expects to survive a reload in the address: the screen, `?step=` and the Workflows screen's `?hidden=1` (spec C-05). Use
 `navigate` from `ui/router.ts`; a step change replaces the history entry instead of adding one. The theme is the one
 thing in `localStorage`, read and written inside `try`, because storage can be blocked.
 
@@ -218,7 +221,8 @@ a row of steps with a note.
 Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are the pattern for anything the page changes.
 
 1. **The server does no work itself.** It defines an interface (`RunControl` in `packages/server/src/run-control.ts`,
-   like `LoggingSettingsBackend`) and the command line supplies it; `packages/server/test/layers.test.ts` keeps the server
+   like `LoggingSettingsBackend` and `RegistryControl` in `packages/server/src/registry-control.ts`) and the command line
+   supplies it; `packages/server/test/layers.test.ts` keeps the server
    from spawning a process or writing a file. Without the backend, the resource answers 404 and the page offers nothing.
 2. **The checks of every write** are in `server.ts`: the token, the `Host`, the page's own `Origin` (a write without one
    is refused), a JSON body of at most `MAX_BODY_BYTES`, and only the fields the contract names are read. Ids from the
@@ -226,13 +230,15 @@ Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)) are t
 3. **A refusal has a code.** The backend throws an error named `RunControlError` with a `code`; the server maps each code
    to a status and plain words, and the page maps the code (never the status) to a message from `messages.actions`.
    The server recognises the error by name and code, not class, because the command line does not import the optional
-   `@indaba/server`.
+   `@indaba/server`; the registry's refusals are named `RegistryControlError` and handled the same way.
 4. **The command line does the work** in `packages/cli/src/run-control/`: the workflows of the registry through
-   `finder.ts` (one `FileWorkflowRegistry` per set of roots, scanned at most every 30 seconds; without a registry, step 2's
-   bounded scan and ids), the confirmation store in
+   `registry.ts` (`createRegistryHub`: one hub per set of served roots plus the per-user list of folders, shared by the
+   run control, the workflow store and the Workflows screen) and `finder.ts` (scanned at most every 30 seconds; without a
+   registry, step 2's bounded scan and ids), the confirmation store in
    the user's configuration folder, the run copy, one `indaba run` child per run through `createRunStarter`, and stop
    (cancel, a grace period, then `kill()` of the process tree). Its tests use a fake `RunStarter`, never a real agent.
-5. **The end-to-end test** (`packages/cli/e2e/ui-run.e2e.test.ts`) runs the built CLI with shell steps only.
+5. **The end-to-end tests** (`packages/cli/e2e/ui-run.e2e.test.ts`, `ui-edit.e2e.test.ts`, `ui-registry.e2e.test.ts`)
+   run the built CLI with shell steps only.
 
 Editing a workflow's text ([`specs/web-app-editing-core`](../specs/web-app-editing-core/spec.md)) follows the same
 pattern with `WorkflowStore` (`packages/server/src/workflow-store.ts`) and `packages/cli/src/run-control/source.ts`. A
@@ -262,7 +268,11 @@ pnpm qa                                          # everything, with coverage
 | `test/logic.test.ts` | Formatting, states, the token, the stream parser, the graph model, the address, the theme. No DOM |
 | `test/client.test.ts` | The client against a fake `fetch`: headers, failures, resume with `Last-Event-ID`, back-off, abort |
 | `test/form-model.test.ts` | The fields read from the real schema, the choices, where problems go, the permissions presets, entries and edits, the line of a key. No DOM |
-| `test/form.test.ts` | The form in happy-dom over a fake editor that works on JSON text: the two views, every kind of field, the presets, the steps, problems at their field, the order of edits |
+| `test/form.test.ts` | The form in happy-dom over a fake editor that works on JSON text: the two views, every kind of field, the presets, the steps, problems at their field, the order of edits, and the graph editor |
+| `test/cost.test.ts` | The cost of a step and the rows and total of a run's cost table |
+| `test/workflows.test.ts` | The Workflows screen: the list, Edit details, Copy, Import a folder, Remove from the list, Scan again, dialogs keeping focus |
+| `test/registry-client.test.ts`, `test/registry-model.test.ts` | The registry's requests in the client, and the rows of the Workflows screen |
+| `test/settings.test.ts` | The Settings screen and its model |
 | `test/ui.test.ts` | The screens in happy-dom with a fake client: navigation, live updates, reconnecting, blocking messages, hostile output, the Run a workflow panel (focus, the confirmation, starting, refusals), Stop, and the source view (check, save, conflict, leaving with unsaved changes) |
 | `test/boot.test.ts` | Starting the page: the token leaves the address and travels as a header |
 | `test/layers.test.ts` | What the page may import, no HTML sink, nothing imports the page, the package stays private |
@@ -270,10 +280,11 @@ pnpm qa                                          # everything, with coverage
 
 A test that needs a DOM starts with `// @vitest-environment happy-dom`. The fake client in `ui.test.ts` has `push`,
 `announce`, `state` and `fail` to drive the streams from a test. Coverage is measured over `packages/web/src` with the
-rest of the repository and must stay at 85% or more on every metric; the page is at about 99%.
+rest of the repository and must stay at 85% or more on every metric.
 
-Before you say a change to the page works, look at it: `pnpm try:ui -- --demo`, both themes, a narrow window, and
-the keyboard.
+Before you say a change to the page works, look at it: `pnpm try:ui -- --demo` for Runs and Run, and
+`pnpm indaba ui --root <project>` for Run and Stop, Workflows, the editor and Settings (`try:ui` serves the page
+read-only); in both themes, a narrow window, and with the keyboard.
 
 ## Packaging
 
@@ -299,7 +310,7 @@ of Indaba receives them as files, never as packages in their tree, so they are n
   plan; MIT, ISC, BSD and the SIL OFL for fonts are fine;
 - add it to `BUNDLED` (it reaches the page) or `TOOLS` (build and tests only) in `scripts/stage-page.mjs`: a
   devDependency in neither stops the pack, so no library ships without its licence in `THIRD-PARTY-LICENSES.txt`;
-- keep the bundle in mind: it is about 170 kB gzipped today, and a phone loads it.
+- keep the bundle in mind: a phone loads it.
 
 Today: `react` and `react-dom`, `apsw-gridwright`, `@xyflow/react`, `@dagrejs/dagre`,
 `@fontsource/atkinson-hyperlegible-next` and `-mono`; and for tests and the build, `vite`, `happy-dom`,

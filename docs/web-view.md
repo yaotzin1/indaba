@@ -3,18 +3,22 @@
 A page in your browser that shows the runs on your machine and follows one of them live: its steps as a graph,
 what each step did, what happens if it fails, its output and what it cost. It reads the same files as
 `indaba watch` and the terminal dashboard, so the three always agree. It can also start a workflow of the project and stop
-a run it started, and open a workflow file to read, change and save it; a run started in a terminal it only shows.
+a run it started, and open a workflow file to read, change and save it; a run started in a terminal it only shows. It
+also lists and organises the workflows Indaba knows (the Workflows screen) and changes the project's logging settings
+(the Settings screen).
 
 <p align="center">
   <picture>
     <source srcset="assets/web-view-run-dark.png" media="(prefers-color-scheme: dark)">
-    <img src="assets/web-view-run-light.png" width="860" alt="The Run screen: four steps left to right, the failure route from verify back to code drawn under them, the selected step's panel and the step list with each step's tries.">
+    <img src="assets/web-view-run-light.png" width="860" alt="The Run screen of an earlier version: four steps left to right, the failure route from verify back to code drawn under them, the selected step's panel and the step list with each step's tries.">
   </picture>
 </p>
+<p align="center"><sub>The Run screen as an earlier version showed it; the header now also has Workflows and Settings.</sub></p>
 
-> **Status.** Delivery steps 1 and the first slice of 2 of [`specs/web-app`](../specs/web-app/spec.md): Runs and Run,
-> and Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)). Not in a published version yet, so run
-> it from a checkout (below). `pnpm try:ui -- --demo` also makes a demo project to look at.
+> **Status.** In `indaba` `0.1.0-alpha.3`, on npm under the `next` tag: the Runs, Run, Workflows and Settings screens,
+> Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)), and the workflow editor (Form, Graph and
+> Source). `@indaba/server` `0.1.0-alpha.3` is published but cannot be installed yet, so for now run `indaba ui` from a
+> checkout (below). `pnpm try:ui -- --demo` also makes a demo project to look at.
 
 ## A debate's discussion
 
@@ -63,8 +67,9 @@ indaba ui needs the package @indaba/server, which could not be loaded (...).
 Install it next to indaba, then try again: npm install -g @indaba/server
 ```
 
-Neither package is published yet. In a checkout of this repository, with Node 22 and pnpm 9, build once and use
-`pnpm indaba` in place of `indaba`:
+`indaba` `0.1.0-alpha.3` is on npm under the `next` tag. `@indaba/server` `0.1.0-alpha.3` is published too, but it
+cannot be installed yet, so the install above does not work for now. Until it does, use a checkout of this repository:
+with Node 22 and pnpm 9, build once and use `pnpm indaba` in place of `indaba`:
 
 ```bash
 pnpm install
@@ -93,8 +98,9 @@ Open this address in a browser (it carries the token, so keep it to yourself):
   http://127.0.0.1:52344/#token=q5G3fDM5i6QKij...
 ```
 
-Open that address. `pnpm try:ui -- --root /path/to/your/project` does what `pnpm indaba ui --root` does, without
-opening the browser. Either way, a run you start in that project with `indaba run` appears while it runs.
+Open that address. `pnpm try:ui -- --root /path/to/your/project` serves the same page over that project, without
+opening the browser, but read-only: Runs and Run only, with no Run, Stop, Edit, Workflows or Settings; use
+`pnpm indaba ui --root` for those. Either way, a run you start in that project with `indaba run` appears while it runs.
 
 ## What you see
 
@@ -152,7 +158,8 @@ claims to be live while it is not.
 
 ## Run and Stop
 
-**Run a workflow** on the Runs screen opens a panel with the workflow files of the projects served: files named
+**Run a workflow** on the Runs screen opens a panel with the workflow files of the projects served and of the folders
+added with `indaba workflows add` or imported on the Workflows screen: files named
 `*.workflow.ai.yml` or `*.workflow.ai.yaml` up to four folders down, and the project's default
 `.indaba/workflow.ai.yml`. Folders `node_modules`, `.git` and the rest of `.indaba/` are not searched, and links are not
 followed. A file with problems is listed with them, as `indaba validate` words them, and cannot be run. The search stops
@@ -174,6 +181,9 @@ changes, even by a space. What you confirmed is kept outside every project, in y
 The summary covers **only what the workflow file declares**. It does not cover scripts a command calls,
 `indaba.config`, plugins, or what an agent then does with its own tools. A step with no `permissions` reads
 "runner default (unrestricted)".
+
+**Full access asks every time.** When a step's agent has `permissions: { level: full }`, the panel lists those steps
+and asks again (**Run it with full access**) every time that workflow starts, even when you confirmed the file before.
 
 **What runs.** Each run is `indaba run --workdir <project> --task-id <id> -- <file>` in a process of its own, started in
 the project's folder with the environment `indaba ui` was started with. It runs the exact bytes you confirmed: a copy
@@ -217,7 +227,7 @@ choose one row to act on it:
 
 ## Edit a workflow
 
-**Edit** next to a workflow in the Run a workflow panel opens it at an address of its own (`/workflows/<id>`), so a
+**Edit** next to a workflow in the Run a workflow panel, or its name on the Workflows screen, opens it at an address of its own (`/workflows/<id>`), so a
 reload opens it again. It works for a workflow with problems too: that is where they get fixed. **Form**, **Graph** and
 **Source** switch between three views of the same draft; what you change in one is in the others.
 
@@ -299,10 +309,13 @@ The page can show your agents' work, so it is built like something that could le
   (the part after `#`, which a browser never sends to a server); the page reads it once, removes it from the address
   bar and keeps it in memory, and sends it as a header. Reloading the page therefore asks for the address again. Do not
   share the address while the server runs.
-- **What it may change.** The server itself starts nothing and writes nothing. `indaba ui` gives it two things to do:
-  write the logging settings (the Settings screen), start and stop runs, and save a workflow file it lists (above). Every change needs the token and
-  must come from the page itself: a request without the page's own `Origin`, which a browser always sends on a write, is
-  refused even with the token. The page sends an id from the list, never a path; the server looks the id up in a fresh
+- **What it may change.** The server itself starts nothing and writes nothing. `indaba ui` gives it the work to do:
+  write the logging settings (the Settings screen), start and stop runs, save a workflow file it lists, and change the
+  list of workflows (details, hide, copy, import a folder, remove from the list; see Workflows above). Every change needs
+  the token and must come from the page itself: a request without the page's own `Origin`, which a browser always sends
+  on a write, is refused even with the token. To run, save or act on a workflow the page sends an id from the list, never
+  a path (only **Import a folder** sends the path you typed, which is resolved and shown back before anything is added);
+  the server looks the id up in a fresh
   search, and builds the command from its own values only. A save replaces only the file that id names, inside its
   project, through a temporary file and a rename, so the file is always one whole version; the text of a workflow is
   never written to the log.
@@ -341,7 +354,7 @@ Messages in the Run a workflow panel:
 ## Not there yet
 
 From [`specs/web-app`](../specs/web-app/spec.md) and [roadmap.md](roadmap.md), in the order they are planned: a
-published `@indaba/server`, so `indaba ui` works from npm; a health column on the Workflows screen (it needs the health
+published `@indaba/server` that installs, so `indaba ui` works from npm; a health column on the Workflows screen (it needs the health
 report); "run this step" and a form for a workflow's inputs; answering
 an agent's questions; applying or discarding a run's changes.
 

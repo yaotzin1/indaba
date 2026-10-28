@@ -21,7 +21,7 @@ it (`specs/web-app` is loopback only, one person, one machine).
 | Accounts and sign-in (OpenID Connect or own accounts) | the local view has one person and a token |
 | Tenancy: one person's runs, files and keys invisible to another | the local view has one file tree |
 | Repository access: a GitHub App or OAuth, tokens stored encrypted, scoped to the repositories chosen | the local view uses the folder it is given |
-| **Isolation of every agent, enforced, with no way to opt out** | locally, `sandbox: none` is the default |
+| **Isolation of every agent, enforced, with no way to opt out** | locally, `isolation: none` is the default, and no sandbox exists yet |
 | A store and a job queue that survive restarts and many users | locally, files and one process |
 | Secrets: whose API key pays for a run, how it is stored, quotas and caps | locally, environment variables |
 | Operations: hosting cost, abuse handling, updates, a security review | none locally |
@@ -31,9 +31,10 @@ it (`specs/web-app` is loopback only, one person, one machine).
 These cost little now and are what make a hosted version possible without rewriting the local one.
 
 1. **`WorkflowRegistry`** is a contract (`specs/workflow-registry`). A hosted store is a plugin.
-2. **`Workspace` and `TrackedWorkspace`** are contracts (`specs/git-workspace`, `specs/workspace-without-git`). A hosted
-   run supplies a cloned workspace; the engine does not know where it came from.
-3. **`SandboxBackend`** is a contract (`specs/agent-sandbox`), with a policy that can forbid `sandbox: none`. A hosted
+2. **`Workspace`** is an interface in `@indaba/engine` (`specs/git-workspace`); `TrackedWorkspace` is specified in
+   `specs/workspace-without-git` and not built. A hosted run supplies a cloned workspace; the engine does not know where
+   it came from.
+3. **`SandboxBackend`** is specified as a contract (`specs/agent-sandbox`, not built yet), with a policy that can forbid `sandbox: none`. A hosted
    service sets that policy and picks a `vm` backend for hostile tenants.
 4. **One API between page and engine** (`specs/web-app`). The page does not know whether the engine is on the same
    machine, so the same page can later talk to a remote one.
@@ -46,16 +47,15 @@ These cost little now and are what make a hosted version possible without rewrit
 
 Running other people's agents on shared machines is the case `specs/agent-sandbox` is written for. A container shares the
 host kernel and is not enough for hostile tenants on its own, so the hosted service would use a virtual machine per run
-(or per tenant) and a plugin backend for it. The built-in container backend and the policy mechanism exist now so that
-this is a backend to add and not a redesign.
+(or per tenant) and a plugin backend for it. The built-in container backend and the policy mechanism are specified
+(`specs/agent-sandbox`) so that this is a backend to add and not a redesign.
 
 ## Decisions waiting
 
 | Decision | Matters for |
 | :--- | :--- |
-| Whether the hosted part is open source under the same licence or a separate, closed product | the repository layout and the licence of any code written for it |
 | Which sign-in to support first (OpenID provider, own accounts, or GitHub only) | the `AuthProvider` spec |
-| Whose API key pays: the person's own, or the service's with metering | the secrets design and billing |
+| Whose API key a run uses, and how it is stored | the secrets design |
 | Which VM technology and which host | the `vm` backend plugin |
 | Whether to host at all, or to offer a self-hosted package people run on their own server | everything above |
 

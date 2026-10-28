@@ -38,13 +38,13 @@ export const PAGES = [
         group: 'Write workflows',
         items: [
             { file: 'workflow-format.md', label: 'Workflow format', blurb: 'Every field, guards, retries, MCP servers' },
-            { file: 'extending.md', label: 'Extending', blurb: 'Plugins: runners, guards, listeners, log sinks' },
+            { file: 'extending.md', label: 'Extending', blurb: 'Plugins: runners, guards, arbiters, listeners, log sinks, the registry' },
         ],
     },
     {
         group: 'Watch and debug runs',
         items: [
-            { file: 'web-view.md', label: 'Web view', blurb: 'indaba ui: your runs in a browser' },
+            { file: 'web-view.md', label: 'Web view', blurb: 'indaba ui: runs, workflows and editing in a browser' },
             { file: 'logging.md', label: 'Logging', blurb: 'Logs, Graylog, collectors, indaba report' },
         ],
     },

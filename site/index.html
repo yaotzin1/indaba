@@ -34,8 +34,8 @@
   <div class="idea">
     <span class="num">03</span>
     <h2>Any runner</h2>
-    <p>Agent CLIs, ACP agents, an OpenRouter model or a plain shell command behind one contract, each in its own git
-      worktree, with a fallback when the first transport is not there.</p>
+    <p>Agent CLIs, ACP agents, an OpenRouter model or a plain shell command behind one contract, in a git worktree when a
+      step asks for one, with a fallback when the first transport is not there.</p>
   </div>
   <div class="idea">
     <span class="num">04</span>
@@ -71,7 +71,7 @@ steps:
     decision_type: "consensus"
     arbiter: "human"
     goal: &gt;-
-      Review src/core for correctness bugs and unclear design ...</code></pre>
+      Review src/core in the working directory for correctness bugs and unclear design ...</code></pre>
 </section>
 
 <section class="map" aria-labelledby="map-h">

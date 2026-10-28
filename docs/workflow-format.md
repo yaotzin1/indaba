@@ -4,11 +4,12 @@ A workflow file is the YAML document Indaba executes: roles, steps, guards and r
 is called `workflow.ai.yml`, and `indaba` looks for `.indaba/workflow.ai.yml` when you give no file.
 
 This is not the `workflow.ai.yml` at the root of the Indaba repository. That one is the development
-workflow of Indaba itself, with a different schema, and no `indaba` command reads it.
+workflow of Indaba itself, with a different schema, and no `indaba` command reads it. Given one by mistake,
+`validate` adds `this looks like a development workflow (stages, governance), not an Indaba workflow: see docs/workflow-format.md`.
 
 The format version is `"1.0"`. Run `indaba validate <file>` to check a file; it lists every problem it
 finds at once, each prefixed with its path in the document, for example
-`$.steps[1].role uses ...` or `step "verify" depends on unknown step "code2"`.
+`$.steps[1].isolation "copy" is not supported` or `step "verify" depends on unknown step "code2"`.
 
 The file must be one YAML document, parsed with the YAML core schema (no custom tags) and with unique
 keys: a duplicate key is an error.
@@ -20,7 +21,7 @@ Writing a tool that reads or writes these files (an editor, a form, a wizard)? S
 
 ```yaml
 version: "1.0"
-name: "task-pipeline"
+name: "indaba-task-pipeline"
 
 artifacts:
   spec: ".indaba/artifacts/spec.md"
@@ -38,17 +39,17 @@ roles:
 steps:
   - id: "rfc"
     role: "architect"
-    goal: "Prepare a technical specification in ${{ artifacts.spec }}"
+    goal: "Prepare technical specification in ${{ artifacts.spec }}"
     outputs: ["${{ artifacts.spec }}"]
     guards:
       - type: "git_diff_empty"
-        paths: ["packages/"]
+        paths: ["src/", "tests/"]
 
   - id: "code"
     depends_on: ["rfc"]
     role: "implementer"
     input_artifacts: ["${{ artifacts.spec }}"]
-    goal: "Implement the change described in the specification."
+    goal: "Implement changes satisfying the technical specification."
     isolation: "git_worktree"
 
   - id: "verify"
@@ -81,12 +82,12 @@ This is `examples/task-pipeline.workflow.ai.yml`; `examples/mcp.workflow.ai.yml`
 | `roles` | no | Map of role name to a role (see below). Needed by any step that uses `role` |
 | `steps` | yes | A list with at least one step |
 | `mcp_servers` | no | Map of server name to a Model Context Protocol server |
-| `defaults` | no | Only `defaults.mcp_policy` is read: `required` (the default) or `optional` |
+| `defaults` | no | `defaults.mcp_policy` (`required`, the default, or `optional`) and `defaults.permissions` (see [Permissions](#permissions)). Nothing else under `defaults` is read |
 
 ### `artifacts` and interpolation
 
 `${{ artifacts.<name> }}` (name matching `[A-Za-z0-9_-]+`) is replaced by the artifact's path. It is
-resolved in a step's `goal`, `input_artifacts`, `outputs` and `commands`, and nowhere else. An unknown
+resolved in a step's `goal`, `input_artifacts`, `outputs`, `commands` and each guard's `paths`, and nowhere else. An unknown
 name is an error: `$.steps[0].goal: unknown artifact "x"`. There is no other interpolation syntax.
 
 Artifact paths are relative to the step's working directory and may not leave it. One name has meaning:
@@ -101,6 +102,7 @@ isolated step that succeeds.
 | `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`, `opencode`) or a mapping with a `preset` or a `command: [program, arg, ...]` and optionally `auth`, the agent's own id for how to log in (see [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). Other runners ignore it |
 | `model` | no | Passed to the runner as its model. API runners require one |
 | `mcp` | no | List of `mcp_servers` names that every step of the role may use |
+| `permissions` | no | A [permissions](#permissions) block for every agent step of the role that has none of its own. `level` is refused on a role whose runner is `shell` |
 
 A role named in a step must exist (`step "x" uses unknown role "y"`). Role names may be any string; keep
 to letters, digits, `_` and `-`.
@@ -114,7 +116,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | :--- | :--- | :--- |
 | `id` | yes | Unique, matching `[A-Za-z0-9_-]+` |
 | `role` | one of `role` or `runner` | A key of `roles`. The step is an agent step run by the role's runner and model |
-| `runner` | one of `role` or `runner` | A runner, or a list of runners in priority order, named directly. `shell` makes a shell step. When a step has both a `role` and a `runner`, the step's `runner` is used and the role still supplies the model |
+| `runner` | one of `role` or `runner` | A runner, or a list of runners in priority order, named directly. `shell` makes a shell step. When a step has both a `role` and a `runner`, the step's `runner` is used and the role still supplies the model; `validate` warns when the two lists differ: `step "x" sets runner (...), which takes precedence over role "y" (...).` |
 | `agent` | no | For the `acp` runner: overrides the role's `agent` |
 | `permissions` | no | What the step's agent may touch (see [Permissions](#permissions)) |
 | `goal` | no | The instruction given to the agent (interpolated). Empty for a shell step |
@@ -127,7 +129,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | `on_failure` | no | What to do when the step fails (see Retries) |
 | `consensus_with` | no | Roles that debate with this step's `role` |
 | `decision_type` | no | `consensus` (every participant agrees) or `majority` (more than half) |
-| `arbiter` | no | Who settles a debate that failed: `human`, or the name of an adjudicator a plugin registers. Only on a debate step (see [Consensus steps](#consensus-steps)) |
+| `arbiter` | no | Who settles a debate that failed: `human`, or the name of an adjudicator a plugin registers. Letters, digits, `_` or `-`. Only on a debate step, otherwise `has an arbiter but is not a debate (it needs consensus_with or decision_type)` (see [Consensus steps](#consensus-steps)) |
 | `mcp` | no | `mcp_servers` names this step may use, in addition to its role's |
 | `mcp_policy` | no | `required` or `optional`; overrides `defaults.mcp_policy` for this step |
 
@@ -191,8 +193,8 @@ working directory. `permissions` does two things:
   outside `fs.write` fails it. An agent can write to disk without asking the client, so this guard,
   together with `isolation: git_worktree`, is the boundary that holds; the ACP gate is an early layer on top.
 
-`indaba validate` warns when a step declares `permissions` without `isolation: git_worktree`, and when
-no `acp` runner is in its chain (then only the guard enforces it, after the step has run).
+`indaba validate` warns when a step declares `permissions` (at any level but `full`) without
+`isolation: git_worktree`, and when no `acp` runner is in its chain (then only the guard enforces it, after the step has run).
 
 #### The level: `read`, `edit`, `full`
 
@@ -205,15 +207,17 @@ permissions: { level: full }                                      # no limit fro
 ```
 
 - `edit` needs a non-empty `fs.write`; `read` may not write `fs.write` or `terminal: allow`; `full` has no `fs` or `terminal`. `level: ask`
-  and `timeout_seconds` are rejected: this version cannot ask a person about an agent's actions yet.
+  and `timeout_seconds` are rejected: this version cannot ask a person about an agent's actions yet. `level` is not allowed on a
+  `shell` step or on a role whose runner is `shell`: a shell step runs the commands its author wrote.
 - A `permissions` block is also valid on a **role** and in **`defaults`**. An agent step uses its own block, else its role's, else
   `defaults`'s, whole and never merged. A shell step and the participants of a debate never receive a role's or `defaults`'s block.
 - A step that writes **no level** keeps what its runner always did (`claude-code` accepts edits, `codex` uses its workspace-write sandbox, the
   others add nothing), and `validate` and `plan` say so for every such step. A later, labelled release will make an absent block `read`.
 - `validate`, `plan` and the start of a run refuse a written level that a runner of the step's chain cannot hold. For `opencode` and `cursor`
   `read` is not offered (no read-only mode exists and the guard cannot stop a command); `edit` there is only checked after the step. For `codex`,
-  `read` and `full` are not offered until their arguments are confirmed. A `read` step that is given `mcp` servers is an error: a tool server
-  acts with its own rights.
+  `read` and `full` are not offered until their arguments are confirmed, and for `cursor`, `full` is not. A runner that does not declare
+  its levels (a plugin's, say) holds none. A `read` step that is given `mcp` servers is an error: a tool server acts with its own rights.
+  An `edit` step that is given `mcp` servers gets a note in `validate`: `its mcp servers act with their own rights, whatever the level`.
 - The scope guard sees only what git shows in the step's working tree. It does not see a command that ran, a path git ignores, or a write
   outside the tree, and it does not hold `terminal`.
 - When a level is written, the permission flags an embedder put in a runner's `extraArgs` are dropped and the level's own flags are used, so `extraArgs` cannot widen it.
@@ -275,6 +279,8 @@ goal: >-
 
 This is what [`examples/review-debate.workflow.ai.yml`](../examples/review-debate.workflow.ai.yml) does.
 
+Every debate writes its transcript to `.indaba/artifacts/<step-id>.transcript.md` in the step's working directory.
+
 ##### Arbiter
 
 ```yaml
@@ -335,7 +341,7 @@ A guard runs after a step succeeds and its outputs exist. Each entry needs a `ty
 | Type | Passes when |
 | :--- | :--- |
 | `git_diff_empty` | nothing under the listed `paths` (default: the whole directory) was modified, added or deleted, tracked or not. It fails if git state cannot be read |
-| `diff_within_scope` | every path changed in the working directory, tracked or not, matches one of the listed `paths` (globs; an empty list means nothing may change). `.indaba/` is ignored. It fails if git state cannot be read. It is added automatically to a step with `permissions` |
+| `diff_within_scope` | every path changed in the working directory, tracked or not, matches one of the listed `paths` (globs; an empty list means nothing may change). `.indaba/` is ignored. It fails if git state cannot be read. It is added automatically to a step with `permissions`, except at `level: full`. With a written `read` or `edit` level it is added even when the step declares its own `diff_within_scope`; with no level, a declared one replaces it |
 
 An unknown type is `$.steps[0].guards[0].type "x" is not a known guard`. A plugin can register more
 types; see [extending.md](extending.md).
@@ -353,7 +359,7 @@ on_failure:
 | :--- | :--- |
 | `action` | `retry_step`, `escalate` or `fail` |
 | `target` | For `retry_step`: the step to run again. It must be the failing step itself or one of its ancestors |
-| `max_retries` | For `retry_step`: an integer of at least 1 (default 0, which is invalid for `retry_step`) |
+| `max_retries` | For `retry_step`: an integer of at least 1 (default 0, which is invalid for `retry_step`); a value that is not an integer is an error |
 
 When a step fails with `retry_step`, the target and every step after it are reset and run again. The
 target's next prompt carries only the failure of the last attempt (trimmed to its last 4000 characters),
@@ -496,4 +502,5 @@ Three things in `@indaba/engine` let a program work with this format without cop
 - **What can be chosen.** `indaba catalog --json` (and `catalogOf(...)` for a program that has the engine) lists the
   runners, guard types and arbiters of this installation, plugins included, each with a one-line description, and
   the allowed values of `decision_type`, `isolation`, `on_failure.action` and `mcp_policy`. Its `catalog` field is
-  the version of its shape. `voters` and `prompts` are empty until the features that add them exist.
+  the version of its shape. `voters`, `prompts` and `values.promptAdditions` are empty until the features that add them exist. Each runner also
+  carries `permissions: { read, edit, full }`, each with a `mode`, a `scope` and a `note` id.
