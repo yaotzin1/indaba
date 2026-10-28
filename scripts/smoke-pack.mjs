@@ -132,7 +132,8 @@ const MUST_SHIP = {
 export function auditFiles(name, files) {
     const allowed = [...SHIPS, ...(SHIPS_TOO[name] ?? [])];
     const leaks = files.filter((file) => !allowed.some((pattern) => pattern.test(file)) || /\.tsbuildinfo$|(^|\/)\.env/.test(file));
-    const required = MUST_SHIP[name] ?? ['dist/index.js', 'dist/index.d.ts'];
+    // The README is the package's page on npm: without it the page is empty.
+    const required = ['README.md', ...(MUST_SHIP[name] ?? ['dist/index.js', 'dist/index.d.ts'])];
     const missing = required.filter((file) => !files.includes(file));
     if (name === '@indaba/server' && !files.some((file) => /^page\/assets\/.+\.js$/.test(file))) missing.push('page/assets/*.js');
     return { leaks, missing };
