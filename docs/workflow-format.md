@@ -245,8 +245,35 @@ decision type's quorum, the step is escalated, not retried, and the run ends wit
 Only an `AGREEMENT` reply counts as approval. Two reviewers who both answer `CRITIQUE` and agree on the
 same list of changes have not reached consensus, however close they are. That is what an arbiter is for.
 
-Every debate step writes `.indaba/artifacts/<step-id>.transcript.md`: each message with its round, sender and
-type (escape sequences removed, credentials redacted). Nothing from it reaches a trace.
+##### Pattern: a review debate
+
+A debate whose job is to *review* something has a trap. If `AGREEMENT` means "the work is good", reviewers
+who find the same problems keep answering `CRITIQUE`, because they are still criticising the work. They agree
+with each other from the second or third round, and the step still ends `max_rounds_exceeded`. The reply type
+says what a reviewer thinks of the *work*; the debate needs to know what each reviewer thinks of the *other
+reviewers' findings*.
+
+Write the step's `goal` so that the two reply types answer the second question:
+
+- `AGREEMENT:` "I accept the other reviewers' findings as the review's result." It is allowed, and expected,
+  when the findings are critical of the work. Say so in the reply and name any finding you would drop or reword.
+- `CRITIQUE:` "A finding is missing, wrong or badly worded." State which one and why. It is not for repeating
+  a finding every reviewer already holds.
+
+The review is then the list the reviewers settled on, read from the transcript; the debate's status says
+whether they settled. If the reviewers must also *rule on the work* (ship or do not ship), put that in a
+separate step after the debate, or let an [arbiter](#arbiter) decide, rather than overloading `AGREEMENT`.
+
+```yaml
+goal: >-
+  Review src/core in the working directory. Do not modify any file. Keep your reply under 200 words.
+  Begin it with exactly AGREEMENT: when you accept the other reviewers' findings as the review's result
+  (they may criticise the code; that is fine), or CRITIQUE: when a finding is missing, wrong or badly
+  worded, and then say which. In your first reply there are no other findings yet, so list yours
+  (at most five, each with a file path) and begin with CRITIQUE:.
+```
+
+This is what [`examples/review-debate.workflow.ai.yml`](../examples/review-debate.workflow.ai.yml) does.
 
 ##### Arbiter
 
