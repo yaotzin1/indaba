@@ -3,7 +3,7 @@ name: Release
 # A pushed v* tag is a release decision, and it is the maintainer's. This workflow verifies the tagged
 # commit, publishes the packages to npm with provenance, and creates the GitHub release. Nothing here
 # runs on a branch push or a pull request. npm publishing uses trusted publishing (OIDC): each of the
-# five packages is configured on npmjs.com to trust this repository's release.yml, so there is no
+# six published packages is configured on npmjs.com to trust this repository's release.yml, so there is no
 # token or one-time password anywhere, and the provenance statement comes with it. Versions are
 # staged, not published: the maintainer approves each one on npmjs.com (Staged Packages tab) or with
 # `npm stage approve`, which asks for 2FA, so a tag alone never makes a version public.
@@ -67,8 +67,9 @@ jobs:
       - name: Upgrade npm
         run: npm install -g npm@^11.15.0
 
-      # @indaba/server 0.1.0-alpha.3 was published by hand to create the package; staging it again would fail.
-      # Put it back in both lists (and in the order, before indaba) for the next release.
+      # Every published package is packed here, @indaba/server included. Its 0.1.0-alpha.3 was published by hand
+      # with `npm publish`, which kept the workspace: ranges, so it cannot be installed; never publish by hand.
+      # The audit below refuses a set with a package missing, a workspace: range left, or another version.
       # pnpm pack rewrites the workspace: ranges to real versions; npm stage publish then authenticates
       # with the OIDC identity of this job and parks each tarball for approval. A version with a hyphen
       # (0.2.0-alpha.1) is a prerelease and goes to the next tag once approved. Approve core first:
@@ -79,10 +80,11 @@ jobs:
           DIST_TAG=latest
           case "$VERSION" in *-*) DIST_TAG=next ;; esac
           mkdir "$RUNNER_TEMP/tarballs"
-          for dir in core engine runners tui cli; do
+          for dir in core engine runners tui server cli; do
             (cd "packages/$dir" && pnpm pack --pack-destination "$RUNNER_TEMP/tarballs")
           done
-          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba; do
+          node scripts/smoke-pack.mjs --audit "$RUNNER_TEMP/tarballs" --version "$VERSION"
+          for name in indaba-core indaba-engine indaba-runners indaba-tui indaba-server indaba; do
             npm stage publish "$RUNNER_TEMP/tarballs/$name-$VERSION.tgz" --tag "$DIST_TAG" --access public
           done
 

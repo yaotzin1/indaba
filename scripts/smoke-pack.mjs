@@ -36,10 +36,10 @@ function pnpm(args, cwd) {
 }
 
 
-/** The file names in a .tgz, read with Node alone (no `tar` on the path is assumed), `package/` removed. */
-export function tarballFiles(file) {
+/** The files in a .tgz with their contents, read with Node alone (no `tar` on the path is assumed), `package/` removed. */
+export function tarballEntries(file) {
     const data = gunzipSync(fs.readFileSync(file));
-    const files = [];
+    const entries = [];
     let longName;
     for (let offset = 0; offset + 512 <= data.length; ) {
         const header = data.subarray(offset, offset + 512);
@@ -53,12 +53,71 @@ export function tarballFiles(file) {
         } else if (type === '0' || type === '') {
             const prefix = text(345, 500);
             const name = longName ?? (prefix === '' ? text(0, 100) : `${prefix}/${text(0, 100)}`);
-            files.push(name.replace(/^package\//, ''));
+            entries.push({ name: name.replace(/^package\//, ''), body });
             longName = undefined;
         }
         offset += 512 + Math.ceil(size / 512) * 512;
     }
-    return files.sort();
+    return entries.sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+}
+
+/** The file names in a .tgz, `package/` removed. */
+export function tarballFiles(file) {
+    return tarballEntries(file).map((entry) => entry.name);
+}
+
+/** The manifest a tarball would publish. */
+export function tarballManifest(file) {
+    const manifest = tarballEntries(file).find((entry) => entry.name === 'package.json');
+    if (manifest === undefined) throw new Error(`${file} has no package.json`);
+    return JSON.parse(manifest.body.toString('utf8'));
+}
+
+/**
+ * Dependency ranges a registry cannot resolve. `workspace:` is pnpm's own protocol: `pnpm pack` rewrites it, `npm
+ * publish` from a package directory does not, and an `npm install` of the result fails with EUNSUPPORTEDPROTOCOL
+ * (what happened to @indaba/server 0.1.0-alpha.3, published by hand).
+ */
+export function unresolvedRanges(manifest) {
+    const found = [];
+    for (const field of ['dependencies', 'optionalDependencies', 'peerDependencies']) {
+        for (const [name, range] of Object.entries(manifest[field] ?? {})) {
+            if (typeof range === 'string' && /^(workspace|link|file|portal):/.test(range)) found.push(`${field}.${name}: ${range}`);
+        }
+    }
+    return found;
+}
+
+/**
+ * What is wrong with a set of tarballs about to be published: a published package without its tarball, a tarball of
+ * a package that is not published here, files that do not belong, required files missing, unresolvable ranges, and a
+ * version other than the expected one. Empty when the set can be published.
+ */
+export function auditTarballs(tarballs, publishedNames, version) {
+    const problems = [];
+    const packed = new Map();
+    for (const file of tarballs) packed.set(tarballManifest(file).name, file);
+    for (const name of publishedNames) if (!packed.has(name)) problems.push(`${name}: no tarball (every published package must be released together)`);
+    for (const [name, file] of packed) {
+        if (!publishedNames.includes(name)) problems.push(`${name}: not a published package of this repository`);
+        const manifest = tarballManifest(file);
+        if (version !== undefined && manifest.version !== version) problems.push(`${name}: version ${manifest.version}, expected ${version}`);
+        for (const range of unresolvedRanges(manifest)) problems.push(`${name}: ${range} cannot be installed from the registry`);
+        const { leaks, missing } = auditFiles(name, tarballFiles(file));
+        for (const leak of leaks) problems.push(`${name}: would publish ${leak}`);
+        for (const file of missing) problems.push(`${name}: would publish without ${file}`);
+    }
+    return problems;
+}
+
+/** The names of the packages under packages/ that are published (not private). */
+function publishedManifests() {
+    const packagesDir = path.join(ROOT, 'packages');
+    return fs
+        .readdirSync(packagesDir, { withFileTypes: true })
+        .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(packagesDir, entry.name, 'package.json')))
+        .map((entry) => ({ dir: path.join(packagesDir, entry.name), ...JSON.parse(fs.readFileSync(path.join(packagesDir, entry.name, 'package.json'), 'utf8')) }))
+        .filter((manifest) => manifest.private !== true);
 }
 
 /** What may ship: the build, the manifest, the readme and the licence; for @indaba/server, its page as well. */
@@ -102,14 +161,14 @@ const isMain = process.argv[1] !== undefined && path.resolve(process.argv[1]) ==
 if (isMain) main();
 
 function main() {
+    const auditAt = process.argv.indexOf('--audit');
+    if (auditAt !== -1) {
+        auditOnly(process.argv[auditAt + 1], process.argv[process.argv.indexOf('--version') + 1]);
+        return;
+    }
     if (!pnpmScript || !/pnpm/i.test(pnpmScript)) fail('run it through pnpm: `pnpm smoke` (npm_execpath does not name pnpm).');
 
-    const packagesDir = path.join(ROOT, 'packages');
-    const manifests = fs
-        .readdirSync(packagesDir, { withFileTypes: true })
-        .filter((entry) => entry.isDirectory() && fs.existsSync(path.join(packagesDir, entry.name, 'package.json')))
-        .map((entry) => ({ dir: path.join(packagesDir, entry.name), ...JSON.parse(fs.readFileSync(path.join(packagesDir, entry.name, 'package.json'), 'utf8')) }));
-    const published = manifests.filter((manifest) => manifest.private !== true);
+    const published = publishedManifests();
 
     const work = fs.mkdtempSync(path.join(os.tmpdir(), 'indaba-smoke-'));
     try {
@@ -125,12 +184,9 @@ function main() {
         }
         if (fs.existsSync(path.join(ROOT, 'packages', 'server', 'page'))) fail('packing left packages/server/page behind (its postpack did not run)');
 
-        // The published-files audit: what each tarball holds, against what may ship.
-        for (const [name, file] of tarballs) {
-            const { leaks, missing } = auditFiles(name, tarballFiles(file));
-            if (leaks.length > 0) fail(`${name} would publish files that do not belong in it:\n  ${leaks.join('\n  ')}`);
-            if (missing.length > 0) fail(`${name} would publish without:\n  ${missing.join('\n  ')}`);
-        }
+        // The published-files audit: what each tarball holds and the ranges it declares, against what may ship.
+        const problems = auditTarballs([...tarballs.values()], published.map((manifest) => manifest.name));
+        if (problems.length > 0) fail(`the packed tarballs cannot be published as they are:\n  ${problems.join('\n  ')}`);
 
         // 1. indaba alone: the optional packages are absent, and the CLI still boots and works.
         const bare = install(work, 'bare', ['indaba'], tarballs);
@@ -165,4 +221,21 @@ function main() {
     } finally {
         fs.rmSync(work, { recursive: true, force: true });
     }
+}
+
+/**
+ * The release's own check, on the tarballs it is about to stage (.github/workflows/release.yml):
+ *   node scripts/smoke-pack.mjs --audit <dir> [--version <x.y.z>]
+ * Needs no pnpm and no build: only the tarballs in <dir>.
+ */
+function auditOnly(dir, version) {
+    if (dir === undefined || !fs.existsSync(dir)) fail('--audit needs the directory of the tarballs');
+    const tarballs = fs
+        .readdirSync(dir)
+        .filter((name) => name.endsWith('.tgz'))
+        .map((name) => path.join(dir, name));
+    const names = publishedManifests().map((manifest) => manifest.name);
+    const problems = auditTarballs(tarballs, names, process.argv.includes('--version') ? version : undefined);
+    if (problems.length > 0) fail(`the tarballs in ${dir} cannot be published as they are:\n  ${problems.join('\n  ')}`);
+    console.log(`smoke-pack: ${tarballs.length} tarballs audited (${names.join(', ')}); every range resolves on the registry`);
 }

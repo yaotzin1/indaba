@@ -15,6 +15,15 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Fixed
+
+- **`@indaba/server` installs from npm again with the next release** (patch; track `chore`; `.github/workflows/release.yml`,
+  `scripts/smoke-pack.mjs`). Its `0.1.0-alpha.3` was published by hand with `npm publish`, which kept the
+  `workspace:*` ranges on `@indaba/core` and `@indaba/engine`, so `npm install @indaba/server` fails with
+  `EUNSUPPORTEDPROTOCOL`. The release workflow now packs and stages it with the other packages, and before staging
+  it audits the tarballs: every published package present, the tag's version, and no `workspace:`, `link:`, `file:`
+  or `portal:` range left. `pnpm smoke` runs the same range check.
+
 ### Documentation
 
 - **The documentation site matches 0.1.0-alpha.3** (patch; track `chore`; every page of `docs/`, `README.md`, the
