@@ -1,6 +1,6 @@
 {
   "name": "@indaba/server",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "description": "The local server behind `indaba ui`: a token-protected HTTP and Server-Sent Events view of the runs on this machine. Optional.",
   "license": "MIT",
   "repository": {

@@ -1,6 +1,6 @@
 {
   "name": "@indaba/web",
-  "version": "0.1.0-alpha.3",
+  "version": "0.1.0-alpha.4",
   "private": true,
   "description": "The page of `indaba ui`: a React application built into static files that @indaba/server serves. Not published; its libraries are bundled at build time, so nothing here enters a consumer's dependency tree.",
   "license": "MIT",
