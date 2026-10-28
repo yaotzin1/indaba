@@ -24,6 +24,8 @@ members.
 | `@indaba/core` (`mesh/ownership.ts`) | type | `RequestOutcome = 'accepted' \| 'rejected' \| 'failed' \| 'withdrawn'` (spec AC-04), the outcome a `request_answer` entry records |
 | `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.ownership: { readonly contestTimeoutSeconds: number }`, always present, default filled |
 | `@indaba/engine` (`config/project-config.ts`) | constant change | `PROJECT_CONFIG_SECTIONS` gains `'ownership'` |
+| `@indaba/core` (`support/index.ts`) | interface | `Timer { after(ms: number, signal: AbortSignal): Promise<void> }`, injected like `Clock`; the engine's default wraps the platform timer |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.timer?: Timer` |
 | `@indaba/core` (board kinds) | enum members | `BoardKind.ChangeRequest = 'change_request'`, `BoardKind.RequestAnswer = 'request_answer'`, engine-written only |
 | `@indaba/engine` (`workspace/`) | function | `splitDiffByPaths(diff: string, match: (path: string) => boolean): { readonly matched: string; readonly rest: string }` |
 

@@ -113,9 +113,15 @@ Fan-out is built on a general extension point, so that a plugin can grow a run's
 
 - [ ] AC-08. `PluginHost.registerGraphExpander(expander)` registers a `GraphExpander`. When a step becomes ready, the
   engine asks each expander, in registration order, whether it expands that step; the first that does returns the steps
-  to add (and which of them replace the step). The added steps are validated exactly as parsed steps are (ids, roles,
+  to add. The added steps are validated exactly as parsed steps are (ids, roles,
   fields, a cycle check on the new graph) before any of them is admitted. A step an expander returns that fails
   validation fails the expanded step with the message, and adds nothing.
+- [ ] AC-08a. An expanded step does no work of its own: its runner, role and goal are not called. Its state follows its
+  added steps on the transitions `StepState` already has: `PENDING` → `RUNNING` when it is expanded (it holds no slot),
+  → `VALIDATING` when every added step is `COMPLETED`, when its own guards (if any) run in the run worktree, →
+  `COMPLETED`, or `FAILED` (then `on_failure` as for any step). It fails when an added step's failure ends the run under
+  `parallel-steps` AC-27; an added step that is retried keeps it `RUNNING`. A step that depends on the expanded step
+  waits for it, so for every added step (AC-05).
 - [ ] AC-09. The built-in `for_each` is an expander registered through this call, with no access a plugin's expander
   lacks. Everything it needs is in `ExpansionContext`: the workflow, `readArtifact`, the cap (`maxSteps`), the ids
   already in the run's graph, and what an earlier expansion of the same step added, with each step's status. The

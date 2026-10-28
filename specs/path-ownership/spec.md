@@ -66,8 +66,11 @@ then the step fails and nobody makes the change it needed.
 
 - [ ] AC-05. In a parallel run (`parallel-steps`), the intent call's instruction tells the agent which paths are owned
   and by whom, and asks it to express what it needs from them as `REQUEST <owner role>: <what and why, one paragraph>`
-  lines. Owned paths never take part in a `parallel-steps` negotiation (its AC-14): two steps that both name the same
-  path owned by a third role do not negotiate who changes it, because neither may; each sends its request instead.
+  lines. Before the intent is posted, the engine removes from its `INTENT` paths every path owned by a role other than
+  the step's own, so owned paths never make two intents meet (`parallel-steps` AC-12), never put a step back (its
+  AC-13) and never take part in a negotiation (its AC-14): two steps that both name a path a third role owns do not
+  wait for or negotiate with each other over it, because neither may change it; each sends its request instead. A
+  contract proposal that gives a step a path another role owns is not valid (`parseContract` with `mayChange`).
 - [ ] AC-06. A `REQUEST` line becomes a board entry of kind `change_request`, from the step, to the owner role. The step
   then waits, freeing its slot, until every request it made is settled. It is then admitted again and repeats its
   intent call, with each outcome (the owner's summary, or the reason and the alternative) in its prompt.
@@ -82,9 +85,16 @@ then the step fails and nobody makes the change it needed.
   outcome; it makes its change again without touching an owned path; its guards and its review run on that change;
   and it lands as any step does. One rule covers every mix of outcomes: whatever was accepted is already there, and
   whatever was rejected, failed or withdrawn must be done without the owned paths, using the `INSTEAD` when there is one.
+- [ ] AC-07a. The continuation of AC-07 is a fresh pass of the step's work, not its `parallel-steps` AC-24 resolution:
+  if its landing then conflicts, it still has that one resolution. A `parallel-steps` resolution (after a conflict) of a
+  step that is not the owner may not touch an owned path either; one that does fails the step under AC-08. Requests
+  come only from an intent call (AC-05) or from the step's own work at its first landing (AC-07), so a resolution
+  never waits for an owner.
 - [ ] AC-08. A resolution under AC-07 that touches an owned path again fails the step with the reason `change request to
   <owner> not granted: <the outcome and its reason>`, and its `on_failure` applies. AC-05 to AC-08 apply the same way
-  in a run with a limit of 1: ownership does not need parallel steps.
+  in a run with a limit of 1 only in part: there is no intent call at a limit of 1 (`parallel-steps` C-11), so no
+  request is sent before work (AC-05, AC-06), and every request comes from the step's work at landing (AC-07). Ownership
+  does not need parallel steps.
 
 **Bounds**
 
@@ -95,12 +105,15 @@ then the step fails and nobody makes the change it needed.
   - A step sends at most 5 requests per intent call or landing (a design choice); further `REQUEST` lines are ignored,
     counted and reported in the step's feedback.
   - An owner call takes a slot under the parallel limit like any step. A waiting step frees its slot, and an owner call
-    with a request waiting is admitted before any step in topological order, so the slots cannot all be held by steps
-    waiting for owners.
+    with a request waiting is admitted before other ready steps, in the precedence of `parallel-steps` AC-08a (after a
+    starved step and a project-directory step, which run alone), so the slots cannot all be held by steps waiting for
+    owners.
   - Every owner call has the owner role's timeout; one that times out ends its request `failed`.
   - A contest (AC-14) is a debate with the round limit of any debate, then the arbiter. A ruling not given within
     `ownership.contest_timeout_seconds` (in `indaba.config`, default 900, a design choice) leaves the rejection
-    standing, and the run records that nobody ruled.
+    standing, and the run records that nobody ruled. The time is measured by a `Timer` the engine is given (the same
+    way it is given its `Clock`), never by reading the system clock in the decision; a test passes a fake timer and
+    fires it to check that the rejection stands.
   So a step's wait ends after at most: the owner calls queued ahead of its requests, each bounded by the owner's
   timeout, plus at most one contest per rejected request.
 
@@ -130,7 +143,8 @@ then the step fails and nobody makes the change it needed.
 
 **Seeing it**
 
-- [ ] AC-16. Every request, answer and contest is a board entry; the dashboard, `watch --plain` and the web view show
+- [ ] AC-16. Every request, answer and contest is a board entry, engine-written and engine-read as `parallel-steps`
+  AC-11a says: never in a step's digest, always recorded whatever the board's entry cap; the dashboard, `watch --plain` and the web view show
   open requests on the requesting step and on the owner, and the outcome.
 - [ ] AC-17. The owner call is a span of its own under the root span, linked to the requesting step's span, with
   `indaba.ownership.owner`, `indaba.ownership.request` and `indaba.ownership.outcome`.

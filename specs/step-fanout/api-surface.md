@@ -21,7 +21,7 @@ changelog. The engine option, the configuration key and the CLI option are addit
 | `@indaba/core` (`extension/graph.ts`) | interface | `GraphExpander { readonly name: string; expand(step: StepDefinition, context: ExpansionContext): Promise<Expansion \| null> }` |
 | `@indaba/core` (`extension/graph.ts`) | interface | `ExpansionContext { readonly workflow: WorkflowDefinition; readonly readArtifact: (key: string) => Promise<string \| undefined>; readonly maxSteps: number; readonly existingIds: ReadonlySet<string>; readonly previous: readonly { readonly step: StepDefinition; readonly status: StepStatus }[]; readonly signal: AbortSignal }` (spec AC-09, AC-12) |
 | `@indaba/core` (`workflow/fanout.ts`) | function | `validateItems(value: unknown, placeholders: readonly string[]): { readonly items: readonly Readonly<Record<string, string>>[] } \| { readonly errors: readonly string[] }`, on a value already parsed by the engine |
-| `@indaba/core` (`extension/graph.ts`) | interface | `Expansion { readonly steps: readonly StepDefinition[]; readonly replacesStep: boolean }` |
+| `@indaba/core` (`extension/graph.ts`) | interface | `Expansion { readonly steps: readonly StepDefinition[] }`; the expanded step does no work of its own (spec AC-08a) |
 | `@indaba/core` (`extension/index.ts`) | method | `PluginHost.registerGraphExpander(expander: GraphExpander): void` |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxFanOut?: number` (default 8, a design choice) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.expanderTimeoutSeconds?: number` (default 30, a design choice) |

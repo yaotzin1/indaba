@@ -115,7 +115,8 @@ contains the same text, so the documentation cannot drift from it.
 ## Tests
 
 - `@indaba/core`: `admit` (limit 1 equals today's order; project-directory steps alone; topological order among
-  ready steps; halted admits nothing; anti-starvation at `maxWaits`), `meets` (paths, globs by literal prefix,
+  ready steps; halted admits nothing; anti-starvation at `maxWaits`; the precedence of spec AC-08a with owner calls),
+  `mustWait`, `meets` (paths, globs by literal prefix,
   provides/needs), `parseIntent` (forms, ignored lines, bounds), `parallelGroups`.
 - `@indaba/engine`: the trace-file byte-for-byte test at limit 1 (spec AC-05); pool tests with fake runners and a
   controlled completion order for every row of spec section 9; `fork` and `land` against temporary git repositories

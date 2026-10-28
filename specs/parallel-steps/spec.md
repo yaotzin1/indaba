@@ -115,6 +115,13 @@ exactly today's.
 - [ ] AC-07. A step that runs in the project directory (no isolation, and no isolated dependency, as decided today) is
   admitted only when no step is running, and no step is admitted while it runs (C-03).
 - [ ] AC-08. A debate step (`consensus_with`) is one step for scheduling and counts once against the limit.
+- [ ] AC-08a. When more than one kind of work is waiting for a slot, admission takes them in this order, and within
+  each kind in topological position order (or, for owner calls, board order): (1) a step that has been put back
+  `max_waits` times, admitted alone (AC-13); (2) a project-directory step, admitted alone (AC-07); (3) owner calls with
+  a request waiting (`specs/path-ownership`); (4) other ready steps. A kind that must run alone waits for the running
+  work to settle and blocks everything after it in this order meanwhile. An owner call runs in a fork, so it never
+  runs beside a project-directory step. This order is part of the pure scheduling decision (`admit`) and is tested
+  there.
 
 ## 5. Acceptance criteria: coordination before work
 
@@ -131,7 +138,11 @@ exactly today's.
   record of a declaration, not an agent's work). When the step repeats its intent call (AC-13) or is reset by a retry
   (AC-28), its earlier intent entries become `superseded` (`run-blackboard` AC-04) before the new one is posted; only a
   step's latest accepted intent is compared by AC-12.
-- [ ] AC-11a. `intent` and `contract` entries are written and read by the engine only. They never appear in a step's
+- [ ] AC-11a. `intent` and `contract` entries, and any other kind a specification marks engine-written (such as
+  `path-ownership`'s requests and answers), are written and read by the engine only. The board's entry cap
+  (`run-blackboard` AC-29) applies to agent posts only: engine-written entries are always recorded, and their number is
+  bounded by the rules that produce them (one intent per admission, at most `max_waits` + 1 admissions per attempt, one
+  contract per negotiation, at most 5 requests per call). Engine-written entries They never appear in a step's
   board digest, whatever its `board.read` says, and no agent can post them. The engine hands each to the prompt that
   needs it: the intents of the steps that meet to their negotiation (AC-14), the contract to each party's work prompt
   (AC-15). Notes, facts and questions that parallel steps post are read under `run-blackboard`'s rules unchanged: by
@@ -177,9 +188,10 @@ exactly today's.
 - [ ] AC-22. Landing applies the step's diff since its fork to the run worktree with a three-way apply. Steps land one at
   a time, in the order they finish (C-04): the order in which the engine's pool observes their work settling (runner
   done, guards and review passed). Steps the pool observes in the same turn of its loop land in topological position
-  order, as admission does (AC-06). That order is recorded on each landing span (`indaba.land.sequence`), so a run can
-  be replayed and a test that controls completion order with fake runners gets one landing order. The `patch`
-  artifact is written after each landing.
+  order, as admission does (AC-06). Which step finishes first depends on the agents and is not reproducible between
+  runs. What is deterministic is every decision the engine takes once that order is given: a test that controls
+  completion order with fake runners always gets the same landing order. The order a run actually had is recorded on
+  each landing span (`indaba.land.sequence`), not assumed. The `patch` artifact is written after each landing.
 - [ ] AC-23. A landing that conflicts changes nothing in the run worktree.
 - [ ] AC-24. A conflicting landing starts a *resolution* (stage 11) instead of failing the step:
   1. The engine forks a fresh worktree from the run worktree.

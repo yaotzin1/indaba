@@ -21,8 +21,10 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/core` (`workflow/model.ts`) | field | `WorkflowDefinition.maxParallel?: number` (from `max_parallel`) |
 | `@indaba/core` (`workflow/model.ts`) | field | `WorkflowDefinition.maxWaits?: number` (from `max_waits`) |
 | `@indaba/core` (`workflow/model.ts`) | field | `StepDefinition.touches?: readonly string[]` (from `touches`, shell steps only) |
-| `@indaba/core` (`workflow/schedule.ts`) | function | `admit(input: AdmitInput): readonly string[]`, pure: the step ids to admit now |
-| `@indaba/core` (`workflow/schedule.ts`) | interface | `AdmitInput { readonly order: readonly StepDefinition[]; readonly states: ReadonlyMap<string, StepStatus>; readonly running: ReadonlySet<string>; readonly waiting: ReadonlyMap<string, number>; readonly limit: number; readonly maxWaits: number; readonly runsInProject: (step: StepDefinition) => boolean; readonly halted: boolean }` (`waiting`: times each step was put back) |
+| `@indaba/core` (`workflow/schedule.ts`) | function | `admit(input: AdmitInput): readonly Admission[]`, pure: what to start now, in the order of spec AC-08a |
+| `@indaba/core` (`workflow/schedule.ts`) | type | `Admission = { readonly kind: 'step'; readonly stepId: string } \| { readonly kind: 'owner'; readonly role: string }` |
+| `@indaba/core` (`workflow/schedule.ts`) | function | `mustWait(intent: Intent, working: readonly Intent[]): string \| undefined`, pure: the id of the working step an intent meets (spec AC-13), or `undefined` |
+| `@indaba/core` (`workflow/schedule.ts`) | interface | `AdmitInput { readonly order: readonly StepDefinition[]; readonly states: ReadonlyMap<string, StepStatus>; readonly running: ReadonlySet<string>; readonly waiting: ReadonlyMap<string, number>; readonly limit: number; readonly maxWaits: number; readonly ownerQueue: readonly string[]; readonly runsInProject: (step: StepDefinition) => boolean; readonly halted: boolean }` (`waiting`: times each step was put back; `ownerQueue`: owner roles with a request waiting, in board order, empty without `owners`) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `meets(a: Intent, b: Intent): boolean` (spec AC-12) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `runsInProject(step: StepDefinition, isolated: ReadonlySet<string>): boolean`, today's rule (no isolation and no isolated dependency) |
 | `@indaba/core` (`workflow/schedule.ts`) | function | `parallelGroups(order: readonly StepDefinition[], limit: number, runsInProject: (step: StepDefinition) => boolean): readonly (readonly string[])[]` |
@@ -31,7 +33,7 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/core` (`mesh/intent.ts`) | constant | `INTENT_INSTRUCTION: string`, the fixed instruction of the intent call |
 | `@indaba/core` (`mesh/intent.ts`) | function | `contractSection(contract: Contract): string`, the prompt section a work prompt carries |
 | `@indaba/core` (`mesh/intent.ts`) | constant | `NEGOTIATION_INSTRUCTION: string`, the fixed instruction of a negotiation (`SPLIT` and `INTERFACE` lines) |
-| `@indaba/core` (`mesh/intent.ts`) | function | `parseContract(text: string, steps: readonly string[]): { readonly contract: Omit<Contract, 'decidedBy'> \| null; readonly ignored: number }`; `null` when the proposal is not valid (spec AC-14) |
+| `@indaba/core` (`mesh/intent.ts`) | function | `parseContract(text: string, steps: readonly string[], mayChange?: (stepId: string, path: string) => boolean): { readonly contract: Omit<Contract, 'decidedBy'> \| null; readonly ignored: number }`; `null` when the proposal is not valid (spec AC-14); with `mayChange`, a split that gives a step a path it may not change is not valid (used by `path-ownership`) |
 | `@indaba/core` (`mesh/intent.ts`) | interface | `NegotiationDecider { decide(request: { readonly steps: readonly string[]; readonly transcript: readonly AgentMessage[] }, signal?: AbortSignal): Promise<'sequence' \| { readonly order: readonly string[] } \| 'stop' \| null> }`; `null` means nobody answered |
 | `@indaba/core` (`mesh/intent.ts`) | interface | `Contract { readonly steps: readonly string[]; readonly paths: Readonly<Record<string, readonly string[]>>; readonly interfaces: readonly { readonly name: string; readonly shape: string }[]; readonly decidedBy: 'consensus' \| 'arbiter' }` |
 | `@indaba/core` (board kinds, `specs/run-blackboard`) | enum members | `BoardKind.Intent = 'intent'`, `BoardKind.Contract = 'contract'`, engine-written only |
@@ -60,8 +62,8 @@ below 1.0 a minor, named in the changelog.
 
 `BoardKind` gains `intent` and `contract`. The board's own readers treat an unknown kind as unknown (`run-blackboard`
 AC-30), but a third party switching over `BoardKind` exhaustively stops compiling: a major in practice, which below 1.0
-takes the next minor and is named in the changelog. If `run-blackboard` has not been released when this ships, the
-members are part of its first release and nothing breaks.
+takes the next minor, and the changelog lists it under a "Breaking" note so nobody upgrades past it unaware. If
+`run-blackboard` has not been released when this ships, the members are part of its first release and nothing breaks.
 
 ## Public symbols changed
 
