@@ -1,7 +1,9 @@
 version: "1.0"
 name: "review-debate"
 
-# Two agents review the same project and debate until both approve.
+# Two agents review the same project and debate until both accept the same list of findings.
+# AGREEMENT here means "I accept the other reviewer's findings", not "the code is good":
+# see "Pattern: a review debate" in docs/workflow-format.md.
 # Run it against another repository:
 #   indaba run examples/review-debate.workflow.ai.yml --workdir ../apsw-gridwright
 
@@ -20,5 +22,7 @@ steps:
     goal: >-
       Review src/core in the working directory for correctness bugs and unclear design. Read only
       that directory, do not modify any file, and do not run commands. Keep your reply under 200
-      words and begin it with exactly AGREEMENT: (nothing must change) or CRITIQUE: (at most five
-      concrete findings, each with a file path), and answer the other reviewer's points.
+      words. AGREEMENT: means you accept the other reviewer's findings as the review's result (they
+      may criticise the code; that is fine). CRITIQUE: means a finding is missing, wrong or badly
+      worded, and you say which. In your first reply there is nothing to accept yet: list your own
+      findings (at most five, each with a file path) and begin with CRITIQUE:.

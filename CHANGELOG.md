@@ -15,6 +15,14 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Documentation
+
+- **Pattern: a review debate** (patch; track `chore`; `docs/workflow-format.md`, `examples/review-debate.workflow.ai.yml`).
+  A debate that reviews work ended `max_rounds_exceeded` although the reviewers agreed with each other, because
+  `AGREEMENT` was defined as "the work is good" and they kept answering `CRITIQUE`. The docs (and so the docs site)
+  now describe the pattern: `AGREEMENT` means "I accept the other reviewers' findings", `CRITIQUE` means a finding is
+  missing or wrong. The example uses it. No engine behaviour changes.
+
 ## [0.1.0-alpha.3] - 2026-10-26
 
 The third preview, published under the `next` tag. It adds `indaba ui` (the web view and `@indaba/server`, now staged by the release workflow too), permission levels, the Workflows screen and the graph editor, and the logging settings. Entries below are the detail.
