@@ -1,7 +1,7 @@
 # Specification: Run blackboard (a shared, visible board for a whole run)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
+> **Stage entry**: 2 done: the maintainer confirmed C-01 to C-16 on 2026-10-28, with the one amendment recorded in C-13
 > **Semver impact**: minor (an optional step field, new optional exports, one new event, one new file per run,
 > one optional parameter; nothing existing changes; below 1.0)
 > **Builds on**: [`specs/agent-mesh`](../agent-mesh/spec.md) (`AgentMessage`, `Blackboard`, the consensus
@@ -193,7 +193,8 @@ Checkable statements; each becomes at least one test when implementation is sche
 
 **The TUI**
 
-- [ ] AC-33. The dashboard has a board pane, switchable with the consensus transcript pane (key `b`), that lists
+- [ ] AC-33. The dashboard has a board pane, switchable with the consensus transcript pane (key `b`) and docked
+  beside the step list on a wide terminal (C-13), that lists
   entries as they are read from the file: sequence, step, sender, kind (word and glyph), and the first line of
   the text. A new entry appears within 250 ms of being written (the bound of `specs/tui` AC-04).
 - [ ] AC-34. The pane filters by step (the one selected in the step list), by kind and by sender; filters
@@ -300,8 +301,8 @@ process is started. No dependency is added.
 
 ## 8. Clarifications
 
-Stage 2. Every choice below is **recommended; the maintainer confirms**. Each default is inherited by every
-consumer.
+Stage 2. Every choice below was **recommended and confirmed by the maintainer on 2026-10-28** (C-01 to C-16),
+one by one; C-13 carries an amendment. Each default is inherited by every consumer.
 
 - **C-01. One run board; the debate keeps its own working board.** The run board is new and run-wide. A debate
   still builds its own `Blackboard` for the quorum and the ping-pong check, and the run board receives a copy of
@@ -407,6 +408,11 @@ consumer.
   a line above it, the legend below; the detail view takes the same area. The web view later mirrors the pane
   and reads the same file; the file is the contract, so nothing in this spec is TUI-shaped except AC-33 to AC-38.
   The maintainer's intended `indaba run --ui tui|web` is not part of this change.
+  *Confirmed with an amendment (2026-10-28):* on a wide terminal the pane is docked on the right, beside the step
+  list, showing the discussion and the step in progress without a key press; on a narrow one it stays switchable
+  with `b`. The width at which it docks is not decided here: it is set from a sketch or from trying real
+  terminals, not from a number written now (AC-33 follows). Slash commands are not added: the dashboard has no
+  input line; if an interactive mode appears, `/board` can be added without changing the file.
 - **C-14. Plain words, no git.** Board kinds are shown as words a non-developer reads: Note, Question, Result,
   Fact, Decision, and for a debate Proposal, Critique, Agreement. The board has no dependency on git, a worktree
   or a repository; it works for `isolation: none` and for non-code workflows such as the media pipeline in
