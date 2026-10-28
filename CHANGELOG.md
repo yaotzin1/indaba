@@ -26,6 +26,18 @@ port". The PHP prototype that preceded them was never published.
 
 ### Documentation
 
+- **The documentation site matches 0.1.0-alpha.3** (patch; track `chore`; every page of `docs/`, `README.md`, the
+  landing page). The pages still described 0.1.0-alpha.2 as the newest preview, the web view as unpublished and
+  read-only, and most of phase 6 of the roadmap as planned. They now give the alpha.3 versions, the commands and
+  options as built (`ui`, `settings`, `report`, permission levels, `--allow-full-access`), the Workflows, editor and
+  Settings screens, the plugin contracts as exported, and the roadmap's built and not-built work. `@indaba/server`
+  0.1.0-alpha.3 is on npm but cannot be installed (its manifest kept `workspace:*`), so the pages say to run
+  `indaba ui` from a checkout for now.
+- **The vision page describes the TypeScript implementation** (patch; track `chore`; `docs/vision.md`). The page still
+  presented Indaba as PHP 8.4 with Symfony, PHPStan and Composer, under a supersession note. It now states the same
+  mission, modules and workflow contract as built: TypeScript for Node 22+, the pnpm packages, the current runners,
+  `pnpm test` in the example. The PHP original stays in git history, and the "kept verbatim" rule is retired.
+
 - **Pattern: a review debate** (patch; track `chore`; `docs/workflow-format.md`, `examples/review-debate.workflow.ai.yml`).
   A debate that reviews work ended `max_rounds_exceeded` although the reviewers agreed with each other, because
   `AGREEMENT` was defined as "the work is good" and they kept answering `CRITIQUE`. The docs (and so the docs site)

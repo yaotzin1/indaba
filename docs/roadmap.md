@@ -1,8 +1,8 @@
 # Roadmap
 
-The order in which to build the parts of Indaba, written on 2026-10-11 to start work on 2026-10-12. It is a plan, not
-a promise: the order is the part that matters, and a phase may change after we use what the one before it built. What
-Indaba is for, and which parts exist today, is in [positioning.md](positioning.md).
+The order in which to build the parts of Indaba, written on 2026-10-11 and updated after 0.1.0-alpha.3 (2026-10-26).
+It is a plan, not a promise: the order is the part that matters, and a phase may change after we use what the one
+before it built. What Indaba is for, and which parts exist today, is in [positioning.md](positioning.md).
 
 ## How the order was chosen
 
@@ -18,13 +18,22 @@ Indaba is for, and which parts exist today, is in [positioning.md](positioning.m
 
 | Phase | Goal | Built from | Done when |
 | :--- | :--- | :--- | :--- |
-| 0 | A dashboard you can use today | `specs/tui` (already built), small fixes | A real run, started with `indaba run --tui` on Windows Terminal, can be followed to its end. The header shows tokens and cost (a figure that is unknown is shown as unknown, never as zero). A failed or escalated step says why. With several runs, you can choose one. Every item on the friction list is fixed or written down |
+| 0 | A dashboard you can use today | `specs/tui` (already built), small fixes | A real run, started with `indaba run --tui` on Windows Terminal, can be followed to its end. The header shows tokens and cost (a figure that is unknown is shown as unknown, never as zero). A failed or escalated step says why. With several runs, you can choose one. Every item on the friction list is fixed or written down. **Done** (0.1.0-alpha.3) |
 | 1 | See the debate | `specs/run-blackboard` | A debate run writes `<traceId>.board.jsonl`; the dashboard has a board pane with filters and a detail view; `watch --plain` prints a board section; a retried step never sees its failed attempt's posts |
 | 2 | Talk and answer | smallest slice of `specs/agent-conversation` and `specs/ruling-channel` | A `BOARD question:` line from a step shows up in the dashboard; you answer, or a decider you named answers, and the step continues; the answer records who gave it; with nothing configured the question goes to the person (a test pins it) |
 | 3 | Safe to leave running | `specs/step-budgets`, `specs/step-verdicts` | A cap stops a step and asks whether to resume; costs show in their own currency and a chosen one; a review loop stops after its limit and ends `escalated` |
 | 4 | Not only code | `specs/workspace-without-git`, `specs/workflow-inputs` | A workflow runs on a folder that is not a git repository with `isolation: copy`; the result is applied only after you see the change list; `--input` and the prompt for missing inputs work |
 | 5 | Safe on the machine | `specs/agent-sandbox` | `sandbox: container` runs a step in a container that Indaba set up itself (image, agent, cleanup); a step never falls back to the host; `indaba sandbox doctor` says what to do when it cannot; tried on the maintainer's Windows machine |
-| 6 | The web view | `specs/web-app`, `specs/workflow-registry`, `specs/single-step-run`, then `specs/workflow-editor` | `indaba ui` serves a page on the local machine, with a token: first read-only (workflow list, graph, inspector, live run, health), then actions (run, stop, one step, answers), then the editor and wizard |
+| 6 | The web view | `specs/web-app`, `specs/workflow-registry`, `specs/web-app-actions`, `specs/web-app-editing-core`, `specs/web-app-editing-forms`, `specs/web-app-editing-graph`, `specs/web-app-registry`, `specs/workflow-editor`; later `specs/single-step-run` | `indaba ui` serves a page on the local machine, with a token. **Built** (0.1.0-alpha.3), used from a checkout until `@indaba/server` installs from npm: Runs, Run (live graph, step panel, cost, a debate's discussion), Run and Stop, Workflows (the registry), editing as Form, Graph and Source, and Settings. **Not built**: health, run one step, answers, resume, apply or discard a change list |
+
+Phases 1 to 5 are specified and not built.
+
+**Built outside the phases** (0.1.0-alpha.3): logging, `indaba report` and `settings` (`specs/logging`); permission
+levels for agents (`specs/agent-permissions`); a debate arbiter and the decision ledger (`specs/debate-arbiter`); the
+OpenCode runner (`specs/opencode`).
+
+**Specified, not built**: `parallel-steps`, `step-fanout`, `review-gate`, `question-contract`, `debate-findings`,
+`path-ownership`, `mcp-support`, `workflow-assistant`.
 
 Later and only if asked for: the debate prompt library, the asset helper for downloading skills and prompts, and downloading agents (`specs/acp-agent-install`).
 
@@ -35,6 +44,8 @@ inside a phase is the order of dependencies; a line does not start before the on
 and are replaced by what the first pull request actually took.
 
 **Phase 5, safe on the machine** (`specs/agent-sandbox`)
+
+Phase 5 is not started.
 
 1. Core contracts: `SandboxSpec`, `SandboxBackend`, `PreparedLaunch`, `SandboxPolicy`, `registerSandbox`, the optional
    `Runner.execution` and `RunRequest.sandbox`. Pure, with tests and the layers test. No behaviour yet.
@@ -55,26 +66,25 @@ and are replaced by what the first pull request actually took.
 1. `WorkflowRegistry` contract and `FileWorkflowRegistry` with `indaba workflows list | scan | add | annotate | remove |
    copy`. Usable from the terminal before any page exists. **Built** (`specs/workflow-registry`): slice 1 for the terminal, slice 2 for `indaba ui`.
 2. Single-step run: `StepState.Skipped`, `RunOptions.only`, the input resolution and `--plan`, then the CLI options.
+   *Not started* (`specs/single-step-run` is a draft).
 3. `@indaba/server`: token, header checks, `GET` endpoints for workflows, runs, board and health, the event stream over the
-   trace files. No page yet; tested over HTTP.
+   trace files. No page yet; tested over HTTP. **Built** (0.1.0-alpha.3), used from a checkout until `@indaba/server`
+   installs from npm.
 4. `@indaba/web` read-only: three sketches reviewed first, then the workflows table (`apsw-gridwright`), the graph
-   and inspector, and the live run view. `indaba ui`. *Under way:* the sketches are reviewed, and the Runs and Run screens,
-   the server, the run structure in the trace, `indaba ui` and the packaging of the page inside `@indaba/server` are
-   built on `feat/web-app`; the workflows table (it needs the registry of step 1) and health are next.
-5. Actions: run, stop, resume, run one step, answers and messages, apply or discard a change list.
-6. Editing: the wizard and editor of `specs/workflow-editor`, and copy for another project.
+   and inspector, and the live run view. `indaba ui`. **Built** (0.1.0-alpha.3): the Runs and Run screens, the server,
+   the run structure in the trace, `indaba ui`, the page packaged inside `@indaba/server`, and the Workflows table
+   (`specs/web-app-registry`). Health is not built (it needs `specs/agent-sandbox`).
+5. Actions: **built**: run and stop (`specs/web-app-actions`). Not built: resume, run one step, answers and messages,
+   apply or discard a change list.
+6. Editing: **built**: the workflow as text, as a form and as a graph (`specs/web-app-editing-core`, `-forms`, `-graph`,
+   on `specs/workflow-editor`), and copy to another folder from the Workflows screen.
 
 Not scheduled until asked for: sign-in and a hosted service ([hosted-service.md](hosted-service.md)). A VM sandbox
 backend is not part of this repository: it is a plugin on the contract of Phase 5.
 
-## Monday: Phase 0
+## Phase 0: done
 
-1. Apply the review findings to the merged specs (`run-blackboard` in #42, `workspace-without-git` in #44).
-2. Run a real workflow with `indaba run <file> --tui` on Windows Terminal. Keep a plain list of what felt wrong:
-   anything unclear, slow, missing or ugly.
-3. Check what the dashboard shows for cost, failure and escalation, and for choosing among runs. These are the first
-   fixes; they need no new specification.
-4. Turn the list into the checklist for Phase 1.
+The runs and the friction list below closed it; the fixes shipped in 0.1.0-alpha.3.
 
 ## Friction list from the first runs (2026-10-12)
 
@@ -86,17 +96,17 @@ checklist for the next phase; a fix is its own small pull request.
 | # | What was seen | Kind | Status |
 | :--- | :--- | :--- | :--- |
 | 1 | **A secret in a command or its error output reaches the trace.** With `OPENROUTER_API_KEY` set, a failing shell step whose command line or stderr contains that value is redacted on screen but stored in plain text in `<traceId>.jsonl` and `<traceId>.events.jsonl` (the span's `status_message`, the `indaba.label` attribute, the state-change reason) and printed unredacted in the plain `run` output's status line. The rule is that secrets are in no trace, event or exception. Reproduced with a built CLI; the existing secrets test does not put the value in the command or its output | **Fix first** (security) | Done (#35) |
-| 2 | A run with no model call shows `cost none`; it should say "no model calls", and "unknown" only when a call was made and could not be priced | Fix | PR #36 |
-| 3 | `runners: shell ok 0s -> shell ok 2s` on a step with two commands reads like a fallback chain; it lists the commands | Fix | PR #37 |
-| 4 | Long agent output lines are cut with `…` in the output pane instead of wrapped or openable | Fix | PR #39 |
-| 5 | The runner line (`claude-code ok 27s`) says nothing about tokens or cost; when unknown it should say so | Fix | PR #37 |
-| 6 | An agent's own retries are not visible in the dashboard | Feature | PR open (`specs/attempt-history`): the engine's retries, one line per attempt. An agent CLI's own internal retries are not recorded and stay open |
-| 7 | A failure reason repeats the stderr text as `reason:` and again under `output` | Fix (small) | PR #38 |
-| 8 | A step with no output shows an empty pane with no "no output" or exit code | Fix (small) | PR #38 |
-| 9 | `indaba` is not a command in a clone; the documentation should say `pnpm build` then `pnpm indaba ...` | Docs | PR #41 |
-| 10 | `install-hooks` leaves the two hook files staged with an executable-bit change on Windows | Fix (small) | PR #40 |
+| 2 | A run with no model call shows `cost none`; it should say "no model calls", and "unknown" only when a call was made and could not be priced | Fix | Done (0.1.0-alpha.3) |
+| 3 | `runners: shell ok 0s -> shell ok 2s` on a step with two commands reads like a fallback chain; it lists the commands | Fix | Done (0.1.0-alpha.3) |
+| 4 | Long agent output lines are cut with `…` in the output pane instead of wrapped or openable | Fix | Done (0.1.0-alpha.3) |
+| 5 | The runner line (`claude-code ok 27s`) says nothing about tokens or cost; when unknown it should say so | Fix | Done (0.1.0-alpha.3) |
+| 6 | An agent's own retries are not visible in the dashboard | Feature | Done (0.1.0-alpha.3, `specs/attempt-history`): the engine's retries, one line per attempt. An agent CLI's own internal retries are not recorded and stay open |
+| 7 | A failure reason repeats the stderr text as `reason:` and again under `output` | Fix (small) | Done (0.1.0-alpha.3) |
+| 8 | A step with no output shows an empty pane with no "no output" or exit code | Fix (small) | Done (0.1.0-alpha.3) |
+| 9 | `indaba` is not a command in a clone; the documentation should say `pnpm build` then `pnpm indaba ...` | Docs | Done |
+| 10 | `install-hooks` leaves the two hook files staged with an executable-bit change on Windows | Fix (small) | Done |
 | 11 | Not tried: choosing one run among several (`indaba watch`) | Check | Checked: `latest`, a whole id and a prefix that fits one run work, a prefix that fits several lists them, and a name that is not hexadecimal is refused |
-| 12 | `indaba watch` lists runs by id, status and time only, so with several runs there is no telling which is which without opening each. The workflow name belongs in the list. It is an additive field on `RunSummary`, so a minor change and a specification first | Feature | PR open (`specs/watch-workflow-name`) |
+| 12 | `indaba watch` lists runs by id, status and time only, so with several runs there is no telling which is which without opening each. The workflow name belongs in the list. It is an additive field on `RunSummary`, so a minor change and a specification first | Feature | Done (0.1.0-alpha.3) |
 
 ## How we work
 
@@ -110,8 +120,9 @@ checklist for the next phase; a fix is its own small pull request.
 
 - **The same data as the dashboard.** The page reads the files a run writes. It is a second view, not a second
   engine, and nothing in the file formats is dashboard-shaped.
-- **Three screens.** Home: your runs, templates to start from, and what needs you. Run: the live steps, a "needs you"
-  list, the board and the conversation, and cost. Edit: the wizard and workflow editor.
+- **The screens.** Runs: your runs and their cost. Run: the live steps, the cost and a debate's discussion; the board,
+  the conversation and a "needs you" list come with `specs/run-blackboard` and `specs/agent-conversation`. Workflows:
+  the registry. Workflow: the editor as a form, a graph or text. Settings: logging.
 - **Plain words first.** The default view says what is happening, what needs you, what it costs and the result. The
   technical view (steps, spans, kinds of board entry) is one click away.
 - **For everyone.** Complete with the keyboard, not dependent on colour, usable on a phone for the questions that need
@@ -119,7 +130,7 @@ checklist for the next phase; a fix is its own small pull request.
 - **Local, with a hosted version as a separate idea.** There is no desktop application; a hosted service is described in
   [hosted-service.md](hosted-service.md) and is not planned. It listens on the local machine only, requires a token, checks the `Host` header, and never
   sends a secret to the page.
-- **Designs before code.** Three sketches (Home, Run, Edit) are reviewed before the page is built.
+- **Designs before code.** Sketches of the screens are reviewed before the page is built.
 
 ## Decisions waiting for the maintainer
 
@@ -129,9 +140,9 @@ These are open in the specifications and block the phases named.
 | :--- | :--- |
 | Metering as a required obligation of every runner and plugin: the strict form (a major under the repository's rule) or a grace period (a minor) | Phase 3 |
 | Keep `max_cost_usd` as well as `max_cost` plus `currency`, or only the second | Phase 3 |
-| Whether a run's attempts under variants may name different models | Phase 6 or later |
 | Whether the new `Isolation` value `copy` ships as a major in practice | Phase 4 |
 | Whether `StepState.SKIPPED` ships as a major in practice (single-step runs) | Phase 6 |
-| Docker and Podman as the sandbox engines of this repository; a `vm` backend only as a plugin (decided 2026-10-25) | Phase 5 |
 | Whether to host at all, or to offer a self-hosted package | the hosted-service note |
 | Whether Phase 2's first decider scope is only "questions" | Phase 2 |
+
+Decided 2026-10-25: Docker and Podman are the sandbox engines of this repository.

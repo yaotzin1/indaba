@@ -10,12 +10,12 @@ Indaba is a preview. What npm has today, and what only a checkout of the reposit
 
 | | npm | A checkout of `main` |
 | :--- | :--- | :--- |
-| Version | `next`: `0.1.0-alpha.2` (2026-10-05). `latest`: `0.1.0-alpha.0` | everything merged since `0.1.0-alpha.2` |
+| Version | `next`: `0.1.0-alpha.3` (2026-10-26). `latest`: `0.1.0-alpha.0` | everything merged since `0.1.0-alpha.3` (the CHANGELOG's Unreleased section) |
 | `indaba validate`, `plan`, `run` | yes | yes |
-| `indaba watch`, `report`, `settings`, `schema`, `catalog`, `workflows` | no | yes |
-| `indaba ui` (the web view) | no: `@indaba/server` is not published | yes |
-| `--log-level`, `--log-dir`, `--tui`, `--permissions` | no | yes |
-| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.2` | yes |
+| `indaba watch`, `report`, `settings`, `schema`, `catalog`, `workflows` | yes | yes |
+| `indaba ui` (the web view) | the command, yes; `@indaba/server` `0.1.0-alpha.3` is on npm but cannot be installed yet, so use a checkout | yes |
+| `--log-level`, `--log-dir`, `--tui`, `--permissions`, `--allow-full-access` | yes | yes |
+| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.3` (`npm install @indaba/tui@next`) | yes |
 
 Always write `npx indaba@next`. Plain `npx indaba` resolves to `latest`, the older `0.1.0-alpha.0`. The rest of
 this page writes `npx indaba` for short; from a checkout, write `pnpm indaba` (see
@@ -61,7 +61,7 @@ What it left behind is under `.indaba/`: the trace of the run, the steps and the
 
 - give a step a `role` backed by an agent or a model: [Runners](#runners) and [workflow-format.md](workflow-format.md);
 - let two agents debate a decision: [consensus steps](workflow-format.md#consensus-steps);
-- follow runs in a browser: [web-view.md](web-view.md) (from a checkout for now).
+- follow, start and edit runs in a browser with `indaba ui`: [The web view](#the-web-view-indaba-ui) (from a checkout for now).
 
 ## Prerequisites
 
@@ -110,8 +110,9 @@ npx indaba run ./workflow.ai.yml
 problem, and exits 1 on an invalid file. `plan` prints a numbered list such as
 `2. code [implementer] (after rfc)`; shell steps show their commands. Neither starts an agent.
 
-The workflow file format is described in [workflow-format.md](workflow-format.md). Two examples to start
-from are in [`examples/`](../examples/).
+The workflow file format is described in [workflow-format.md](workflow-format.md). Six examples to start
+from are in [`examples/`](../examples/), from `hello.workflow.ai.yml` (shell only) to `review-debate.workflow.ai.yml`
+(a debate).
 
 ### `run` options
 
@@ -122,6 +123,10 @@ from are in [`examples/`](../examples/).
 | `--timeout <secs>` | Per-step timeout in seconds (default 900); applies to every runner |
 | `--plugin <spec>` | Load a plugin (repeatable); also accepted by `validate` and `plan`. See [extending.md](extending.md) |
 | `-v` | Print the cost of each span that has one; `-vv` also streams the agent's output live |
+| `--tui` | Run in a process of its own and show it as a dashboard (needs a terminal and `@indaba/tui`). See [Starting a run and watching it at once](#starting-a-run-and-watching-it-at-once) |
+| `--discussion-dir <dir>` | Where the messages of each debate are kept for the web view (default `.indaba/discussions`) |
+| `--permissions [<step>=]<level>` | Lower what agents may do in this run: `read`, `edit` or `full` (repeatable). It never raises a level and never writes the file; a step with no level takes only `read`. See [Permission levels](#permission-levels) |
+| `--allow-full-access` | Acknowledge the steps at the level `full` when there is no terminal to ask at |
 | `--log-level <level>` | `error`, `warn`, `info` (default) or `debug`; every command accepts it. See [Logs](#logs) |
 | `--log-dir <dir>` | Folder of the log files (default `.indaba/logs`); every command accepts it |
 | `-h, --help`, `-V, --version` | Help and version |
@@ -132,7 +137,7 @@ gives up on the run; it first writes the last log records (for at most 2 seconds
 
 ### Logs
 
-Every command (`validate`, `plan`, `run`, `watch`, `report`, `settings`) appends JSON lines, one record per line, to
+Every command (`validate`, `plan`, `run`, `watch`, `report`, `settings`, `ui`, `schema`, `catalog`, `workflows`) appends JSON lines, one record per line, to
 `.indaba/logs/indaba-<yyyy-mm-dd>.log.jsonl` in the project (for `run`, the `--workdir` one): a `process.start` record
 (the command name, the Indaba and Node versions, the platform and architecture, never the arguments), every step state
 change and span that ends with an error, every process and HTTP request a runner starts, and `process.end` with the
@@ -142,6 +147,15 @@ are redacted before anything is written; even so, read a log before you send it 
 The level, the files and other destinations (Graylog over GELF, any JSON collector) are set in `indaba.config` or with
 `indaba settings`; `indaba report` gathers what belongs to one run into a folder to attach to an issue. All of it is in
 [logging.md](logging.md).
+
+```bash
+npx indaba settings                # the Settings screen with @indaba/tui on a terminal; otherwise prints the settings
+npx indaba settings --plain        # print the settings in use (-w <dir> for another project, --ascii without box characters)
+npx indaba report latest           # one redacted folder under .indaba/reports/ with the run's log, trace and environment
+```
+
+`report` takes `--workflow <file>` to include a workflow other than `.indaba/workflow.ai.yml` and `--out <dir>` for
+another folder; it sends nothing anywhere.
 
 ## Environment variables
 
@@ -171,13 +185,31 @@ A runner is what a role's `runner:` (or a step's) names.
 | `shell` | A command line from the workflow file, through the platform shell | nothing |
 | `openrouter` | A streamed chat completion over HTTPS. The API choice for text work | `OPENROUTER_API_KEY`, and a `model` on the role |
 | `acp` | An agent over the Agent Client Protocol. The choice for agents that edit code | the agent program (see [ACP agents](#acp-agents)) |
-| `claude-code` | `claude -p <prompt> --permission-mode acceptEdits` (plus `--model`, MCP config). A last resort | the `claude` CLI, logged in |
+| `claude-code` | `claude -p <prompt> --permission-mode acceptEdits` (plus `--model`, MCP config; with a `permissions.level`: `plan`, `acceptEdits` or `bypassPermissions`). A last resort | the `claude` CLI, logged in |
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
-| `opencode` | `opencode run [--model <m>] <prompt>`. A last resort; Indaba never adds `--auto`, pass it in `extraArgs` if you want it | the `opencode` CLI, logged in (`opencode auth login`) or a provider key in the environment |
+| `opencode` | `opencode run [--model <m>] <prompt>`. A last resort; Indaba adds `--auto` only for `permissions: { level: full }`, otherwise pass it in `extraArgs` if you want it | the `opencode` CLI, logged in (`opencode auth login`) or a provider key in the environment |
 
 Each agent CLI authenticates itself; Indaba does not log you in.
+
+### Permission levels
+
+A step's `permissions.level` says how much its agent may do, and each runner turns it into its own arguments:
+
+```yaml
+permissions: { level: read }                              # look only
+permissions: { level: edit, fs: { write: ["src/**"] } }   # change these files
+permissions: { level: full }                              # no limit from Indaba
+```
+
+`indaba catalog` shows which levels each runner can hold; `validate`, `plan` and the start of a run refuse a level a
+runner of the step's chain cannot hold. A step with no level keeps its runner's built-in behaviour, and `validate` and
+`plan` say so for each such step. A block may also sit on a role or in `defaults`.
+
+Steps at `full` are acknowledged once per run: at a terminal `indaba run` lists them and asks; without one it refuses to
+start unless you pass `--allow-full-access`. `indaba run --permissions [<step>=]<level>` lowers levels for one run and
+never raises them. Every rule is in [workflow-format.md](workflow-format.md#the-level-read-edit-full).
 
 ### Which runner when
 
@@ -274,6 +306,9 @@ confirmed on real installs yet.
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
 | `.indaba/artifacts/<step>.transcript.md`, `<step>.ruling.md` | The messages of a debate step and, when an arbiter ruled, its ruling |
 | `.indaba/discussions/<traceId>.<stepId>.json` | The same messages of a debate, per run, for the web view to show (redacted, control sequences dropped). `indaba run --discussion-dir <dir>` keeps them elsewhere |
+| `.indaba/run-inputs/` | For a run started from `indaba ui`: the copy of the confirmed workflow file that the run reads |
+| `.indaba/registry/` | The list of `indaba workflows` for this folder (with its own `.gitignore`, so it stays on this machine) |
+| `.indaba/logs/`, `.indaba/reports/` | The log files of every command (see [Logs](#logs)) and the folders `indaba report` makes |
 | `.indaba-decisions/<workflow>.jsonl` | **Committed, not ignored.** Every arbiter ruling, one JSON line each, and the memory that lets an identical re-run skip the debate. See [Consensus steps](workflow-format.md#consensus-steps) |
 | the paths your workflow names under `artifacts` | Whatever the steps wrote there, and the diff of an isolated worktree if you named a `patch` artifact |
 
@@ -297,11 +332,12 @@ dashboard: steps on the left, the selected step's output on the right (stacked b
 keys: arrows or `j`/`k` select, `PgUp`/`PgDn` scroll, `f` follows the newest output, `q` quits. States are
 shown as a symbol and a word, never by colour alone; `--ascii` avoids box and arrow characters, and `NO_COLOR`
 turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
-0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state.
+0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state or the run goes quiet.
 
-The same runs can be followed in a browser, as a graph with each step's details and cost: `indaba ui` in the project
-(`--root` for others, `--no-open`, `--port`). It needs the optional `@indaba/server`, which is not published yet, so for
-now use `pnpm indaba ui` from a built checkout. See [web-view.md](web-view.md).
+Other options: `-w <dir>` for another project, `--output` to also print each line a step streams, `--stale <secs>` to
+give up on a run that writes nothing for that long (default 120), and `--color` to colour the states.
+
+The same runs can be followed in a browser: see [The web view](#the-web-view-indaba-ui).
 
 ### Starting a run and watching it at once
 
@@ -316,9 +352,32 @@ run stops as it does on Ctrl+C and removes its worktree), `n` stays. Ctrl+C on t
 too. If the dashboard itself fails, the run is left going and the message says how to follow it. The run's own
 output goes to the files above, so `-v` has no effect with `--tui`.
 
+## The web view: `indaba ui`
+
+```bash
+pnpm indaba ui                                   # the runs of the current folder; opens your browser
+pnpm indaba ui --root /path/to/project --root .  # several projects
+pnpm indaba ui --no-open --port 4173
+pnpm try:ui -- --demo                            # a throwaway run with a retry, no agent or key needed
+```
+
+A page on your own machine that lists your runs and follows one live as a graph, with each step's details, tries,
+output and cost. It can also start a workflow of a project (showing first what its file says it will use) and stop a
+run it started, list your workflows on its **Workflows** screen (the same list as `indaba workflows`), edit a workflow
+as a form, a graph or text, and change the logging settings. A run started in a terminal it only shows.
+
+It prints an address that carries a token and works only on this machine; keep it to yourself. Ctrl+C stops it and
+the runs started from the page. Options: `--root <dir>` (repeatable), `--discussion-dir <dir>` (repeatable),
+`--port <n>`, `--no-open`, and `--log-level` and `--log-dir` as for every command.
+
+`indaba ui` needs the optional `@indaba/server` next to `indaba`; the page comes inside it. Version `0.1.0-alpha.3` is on
+npm but cannot be installed yet, so for now use `pnpm indaba ui` from a built checkout (below). Everything else is in
+[web-view.md](web-view.md).
+
 ## Running from a checkout
 
-For everything that is not on npm yet (the table at the top), run the CLI from the repository:
+For `indaba ui`, and for whatever has merged since the last release (the table at the top), run the CLI from the
+repository:
 
 ```bash
 git clone https://github.com/yaotzin1/indaba.git
@@ -337,4 +396,6 @@ directory (use an absolute path to `bin.js`) so that traces and worktrees land i
 ## Next
 
 - [workflow-format.md](workflow-format.md): every field of a workflow file
+- [web-view.md](web-view.md): the web view (`indaba ui`)
+- [logging.md](logging.md): logs, `indaba settings` and `indaba report`
 - [extending.md](extending.md): add a runner, a guard type or a listener with a plugin

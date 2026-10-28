@@ -13,7 +13,7 @@ Documentation is part of the change. A feature whose docs lag is unfinished.
 | :--- | :--- | :--- |
 | `README.md` | someone deciding to use Indaba | what it is, `npx indaba`, the packages, a first run |
 | `docs/` | someone using it | getting started, the workflow file reference, extending, runners, guards, CLI, observability; one page per topic, indexed in `docs/README.md` |
-| `docs/vision.md` | everyone | the founding requirement, kept verbatim apart from its supersession note |
+| `docs/vision.md` | everyone | the founding requirement, describing the TypeScript implementation; it moves with the design like any other page |
 | `CHANGELOG.md` | someone upgrading | what changed, does it affect me, what do I do |
 | `specs/<feature>/` | a maintainer | why it is shaped this way and what it promises |
 | `specs/DEPENDENCY_MAP.md` | a maintainer | package dependencies and what breaks what |
