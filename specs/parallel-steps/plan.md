@@ -93,9 +93,9 @@ change to either guard.
   run) uses, so it cannot collide with a declared id and is still deterministic;
   `role` of the first in order, `consensusWith` the others' roles, `goal` from the intents, `arbiter` of the first step
   or the workflow default. It runs through `StepExecutor.run` in the run worktree (read-only by instruction), so the
-  transcript, the decision ledger, the arbiter and the redaction work as for any debate. The agreed contract is the last
-  `PROPOSAL` the closing `AGREEMENT`s answered, parsed into a `Contract`; a proposal that does not parse is treated as
-  no agreement. The debate runs once, under its own span; each step involved gets a child span
+  transcript, the decision ledger, the arbiter and the redaction work as for any debate. Its topic carries the intents
+  and `NEGOTIATION_INSTRUCTION`; the agreed contract is the last proposal the closing `AGREEMENT`s answered that
+  `parseContract` accepts (spec AC-14); none means no agreement. The debate runs once, under its own span; each step involved gets a child span
   `indaba.step.negotiation` linked to it, so every participant's trace shows the negotiation, not only the first's.
 - **The decider after a failed negotiation (spec AC-16).** `PluginHost.registerNegotiationDecider`, stored by the
   CLI's `RegistryPluginHost` and passed to the engine as `WorkflowEngineOptions.negotiationDecider`, exactly as

@@ -127,7 +127,15 @@ exactly today's.
   AC-24.
 - [ ] AC-11. The intent is posted to the board as an entry of kind `intent`, by the step, with the paths, provides and
   needs as structured fields (cleaned and redacted as every board entry). Paths are normalised, confined to the project,
-  and a path outside it is dropped with a warning.
+  and a path outside it is dropped with a warning. An intent entry is `accepted` when it is posted (it is the engine's
+  record of a declaration, not an agent's work). When the step repeats its intent call (AC-13) or is reset by a retry
+  (AC-28), its earlier intent entries become `superseded` (`run-blackboard` AC-04) before the new one is posted; only a
+  step's latest accepted intent is compared by AC-12.
+- [ ] AC-11a. `intent` and `contract` entries are written and read by the engine only. They never appear in a step's
+  board digest, whatever its `board.read` says, and no agent can post them. The engine hands each to the prompt that
+  needs it: the intents of the steps that meet to their negotiation (AC-14), the contract to each party's work prompt
+  (AC-15). Notes, facts and questions that parallel steps post are read under `run-blackboard`'s rules unchanged: by
+  default a step reads its ancestors; a sibling's posts are read only when `board.read.steps` names it.
 - [ ] AC-12. Two intents *meet* when a path of one matches a path of the other (glob against glob is decided by the
   literal prefix before the first wildcard, C-07), or when one `NEEDS` a name the other `PROVIDES`.
 - [ ] AC-13. A step whose intent meets a step that has passed stage 6 (it is forking, working, being checked, reviewed
@@ -137,8 +145,12 @@ exactly today's.
   starve (C-08). `max_waits` is set in `indaba.config` and lowered, never raised, by a workflow's `max_waits`.
 - [ ] AC-14. Steps admitted together whose intents meet form a *negotiation*: a debate under `specs/agent-mesh`, with
   each step's role as a participant, the intents as the topic, and the same round limit and stall detection as any
-  debate. Each participant answers with its proposal of the split (which paths each step changes) and of each shared
-  interface (its name and its shape in a few lines).
+  debate. Each participant answers with its proposal in a fixed form, given by `NEGOTIATION_INSTRUCTION`: lines
+  `SPLIT <step id>: <path or glob>` (which paths each step changes) and `INTERFACE <name>: <its shape, one line>`;
+  other lines are ignored and counted. `parseContract` reads a proposal: it is valid when every step of the
+  negotiation has at least one `SPLIT` line, every `<step id>` is one of them, and no two steps' paths meet (AC-12).
+  The agreed contract is the last valid proposal the closing `AGREEMENT`s answered; when there is none, the
+  negotiation has not reached consensus (AC-16).
 - [ ] AC-15. A negotiation that reaches consensus posts one `contract` entry to the board, accepted, naming the steps,
   the agreed paths of each, and the agreed interfaces. The work prompt of each of those steps carries the contract as a
   section of its own.
@@ -188,9 +200,19 @@ exactly today's.
 - [ ] AC-27. When a step fails and its policy does not retry, no new step is admitted. Steps already running finish,
   each to its own end state, including their review and landing; the run then ends `FAILED` or `ESCALATED` as today,
   with the reason of the first step that ended it (C-05).
-- [ ] AC-28. A retry resets the target and its descendants to `PENDING`, as today. A descendant that is running at that
-  moment is aborted, moves `RUNNING` to `FAILED` to `PENDING` (transitions `StepState` already allows), and the abort does
-  not count against `max_retries`. Running steps that are not descendants are not touched.
+- [ ] AC-28. A retry resets the target and its descendants to `PENDING`, as today. What happens to a descendant depends on
+  where it is in section 3, and the abort never counts against anyone's `max_retries`:
+  - **before its fork** (`PENDING`: intent call, negotiation, waiting): the call or the negotiation is aborted, the step
+    stays `PENDING`, its intent entries become `superseded`, and its wait count is reset;
+  - **working** (`RUNNING`): aborted, `RUNNING` → `FAILED` → `PENDING` (transitions `StepState` already allows), its
+    worktree removed;
+  - **checked, reviewed or resolving** (`VALIDATING`, not yet landing): aborted, `VALIDATING` → `FAILED` → `PENDING`,
+    its worktree and any resolution worktree removed;
+  - **landing**: the landing finishes (it is one apply, never cut halfway), then the step is reset as `COMPLETED`
+    steps are;
+  - **landed** (`COMPLETED`): reset to `PENDING`. Its change stays in the run worktree, as a retried step's earlier
+    changes stay in the shared worktree today; the step runs again from the combined state.
+  Steps that are not descendants of the target are not touched.
 - [ ] AC-29. Cancelling the run aborts every running step, negotiation and resolution through its signal. Nothing is
   admitted after the cancel. The run ends `CANCELLED` once everything has settled; teardown then removes every worktree
   and is itself never cancelled, as today.

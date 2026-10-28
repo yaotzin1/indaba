@@ -40,9 +40,12 @@ agent and worktree.
   template depends on. Each item is a map with an `id` (`[a-z0-9-]{1,48}`) and string fields.
 - [ ] AC-02. When every dependency of the template is `COMPLETED`, the engine reads the list once, validates it (ids
   unique, at most `maxFanOut` items, default 8, a design choice), and adds one instance per item with the id
-  `<template>-<item id>`, which passes the workflow format's step id rule (`[A-Za-z0-9_-]+`). An instance id that
-  equals a step id already in the workflow fails the template with a message naming both. A list that is missing,
-  does not parse, breaks a rule or exceeds the cap fails the template with a message naming the artifact and the rule.
+  `<template>-<item id>`, which passes the workflow format's step id rule (`[A-Za-z0-9_-]+`). An instance id must be
+  at most 64 characters and must not equal the id of any step in the run's graph at that moment: the steps of the
+  file, the instances of other templates already added (template `a` with item `b-c` and template `a-b` with item `c`
+  both give `a-b-c`), and any step another expander added. Either breach fails the template with a message naming the
+  ids, and adds nothing. A list that is missing, does not parse, breaks a rule or exceeds the cap fails the template
+  with a message naming the artifact and the rule.
 - [ ] AC-02a. An empty list (`[]`) is valid: the template completes with no instances, the steps that depend on it
   become ready, and the run records a warning event and a log record naming the template and the artifact. A template
   that must have work guards against it in the step that writes the list.
@@ -50,16 +53,19 @@ agent and worktree.
   `indaba ui`, the variable `INDABA_MAX_FAN_OUT`, `parallel.max_fan_out` in `indaba.config`, the default 8. A workflow
   cannot raise it.
 - [ ] AC-03. `${{ item.<field> }}` in the template's goal, outputs, `touches` and guard parameters is replaced per
-  instance. An unknown field is a run-time failure of that instance naming the field. Item values are untrusted: they
-  are fenced in prompts and confined when they become paths.
-- [ ] AC-04. Instances are ordinary steps for `parallel-steps`: admission, intents, negotiation, landing, conflicts,
-  review and the limit all apply to them as to any step.
+  instance. Every placeholder is checked against every item when the list is read, before any instance is created: a
+  field one item lacks fails the template, naming the item and the field. Item values are untrusted: they are fenced
+  in prompts and confined when they become paths.
+- [ ] AC-04. Instances are ordinary steps for `parallel-steps` and `path-ownership`: admission, intents, negotiation,
+  landing, conflicts, review, owned paths and the limit all apply to them as to any step. Instances of one template
+  share the template's dependencies and never depend on each other.
 - [ ] AC-05. A step that depends on the template depends on every instance. The template is `COMPLETED` when every
   instance is, and fails as the first instance whose failure ends the run under `parallel-steps` AC-27.
 - [ ] AC-06. A retry that targets the template re-reads the list and re-creates the instances; instances that are
   `COMPLETED` and whose item is unchanged are kept (C-02). An item is unchanged when an item with the same `id` is in
   the new list and its canonical JSON (keys sorted, no whitespace) is byte for byte the same as the old one's.
-  Instances whose item is gone are not run again; the changes they landed stay in the run worktree.
+  Instances whose item is gone are not run again. The changes they landed stay in the run worktree as any landed
+  change does: they were checked against owned paths when they landed, and no kept instance depends on them (AC-04).
 - [ ] AC-07. The trace records the list's digest and the instances created; the dashboard and the web view show the
   instances under their template.
 
@@ -85,10 +91,12 @@ in prompts, confined when used as paths, and never reach a command line.
 
 ## 7. Where it lives
 
-- `@indaba/core`: the `for_each` field, the item list's validation, the `GraphExpander` contract and
-  `PluginHost.registerGraphExpander`.
-- `@indaba/engine`: calling expanders when a step becomes ready, validating the steps they add as parsed steps are
-  validated, and the built-in `for_each` expander, registered through the same host call as any plugin's.
+- `@indaba/core`: the `for_each` field, the `GraphExpander` contract, `PluginHost.registerGraphExpander`, and the
+  validation of an already parsed item list (plain values in, items or errors out). No parsing: core has no
+  dependencies.
+- `@indaba/engine`: reading and parsing the list (JSON, or YAML with the `yaml` package the engine already uses),
+  calling expanders when a step becomes ready, validating the steps they add as parsed steps are validated, and the
+  built-in `for_each` expander, registered through the same host call as any plugin's.
 - `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web`: showing instances under their template.
 
 ## 8. Clarifications
@@ -109,9 +117,22 @@ Fan-out is built on a general extension point, so that a plugin can grow a run's
   fields, a cycle check on the new graph) before any of them is admitted. A step an expander returns that fails
   validation fails the expanded step with the message, and adds nothing.
 - [ ] AC-09. The built-in `for_each` is an expander registered through this call, with no access a plugin's expander
-  lacks.
+  lacks. Everything it needs is in `ExpansionContext`: the workflow, `readArtifact`, the cap (`maxSteps`), the ids
+  already in the run's graph, and what an earlier expansion of the same step added, with each step's status. The
+  engine, not the expander, enforces the cap and the id rules (AC-02) for every expander, and keeps every `COMPLETED`
+  step of an earlier expansion whose new definition is the same in canonical JSON (AC-06 is this rule applied to
+  `for_each`).
 - [ ] AC-10. An expander that throws fails the expanded step, as a guard that throws fails its step. The run's
   other steps are not affected.
+- [ ] AC-11. An expander has `expanderTimeoutSeconds` (engine option, default 30, a design choice) and the run's abort
+  signal. One that does not answer in time is aborted and fails the expanded step, naming the expander.
+- [ ] AC-12. `readArtifact(key)` reads only artifacts the workflow declares: an undeclared key returns `undefined`. The
+  path is resolved and confined to the project as `input_artifacts` are, and at most 1 MiB is read (a design choice);
+  a larger file is an error of the call.
+- [ ] AC-13. An expansion is deterministic by contract: the same workflow, the same artifacts and the same earlier
+  expansion give the same steps. The engine gives an expander no clock and no randomness, and records the digest of
+  every expansion's steps on the expanded step's span (`indaba.expansion.digest`), so a run that expands differently
+  on a replay shows it.
 
 ## Artifacts not written
 

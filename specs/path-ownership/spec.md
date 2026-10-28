@@ -54,66 +54,87 @@ then the step fails and nobody makes the change it needed.
 - [ ] AC-03. A step whose role owns a path may change it like any path. Every other step may read it and may not change
   it.
 
+**What a request can end as**
+
+- [ ] AC-04. A request ends in exactly one *outcome*: `accepted` (the owner changed its paths and the change landed),
+  `rejected` (the owner answered `REJECT` with a reason and an `INSTEAD`; after a contest, if any), `failed` (the owner
+  call failed, timed out, or twice changed paths it does not own) or `withdrawn` (the requester stopped waiting:
+  cancelled, failed, or reset by a retry). `accepted`, `rejected` after its contest, `failed` and `withdrawn` are final.
+  A request with a final outcome is *settled*.
+
 **Asking before work**
 
-- [ ] AC-04. In a parallel run (`parallel-steps`), an intent with an `INTENT` line that matches another role's owned
-  paths, or a `NEEDS` line naming something the owner `PROVIDES`, is not negotiated with the owner's paths. The intent
-  call's instruction tells the agent which paths are owned and by whom, and asks it to express what it needs from them
-  as `REQUEST <owner role>: <what and why, one paragraph>` lines.
-- [ ] AC-05. A `REQUEST` line becomes a board entry of kind `change_request`, from the step, to the owner role. The step
-  then waits (as `parallel-steps` AC-13) until every request it made is answered.
+- [ ] AC-05. In a parallel run (`parallel-steps`), the intent call's instruction tells the agent which paths are owned
+  and by whom, and asks it to express what it needs from them as `REQUEST <owner role>: <what and why, one paragraph>`
+  lines. Owned paths never take part in a `parallel-steps` negotiation (its AC-14): two steps that both name the same
+  path owned by a third role do not negotiate who changes it, because neither may; each sends its request instead.
+- [ ] AC-06. A `REQUEST` line becomes a board entry of kind `change_request`, from the step, to the owner role. The step
+  then waits, freeing its slot, until every request it made is settled. It is then admitted again and repeats its
+  intent call, with each outcome (the owner's summary, or the reason and the alternative) in its prompt.
 
 **Asking after work**
 
-- [ ] AC-06. When a step that is not the owner is about to land and its change touches owned paths, the change is split
-  by path. The part outside owned paths lands as usual. The part inside becomes a `change_request` whose body is the
-  step's diff of those files, bounded, plus the step's goal. The step waits for the answer before it is `COMPLETED`.
-- [ ] AC-07. In a run with a limit of 1, AC-06 applies the same way: ownership does not need parallel steps.
+- [ ] AC-07. When a step that is not the owner is about to land and its change touches owned paths, nothing of its change
+  lands yet. The owned part (the step's diff of those files, bounded, with its goal) becomes a `change_request`, and the
+  step waits, freeing its slot, until every such request is settled. It then continues as a *resolution*
+  (`parallel-steps` AC-24, not counted against `max_retries`): its agent is called in a fresh fork of the run
+  worktree, which now holds every accepted change, with its own earlier diff of the paths it does own and every
+  outcome; it makes its change again without touching an owned path; its guards and its review run on that change;
+  and it lands as any step does. One rule covers every mix of outcomes: whatever was accepted is already there, and
+  whatever was rejected, failed or withdrawn must be done without the owned paths, using the `INSTEAD` when there is one.
+- [ ] AC-08. A resolution under AC-07 that touches an owned path again fails the step with the reason `change request to
+  <owner> not granted: <the outcome and its reason>`, and its `on_failure` applies. AC-05 to AC-08 apply the same way
+  in a run with a limit of 1: ownership does not need parallel steps.
 
-- [ ] AC-05a. The wait is bounded and cannot form a cycle:
-  - An owner call never waits on anything: it may change only its own paths (AC-10) and cannot send a request. A need
-    it cannot meet in its own paths is answered as a rejection with an `INSTEAD`. So no chain of requests can loop
-    back, whatever the owners and requesters are.
+**Bounds**
+
+- [ ] AC-09. Every wait is bounded and no wait can form a cycle:
+  - An owner call never sends a request and never waits for one: it may change only its own paths (AC-12). A need it
+    cannot meet there is answered as a rejection with an `INSTEAD`. Its own landing may meet a conflict, which is
+    resolved under `parallel-steps` AC-24, a debate with a round limit, not a request.
   - A step sends at most 5 requests per intent call or landing (a design choice); further `REQUEST` lines are ignored,
     counted and reported in the step's feedback.
-  - An owner call takes a slot under the parallel limit like any step. A step waiting for answers frees its slot, as a
-    step put back under `parallel-steps` AC-13 does, and an owner call with a request waiting is admitted before any
-    step in topological order. So a full set of slots cannot be held by steps all waiting for owners.
-  - Every owner call has the owner role's timeout. A step's wait therefore ends after at most the owner's queue ahead
-    of it times that timeout; an owner call that times out answers its request `failed` (AC-12 then applies).
-  - A step whose requests are all answered `failed` and not contested, or whose contest is rejected, fails with the
-    reason `change request to <owner> not granted: <reason>`, and its `on_failure` applies.
+  - An owner call takes a slot under the parallel limit like any step. A waiting step frees its slot, and an owner call
+    with a request waiting is admitted before any step in topological order, so the slots cannot all be held by steps
+    waiting for owners.
+  - Every owner call has the owner role's timeout; one that times out ends its request `failed`.
+  - A contest (AC-14) is a debate with the round limit of any debate, then the arbiter. A ruling not given within
+    `ownership.contest_timeout_seconds` (in `indaba.config`, default 900, a design choice) leaves the rejection
+    standing, and the run records that nobody ruled.
+  So a step's wait ends after at most: the owner calls queued ahead of its requests, each bounded by the owner's
+  timeout, plus at most one contest per rejected request.
 
 **Answering**
 
-- [ ] AC-08. Requests to one owner are answered one at a time, in the order they were posted, by an *owner call*: the
-  owner role's runner chain in a fork of the run worktree, with the request, the requesting step's intent and contract,
-  the board digest and an instruction to either make the change in the owned paths or answer `REJECT: <reason>` with
-  `INSTEAD: <how to do it without changing the owned paths>`.
-- [ ] AC-09. An owner call that changes only owned paths and passes the owner step's guards (or, when no step has the
-  owner role, the guards of the first step that names the role in `consensus_with`, else none) lands like any step's
-  change, through `parallel-steps` landing and resolution. The request is answered `accepted`, with a short summary the
-  owner writes, and the requesting step continues from the combined state: if it was waiting before work, it is admitted
-  again; if it was waiting to land, its own part is re-forked from the combined state and its owned part is dropped.
-- [ ] AC-10. An owner call that changes paths outside its own is refused at landing with feedback naming them, and is
-  repeated once with that feedback; a second refusal answers the request `failed`, which goes to the arbiter as AC-12.
-- [ ] AC-11. An owner call that rejects answers the request `rejected` with the reason and the alternative. A step
-  waiting before work starts with the rejection in its prompt. A step waiting to land runs again (as a resolution, not
-  counted against `max_retries`) with the rejection and the alternative, and must land without touching owned paths.
-- [ ] AC-12. A requester whose request is rejected may contest it once: the rejection, the request and both steps' notes
-  go to a debate of the two roles; without consensus, to the arbiter of the requesting step, else the workflow default,
-  else the person. An accept ruling sends the request back to the owner as AC-08 with the ruling attached; a reject
-  stands.
-- [ ] AC-13. When no step in the run has the owner role (the owner exists only to answer), the owner call uses the role's
+- [ ] AC-10. Requests to one owner are answered one at a time, in board order (their `seq`, `run-blackboard` AC-02). The
+  board has one writer, so two requests never share a `seq`; requests that steps produce in the same turn of the
+  engine's loop are written in the topological position order of the requesting steps, so the order is the same on
+  every run. Each is answered by an *owner call*: the owner role's runner chain in a fork of the run worktree, with
+  the request, the requesting step's intent and contract, and an instruction to either make the change in the owned
+  paths or answer `REJECT: <reason>` with `INSTEAD: <how to do it without changing the owned paths>`.
+- [ ] AC-11. An owner call that changes only owned paths and passes the owner's guards (those of the step with the owner
+  role, or, when no step has it, of the first step that names the role in `consensus_with`, else none) lands like any
+  step's change. The request ends `accepted`, with a short summary the owner writes.
+- [ ] AC-12. An owner call that changes paths outside its own is refused at landing with feedback naming them, and is
+  repeated once with that feedback; a second refusal ends the request `failed`.
+- [ ] AC-13. An owner call whose answer `parseOwnerAnswer` reads as a rejection ends the request `rejected` with the
+  reason and the alternative, unless the requester contests it (AC-14). An answer that is neither a change nor a
+  well-formed rejection is treated as a failure of the call.
+- [ ] AC-14. A requester may contest a `rejected` request once: the rejection, the request and both steps' notes go to a
+  debate of the two roles; without consensus, to the arbiter of the requesting step, else the workflow default, else
+  the person, within the bound of AC-09. An accept ruling sends the request back to the owner as AC-10 with the ruling
+  attached; whatever that second owner call ends in is final and cannot be contested. A reject ruling makes the
+  rejection final. A `failed` request cannot be contested: a failing owner is not asked again.
+- [ ] AC-15. When no step in the run has the owner role (the owner exists only to answer), the owner call uses the role's
   runner and permissions from `roles`, and the role is still subject to every permission check before the run starts.
 
 **Seeing it**
 
-- [ ] AC-14. Every request, answer and contest is a board entry; the dashboard, `watch --plain` and the web view show
+- [ ] AC-16. Every request, answer and contest is a board entry; the dashboard, `watch --plain` and the web view show
   open requests on the requesting step and on the owner, and the outcome.
-- [ ] AC-15. The owner call is a span of its own under the root span, linked to the requesting step's span, with
+- [ ] AC-17. The owner call is a span of its own under the root span, linked to the requesting step's span, with
   `indaba.ownership.owner`, `indaba.ownership.request` and `indaba.ownership.outcome`.
-- [ ] AC-16. Each request, answer and contest writes one structured log record with the step, the owner and the task id
+- [ ] AC-18. Each request, answer and contest writes one structured log record with the step, the owner and the task id
   and nothing from the agents' text.
 
 ## 4. Non-goals
@@ -129,10 +150,10 @@ then the step fails and nobody makes the change it needed.
 
 | Situation | Expected behaviour |
 | :--- | :--- |
-| the owner call fails or times out | the request is answered `failed`; AC-12 applies, with the failure as the reason |
-| the owner changes paths it does not own | AC-10 |
+| the owner call fails or times out | the request ends `failed` (final, not contested); the requester continues under AC-06 or AC-07 |
+| the owner changes paths it does not own | AC-12 |
 | the owner's change conflicts on landing | `parallel-steps` resolution, with the owner as the step |
-| the requesting step is cancelled or fails while it waits | its open requests are withdrawn (a board entry); an owner call already running finishes and lands if accepted |
+| the requesting step is cancelled, fails or is reset while it waits | its open requests end `withdrawn` (a board entry); an owner call already running finishes and lands if it changed the owned paths |
 | the run is cancelled | every owner call is aborted; open requests are withdrawn |
 | two requests to the same owner contradict | answered in order; the second sees the first's outcome on the board and in the combined state |
 
@@ -161,7 +182,8 @@ Confirmed by the maintainer on 2026-10-27:
   statement of what it needs; throwing it away would make it say the same thing again in prose.
 - **C-03. One owner call at a time per owner.** The owner keeps the owned paths coherent only if it sees its own changes
   in order.
-- **C-04. One contest per request.** Without a bound, a requester and an owner can argue for the whole run.
+- **C-04. One contest per request.** Without a bound, a requester and an owner can argue for the whole run. Only a
+  rejection can be contested; a failed owner call is not asked again (review of PR 90).
 
 ## Artifacts not written
 
