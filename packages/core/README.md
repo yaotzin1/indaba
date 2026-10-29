@@ -50,6 +50,10 @@ Built-in runners and guards register through the same host: a plugin has no less
 - Documentation: https://yaotzin1.github.io/indaba/
 - Source, issues and changelog: https://github.com/yaotzin1/indaba
 
+## Built by
+
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (React data grid).
+
 ## Licence
 
 MIT
