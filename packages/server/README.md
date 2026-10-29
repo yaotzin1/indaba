@@ -27,7 +27,7 @@ The details are in [Web view](https://yaotzin1.github.io/indaba/web-view.html).
 
 ## Built by
 
-Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (React data grid).
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
 
 ## Licence
 

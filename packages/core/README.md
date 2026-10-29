@@ -52,7 +52,7 @@ Built-in runners and guards register through the same host: a plugin has no less
 
 ## Built by
 
-Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (React data grid).
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
 
 ## Licence
 
