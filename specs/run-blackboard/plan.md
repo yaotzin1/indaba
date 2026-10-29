@@ -80,6 +80,24 @@ New module `packages/core/src/mesh/board.ts` (beside `blackboard.ts`, which is u
 5. TUI: reducer, then the pane. Terminal tests with the Ink test renderer.
 6. Documentation and gates.
 
+## 5b. Analyze (stage 5, run 2026-10-29 before the engine work)
+
+Against the six questions of the `spec_driven_development` skill: no published signature changes (additions only, so
+minor); `@indaba/core` has no `node:` import, no I/O, no clock, randomness or environment read (the clock is injected,
+`seq` replaces ids); no runtime dependency; untrusted data reaches a path only as the trace id in the file name
+(`isRunId`, T14), never a shell, and a log only as a counted, redacted entry; every buffer is bounded by `BoardLimits`
+and the parser is one linear pass. The check found one defect in the first core commit: three helpers
+(`BOARD_KEY_PATTERN`, `cleanBoardText`, `isBoardKind`) were exported without being in `api-surface.md`. They stay
+module-internal; the engine validates kinds against `BoardKind` itself. No return to Plan was needed.
+
+## 5c. Digest format (detail `api-surface.md` leaves to the implementation)
+
+The section is `DIGEST_PREAMBLE`, then one line per item, each starting `| `: facts first as
+`| fact <key>: <text> (<step>)`, ordered by key; then entries oldest-first as `| #<seq> <step> <sender> <kind>: <text>`
+(a fact appears only in the facts block); then `| [N older entries omitted]` when some did not fit, reserved at its
+widest; an empty selection gives `| [nothing has been posted yet]`. A settlement takes a `seq` too, so the numbers of
+entries are not contiguous. `settle` writes no record when nothing is pending.
+
 ## 6. Risks
 
 - **Prompt injection through the digest.** Mitigated by the grammar, the prefix, the preamble and the author

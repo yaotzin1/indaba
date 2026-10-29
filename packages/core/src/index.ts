@@ -103,12 +103,9 @@ export type {
 } from './mesh/board.js';
 export {
   AGENT_POSTABLE_KINDS,
-  BOARD_KEY_PATTERN,
   BoardKind,
-  cleanBoardText,
   DEFAULT_BOARD_LIMITS,
   DEFAULT_READ_KINDS,
-  isBoardKind,
   RunBoard,
 } from './mesh/board.js';
 export type { Digest, DigestSelection, ParsedPost, ParsedPosts } from './mesh/board-digest.js';

@@ -15,6 +15,14 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **The run board, in `@indaba/core`** (minor; track `feature`; `specs/run-blackboard`). `RunBoard` (an append-only board of
+  notes between steps, settled by records, rebuildable with `replay`), `buildDigest`, `parseBoardLines`, `BoardKind`,
+  `BoardRecorded`, `StepDefinition.board` and an optional `observer` fourth parameter of `ConsensusArbiter.deliberate`.
+  Nothing reads or writes the board yet: the engine, the `board:` workflow field, the file and the TUI pane follow in
+  the same feature, so no run changes.
+
 ## [0.1.0-alpha.4] - 2026-10-28
 
 The fourth preview, published under the `next` tag. Its point is `@indaba/server`: the `0.1.0-alpha.3` on npm cannot
