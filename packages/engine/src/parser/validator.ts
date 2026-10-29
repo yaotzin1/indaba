@@ -1,4 +1,4 @@
-import type { WorkflowDefinition } from '@indaba/core';
+import type { StepDefinition, WorkflowDefinition } from '@indaba/core';
 import {
   DagBuilder,
   FailureAction,
@@ -50,6 +50,33 @@ export class WorkflowValidator {
       }
     }
     return warnings;
+  }
+
+  /** The parts of the `board` field that need other steps or the step's kind (specs/run-blackboard, AC-08 and AC-11). */
+  private checkBoard(workflow: WorkflowDefinition, step: StepDefinition, errors: string[]): void {
+    const board = step.board;
+    if (board === undefined) {
+      return;
+    }
+    const at = `steps[${workflow.steps.indexOf(step)}].board`;
+    if (isShellStep(step)) {
+      errors.push(
+        `${at} is not allowed on a shell step: it has no prompt to add notes to and no reply to read posts from`,
+      );
+      return;
+    }
+    if (isConsensusStep(step) && board.post.length > 0) {
+      errors.push(`${at}.post is not allowed on a debate step: the engine posts a debate's messages`);
+    }
+    const ids = new Set(workflow.steps.map((s) => s.id));
+    const ancestors = this.dag.ancestorsOf(workflow, step.id);
+    board.read?.steps?.forEach((id, j) => {
+      if (!ids.has(id)) {
+        errors.push(`${at}.read.steps[${j}] "${id}" is not a step`);
+      } else if (!ancestors.includes(id)) {
+        errors.push(`${at}.read.steps[${j}] "${id}" is not an ancestor of this step`);
+      }
+    });
   }
 
   validate(workflow: WorkflowDefinition): string[] {
@@ -136,6 +163,8 @@ export class WorkflowValidator {
           errors.push(`${at} consensus_with unknown role "${role}"`);
         }
       }
+
+      this.checkBoard(workflow, step, errors);
 
       const onFailure = step.onFailure;
       if (onFailure?.action === FailureAction.RetryStep) {

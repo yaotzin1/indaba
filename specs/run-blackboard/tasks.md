@@ -26,7 +26,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## `@indaba/engine`
 
-- [ ] T8. Parse and validate `board`: every rule and error path of the field table (shell step, debate step with
+- [x] T8. Parse and validate `board`: every rule and error path of the field table (shell step, debate step with
   `post`, unknown step, non-ancestor, unknown and not postable kinds, `digest_chars` range, unknown key); a
   workflow without `board` parses to the same definition as before.
 - [ ] T9. Run wiring: the run's `RunBoard`, the sink dispatching `BoardRecorded`, `attempt` in `StepRunOptions`.
