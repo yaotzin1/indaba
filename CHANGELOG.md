@@ -15,9 +15,12 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
-## [0.1.0-alpha.4] - 2026-10-28
+## [0.1.0-alpha.5] - 2026-10-29
 
-The fourth preview, published under the `next` tag. Its point is `@indaba/server`: the `0.1.0-alpha.3` on npm cannot
+`0.1.0-alpha.4` was never published: its release stopped halfway (one package was refused by npm), and the versions
+already staged cannot be staged again. This is the same release under the next number.
+
+The fourth published preview, under the `next` tag. Its point is `@indaba/server`: the `0.1.0-alpha.3` on npm cannot
 be installed, and this one can, so `indaba ui` works from npm (`npm install -g indaba@next @indaba/server@next`). Every
 package now has a README on npm, and the documentation site is up to date. No behaviour of the engine, the runners or
 the CLI changes.
