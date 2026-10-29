@@ -16,6 +16,8 @@ import {
   parseBoardLines,
   RunBoard,
   type RunBoardOptions,
+  SimpleEventDispatcher,
+  Tracer,
 } from '../src/index.js';
 
 function clock(): { now(): Date } {
@@ -570,5 +572,13 @@ describe('observer and event', () => {
     }
     const event = new BoardRecorded('abc123', record);
     expect(event).toMatchObject({ traceId: 'abc123', record: { type: 'board' } });
+  });
+});
+
+describe('Tracer.now', () => {
+  it('is the injected clock, so spans and the board share one', () => {
+    const fixed = new Date('2026-10-29T12:00:00.000Z');
+    const tracer = new Tracer({ now: () => fixed }, new SimpleEventDispatcher(), { next: () => 'a' });
+    expect(tracer.now()).toBe(fixed);
   });
 });

@@ -5,6 +5,7 @@ import type {
   Clock,
   EventDispatcher,
   RulingRequest,
+  RunBoard,
   Runner,
   RunRequest,
   RunResult,
@@ -74,6 +75,9 @@ export interface StepExecutorOptions {
 }
 
 export interface StepRunOptions {
+  /** The run's board and this attempt's number (1 for the first). Absent: no digest, no scan, no entries. */
+  readonly board?: RunBoard | undefined;
+  readonly attempt?: number | undefined;
   readonly feedback?: string | undefined;
   readonly onOutput?: ((chunk: string) => void) | undefined;
   readonly signal?: AbortSignal | undefined;

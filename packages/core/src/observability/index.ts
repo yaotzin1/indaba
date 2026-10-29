@@ -181,6 +181,11 @@ export class Tracer {
     private readonly pricing: PricingTable = new PricingTable(),
   ) {}
 
+  /** The injected clock, so that spans and the run's board are stamped by one source of time. */
+  now(): Date {
+    return this.clock.now();
+  }
+
   startTrace(name: string, attributes: SpanAttributes = {}): Promise<Span> {
     return this.start(name, this.ids.next(32), undefined, attributes);
   }

@@ -29,7 +29,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [x] T8. Parse and validate `board`: every rule and error path of the field table (shell step, debate step with
   `post`, unknown step, non-ancestor, unknown and not postable kinds, `digest_chars` range, unknown key); a
   workflow without `board` parses to the same definition as before.
-- [ ] T9. Run wiring: the run's `RunBoard`, the sink dispatching `BoardRecorded`, `attempt` in `StepRunOptions`.
+- [x] T9. Run wiring: the run's `RunBoard`, the sink dispatching `BoardRecorded`, `attempt` in `StepRunOptions`.
   Settlement after `execute` (ok, failed, escalated, cancelled) and `supersede` in the retry reset loop.
 - [ ] T10. Digest in prompts: `PromptBuilder.build` with and without a digest (the latter byte-identical to
   today); `runAgent` and the debate topic use it; the three span attributes.

@@ -158,6 +158,7 @@ Changed, additively:
 | :--- | :--- |
 | `ConsensusArbiter.deliberate(topic, participants, decision?)` | gains `observer?: (message: AgentMessage) => void`, called after each message is posted to the debate's own board. Absent: nothing is called |
 | `StepDefinition` | gains `board?: StepBoard` |
+| `Tracer` | gains `now(): Date`, the injected clock it already holds. The engine has no clock of its own, and the board needs the run's (C-10). Added on returning from stage 6 to stage 3 on 2026-10-29 (plan.md section 5d); additive, so the classification stays minor |
 | `core/index.ts` | exports the symbols above |
 
 ### `@indaba/engine`

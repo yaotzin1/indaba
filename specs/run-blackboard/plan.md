@@ -98,6 +98,14 @@ The section is `DIGEST_PREAMBLE`, then one line per item, each starting `| `: fa
 widest; an empty selection gives `| [nothing has been posted yet]`. A settlement takes a `seq` too, so the numbers of
 entries are not contiguous. `settle` writes no record when nothing is pending.
 
+## 5d. A gap found in stage 6 (2026-10-29)
+
+Wiring the run (T9) showed that `WorkflowEngine` holds no `Clock`: the injected one lives, private, in the `Tracer` it
+is given. The contract said the engine makes the board "with the injected clock" without saying where it comes from.
+Options: a new required engine option (breaks every constructor call), an optional one with a default (a wall clock in
+decision logic, which the determinism rule forbids), or `Tracer.now()`. `Tracer.now()` is chosen: additive, one clock
+for spans and board, no caller changes. `api-surface.md` is updated to say so, and no other part of the contract moved.
+
 ## 6. Risks
 
 - **Prompt injection through the digest.** Mitigated by the grammar, the prefix, the preamble and the author

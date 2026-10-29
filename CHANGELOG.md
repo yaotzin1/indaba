@@ -19,7 +19,9 @@ port". The PHP prototype that preceded them was never published.
 
 - **The run board, in `@indaba/core`** (minor; track `feature`; `specs/run-blackboard`). `RunBoard` (an append-only board of
   notes between steps, settled by records, rebuildable with `replay`), `buildDigest`, `parseBoardLines`, `BoardKind`,
-  `BoardRecorded`, `StepDefinition.board` and an optional `observer` fourth parameter of `ConsensusArbiter.deliberate`.
+  `BoardRecorded`, `StepDefinition.board` and an optional `observer` fourth parameter of `ConsensusArbiter.deliberate` and `Tracer.now()`.
+  Every run now makes a board and hands it, with the attempt number, to each step; settlement follows the step's result
+  and a retry's reset (`WorkflowEngineOptions.board` sets its limits and redaction).
   The step field `board:` (`read`, `post`, `digest_chars`) is parsed, validated with the path of each problem and
   described in the editor schema; no run uses it yet, because the engine wiring, the file and the TUI pane follow in
   the same feature.
