@@ -220,7 +220,7 @@ has the details. Run the CLI from a checkout with `node packages/cli/dist/bin.js
 
 ## Built by
 
-Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (React data grid).
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
 
 ## License
 

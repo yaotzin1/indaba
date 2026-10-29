@@ -31,7 +31,7 @@ The format the engine runs is in [Workflow format](https://yaotzin1.github.io/in
 
 ## Built by
 
-Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (React data grid).
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
 
 ## Licence
 
