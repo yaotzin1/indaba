@@ -15,7 +15,10 @@ import type {
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  buildDigest,
   ConsensusArbiter,
+  DagBuilder,
+  DEFAULT_READ_KINDS,
   DEFAULT_TIMEOUT_SECONDS,
   DecisionType,
   EnforcementMode,
@@ -106,6 +109,7 @@ export class StepExecutor {
   private readonly discussions: DiscussionStore | undefined;
   private readonly clock: Clock;
   private readonly redact: (text: string) => string;
+  private readonly dag = new DagBuilder();
 
   constructor(options: StepExecutorOptions) {
     this.runners = options.runners;
@@ -240,6 +244,33 @@ export class StepExecutor {
     return StepOutcome.ok();
   }
 
+  /**
+   * The board's notes for this step (specs/run-blackboard, AC-13 to AC-18), built when its call starts. Only a step with
+   * `board.read` has one; the span gets counts, never text.
+   */
+  private digestFor(
+    step: StepDefinition,
+    workflow: WorkflowDefinition,
+    span: Span,
+    options: StepRunOptions,
+  ): string | undefined {
+    const board = step.board;
+    const read = board?.read;
+    if (board === undefined || read === undefined || options.board === undefined) {
+      return undefined;
+    }
+    const digest = buildDigest(options.board, {
+      forStep: step.id,
+      steps: read.steps ?? this.dag.ancestorsOf(workflow, step.id),
+      kinds: read.kinds ?? DEFAULT_READ_KINDS,
+      maxChars: board.digestChars,
+    });
+    span.setAttribute('indaba.board.digest.entries', digest.entries);
+    span.setAttribute('indaba.board.digest.chars', digest.chars);
+    span.setAttribute('indaba.board.digest.omitted', digest.omitted);
+    return digest.text;
+  }
+
   private async runAgent(
     step: StepDefinition,
     workflow: WorkflowDefinition,
@@ -262,7 +293,7 @@ export class StepExecutor {
       },
     );
     const request: RunRequest = {
-      prompt: this.prompts.build(step, options.feedback),
+      prompt: this.prompts.build(step, options.feedback, this.digestFor(step, workflow, span, options)),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: this.timeoutSeconds,
@@ -489,8 +520,14 @@ ${this.prompts.tail(result.failureText())}`,
       }
     }
 
+    // The notes go to the participants only: the memo key and a ruling are about the question, not about the board.
+    const digest = this.digestFor(step, workflow, span, options);
     const result = await this.arbiter.deliberate(
-      topic,
+      digest === undefined
+        ? topic
+        : `${topic}
+
+${digest}`,
       participants,
       step.decisionType ?? DecisionType.Consensus,
     );

@@ -31,7 +31,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   workflow without `board` parses to the same definition as before.
 - [x] T9. Run wiring: the run's `RunBoard`, the sink dispatching `BoardRecorded`, `attempt` in `StepRunOptions`.
   Settlement after `execute` (ok, failed, escalated, cancelled) and `supersede` in the retry reset loop.
-- [ ] T10. Digest in prompts: `PromptBuilder.build` with and without a digest (the latter byte-identical to
+- [x] T10. Digest in prompts: `PromptBuilder.build` with and without a digest (the latter byte-identical to
   today); `runAgent` and the debate topic use it; the three span attributes.
 - [ ] T11. Posting from replies: only with `board.post`, only a successful result, only the runner's output;
   counts on the span; a failing step's posts are `discarded`; a completed step's are `accepted`.
