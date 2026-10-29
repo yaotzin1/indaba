@@ -4,23 +4,23 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## `@indaba/core`
 
-- [ ] T1. `BoardKind`, `AGENT_POSTABLE_KINDS`, `DEFAULT_READ_KINDS`, `BoardEntry`, the four record types,
+- [x] T1. `BoardKind`, `AGENT_POSTABLE_KINDS`, `DEFAULT_READ_KINDS`, `BoardEntry`, the four record types,
   `BoardLimits`, `DEFAULT_BOARD_LIMITS`; export. Test: the kind sets, that no engine-only kind is postable.
-- [ ] T2. `RunBoard.post`: cleaning (newlines, tabs, controls, spaces), redaction (a throw stores nothing), cut and
+- [x] T2. `RunBoard.post`: cleaning (newlines, tabs, controls, spaces), redaction (a throw stores nothing), cut and
   `cut` flag, `seq`, the entry and character allowance and the single `truncated` record, `isFull`.
-- [ ] T3. `RunBoard.settle`, `supersede`, `stateOf`, `entries(view)`, `facts`: pending to accepted, discarded,
+- [x] T3. `RunBoard.settle`, `supersede`, `stateOf`, `entries(view)`, `facts`: pending to accepted, discarded,
   superseded; the latest settlement wins; a settle covers only earlier entries; scopes; a fact replaced by a newer
   value keeps the older in the log.
-- [ ] T4. `RunBoard.replay`: a board rebuilt from its own records gives equal `entries`, `facts` and next `seq`.
+- [x] T4. `RunBoard.replay`: a board rebuilt from its own records gives equal `entries`, `facts` and next `seq`.
   Same inputs and clock give identical records (determinism test).
-- [ ] T5. `buildDigest`: selection (steps, kinds, accepted only, not the step itself), facts first, newest-first
+- [x] T5. `buildDigest`: selection (steps, kinds, accepted only, not the step itself), facts first, newest-first
   within `maxChars` shown oldest-first, the omitted line, an empty board, nothing fits, byte-identical for the
   same input. Hostile entries (instruction-like text, `BOARD note:` lines, fences, `| ` prefixes) cannot form a
   line without the prefix (AC-16).
-- [ ] T6. `parseBoardLines`: each kind and the fact key grammar; case; first-column rule; indented, bulleted and
+- [x] T6. `parseBoardLines`: each kind and the fact key grammar; case; first-column rule; indented, bulleted and
   quoted lines ignored; fenced blocks skipped; the limit of 10; text over the limit; empty text; not allowed
   kinds; an input of 1 MiB scanned without a slow path (a timing bound in the test, not a number in the spec).
-- [ ] T7. `StepBoard` and `StepDefinition.board`; `BoardRecorded`. `ConsensusArbiter.deliberate` observer: called
+- [x] T7. `StepBoard` and `StepDefinition.board`; `BoardRecorded`. `ConsensusArbiter.deliberate` observer: called
   once per message, in order, not called when absent; the result is unchanged. `architecture.test.ts` still
   passes.
 

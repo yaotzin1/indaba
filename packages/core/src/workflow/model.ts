@@ -1,4 +1,5 @@
 import { IndabaError } from '../errors/index.js';
+import type { BoardKind } from '../mesh/board.js';
 
 export const DecisionType = {
   /** Every participant must agree. */
@@ -112,6 +113,16 @@ export interface RoleDefinition {
 
 export const SHELL_RUNNER = 'shell';
 
+/** `StepDefinition.board`: the parsed form of the workflow field. */
+export interface StepBoard {
+  /** Absent: the step reads nothing. */
+  readonly read?: { readonly steps?: readonly string[]; readonly kinds?: readonly BoardKind[] };
+  /** `[]` when the field has no `post`: the reply is not scanned. */
+  readonly post: readonly BoardKind[];
+  /** 4000 when the field has no `digest_chars`. */
+  readonly digestChars: number;
+}
+
 export interface StepDefinition {
   readonly id: string;
   readonly role?: string;
@@ -135,6 +146,8 @@ export interface StepDefinition {
   readonly mcp: readonly string[];
   /** Absent means the workflow default. */
   readonly mcpPolicy?: McpPolicy;
+  /** Absent: nothing is read from the board and no reply is scanned. */
+  readonly board?: StepBoard;
 }
 
 export interface WorkflowDefinition {

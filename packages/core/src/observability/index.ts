@@ -1,3 +1,4 @@
+import type { BoardRecord } from '../mesh/board.js';
 import type { Clock, EventDispatcher, IdGenerator } from '../support/index.js';
 
 export const SpanStatus = {
@@ -147,6 +148,17 @@ export class StepOutput {
     /** Counts from 0 within the span. */
     readonly seq: number,
     readonly text: string,
+  ) {}
+}
+
+/**
+ * Dispatched for every record the run's board makes, in order, already cleaned and redacted. The built-in file
+ * writer listens to it like any plugin can.
+ */
+export class BoardRecorded {
+  constructor(
+    readonly traceId: string,
+    readonly record: BoardRecord,
   ) {}
 }
 
