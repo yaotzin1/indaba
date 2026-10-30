@@ -85,6 +85,31 @@ export {
 export type { Adjudicator, Described, RulingRequest } from './mesh/adjudicator.js';
 export { AdjudicatorRegistry, Ruling, RulingSource, Verdict } from './mesh/adjudicator.js';
 export { Blackboard } from './mesh/blackboard.js';
+export type {
+  BoardEntry,
+  BoardLimits,
+  BoardPostInput,
+  BoardPostRecord,
+  BoardRecord,
+  BoardSettlementRecord,
+  BoardSource,
+  BoardStartRecord,
+  BoardTruncatedRecord,
+  BoardView,
+  EntryState,
+  RunBoardOptions,
+  SettleInput,
+  SettleOutcome,
+} from './mesh/board.js';
+export {
+  AGENT_POSTABLE_KINDS,
+  BoardKind,
+  DEFAULT_BOARD_LIMITS,
+  DEFAULT_READ_KINDS,
+  RunBoard,
+} from './mesh/board.js';
+export type { Digest, DigestSelection, ParsedPost, ParsedPosts } from './mesh/board-digest.js';
+export { buildDigest, DIGEST_PREAMBLE, parseBoardLines } from './mesh/board-digest.js';
 export type { ConsensusArbiterOptions, Participant } from './mesh/consensus.js';
 export { ConsensusArbiter, ConsensusOutcome, ConsensusResult, PingPongDetector } from './mesh/consensus.js';
 export { AgentMessage, MessageType } from './mesh/message.js';
@@ -92,6 +117,7 @@ export type { RunnerParticipantOptions } from './mesh/runner-participant.js';
 export { RunnerParticipant } from './mesh/runner-participant.js';
 export type { ModelRate, SpanAttributes, SpanAttributeValue, SpanEvent } from './observability/index.js';
 export {
+  BoardRecorded,
   PricingTable,
   Span,
   SpanEnded,
@@ -198,6 +224,7 @@ export type {
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
+  StepBoard,
   StepDefinition,
   StepPermissions,
   WorkflowDefinition,

@@ -5,6 +5,7 @@ import type {
   Clock,
   EventDispatcher,
   RulingRequest,
+  RunBoard,
   Runner,
   RunRequest,
   RunResult,
@@ -14,7 +15,11 @@ import type {
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  BoardKind,
+  buildDigest,
   ConsensusArbiter,
+  DagBuilder,
+  DEFAULT_READ_KINDS,
   DEFAULT_TIMEOUT_SECONDS,
   DecisionType,
   EnforcementMode,
@@ -25,7 +30,9 @@ import {
   isPermissionCapable,
   isShellStep,
   McpUnavailableError,
+  MessageType,
   PermissionLevel,
+  parseBoardLines,
   permissionCapabilitiesOf,
   Ruling,
   RulingSource,
@@ -74,9 +81,24 @@ export interface StepExecutorOptions {
 }
 
 export interface StepRunOptions {
+  /** The run's board and this attempt's number (1 for the first). Absent: no digest, no scan, no entries. */
+  readonly board?: RunBoard | undefined;
+  readonly attempt?: number | undefined;
   readonly feedback?: string | undefined;
   readonly onOutput?: ((chunk: string) => void) | undefined;
   readonly signal?: AbortSignal | undefined;
+}
+
+const BOARD_KIND_OF: Record<MessageType, BoardKind> = {
+  [MessageType.Proposal]: BoardKind.Proposal,
+  [MessageType.Critique]: BoardKind.Critique,
+  [MessageType.Agreement]: BoardKind.Agreement,
+  [MessageType.Question]: BoardKind.Question,
+  [MessageType.ToolIntent]: BoardKind.ToolIntent,
+};
+
+function rulingLine(ruling: Ruling): string {
+  return ruling.note === '' ? ruling.verdict : `${ruling.verdict}: ${ruling.note}`;
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -102,6 +124,7 @@ export class StepExecutor {
   private readonly discussions: DiscussionStore | undefined;
   private readonly clock: Clock;
   private readonly redact: (text: string) => string;
+  private readonly dag = new DagBuilder();
 
   constructor(options: StepExecutorOptions) {
     this.runners = options.runners;
@@ -236,6 +259,33 @@ export class StepExecutor {
     return StepOutcome.ok();
   }
 
+  /**
+   * The board's notes for this step (specs/run-blackboard, AC-13 to AC-18), built when its call starts. Only a step with
+   * `board.read` has one; the span gets counts, never text.
+   */
+  private digestFor(
+    step: StepDefinition,
+    workflow: WorkflowDefinition,
+    span: Span,
+    options: StepRunOptions,
+  ): string | undefined {
+    const board = step.board;
+    const read = board?.read;
+    if (board === undefined || read === undefined || options.board === undefined) {
+      return undefined;
+    }
+    const digest = buildDigest(options.board, {
+      forStep: step.id,
+      steps: read.steps ?? this.dag.ancestorsOf(workflow, step.id),
+      kinds: read.kinds ?? DEFAULT_READ_KINDS,
+      maxChars: board.digestChars,
+    });
+    span.setAttribute('indaba.board.digest.entries', digest.entries);
+    span.setAttribute('indaba.board.digest.chars', digest.chars);
+    span.setAttribute('indaba.board.digest.omitted', digest.omitted);
+    return digest.text;
+  }
+
   private async runAgent(
     step: StepDefinition,
     workflow: WorkflowDefinition,
@@ -258,7 +308,7 @@ export class StepExecutor {
       },
     );
     const request: RunRequest = {
-      prompt: this.prompts.build(step, options.feedback),
+      prompt: this.prompts.build(step, options.feedback, this.digestFor(step, workflow, span, options)),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: this.timeoutSeconds,
@@ -286,12 +336,44 @@ export class StepExecutor {
       );
     }
 
-    return result.succeeded()
-      ? StepOutcome.ok()
-      : StepOutcome.failed(
-          `Runner ${chain.name} exited with code ${result.exitCode}.
+    if (result.succeeded()) {
+      this.postFromReply(step, result.output, span, options);
+      return StepOutcome.ok();
+    }
+    return StepOutcome.failed(
+      `Runner ${chain.name} exited with code ${result.exitCode}.
 ${this.prompts.tail(result.failureText())}`,
-        );
+    );
+  }
+
+  /**
+   * Takes the `BOARD` lines of a successful reply onto the run board (specs/run-blackboard, AC-04 to AC-08). Only a step
+   * with `board.post` is scanned, and only the runner's own output; the entries stay pending until the step settles.
+   * The span gets counts, never text.
+   */
+  private postFromReply(step: StepDefinition, output: string, span: Span, options: StepRunOptions): void {
+    const post = step.board?.post;
+    if (post === undefined || post.length === 0 || options.board === undefined) {
+      return;
+    }
+    const parsed = parseBoardLines(output, post, options.board.limits);
+    let posted = 0;
+    for (const line of parsed.posts) {
+      const entry = options.board.post({
+        stepId: step.id,
+        attempt: options.attempt ?? 1,
+        source: 'agent',
+        sender: step.role ?? step.id,
+        kind: line.kind,
+        ...(line.key !== undefined ? { key: line.key } : {}),
+        text: line.text,
+      });
+      if (entry !== undefined) {
+        posted += 1;
+      }
+    }
+    span.setAttribute('indaba.board.posted', posted);
+    span.setAttribute('indaba.board.ignored', parsed.ignored + (parsed.posts.length - posted));
   }
 
   /**
@@ -425,7 +507,45 @@ ${this.prompts.tail(result.failureText())}`,
     span.setAttribute('indaba.permissions.scope', capability?.scope ?? EnforcementScope.None);
   }
 
+  /**
+   * A debate's messages, outcome and ruling go to the run board as they happen (specs/run-blackboard, AC-19), and are
+   * `accepted` when it ends whatever the outcome: the transcript is a record, not a claim. A cancelled debate settles nothing.
+   */
   private async runConsensus(
+    step: StepDefinition,
+    workflow: WorkflowDefinition,
+    workdir: string,
+    span: Span,
+    options: StepRunOptions,
+  ): Promise<StepOutcome> {
+    const outcome = await this.deliberateStep(step, workflow, workdir, span, options);
+    // The process runners report an abort as a failed result, so `run` has not yet turned this into `cancelled`.
+    if (!outcome.cancelled && options.signal?.aborted !== true && options.board !== undefined) {
+      options.board.settle({ stepId: step.id, attempt: options.attempt ?? 1, outcome: 'accepted' });
+    }
+    return outcome;
+  }
+
+  private engineNote(
+    step: StepDefinition,
+    options: StepRunOptions,
+    kind: BoardKind,
+    sender: string,
+    text: string,
+    round?: number,
+  ): void {
+    options.board?.post({
+      stepId: step.id,
+      attempt: options.attempt ?? 1,
+      source: 'engine',
+      sender,
+      kind,
+      ...(round !== undefined ? { round } : {}),
+      text,
+    });
+  }
+
+  private async deliberateStep(
     step: StepDefinition,
     workflow: WorkflowDefinition,
     workdir: string,
@@ -476,8 +596,14 @@ ${this.prompts.tail(result.failureText())}`,
           span.setAttribute('indaba.arbiter.kind', kind);
           span.setAttribute('indaba.arbiter.source', RulingSource.Memo);
           span.setAttribute('indaba.arbiter.verdict', earlier.verdict);
+          const remembered = new Ruling(
+            earlier.verdict,
+            this.redact(sanitize(earlier.note)),
+            RulingSource.Memo,
+          );
+          this.engineNote(step, options, BoardKind.Decision, step.id, rulingLine(remembered));
           return this.afterRuling(
-            new Ruling(earlier.verdict, this.redact(sanitize(earlier.note)), RulingSource.Memo),
+            remembered,
             kind,
             `Ruled earlier (${when}); the same question on the same files, so no new debate.`,
           );
@@ -485,10 +611,32 @@ ${this.prompts.tail(result.failureText())}`,
       }
     }
 
+    // The notes go to the participants only: the memo key and a ruling are about the question, not about the board.
+    const digest = this.digestFor(step, workflow, span, options);
     const result = await this.arbiter.deliberate(
-      topic,
+      digest === undefined
+        ? topic
+        : `${topic}
+
+${digest}`,
       participants,
       step.decisionType ?? DecisionType.Consensus,
+      (message) =>
+        this.engineNote(
+          step,
+          options,
+          BOARD_KIND_OF[message.type],
+          message.sender,
+          message.content,
+          message.round,
+        ),
+    );
+    this.engineNote(
+      step,
+      options,
+      BoardKind.Result,
+      step.id,
+      `${result.outcome} after ${result.rounds} round(s)${result.reached() ? '' : `. Open objections: ${result.openObjections()}`}`,
     );
     span.setAttribute('indaba.consensus.outcome', result.outcome);
     span.setAttribute('indaba.consensus.rounds', result.rounds);
@@ -549,6 +697,7 @@ ${this.prompts.tail(result.failureText())}`,
 
     const note = this.redact(sanitize(ruling.note));
     const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
+    this.engineNote(step, options, BoardKind.Decision, step.id, rulingLine(ruled));
     span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
     span.setAttribute('indaba.arbiter.verdict', ruled.verdict);
     await this.discussions?.save(

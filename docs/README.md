@@ -13,6 +13,8 @@ documentation site, [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indab
 | [hosted-service.md](hosted-service.md) | You want to know what a hosted Indaba would need and which seams the local work keeps for it |
 | [using-the-alpha.md](using-the-alpha.md) | You want to try this alpha: which transport (API, ACP or CLI) to choose when, a first run, and what to expect to break |
 | [getting-started.md](getting-started.md) | You want to run a workflow: prerequisites, the commands, environment variables, runners, what a run leaves on disk |
+| [playbook.md](playbook.md) | You want a recipe for one way of working: check, plan, run, watch, read the board, run a debate, find out why a run failed, script it |
+| [ai-playbook.md](ai-playbook.md) | You are an AI agent that uses Indaba: the loop, the exit codes, the files to read, the board line grammar, failures and what to do. The site also serves it as `llms.txt` and `llms-full.txt` |
 | [workflow-format.md](workflow-format.md) | You are writing a workflow file: every field, guards, retries, MCP servers, with examples |
 | [web-view.md](web-view.md) | You want to use `indaba ui`: follow runs, start and stop them, list your workflows, edit a workflow as a form, a graph or text, change the logging settings, and how it keeps your work private |
 | [logging.md](logging.md) | You want to find what went wrong, change where logs go (`indaba.config`, `indaba settings`, Graylog, a collector), or report an issue with `indaba report` |

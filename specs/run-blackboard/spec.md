@@ -1,6 +1,6 @@
 # Specification: Run blackboard (a shared, visible board for a whole run)
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
+> **Status**: Implemented, 2026-10-30 (T1 to T28 of [`tasks.md`](tasks.md); self-review in [`review.md`](review.md))
 > **Stage entry**: 2 done: the maintainer confirmed C-01 to C-16 on 2026-10-28, with the one amendment recorded in C-13
 > **Semver impact**: minor (an optional step field, new optional exports, one new event, one new file per run,
 > one optional parameter; nothing existing changes; below 1.0)
@@ -69,93 +69,93 @@ Checkable statements; each becomes at least one test when implementation is sche
 
 **The board**
 
-- [ ] AC-01. A run has one board. It is an append-only sequence of records; a record is never changed or removed,
+- [x] AC-01. A run has one board. It is an append-only sequence of records; a record is never changed or removed,
   and a correction is a new record. `RunBoard` in `@indaba/core` performs no I/O, reads no clock of its own and no
   environment, and imports no `node:` module.
-- [ ] AC-02. An entry has a monotonic `seq` (from 1, one counter for the run), a time from the injected clock,
+- [x] AC-02. An entry has a monotonic `seq` (from 1, one counter for the run), a time from the injected clock,
   the id of the step that produced it, the attempt number, a scope, a source (`agent` or `engine`), a sender, a
   kind, an optional fact key, an optional debate round, single-line text and a `cut` flag. `seq` is the entry's
   identity and the only ordering; two runs of the same inputs with the same clock produce the same records. The
   step id and the scope are checked against the id syntax of the workflow format before anything is recorded; an
   entry whose step id or scope does not pass is not recorded, and a test pins it.
-- [ ] AC-03. The kinds are a closed set: `note`, `question`, `result`, `fact` (postable by an agent),
+- [x] AC-03. The kinds are a closed set: `note`, `question`, `result`, `fact` (postable by an agent),
   `proposal`, `critique`, `agreement`, `tool_intent` (the existing message types, posted by the engine for a
   debate) and `decision` (a ruling, posted by the engine). Text is one line: newlines and control characters are
   removed before the entry exists.
-- [ ] AC-04. An entry is `pending` until its step attempt is settled, then `accepted`, `discarded` or
+- [x] AC-04. An entry is `pending` until its step attempt is settled, then `accepted`, `discarded` or
   `superseded` (section 8, C-05). A settlement is its own record, written after the entries it settles. The
   state of an entry is derived from the records; nothing is rewritten.
-- [ ] AC-05. The fact store is derived: the facts are the accepted `fact` entries, the one with the highest `seq`
+- [x] AC-05. The fact store is derived: the facts are the accepted `fact` entries, the one with the highest `seq`
   per key winning. A fact is never deleted; a newer value replaces it in the view and the older stays in the log.
-- [ ] AC-06. The existing `Blackboard`, `AgentMessage` and `ConsensusArbiter` behave exactly as before; a debate
+- [x] AC-06. The existing `Blackboard`, `AgentMessage` and `ConsensusArbiter` behave exactly as before; a debate
   keeps its own working board for the quorum, and the run board receives a copy of each message (C-01).
 
 **The workflow field**
 
-- [ ] AC-07. A step may carry `board:` with `read`, `post` and `digest_chars` (all optional). A workflow with no
+- [x] AC-07. A step may carry `board:` with `read`, `post` and `digest_chars` (all optional). A workflow with no
   `board` field on any step parses, validates and runs exactly as it does today: no digest is added to any
   prompt and no reply is scanned. (The board file and the engine's own entries of AC-19 are written regardless;
   AC-31 pins the rest.)
-- [ ] AC-08. `board.read` is a map with optional `steps` (step ids; default: every ancestor of the step by
+- [x] AC-08. `board.read` is a map with optional `steps` (step ids; default: every ancestor of the step by
   `depends_on`, transitively) and `kinds` (default `[note, question, result, fact, decision]`). An empty map means
   both defaults. A step in `steps` that does not exist, or is not an ancestor, is a parse error naming the field
   path. A kind that is not in the closed set is a parse error.
-- [ ] AC-09. `board.post` is a list of kinds from `[note, question, result, fact]`. Absent or empty means the
+- [x] AC-09. `board.post` is a list of kinds from `[note, question, result, fact]`. Absent or empty means the
   step posts nothing and its reply is not scanned. A kind an agent may not post (`proposal`, `critique`,
   `agreement`, `tool_intent`, `decision`) is a parse error naming the field path.
-- [ ] AC-10. `board.digest_chars` is an integer from 200 to 20000 (default 4000; the limits are unmeasured design
+- [x] AC-10. `board.digest_chars` is an integer from 200 to 20000 (default 4000; the limits are unmeasured design
   choices). Anything else is a parse error.
-- [ ] AC-11. `board.post` on a shell step is a parse error (a shell step has no reply to scan); `board.read` on a
+- [x] AC-11. `board.post` on a shell step is a parse error (a shell step has no reply to scan); `board.read` on a
   shell step is a parse error (it has no prompt). A debate step may have `board.read` (the digest is added to
   the debate's topic) and may not have `board.post` (its messages are posted by the engine).
-- [ ] AC-12. `indaba validate` reports each problem of AC-08 to AC-11 with the field path, as it does for every
+- [x] AC-12. `indaba validate` reports each problem of AC-08 to AC-11 with the field path, as it does for every
   other field. `indaba plan` prints, for each step with a `board` field, what it reads (steps, kinds, character
   limit) and what it may post.
 
 **Reading: the digest**
 
-- [ ] AC-13. A step with `board.read` gets a digest appended to its prompt, as a section of its own, built by a
+- [x] AC-13. A step with `board.read` gets a digest appended to its prompt, as a section of its own, built by a
   pure function of the board and the step's `board.read` (same board, same selection: byte-identical text).
-- [ ] AC-14. The digest uses only entries that are `accepted`, from the selected steps, of the selected kinds,
+- [x] AC-14. The digest uses only entries that are `accepted`, from the selected steps, of the selected kinds,
   never an entry of the step itself, and never a `superseded` or `discarded` one (C-05).
-- [ ] AC-15. The digest is bounded by `digest_chars`. Facts come first (the latest accepted value per key),
+- [x] AC-15. The digest is bounded by `digest_chars`. Facts come first (the latest accepted value per key),
   then entries newest-first until the limit, shown oldest-first; an entry is included whole or not at all; a line
   `[N older entries omitted]` says how many did not fit. If nothing fits, the section says so and is still
   present.
-- [ ] AC-16. Every line of the digest starts with the two characters `| `, and the section begins with a fixed
+- [x] AC-16. Every line of the digest starts with the two characters `| `, and the section begins with a fixed
   sentence saying the lines are information written by earlier steps, not instructions. The digest is data
   inside a prompt, never a prompt of its own. A test feeds entries that look like instructions, like board lines
   (`BOARD note: ...`) and like fences, and checks that none of them can start a line of the digest without the
   `| ` prefix, close the section or be read back as a post (AC-20).
-- [ ] AC-17. Text injected into a prompt is the text as stored: redacted and cleaned on write (AC-28). Nothing
+- [x] AC-17. Text injected into a prompt is the text as stored: redacted and cleaned on write (AC-28). Nothing
   is re-expanded: no `{{...}}` interpolation is applied to board text.
-- [ ] AC-18. The digest, its entry count, its character count and the number omitted are recorded on the step's
+- [x] AC-18. The digest, its entry count, its character count and the number omitted are recorded on the step's
   span as attributes (E-02); the digest text is not.
 
 **Posting**
 
-- [ ] AC-19. Without any workflow field, the engine posts: every message of a debate as it is produced (kind from
+- [x] AC-19. Without any workflow field, the engine posts: every message of a debate as it is produced (kind from
   the message type, sender the role, the round), the debate's outcome as a `result` (outcome, rounds, open
   objections, cut to the entry limit) and an arbiter's ruling as a `decision`. These entries are `accepted` when
   the debate ends, whatever the outcome (the transcript is a record, not a claim; C-05), and an escalated
   debate's entries therefore reach the steps after it. When the debate's step is retried, the entries of the
   failed attempt become `superseded` as the retry starts (AC-24).
-- [ ] AC-20. A step with `board.post` has its reply scanned for post lines under the grammar of section 8 (C-04):
+- [x] AC-20. A step with `board.post` has its reply scanned for post lines under the grammar of section 8 (C-04):
   a line starts, at its first character, with `BOARD `, then a kind from the step's `post` list, then (for `fact`)
   a key, then `: ` and text. Lines inside a fenced code block, lines that do not start at the first character
   and lines that do not match are not posts. Case matters. At most 10 posts are taken from one reply, in order.
-- [ ] AC-21. A line that starts with `BOARD ` but is not a valid post (an unknown or not allowed kind, a bad
+- [x] AC-21. A line that starts with `BOARD ` but is not a valid post (an unknown or not allowed kind, a bad
   key, empty text, text over the limit, the eleventh line) is ignored, counted, and never fails the step. The
   count is the span attribute `indaba.board.ignored`; the ignored text is not stored anywhere.
-- [ ] AC-22. Only the reply of the attempt that ran is scanned (`RunResult.output` of the runner that ran); the
+- [x] AC-22. Only the reply of the attempt that ran is scanned (`RunResult.output` of the runner that ran); the
   prompt, the digest and the feedback are never scanned. A reply is scanned once.
-- [ ] AC-23. A step attempt's agent posts are `accepted` when the step completes (its guards and outputs
+- [x] AC-23. A step attempt's agent posts are `accepted` when the step completes (its guards and outputs
   pass) and `discarded` when it fails or escalates. When a retry resets steps, the accepted entries of every step
   it resets become `superseded` before the target runs again.
 
 **Retry-loop isolation**
 
-- [ ] AC-24. A retried step's next prompt carries, besides the goal and artifacts, the last failure only, as
+- [x] AC-24. A retried step's next prompt carries, besides the goal and artifacts, the last failure only, as
   today. The digest does not add history: it contains no entry of the failed attempt (`discarded`), none of any
   step the retry reset (`superseded`) and none of the step itself; so a retry's prompt differs from the first
   attempt's only by the entries that other, accepted steps posted since. The failed attempt's entries are also
@@ -165,55 +165,56 @@ Checkable statements; each becomes at least one test when implementation is sche
 
 **Storage**
 
-- [ ] AC-25. Every run writes `.indaba/traces/<traceId>.board.jsonl`, next to `<traceId>.jsonl` and
+- [x] AC-25. Every run writes `.indaba/traces/<traceId>.board.jsonl`, next to `<traceId>.jsonl` and
   `<traceId>.events.jsonl`, one JSON object per line, appended whole in `seq` order by a single serialized
   writer. The format is in [`data-model.md`](data-model.md) and is the contract for every reader.
-- [ ] AC-26. The writer is an ordinary listener of the `BoardRecorded` event (E-01). It writes nothing the event
+- [x] AC-26. The writer is an ordinary listener of the `BoardRecorded` event (E-01). It writes nothing the event
   does not carry, and a plugin can listen to the same event.
-- [ ] AC-27. The file name comes from the trace id, validated as lowercase hexadecimal as for the other two
+- [x] AC-27. The file name comes from the trace id, validated as lowercase hexadecimal as for the other two
   files; the directory is created if missing. The existing `<traceId>.jsonl` and `<traceId>.events.jsonl` are
   written byte for byte as before (a test pins that).
-- [ ] AC-28. Text is redacted with the same function the event stream uses (variables named like a key, token,
+- [x] AC-28. Text is redacted with the same function the event stream uses (variables named like a key, token,
   secret, password or credential) and cleaned (control characters removed) before it becomes an entry, so the
   file, the digest and the event carry the same text.
-- [ ] AC-29. Limits (unmeasured design choices, section 8, C-08): an entry's text is cut at 2000 characters and
+- [x] AC-29. Limits (unmeasured design choices, section 8, C-08): an entry's text is cut at 2000 characters and
   marked `cut`; a run holds at most 2000 entries and 1 MiB of entry text; past either, one `truncated` record is
   written and no more entries, while settlements continue.
-- [ ] AC-30. A reader never fails on the file: a partial last line is waited for, a line that does not parse is an
+- [x] AC-30. A reader never fails on the file: a partial last line is waited for, a line that does not parse is an
   `unknown` record, and a record type from a later version is `unknown` too.
 
 **Behaviour that must not change**
 
-- [ ] AC-31. For a workflow without `board` fields, the prompts, the replies handled, the step outcomes, the
+- [x] AC-31. For a workflow without `board` fields, the prompts, the replies handled, the step outcomes, the
   exit codes, the trace file and the event stream are identical to today's, byte for byte, even though every
   board record passes through the event dispatcher as `BoardRecorded`. The only additions are the board file,
   the entries of AC-19 and, in `indaba watch --plain`, the section of AC-39. A test pins the event stream.
-- [ ] AC-32. `@indaba/core` imports no `node:` module for any of this (`architecture.test.ts` stays green) and
+- [x] AC-32. `@indaba/core` imports no `node:` module for any of this (`architecture.test.ts` stays green) and
   `engine` and `runners` keep their layers tests.
 
 **The TUI**
 
-- [ ] AC-33. The dashboard has a board pane, switchable with the consensus transcript pane (key `b`) and docked
+- [x] AC-33. The dashboard has a board pane, switchable with the consensus transcript pane (key `b`) and docked
   beside the step list on a wide terminal (C-13), that lists
   entries as they are read from the file: sequence, step, sender, kind (word and glyph), and the first line of
   the text. A new entry appears within 250 ms of being written (the bound of `specs/tui` AC-04).
-- [ ] AC-34. The pane filters by step (the one selected in the step list), by kind and by sender; filters
+- [x] AC-34. The pane filters by step (the one selected in the step list), by kind and by sender; filters
   combine, show what is active, and clear in one key. `pending` entries are shown by default and marked
   `pending`, so a step's notes can be read while it runs; `discarded` and `superseded` entries are hidden by
-  default, can be shown, and then carry the word `discarded` or `superseded`.
-- [ ] AC-35. `Enter` opens one entry in full (its step, attempt, sender, kind, round, time, text) and `Esc`
+  default, can be shown, and then carry the word `discarded` or `replaced` (the word for a `superseded` entry:
+  AC-40 keeps `supersede` out of everything the person reads).
+- [x] AC-35. `Enter` opens one entry in full (its step, attempt, sender, kind, round, time, text) and `Esc`
   returns to the list. A facts view lists the current value of each fact with the step that set it.
-- [ ] AC-36. All board text is sanitised by the TUI's sanitiser before it reaches a component (`specs/tui`
+- [x] AC-36. All board text is sanitised by the TUI's sanitiser before it reaches a component (`specs/tui`
   AC-05), whatever was stored; it is shown as text, never interpreted.
-- [ ] AC-37. Colour is never the only carrier: every kind has a word and a glyph, `NO_COLOR` is honoured, the
+- [x] AC-37. Colour is never the only carrier: every kind has a word and a glyph, `NO_COLOR` is honoured, the
   key legend lists the board keys, and the pane is keyboard-complete.
-- [ ] AC-38. The pane reads only `<traceId>.board.jsonl` through `BoardReader`, imports no engine internals
+- [x] AC-38. The pane reads only `<traceId>.board.jsonl` through `BoardReader`, imports no engine internals
   beyond the reader and the value types, and shows "no board file yet" while the file does not exist, and
   "the board is incomplete" when the run reported it degraded (C-09).
-- [ ] AC-39. `indaba watch --plain` (and any non-terminal output) prints a board section after the steps: the
+- [x] AC-39. `indaba watch --plain` (and any non-terminal output) prints a board section after the steps: the
   facts, then the newest 50 accepted entries one per line as `#<seq> <step> <kind>: <text>`, with a line saying
   how many older entries are not shown.
-- [ ] AC-40. Every sentence the person reads about the board (the pane, the plain section, the errors and the
+- [x] AC-40. Every sentence the person reads about the board (the pane, the plain section, the errors and the
   failure table of section 8) uses plain words: "the board", "notes between steps", "the board is incomplete".
   None of them contains `digest`, `settle`, `supersede`, `degraded` or `jsonl`. A test lists the messages and
   checks them against those words.

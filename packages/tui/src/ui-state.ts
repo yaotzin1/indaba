@@ -8,7 +8,9 @@ export interface UiState {
   readonly scroll: number;
   /** Stay at the newest output as it arrives. */
   readonly follow: boolean;
-  readonly focus: 'list' | 'detail';
+  readonly focus: 'list' | 'detail' | 'board';
+  /** The board pane takes the place of the detail pane (`b`). */
+  readonly board: boolean;
   readonly help: boolean;
   /** The "detach or cancel?" question is open (only for a run the screen started). */
   readonly confirmQuit: boolean;
@@ -38,6 +40,8 @@ export interface UiContext {
   readonly pageSize: number;
   /** The screen started the run, so quitting must ask what to do with it. */
   readonly attached: boolean;
+  /** The board is docked beside the other panes, so it is always showing and `b` only moves the arrow keys to it. */
+  readonly docked?: boolean;
 }
 
 export function initialUi(): UiState {
@@ -46,6 +50,7 @@ export function initialUi(): UiState {
     scroll: 0,
     follow: true,
     focus: 'list',
+    board: false,
     help: false,
     confirmQuit: false,
     quit: 'none',
@@ -60,7 +65,11 @@ function clamp(value: number, low: number, high: number): number {
 export function clampUi(ui: UiState, context: UiContext): UiState {
   const selected = clamp(ui.selected, 0, context.steps - 1);
   const scroll = clamp(ui.scroll, 0, context.outputLines - 1);
-  return selected === ui.selected && scroll === ui.scroll ? ui : { ...ui, selected, scroll };
+  // the terminal was made narrower: a board that is neither docked nor open cannot hold the arrow keys
+  const focus = ui.focus === 'board' && context.docked !== true && !ui.board ? 'list' : ui.focus;
+  return selected === ui.selected && scroll === ui.scroll && focus === ui.focus
+    ? ui
+    : { ...ui, selected, scroll, focus };
 }
 
 function select(ui: UiState, to: number, context: UiContext): UiState {
@@ -72,6 +81,17 @@ function select(ui: UiState, to: number, context: UiContext): UiState {
 function scrollBy(ui: UiState, lines: number, context: UiContext): UiState {
   const scroll = clamp(ui.scroll + lines, 0, context.outputLines - 1);
   return { ...ui, scroll, follow: scroll === 0 };
+}
+
+/** Tab moves the arrow keys between the step list and the other pane, which is the board while it is open. */
+function nextFocus(ui: UiState, docked: boolean): UiState['focus'] {
+  if (docked) {
+    return ui.focus === 'list' ? 'detail' : ui.focus === 'detail' ? 'board' : 'list';
+  }
+  if (ui.focus === 'list') {
+    return ui.board ? 'board' : 'detail';
+  }
+  return 'list';
 }
 
 export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiState {
@@ -95,16 +115,36 @@ export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiSta
     return context.attached ? { ...ui, confirmQuit: true } : { ...ui, quit: 'close' };
   }
   if (press === 'escape') {
-    return ui.help ? { ...ui, help: false } : ui;
+    if (ui.help) {
+      return { ...ui, help: false };
+    }
+    if (context.docked === true) {
+      return ui.focus === 'board' ? { ...ui, focus: 'list' } : ui;
+    }
+    return ui.board ? { ...ui, board: false, focus: 'detail' } : ui;
   }
   if (press === 'tab') {
-    return { ...ui, focus: ui.focus === 'list' ? 'detail' : 'list' };
+    return { ...ui, focus: nextFocus(ui, context.docked === true) };
+  }
+  if (typeof press === 'object' && press.char === 'b' && !ui.help) {
+    if (context.docked === true) {
+      return { ...ui, focus: ui.focus === 'board' ? 'list' : 'board' };
+    }
+    return ui.board ? { ...ui, board: false, focus: 'detail' } : { ...ui, board: true, focus: 'board' };
   }
   if (press === 'up' || (typeof press === 'object' && press.char === 'k')) {
-    return ui.focus === 'list' ? select(ui, ui.selected - 1, context) : scrollBy(ui, 1, context);
+    return ui.focus === 'list'
+      ? select(ui, ui.selected - 1, context)
+      : ui.focus === 'board'
+        ? ui
+        : scrollBy(ui, 1, context);
   }
   if (press === 'down' || (typeof press === 'object' && press.char === 'j')) {
-    return ui.focus === 'list' ? select(ui, ui.selected + 1, context) : scrollBy(ui, -1, context);
+    return ui.focus === 'list'
+      ? select(ui, ui.selected + 1, context)
+      : ui.focus === 'board'
+        ? ui
+        : scrollBy(ui, -1, context);
   }
   if (press === 'home' || (typeof press === 'object' && press.char === 'g')) {
     return select(ui, 0, context);

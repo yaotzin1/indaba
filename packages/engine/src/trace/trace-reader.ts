@@ -24,7 +24,7 @@ const STATUS_OF: Readonly<Record<string, RunStatus>> = {
   CANCELLED: 'cancelled',
 };
 
-function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
+export function defaultSleep(ms: number, signal?: AbortSignal): Promise<void> {
   return new Promise((resolve) => {
     if (signal?.aborted === true) {
       resolve();
@@ -259,17 +259,17 @@ export class TraceReader {
 }
 
 /** The lines that are complete: a last line with no newline after it is still being written. */
-function completeLines(text: string): string[] {
+export function completeLines(text: string): string[] {
   const lines = text.split('\n');
   lines.pop();
   return lines.filter((line) => line !== '');
 }
 
-function isMissing(error: unknown): boolean {
+export function isMissing(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === 'ENOENT';
 }
 
-async function sizeOf(file: string): Promise<number | undefined> {
+export async function sizeOf(file: string): Promise<number | undefined> {
   try {
     return (await stat(file)).size;
   } catch (error) {
@@ -288,7 +288,7 @@ async function modified(file: string): Promise<number | undefined> {
   }
 }
 
-async function readRange(file: string, from: number, to: number): Promise<Buffer> {
+export async function readRange(file: string, from: number, to: number): Promise<Buffer> {
   const handle = await open(file, 'r');
   try {
     const buffer = Buffer.alloc(to - from);

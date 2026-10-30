@@ -1,16 +1,20 @@
 import { readFile } from 'node:fs/promises';
 import type {
   AgentSpec,
+  BoardKind as BoardKindValue,
   DecisionType as DecisionTypeValue,
   GuardDefinition,
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
+  StepBoard,
   StepDefinition,
   StepPermissions,
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  AGENT_POSTABLE_KINDS,
+  BoardKind,
   DecisionType,
   FailureAction,
   Isolation,
@@ -29,6 +33,13 @@ import { ErrorBag } from './error-bag.js';
 import { Interpolator } from './interpolator.js';
 import { isYamlMap, Node } from './node.js';
 import { WorkflowValidator } from './validator.js';
+
+const BOARD_KEYS = ['read', 'post', 'digest_chars'] as const;
+const BOARD_READ_KEYS = ['steps', 'kinds'] as const;
+/** The digest bounds of spec C-08: design choices, not measurements. */
+const DEFAULT_DIGEST_CHARS = 4000;
+const MIN_DIGEST_CHARS = 200;
+const MAX_DIGEST_CHARS = 20000;
 
 /** Own, enumerable properties only: a key such as `__proto__` stays data. */
 function record<T>(entries: readonly (readonly [string, T])[]): Record<string, T> {
@@ -310,6 +321,7 @@ export class WorkflowParser {
     }
     const onFailure = this.parseOnFailure(node.map('on_failure'), errors);
     const mcpPolicy = this.parsePolicy(node, errors);
+    const board = this.parseBoard(node.map('board'), errors);
 
     return {
       id,
@@ -333,6 +345,7 @@ export class WorkflowParser {
       ...(arbiter !== undefined ? { arbiter } : {}),
       mcp: node.stringList('mcp'),
       ...(mcpPolicy !== undefined ? { mcpPolicy } : {}),
+      ...(board !== undefined ? { board } : {}),
     };
   }
 
@@ -438,6 +451,82 @@ export class WorkflowParser {
       errors.add(`${block.path}.level "${name}" must be "read", "edit" or "full"`);
     }
     return level;
+  }
+
+  /** The `board` field (specs/run-blackboard): shape and kinds here, what needs other steps in the validator. */
+  private parseBoard(node: Node | undefined, errors: ErrorBag): StepBoard | undefined {
+    if (node === undefined) {
+      return undefined;
+    }
+    for (const key of node.unknownKeys(BOARD_KEYS)) {
+      errors.add(`${node.path}.${key} is not a board setting`);
+    }
+    const readErrors = errors.all().length;
+    const readNode = node.map('read');
+    if (readNode === undefined && node.has('read') && errors.all().length === readErrors) {
+      errors.add(`${node.path}.read must be a mapping; write read: {} for the defaults`);
+    }
+    let read: StepBoard['read'];
+    if (readNode !== undefined) {
+      for (const key of readNode.unknownKeys(BOARD_READ_KEYS)) {
+        errors.add(`${readNode.path}.${key} is not a board setting`);
+      }
+      const before = errors.all().length;
+      const steps = readNode.stringList('steps');
+      if (readNode.has('steps') && steps.length === 0 && errors.all().length === before) {
+        errors.add(`${readNode.path}.steps must name at least one step`);
+      }
+      const kindsBefore = errors.all().length;
+      const kinds = this.boardKinds(
+        readNode,
+        'kinds',
+        readNode.stringList('kinds'),
+        kindsBefore,
+        undefined,
+        errors,
+      );
+      read = {
+        ...(steps.length > 0 ? { steps } : {}),
+        ...(kinds !== undefined ? { kinds } : {}),
+      };
+    }
+    const postBefore = errors.all().length;
+    const post =
+      this.boardKinds(node, 'post', node.stringList('post'), postBefore, AGENT_POSTABLE_KINDS, errors) ?? [];
+    const digestChars = node.int('digest_chars', DEFAULT_DIGEST_CHARS);
+    if (node.has('digest_chars') && (digestChars < MIN_DIGEST_CHARS || digestChars > MAX_DIGEST_CHARS)) {
+      errors.add(`${node.path}.digest_chars must be from ${MIN_DIGEST_CHARS} to ${MAX_DIGEST_CHARS}`);
+    }
+    return { ...(read !== undefined ? { read } : {}), post, digestChars };
+  }
+
+  /** A list of board kinds; with `only`, a kind of the closed set that is not in it is refused by name. */
+  private boardKinds(
+    node: Node,
+    key: string,
+    names: readonly string[],
+    before: number,
+    only: readonly BoardKindValue[] | undefined,
+    errors: ErrorBag,
+  ): BoardKindValue[] | undefined {
+    if (!node.has(key)) {
+      return undefined;
+    }
+    if (names.length === 0 && only === undefined && errors.all().length === before) {
+      errors.add(`${node.path}.${key} must name at least one kind`);
+    }
+    const kinds: BoardKindValue[] = [];
+    names.forEach((name, i) => {
+      const kind = lookup(BoardKind, name);
+      if (kind === undefined) {
+        errors.add(`${node.path}.${key}[${i}] "${name}" is not a kind`);
+      } else if (only !== undefined && !only.includes(kind)) {
+        errors.add(`${node.path}.${key}[${i}] "${name}" cannot be posted by a step`);
+      } else {
+        kinds.push(kind);
+      }
+    });
+    return kinds;
   }
 
   private parsePolicy(node: Node, errors: ErrorBag): McpPolicy | undefined {

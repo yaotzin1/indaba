@@ -653,6 +653,94 @@
                     "type": "null"
                   }
                 ]
+              },
+              "board": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "Notes between steps. read adds what earlier steps posted to this step’s prompt; post lets this step’s reply post lines that start with BOARD at the first character. Not on a shell step.",
+                    "additionalProperties": false,
+                    "properties": {
+                      "read": {
+                        "anyOf": [
+                          {
+                            "type": "object",
+                            "description": "An empty mapping reads every ancestor and the default kinds. Absent: nothing is read.",
+                            "additionalProperties": false,
+                            "properties": {
+                              "steps": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "items": {
+                                      "type": "string"
+                                    },
+                                    "minItems": 1,
+                                    "description": "Step ids to read; each must be an ancestor by depends_on. Default: every ancestor."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              },
+                              "kinds": {
+                                "anyOf": [
+                                  {
+                                    "type": "array",
+                                    "minItems": 1,
+                                    "items": {
+                                      "enum": [
+                                        "note",
+                                        "question",
+                                        "result",
+                                        "fact",
+                                        "proposal",
+                                        "critique",
+                                        "agreement",
+                                        "tool_intent",
+                                        "decision"
+                                      ]
+                                    },
+                                    "description": "Default: note, question, result, fact and decision."
+                                  },
+                                  {
+                                    "type": "null"
+                                  }
+                                ]
+                              }
+                            }
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "post": {
+                        "anyOf": [
+                          {
+                            "type": "array",
+                            "items": {
+                              "enum": ["note", "question", "result", "fact"]
+                            },
+                            "description": "Kinds this step may post: note, question, result or fact. Not on a debate step."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      },
+                      "digest_chars": {
+                        "type": "integer",
+                        "minimum": 200,
+                        "maximum": 20000,
+                        "description": "The most characters of notes added to the prompt (default 4000)."
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
               }
             }
           },

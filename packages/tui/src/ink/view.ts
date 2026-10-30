@@ -74,6 +74,12 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
         h(Rows, { rows: screen.list, color, width: layout.listWidth }),
         h(Text, { dimColor: true }, separator),
         h(Rows, { rows: screen.detail, color, width: layout.detailWidth }),
+        ...(layout.dockWidth > 0
+          ? [
+              h(Text, { key: 'dock-separator', dimColor: true }, separator),
+              h(Rows, { key: 'dock', rows: screen.dock, color, width: layout.dockWidth }),
+            ]
+          : []),
       ),
       footer,
     );

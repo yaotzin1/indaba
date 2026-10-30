@@ -1,9 +1,11 @@
-import { emptyRun, type Logger, type RunRecord } from '@indaba/engine';
+import { type BoardFileRecord, emptyRun, type Logger, type RunRecord } from '@indaba/engine';
 import { h, type RenderOptions, render } from './ink/adapter.js';
 import { App, type AppResult } from './ink/app.js';
 
 export interface DashboardOptions {
   readonly source: AsyncIterable<RunRecord>;
+  /** The run's board records; without them the board pane says there is no board. */
+  readonly board?: AsyncIterable<BoardFileRecord>;
   /** The screen started the run, so quitting asks what to do with it. */
   readonly attached: boolean;
   readonly ascii: boolean;
@@ -34,6 +36,7 @@ export async function runDashboard(options: DashboardOptions): Promise<AppResult
   const instance = render(
     h(App, {
       source: options.source,
+      ...(options.board === undefined ? {} : { board: options.board }),
       attached: options.attached,
       ascii: options.ascii,
       color: options.color,

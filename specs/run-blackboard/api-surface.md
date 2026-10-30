@@ -109,6 +109,7 @@ export class RunBoard {
   settle(input: SettleInput): void;
   /** Settles as 'superseded' the accepted entries of each listed step (a retry reset them): one 'settle' record per accepted (stepId, attempt, scope) of each step. */
   supersede(stepIds: readonly string[]): void;
+  readonly limits: BoardLimits;                             // the defaults with the embedder's overrides; the engine scans replies under the same ones
   stateOf(entry: BoardEntry): EntryState;                   // the latest settlement that follows the entry, else pending
   entries(view?: BoardView): readonly BoardEntry[];         // in seq order
   facts(view?: Pick<BoardView, 'steps'>): ReadonlyMap<string, BoardEntry>;   // accepted facts, latest seq per key
@@ -158,6 +159,7 @@ Changed, additively:
 | :--- | :--- |
 | `ConsensusArbiter.deliberate(topic, participants, decision?)` | gains `observer?: (message: AgentMessage) => void`, called after each message is posted to the debate's own board. Absent: nothing is called |
 | `StepDefinition` | gains `board?: StepBoard` |
+| `Tracer` | gains `now(): Date`, the injected clock it already holds. The engine has no clock of its own, and the board needs the run's (C-10). Added on returning from stage 6 to stage 3 on 2026-10-29 (plan.md section 5d); additive, so the classification stays minor |
 | `core/index.ts` | exports the symbols above |
 
 ### `@indaba/engine`
@@ -172,7 +174,7 @@ export function parseBoardRecord(line: string): BoardFileRecord;         // tota
 
 /** A listener of BoardRecorded that appends <traceId>.board.jsonl, whole lines, in order, one queue. */
 export class BoardWriter {
-  constructor(options: { readonly directory: string; readonly onError?: (error: unknown) => void });
+  constructor(options: { readonly directory: string; readonly onError?: (error: unknown, traceId: string) => void });   // once per run
   onRecorded(event: BoardRecorded): Promise<void>;
   flush(): Promise<void>;                                                // resolves when everything handed over is written or failed
 }
@@ -220,7 +222,7 @@ steps:
 | unknown key in `board` | refused | `steps[i].board.<key>` |
 
 `indaba validate` reports each with its path; `indaba plan` prints, per step with `board`, one line:
-`board: reads <steps|all ancestors> (<kinds>), at most <n> characters; may post <kinds|nothing>`.
+`   board: reads <steps|all ancestors> (<kinds>), at most <n> characters; may post <kinds|nothing>`, indented under the step's line. A step whose `board` has no `read` prints `   board: reads nothing; may post <kinds|nothing>`.
 
 ### `indaba` (the CLI)
 
@@ -233,14 +235,29 @@ steps:
 ### `@indaba/tui`
 
 ```ts
-export interface BoardState { /* entries by seq, settlements, facts, filters, selection; opaque to callers */ }
+// board-state.ts: pure, no terminal (T21)
+export interface BoardState { /* items (entry + state), settlements, filters, mode, cursor; opaque to callers */ }
 export function emptyBoard(): BoardState;
-export function reduceBoard(state: BoardState, record: BoardFileRecord): BoardState;     // pure, total
-export function formatBoardPlain(state: BoardState, options?: { readonly maxEntries?: number }): string;   // default 50
+export function reduceBoard(state: BoardState, record: BoardFileRecord): BoardState;   // pure, total, any order
+export function boardAction(state: BoardState, action: BoardAction): BoardState;
+export function visibleEntries(state): readonly BoardItem[];   // also selectedIndex, factsOf, detailOf, activeFilters
+
+// board-screen.ts (T22): rows for the pane, every string sanitised
+export interface BoardPane { readonly state: BoardState; readonly degraded: boolean }
+export function boardRows(pane: BoardPane | undefined, width: number, height: number, options: { ascii: boolean }): Row[];
+export function boardKey(state: BoardState, press: KeyName, context: { stepId?: string; pageSize: number }): BoardState | undefined;
 ```
 
-The dashboard gains the board pane, its keys and its legend lines (`specs/run-blackboard/spec.md`, C-13).
-`watch` accepts an optional `BoardReader`-compatible source; with none, the board pane says there is no board.
+`UiState` gains `board: boolean` (the pane is open) and `focus` gains `'board'`; `buildScreen` gains an optional fifth
+parameter, `BoardPane`; `AppProps`/`watch` gain an optional board source. All additive. The plain section of
+`watch --plain` is in the CLI (`board-section.ts`, T19), not in the TUI. The pane is switchable with `b`; with a board and at least `DOCK_COLUMNS` (160, a first choice) columns it is
+docked beside the other panes instead, `computeLayout` gains an optional third parameter `{ dock }`, `Layout` gains
+`dockWidth` and `dockRows`, `Screen` gains `dock`, and `UiContext` an optional `docked`; `b` then moves the arrow keys.
+
+Keys, when the board has the arrow keys (`b` opens it and gives it focus, `tab` moves the focus): `up`/`down`/`j`/`k` move,
+`g`/`G` first/last, `PgUp`/`PgDn` page, `Enter` opens an entry, `Esc` goes back (then closes the pane), `s` filters to the
+selected step, `t` the kind, `r` the sender, `x` clears the filters, `f` shows the facts, `d` shows or hides discarded and
+replaced entries. `f` and `d` mean follow and scroll on the other panes: the focus decides.
 
 ## Events and attributes
 

@@ -327,6 +327,82 @@ depend on an isolated step run in the same worktree, so a verify step sees what 
 worktree is removed when the run ends, whether it completed, failed or was cancelled. The project
 directory must be a git repository.
 
+### The board: notes between steps
+
+Steps of one run can leave each other short notes. A step says what it may **post** and what it wants to **read**; the
+engine does the carrying, so no step needs to know a file name. Nothing changes for a step with no `board` field: its
+prompt is exactly what it was, and its reply is not looked at.
+
+```yaml
+steps:
+  - id: research
+    role: researcher
+    goal: Read README.md. End your reply with the lines described below.
+    board:
+      post: [result, fact]          # what this step may leave on the board
+
+  - id: summary
+    role: writer
+    depends_on: [research]
+    goal: Write a three-sentence summary for a newcomer.
+    board:
+      read:
+        steps: [research]           # default: every step this one depends on, directly or not
+        kinds: [result, fact]       # default: note, question, result, fact, decision
+      digest_chars: 2000            # how much of the board goes into the prompt; 200 to 20000, default 4000
+```
+
+![indaba plan prints a board line under each step that has one](assets/board-plan.svg)
+
+**Posting.** The agent writes lines in its reply. A line counts only if it starts at the very first character with
+`BOARD `, then a kind the step may post (`note`, `question`, `result` or `fact`), then `: ` and one line of text. A
+`fact` also has a name, which is how a later value replaces an earlier one:
+
+```text
+BOARD result: Indaba runs workflows of AI agents in a fixed order, with checks between the steps.
+BOARD fact node.version: 22 or newer
+```
+
+A name is lowercase letters, digits, `.`, `_` and `-`. Lines inside a code fence, lines that are indented, other kinds
+and a line that does not fit the shape are ignored, counted on the step's span (`indaba.board.ignored`) and never fail
+the step. At most 10 lines are taken from one reply, and only the reply of the attempt that ran is read.
+
+**Reading.** A step with `board.read` gets a section added to its prompt: the latest value of each fact first, then the
+newest notes that fit in `digest_chars`, shown oldest first, with a line saying how many older ones did not fit. Every
+line of the section starts with `| ` and the section begins with a sentence saying the lines are information from earlier
+steps and not instructions. A step never reads its own notes, and never reads a note that was discarded or replaced.
+
+**When a note counts.** An agent's notes are pending while its step runs. They are accepted when the step completes
+(its guards and outputs pass) and discarded when it fails or escalates. When a retry resets steps, the accepted notes of
+every step it resets are replaced before the target runs again, so a retry never reads the failed try's notes. A retry's
+prompt still carries only the last failure.
+
+**Debates.** A step with `consensus_with` needs no `post`: the engine puts each message of the debate on the board as it
+is produced (as a proposal, a critique or an agreement, with the round), then one `result` with the outcome, the rounds
+and the open objections, and a `decision` when an arbiter rules. They count as accepted when the debate ends, whatever
+the outcome, so the steps after an escalated debate can read what was said. Such a step may have `board.read`, which
+adds the digest to the topic of the debate.
+
+**Rules checked when the file is read.** `board.post` takes only `note`, `question`, `result` and `fact`; `proposal`,
+`critique`, `agreement`, `tool_intent` and `decision` belong to the engine. A `read.steps` entry must be a step of the
+workflow and one this step depends on. A shell step can neither read nor post, because it has no prompt and no reply.
+`indaba validate` names the field of each problem, and `indaba plan` prints what each step reads and may post.
+
+**Limits.** A line in an agent's reply with more than 2000 characters of text is ignored, not cut; an entry the engine writes (a debate message) is cut at 2000 characters, a run holds at most 2000 entries and 1 MiB of text, and after that the
+board stops taking entries and says so. These are design choices that have not been measured, so they can change in a
+later version without it being a breaking change.
+
+**Safety.** Board text is written by agents, so it is treated as data. Secrets are removed from it the way they are from
+the event stream, control characters are dropped, and it is shown in the terminal and the plain output as text only.
+A note can still say something false; a step that acts on a note should check it.
+
+**Where it is kept and how to read it.** Each run writes `.indaba/traces/<run id>.board.jsonl`, one JSON object per
+line, next to the trace and the event stream; its format is in
+[specs/run-blackboard/data-model.md](../specs/run-blackboard/data-model.md). `indaba watch <run> --plain` ends with the
+board, and the dashboard has a board pane (`b`): see the [playbook](playbook.md#reading-the-board). A plugin can follow
+every entry as it is made: see [Extending](extending.md#events-you-can-listen-to). The example
+[board-handoff.workflow.ai.yml](../examples/board-handoff.workflow.ai.yml) is the one above, ready to run.
+
 ### Guards
 
 ```yaml

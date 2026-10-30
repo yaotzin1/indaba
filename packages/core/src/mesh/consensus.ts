@@ -83,6 +83,7 @@ export class ConsensusArbiter {
     topic: string,
     participants: readonly Participant[],
     decision: DecisionType = DecisionType.Consensus,
+    observer?: (message: AgentMessage) => void,
   ): Promise<ConsensusResult> {
     if (participants.length === 0) {
       throw new IndabaError('A consensus needs at least one participant.');
@@ -91,7 +92,9 @@ export class ConsensusArbiter {
     const board = new Blackboard();
     for (let round = 1; round <= this.maxRounds; round += 1) {
       for (const participant of participants) {
-        board.post(await participant.respond(topic, board, round));
+        const message = await participant.respond(topic, board, round);
+        board.post(message);
+        observer?.(message);
       }
       if (this.quorumMet(board, participants, decision)) {
         return new ConsensusResult(ConsensusOutcome.Reached, round, [...board.messages()]);

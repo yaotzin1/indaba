@@ -1,3 +1,4 @@
+import type { BoardRecord } from '../mesh/board.js';
 import type { Clock, EventDispatcher, IdGenerator } from '../support/index.js';
 
 export const SpanStatus = {
@@ -151,6 +152,17 @@ export class StepOutput {
 }
 
 /**
+ * Dispatched for every record the run's board makes, in order, already cleaned and redacted. The built-in file
+ * writer listens to it like any plugin can.
+ */
+export class BoardRecorded {
+  constructor(
+    readonly traceId: string,
+    readonly record: BoardRecord,
+  ) {}
+}
+
+/**
  * Creates spans, stamps them with GenAI semantic-convention attributes and
  * announces their lifecycle through the event dispatcher.
  */
@@ -168,6 +180,11 @@ export class Tracer {
     private readonly ids: IdGenerator,
     private readonly pricing: PricingTable = new PricingTable(),
   ) {}
+
+  /** The injected clock, so that spans and the run's board are stamped by one source of time. */
+  now(): Date {
+    return this.clock.now();
+  }
 
   startTrace(name: string, attributes: SpanAttributes = {}): Promise<Span> {
     return this.start(name, this.ids.next(32), undefined, attributes);

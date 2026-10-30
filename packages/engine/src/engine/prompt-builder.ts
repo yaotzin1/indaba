@@ -7,11 +7,16 @@ import type { StepDefinition } from '@indaba/core';
 export class PromptBuilder {
   static readonly FEEDBACK_LIMIT = 4000;
 
-  build(step: StepDefinition, feedback?: string): string {
+  /** `digest` is the board's notes from earlier steps (specs/run-blackboard); absent, the prompt is as it always was. */
+  build(step: StepDefinition, feedback?: string, digest?: string): string {
     const parts = [`# Role: ${step.role ?? 'agent'}`, `## Goal\n${step.goal}`];
 
     if (step.inputArtifacts.length > 0) {
       parts.push(`## Input artifacts (read these first)\n${this.bullets(step.inputArtifacts)}`);
+    }
+    if (digest !== undefined) {
+      parts.push(`## The board: notes from earlier steps
+${digest}`);
     }
     if (step.outputs.length > 0) {
       parts.push(`## Required outputs (create these files)\n${this.bullets(step.outputs)}`);

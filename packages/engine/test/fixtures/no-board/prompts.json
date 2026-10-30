@@ -1,0 +1,17 @@
+[
+  {
+    "prompt": "# Role: worker\n\n## Goal\nbuild it"
+  },
+  {
+    "prompt": "# Role: worker\n\n## Goal\ncheck it"
+  },
+  {
+    "prompt": "# Role: worker\n\n## Goal\nbuild it\n\n## The previous attempt failed verification\nFix exactly this failure:\n\n```\nRunner agent exited with code 1.\nchecked BOARD note: ignored without the field\n```"
+  },
+  {
+    "prompt": "# Role: worker\n\n## Goal\ncheck it"
+  },
+  {
+    "prompt": "echo ok"
+  }
+]

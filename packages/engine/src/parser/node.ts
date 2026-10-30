@@ -22,6 +22,11 @@ export class Node {
     return this.data.has(key);
   }
 
+  /** Keys of this mapping that are not in `allowed`, in document order. */
+  unknownKeys(allowed: readonly string[]): string[] {
+    return [...this.data.keys()].map(String).filter((key) => !allowed.includes(key));
+  }
+
   /** Absent or null counts as missing. */
   private present(key: string): unknown {
     return this.data.get(key) ?? undefined;

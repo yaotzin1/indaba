@@ -77,7 +77,9 @@ export default {
     const traces = join(dir, '.indaba', 'traces');
     const files = await readdir(traces);
     const eventsFile = files.find((f) => f.endsWith('.events.jsonl'));
-    const traceFile = files.find((f) => f.endsWith('.jsonl') && !f.endsWith('.events.jsonl'));
+    const traceFile = files.find(
+      (f) => f.endsWith('.jsonl') && !f.endsWith('.events.jsonl') && !f.endsWith('.board.jsonl'),
+    );
     expect(eventsFile).toBeDefined();
     expect(traceFile).toBeDefined();
     return {

@@ -1,0 +1,36 @@
+version: "1.0"
+name: "board-handoff"
+
+# Two agents hand notes to each other through the run board: the first leaves a result and a fact,
+# the second reads them in its prompt. See "The board: notes between steps" in docs/workflow-format.md.
+#   indaba plan examples/board-handoff.workflow.ai.yml     shows what each step reads and may post
+#   indaba watch latest --plain                            ends with the board once the run is over
+
+roles:
+  researcher:
+    runner: "claude-code"
+  writer:
+    runner: "claude-code"
+
+steps:
+  - id: "research"
+    role: "researcher"
+    goal: >-
+      Read README.md and find out what this project is for and which Node version it needs.
+      Do not modify any file. End your reply with these two lines, each starting at the first character:
+      BOARD result: <one sentence on what the project is for>
+      BOARD fact node.version: <the Node version it needs>
+    board:
+      post: [result, fact]
+
+  - id: "summary"
+    role: "writer"
+    depends_on: ["research"]
+    goal: >-
+      Write a three-sentence summary of the project for a newcomer, using the notes from the earlier
+      step. Do not modify any file.
+    board:
+      read:
+        steps: ["research"]
+        kinds: [result, fact]
+      digest_chars: 2000

@@ -334,6 +334,11 @@ shown as a symbol and a word, never by colour alone; `--ascii` avoids box and ar
 turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state or the run goes quiet.
 
+When a run has a board (see [the board](workflow-format.md#the-board-notes-between-steps)), `--plain` ends with it: the
+facts, then the newest 50 notes between steps as `#<number> <step> <kind>: <text>`, and a line saying how many older
+ones are not shown. A run with no board file prints exactly what it did before. In the dashboard, `b` opens the board
+beside the steps; the [playbook](playbook.md#reading-the-board) has the keys.
+
 Other options: `-w <dir>` for another project, `--output` to also print each line a step streams, `--stale <secs>` to
 give up on a run that writes nothing for that long (default 120), and `--color` to colour the states.
 
@@ -395,6 +400,7 @@ directory (use an absolute path to `bin.js`) so that traces and worktrees land i
 
 ## Next
 
+- [playbook.md](playbook.md): recipes for every way of working with Indaba, step by step
 - [workflow-format.md](workflow-format.md): every field of a workflow file
 - [web-view.md](web-view.md): the web view (`indaba ui`)
 - [logging.md](logging.md): logs, `indaba settings` and `indaba report`

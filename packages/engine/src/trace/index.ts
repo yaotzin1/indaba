@@ -1,3 +1,9 @@
+export type { BoardReaderOptions } from './board-reader.js';
+export { BoardReader } from './board-reader.js';
+export type { BoardFileRecord, UnknownBoardRecord } from './board-records.js';
+export { BOARD_FILE_SUFFIX, parseBoardRecord, serializeBoardRecord } from './board-records.js';
+export type { BoardWriterOptions } from './board-writer.js';
+export { BoardWriter } from './board-writer.js';
 export type { RunEventWriterOptions } from './event-writer.js';
 export { DEFAULT_MAX_RECORD_CHARS, DEFAULT_MAX_RUN_CHARS, RunEventWriter } from './event-writer.js';
 export type { EventLineOptions, PlainOptions } from './plain.js';

@@ -1,6 +1,7 @@
 import { copyFile, mkdir, stat, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
 import type {
+  BoardLimits,
   EventDispatcher,
   IdGenerator,
   Span,
@@ -9,11 +10,13 @@ import type {
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  BoardRecorded,
   DagBuilder,
   FailureAction,
   IndabaError,
   Isolation,
   McpUnavailableError,
+  RunBoard,
   SpanStatus,
   StepState,
   StepStatus,
@@ -34,6 +37,11 @@ export interface WorkflowEngineOptions {
   /** Names the task when `run` is not given a `taskId`. */
   readonly ids: IdGenerator;
   readonly dag?: DagBuilder;
+  /** How the run's board limits and redacts the notes steps post (specs/run-blackboard). */
+  readonly board?: {
+    readonly limits?: Partial<BoardLimits>;
+    readonly redact?: (text: string) => string;
+  };
 }
 
 export interface RunOptions {
@@ -60,6 +68,7 @@ export class WorkflowEngine {
   private readonly projectDir: string;
   private readonly ids: IdGenerator;
   private readonly dag: DagBuilder;
+  private readonly boardOptions: NonNullable<WorkflowEngineOptions['board']>;
 
   constructor(options: WorkflowEngineOptions) {
     this.executor = options.executor;
@@ -69,6 +78,7 @@ export class WorkflowEngine {
     this.projectDir = options.projectDir;
     this.ids = options.ids;
     this.dag = options.dag ?? new DagBuilder();
+    this.boardOptions = options.board ?? {};
   }
 
   async run(workflow: WorkflowDefinition, options: RunOptions = {}): Promise<WorkflowResult> {
@@ -123,6 +133,19 @@ export class WorkflowEngine {
         : {}),
     });
 
+    // Every record of the board reaches the listeners in order; `delivered` is awaited before the run ends.
+    let delivered: Promise<void> = Promise.resolve();
+    const board = new RunBoard({
+      traceId: root.traceId,
+      workflow: workflow.name,
+      clock: this.tracer,
+      ...(this.boardOptions.limits !== undefined ? { limits: this.boardOptions.limits } : {}),
+      ...(this.boardOptions.redact !== undefined ? { redact: this.boardOptions.redact } : {}),
+      sink: (record) => {
+        delivered = delivered.then(() => this.events.dispatch(new BoardRecorded(root.traceId, record)));
+      },
+    });
+
     let workspace: Workspace | undefined;
     /** steps whose working directory is the worktree */
     const isolated = new Set<string>();
@@ -166,12 +189,20 @@ export class WorkflowEngine {
           await this.stageArtifacts(step, projectDir, workdir);
         }
 
+        const attempt = state.attempts() + 1;
         const outcome = await this.execute(step, workflow, state, taskId, root, workdir, {
           feedback: feedback.get(step.id),
           onOutput,
           signal,
+          board,
+          attempt,
         });
         feedback.delete(step.id);
+
+        // A cancelled attempt settles nothing: its notes stay pending. Otherwise the step's own result decides.
+        if (!outcome.cancelled) {
+          board.settle({ stepId: step.id, attempt, outcome: outcome.ok ? 'accepted' : 'discarded' });
+        }
 
         if (outcome.cancelled) {
           status = WorkflowStatus.Cancelled;
@@ -201,7 +232,9 @@ export class WorkflowEngine {
           retries.set(step.id, used + 1);
           feedback.set(target, outcome.feedback);
 
-          for (const id of [target, ...this.dag.descendantsOf(workflow, target)]) {
+          const reset = [target, ...this.dag.descendantsOf(workflow, target)];
+          board.supersede(reset);
+          for (const id of reset) {
             const other = states.get(id);
             if (other !== undefined && other.status() !== StepStatus.Pending) {
               await this.move(other, taskId, StepStatus.Pending, `retry of ${step.id}`);
@@ -238,6 +271,7 @@ export class WorkflowEngine {
       status = WorkflowStatus.Failed;
       reason = 'The workspace could not be removed.';
     }
+    await delivered;
     await this.closeTrace(root, status, reason ?? (failure === undefined ? undefined : 'The run failed.'));
     if (failure !== undefined) {
       throw failure.error;
@@ -278,6 +312,8 @@ export class WorkflowEngine {
       readonly feedback: string | undefined;
       readonly onOutput: ((chunk: string) => void) | undefined;
       readonly signal: AbortSignal | undefined;
+      readonly board: RunBoard;
+      readonly attempt: number;
     },
   ): Promise<StepOutcome> {
     const span = await this.tracer.startSpan(`step ${step.id}`, root, {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { checkNavigation, htmlName, REPO, rewriteHref, slug } from './build-site.mjs';
+import { checkNavigation, htmlName, llmsFull, llmsIndex, PAGES, REPO, rewriteHref, SITE_URL, slug } from './build-site.mjs';
 
 test('a docs page missing from the navigation is reported', () => {
     const problems = checkNavigation(['README.md', 'getting-started.md', 'brand-new.md']);
@@ -28,4 +28,31 @@ test('links become site pages, assets, or files on GitHub', () => {
     assert.equal(rewriteHref('#logs', pages), '#logs');
     assert.equal(rewriteHref('https://example.com/x.md', pages), 'https://example.com/x.md');
     assert.equal(htmlName('logging.md'), 'logging.html');
+});
+
+test('the index for language models names every page of the navigation, once, with its address', () => {
+    const text = llmsIndex();
+    for (const g of PAGES) {
+        for (const i of g.items) {
+            assert.equal(text.split(`(${SITE_URL}${htmlName(i.file)})`).length - 1, 1, i.file);
+        }
+    }
+    assert.ok(text.startsWith('# Indaba\n'));
+    assert.ok(text.includes(`(${SITE_URL}llms-full.txt)`));
+});
+
+test('the whole documentation file holds each page once, in navigation order, and ends with a newline', () => {
+    const text = llmsFull((file) => `# page ${file}
+
+body of ${file}
+`);
+    const order = PAGES.flatMap((g) => g.items.map((i) => i.file));
+    let from = 0;
+    for (const file of order) {
+        const at = text.indexOf(`body of ${file}`, from);
+        assert.ok(at >= from, `${file} is missing or out of order`);
+        assert.equal(text.split(`body of ${file}`).length - 1, 1);
+        from = at;
+    }
+    assert.ok(text.endsWith('\n') && !text.endsWith('\n\n'));
 });

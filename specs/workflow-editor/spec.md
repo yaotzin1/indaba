@@ -6,6 +6,9 @@
 > interfaces; nothing existing changes). Amended 2026-10-22 (C-01 to C-03 below): it no longer waits for
 > `specs/debate-findings` or `specs/voter-arbiter`.
 
+> **See also**: the step field `board:` ([`specs/run-blackboard`](../run-blackboard/spec.md)) reaches the editor through the
+> schema, which is generated from the parser, so nothing is copied here.
+
 ---
 
 ## 1. The problem

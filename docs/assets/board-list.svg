@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="876" height="229" viewBox="0 0 876 229" role="img" aria-labelledby="t d">
+<title id="t">The board pane</title><desc id="d">The board opened with b: one line per entry with its number, step, sender, kind and text, and the keys below.</desc>
+<rect width="876" height="229" rx="8" fill="#14161c"/>
+<rect width="876" height="28" rx="8" fill="#232733"/><rect y="20" width="876" height="8" fill="#232733"/>
+<circle cx="18" cy="14" r="5" fill="#ff5f56"/><circle cx="36" cy="14" r="5" fill="#ffbd2e"/><circle cx="54" cy="14" r="5" fill="#27c93f"/>
+<g font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, 'DejaVu Sans Mono', monospace" font-size="14" fill="#d7dae0">
+<text x="18" y="56" xml:space="preserve">indaba board-handoff | ▶ running | 2 steps | elapsed 22s | cost no model calls</text>
+<text x="18" y="75" xml:space="preserve">▸ ✔ research  completed       │Board: notes between steps (3)</text>
+<text x="18" y="94" xml:space="preserve">  ▶ summary  running           Showing: everything</text>
+<text x="18" y="113" xml:space="preserve">                               #1  research  research  ▣ Result  Indaba runs workflows of AI agents…</text>
+<text x="18" y="132" xml:space="preserve">                               #2  research  research  ■ Fact  22 or newer</text>
+<text x="18" y="151" xml:space="preserve">                               #4  summary  summary  ? Question (pending)  Should the summary menti…</text>
+<text x="18" y="170" xml:space="preserve">                               ↑↓ move   Enter open   s step   t kind   r sender</text>
+<text x="18" y="189" xml:space="preserve">                               x clear   f facts   d show or hide discarded   b close the board</text>
+<text x="18" y="208" xml:space="preserve">↑↓ board   tab pane   b close board   ? help   q quit</text>
+</g></svg>

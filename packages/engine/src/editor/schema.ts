@@ -1,4 +1,6 @@
 import {
+  AGENT_POSTABLE_KINDS,
+  BoardKind,
   DecisionType,
   FailureAction,
   Isolation,
@@ -145,6 +147,46 @@ const ON_FAILURE: Schema = {
   },
 };
 
+/** Unlike the rest of the file, the board refuses a key it does not know (specs/run-blackboard, AC-08). */
+const BOARD: Schema = {
+  type: 'object',
+  description:
+    'Notes between steps. read adds what earlier steps posted to this step’s prompt; post lets this step’s reply post lines that start with BOARD at the first character. Not on a shell step.',
+  additionalProperties: false,
+  properties: {
+    read: orNull({
+      type: 'object',
+      description: 'An empty mapping reads every ancestor and the default kinds. Absent: nothing is read.',
+      additionalProperties: false,
+      properties: {
+        steps: orNull({
+          ...STRING_LIST,
+          minItems: 1,
+          description: 'Step ids to read; each must be an ancestor by depends_on. Default: every ancestor.',
+        }),
+        kinds: orNull({
+          type: 'array',
+          minItems: 1,
+          items: { enum: values(BoardKind) },
+          description: 'Default: note, question, result, fact and decision.',
+        }),
+      },
+    }),
+    post: orNull({
+      type: 'array',
+      items: { enum: [...AGENT_POSTABLE_KINDS] },
+      description: 'Kinds this step may post: note, question, result or fact. Not on a debate step.',
+    }),
+    // Read even when null, which is then an error: not `orNull`.
+    digest_chars: {
+      type: 'integer',
+      minimum: 200,
+      maximum: 20000,
+      description: 'The most characters of notes added to the prompt (default 4000).',
+    },
+  },
+};
+
 const MCP_POLICY: Schema = { enum: values(McpPolicy) };
 
 const STEP: Schema = {
@@ -206,6 +248,7 @@ const STEP: Schema = {
       ...MCP_POLICY,
       description: 'required or optional; overrides defaults.mcp_policy for this step.',
     }),
+    board: orNull(BOARD),
   },
 };
 

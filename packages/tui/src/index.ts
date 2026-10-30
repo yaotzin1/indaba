@@ -1,4 +1,6 @@
 import {
+  type BoardFileRecord,
+  BoardReader,
   isRunId,
   type Logger,
   noopLogger,
@@ -10,9 +12,31 @@ import {
 import { runDashboard } from './dashboard.js';
 import { replay } from './replay.js';
 
+export type { BoardKeyContext, BoardPane } from './board-screen.js';
+export { boardHelpRows, boardKey, boardKeyLines, boardRows, KIND_MARKS } from './board-screen.js';
+export type {
+  BoardAction,
+  BoardEntryKind,
+  BoardEntryState,
+  BoardFilters,
+  BoardItem,
+  BoardMode,
+  BoardState,
+} from './board-state.js';
+export {
+  activeFilters,
+  BOARD_KINDS,
+  boardAction,
+  detailOf,
+  emptyBoard,
+  factsOf,
+  reduceBoard,
+  selectedIndex,
+  visibleEntries,
+} from './board-state.js';
 export type { AppResult } from './ink/app.js';
 export type { Layout } from './layout.js';
-export { clip, computeLayout, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
+export { clip, computeLayout, DOCK_COLUMNS, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
 export { MAX_REPLAY_WAIT_MS, replay } from './replay.js';
 export type { Row, Screen, ScreenOptions, Tone } from './screen.js';
 export { buildScreen, stepLine, stepTone, tooSmallRows } from './screen.js';
@@ -87,6 +111,14 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
     ? replay(await reader.readAll(options.runId), { speed: options.speed, signal: controller.signal })
     : reader.follow(options.runId, controller.signal);
 
+  // the board is a file beside the trace: read whole for a replay, followed for a live run
+  const boards = new BoardReader(options.directory);
+  const board: AsyncIterable<BoardFileRecord> = options.replay
+    ? (async function* () {
+        yield* await boards.readAll(options.runId);
+      })()
+    : boards.follow(options.runId, controller.signal);
+
   logger.info('tui.dashboard', 'the dashboard opened', {
     replay: options.replay,
     attached: options.attached,
@@ -95,6 +127,7 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
     const result = await runDashboard({
       logger,
       source,
+      board,
       attached: options.attached,
       ascii: options.ascii,
       color: options.color,

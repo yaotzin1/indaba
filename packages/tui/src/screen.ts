@@ -8,6 +8,7 @@ import {
   stepMark,
   toolsText,
 } from '@indaba/engine';
+import { type BoardPane, boardHelpRows, boardRows } from './board-screen.js';
 import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS, wrap } from './layout.js';
 import type { UiState } from './ui-state.js';
 
@@ -31,6 +32,8 @@ export interface Screen {
   readonly header: Row;
   readonly list: readonly Row[];
   readonly detail: readonly Row[];
+  /** The board docked beside the detail pane; empty unless the layout docks it. */
+  readonly dock: readonly Row[];
   readonly footer: Row;
   /** Lines of output the selected step has, for the scroll limit. */
   readonly outputLines: number;
@@ -239,6 +242,7 @@ export function helpRows(width: number, ascii: boolean): Row[] {
     row('f            follow the newest output', 'normal'),
     row('tab          move the arrow keys between the panes', 'normal'),
     row('?            close this', 'normal'),
+    row('b            the board: notes between steps', 'normal'),
     row('q, ctrl-c    quit', 'normal'),
   ].map((r) => ({ ...r, text: clip(r.text, width, ascii) }));
 }
@@ -252,29 +256,55 @@ function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
     );
   }
   const follow = ui.follow ? 'f follow*' : 'f follow';
-  const keys = `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   ? help   q quit`;
+  const keys =
+    ui.focus === 'board'
+      ? `${arrows} board   tab pane   b ${layout.dockWidth > 0 ? 'back to the steps' : 'close board'}   ? help   q quit`
+      : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
   return row(clip(keys, layout.columns, options.ascii), 'dim');
 }
 
 /** Everything the screen shows, as rows. Pure: the same run, state and size always give the same rows. */
-export function buildScreen(run: RunState, ui: UiState, layout: Layout, options: ScreenOptions): Screen {
+export function buildScreen(
+  run: RunState,
+  ui: UiState,
+  layout: Layout,
+  options: ScreenOptions,
+  board?: BoardPane,
+): Screen {
   const header = row(
     clip(formatHeader(run, { ascii: options.ascii }), layout.columns, options.ascii),
     runTone(run.status),
   );
   if (layout.mode === 'too-small') {
-    return { header, list: [], detail: tooSmallRows(layout), footer: row('', 'dim'), outputLines: 0 };
+    return {
+      header,
+      list: [],
+      detail: tooSmallRows(layout),
+      dock: [],
+      footer: row('', 'dim'),
+      outputLines: 0,
+    };
   }
   const list = listRows(run, ui, layout, options);
   if (ui.help) {
     return {
       header,
       list,
-      detail: helpRows(layout.detailWidth, options.ascii).slice(0, layout.detailRows),
+      detail: [
+        ...helpRows(layout.detailWidth, options.ascii),
+        ...boardHelpRows(layout.detailWidth, options.ascii),
+      ].slice(0, layout.detailRows),
+      dock: [],
       footer: footerRow(ui, layout, options),
       outputLines: 0,
     };
   }
+  const docked = layout.dockWidth > 0;
+  const dock = docked ? boardRows(board, layout.dockWidth, layout.dockRows, { ascii: options.ascii }) : [];
+  if (ui.board && !docked) {
+    const rows = boardRows(board, layout.detailWidth, layout.detailRows, { ascii: options.ascii });
+    return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines: 0 };
+  }
   const { rows, outputLines } = detailRows(run, ui, layout, options);
-  return { header, list, detail: rows, footer: footerRow(ui, layout, options), outputLines };
+  return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines };
 }
