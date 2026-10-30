@@ -54,7 +54,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## `indaba` (CLI)
 
-- [ ] T17. `createEngine` passes the same redaction function to `WorkflowEngineOptions.board.redact` that it gives the executor and
+- [x] T17. `createEngine` passes the same redaction function to `WorkflowEngineOptions.board.redact` that it gives the executor and
   the event writer (the board has no default: unset, a secret reaches `.board.jsonl`; a test posts a secret through the built
   engine and finds it in no board record); registers `BoardWriter`; a write failure adds `indaba.board.degraded` (class name only)
   and does not fail the run. `layers.test.ts` stays green.

@@ -38,7 +38,7 @@ export class BoardReader {
     return join(this.directory, `${runId}${BOARD_FILE_SUFFIX}`);
   }
 
-  /** Whether the run has a board file. A run that never posted and never read has none. */
+  /** Whether the run has a board file. Every run since the board began has one; an older run does not. */
   async exists(runId: string): Promise<boolean> {
     return (await sizeOf(this.file(runId))) !== undefined;
   }

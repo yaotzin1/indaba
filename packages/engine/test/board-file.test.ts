@@ -202,6 +202,24 @@ describe('BoardWriter', () => {
     expect(await readFile(blocker, 'utf8')).toBe('in the way');
   });
 
+  it('reports a failure once for each run, naming the run', async () => {
+    const dir = await makeTempDir();
+    const blocker = join(dir, 'file');
+    await writeFile(blocker, 'in the way');
+    const told: string[] = [];
+    const writer = new BoardWriter({
+      directory: join(blocker, 'traces'),
+      onError: (_e, id) => told.push(id),
+    });
+    const other = 'cd34'.repeat(8);
+    for (const record of fullRecords()) {
+      void writer.onRecorded(new BoardRecorded(TRACE, record));
+      void writer.onRecorded(new BoardRecorded(other, record));
+    }
+    await writer.flush();
+    expect(told).toEqual([TRACE, other]);
+  });
+
   it('works without an error handler', async () => {
     const dir = await makeTempDir();
     const blocker = join(dir, 'file');

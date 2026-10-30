@@ -7,8 +7,8 @@ import { isRunId } from './records.js';
 export interface BoardWriterOptions {
   /** Where `<traceId>.board.jsonl` goes, next to the trace file. */
   readonly directory: string;
-  /** Told about the first failure to write, once. The run is never affected by it. */
-  readonly onError?: (error: unknown) => void;
+  /** Told about the first failure to write for each run, once, with that run's trace id. The run is never affected by it. */
+  readonly onError?: (error: unknown, traceId: string) => void;
 }
 
 /**
@@ -19,10 +19,10 @@ export interface BoardWriterOptions {
  */
 export class BoardWriter {
   private readonly directory: string;
-  private readonly onError: (error: unknown) => void;
+  private readonly onError: (error: unknown, traceId: string) => void;
   private queue: Promise<void> = Promise.resolve();
   private directoryReady = false;
-  private reported = false;
+  private readonly reported = new Set<string>();
 
   constructor(options: BoardWriterOptions) {
     this.directory = options.directory;
@@ -37,7 +37,7 @@ export class BoardWriter {
     try {
       line = `${serializeBoardRecord(event.record)}\n`;
     } catch (error) {
-      this.fail(error);
+      this.fail(error, event.traceId);
       return this.queue;
     }
     const file = join(this.directory, `${event.traceId}${BOARD_FILE_SUFFIX}`);
@@ -49,7 +49,7 @@ export class BoardWriter {
         }
         await appendFile(file, line);
       } catch (error) {
-        this.fail(error);
+        this.fail(error, event.traceId);
       }
     });
     return this.queue;
@@ -60,10 +60,10 @@ export class BoardWriter {
     return this.queue;
   }
 
-  private fail(error: unknown): void {
-    if (!this.reported) {
-      this.reported = true;
-      this.onError(error);
+  private fail(error: unknown, traceId: string): void {
+    if (!this.reported.has(traceId)) {
+      this.reported.add(traceId);
+      this.onError(error, traceId);
     }
   }
 }

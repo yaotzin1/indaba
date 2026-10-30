@@ -2,6 +2,7 @@ import { join } from 'node:path';
 import {
   type Adjudicator,
   AdjudicatorRegistry,
+  BoardRecorded,
   IndabaError,
   type Logger,
   type LogSinkRegistry,
@@ -9,6 +10,7 @@ import {
   type Plugin,
   PricingTable,
   SimpleEventDispatcher,
+  type Span,
   SpanEnded,
   SpanStarted,
   StepOutput,
@@ -17,6 +19,7 @@ import {
   type WorkflowRegistry,
 } from '@indaba/core';
 import {
+  BoardWriter,
   DecisionLedger,
   DISCUSSION_DIRECTORY,
   DiscussionStore,
@@ -138,6 +141,31 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   events.addListener(StepStatusChanged, (event) => stream.onStepStatus(event));
   events.addListener(StepOutput, (event) => stream.onOutput(event));
 
+  // The notes between steps (specs/run-blackboard): one file per run beside the other two. The board redacts with the
+  // function above, which it has no default for. A file that cannot be written does not fail the run: the root span says so,
+  // by the class of the error only (its message can hold a path), and the in-memory board keeps serving.
+  const rootSpans = new Map<string, Span>();
+  events.addListener(SpanStarted, (event) => {
+    if (event.span.parentSpanId === undefined) {
+      rootSpans.set(event.span.traceId, event.span);
+    }
+  });
+  events.addListener(SpanEnded, (event) => {
+    if (event.span.parentSpanId === undefined) {
+      rootSpans.delete(event.span.traceId);
+    }
+  });
+  const board = new BoardWriter({
+    directory: traceDirectory,
+    onError: (error, traceId) => {
+      rootSpans.get(traceId)?.addEvent('indaba.board.degraded', {
+        'indaba.board.error': error instanceof Error ? error.constructor.name : typeof error,
+      });
+      options.onListenerError?.(error);
+    },
+  });
+  events.addListener(BoardRecorded, (event) => board.onRecorded(event));
+
   const ids = new RandomIdGenerator();
   const tracer = new Tracer(clock, events, ids, PricingTable.defaults());
   const runners = RunnerRegistry.withDefaults(env, {
@@ -200,6 +228,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     workspaces: new GitWorktreeManager(options.projectDir),
     projectDir: options.projectDir,
     ids,
+    board: { redact: (text) => redact(text, secrets) },
   });
 
   return {

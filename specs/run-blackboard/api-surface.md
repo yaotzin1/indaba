@@ -174,7 +174,7 @@ export function parseBoardRecord(line: string): BoardFileRecord;         // tota
 
 /** A listener of BoardRecorded that appends <traceId>.board.jsonl, whole lines, in order, one queue. */
 export class BoardWriter {
-  constructor(options: { readonly directory: string; readonly onError?: (error: unknown) => void });
+  constructor(options: { readonly directory: string; readonly onError?: (error: unknown, traceId: string) => void });   // once per run
   onRecorded(event: BoardRecorded): Promise<void>;
   flush(): Promise<void>;                                                // resolves when everything handed over is written or failed
 }
