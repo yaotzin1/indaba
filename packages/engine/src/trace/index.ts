@@ -1,3 +1,5 @@
+export type { BoardReaderOptions } from './board-reader.js';
+export { BoardReader } from './board-reader.js';
 export type { BoardFileRecord, UnknownBoardRecord } from './board-records.js';
 export { BOARD_FILE_SUFFIX, parseBoardRecord, serializeBoardRecord } from './board-records.js';
 export type { BoardWriterOptions } from './board-writer.js';

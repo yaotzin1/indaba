@@ -45,7 +45,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [x] T14. `board-records.ts` (`serializeBoardRecord`, `parseBoardRecord`, `BOARD_FILE_SUFFIX`) and
   `BoardWriter`: whole lines in order, one queue, run-id validation, the first failure reported once and the
   run unaffected. Tests with a temporary directory and an unwritable one.
-- [ ] T15. `BoardReader`: `exists`, `readAll`, `follow` with a partial last line, an unknown record, a line that
+- [x] T15. `BoardReader`: `exists`, `readAll`, `follow` with a partial last line, an unknown record, a line that
   is not JSON, a later `v`. A resumed run (`RunBoard.replay`) appends without a second start record.
 - [ ] T15b. Plain words (AC-40) and the id syntax of a step id and a scope (AC-02): the messages are listed and
   checked, and an entry with a bad step id or scope is not recorded.
