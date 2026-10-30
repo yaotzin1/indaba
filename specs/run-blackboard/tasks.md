@@ -42,7 +42,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [x] T13. Debates: the observer mirrors every message, the outcome `result` and the ruling `decision`; the
   entries are `accepted` whatever the outcome; the ledger-skipped debate; a test compares the debate's own board
   with its copy. The transcript, ruling artifacts and ledger are unchanged (existing tests stay green).
-- [ ] T14. `board-records.ts` (`serializeBoardRecord`, `parseBoardRecord`, `BOARD_FILE_SUFFIX`) and
+- [x] T14. `board-records.ts` (`serializeBoardRecord`, `parseBoardRecord`, `BOARD_FILE_SUFFIX`) and
   `BoardWriter`: whole lines in order, one queue, run-id validation, the first failure reported once and the
   run unaffected. Tests with a temporary directory and an unwritable one.
 - [ ] T15. `BoardReader`: `exists`, `readAll`, `follow` with a partial last line, an unknown record, a line that
