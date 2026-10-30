@@ -15,6 +15,7 @@ import type {
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  BoardKind,
   buildDigest,
   ConsensusArbiter,
   DagBuilder,
@@ -29,6 +30,7 @@ import {
   isPermissionCapable,
   isShellStep,
   McpUnavailableError,
+  MessageType,
   PermissionLevel,
   parseBoardLines,
   permissionCapabilitiesOf,
@@ -85,6 +87,18 @@ export interface StepRunOptions {
   readonly feedback?: string | undefined;
   readonly onOutput?: ((chunk: string) => void) | undefined;
   readonly signal?: AbortSignal | undefined;
+}
+
+const BOARD_KIND_OF: Record<MessageType, BoardKind> = {
+  [MessageType.Proposal]: BoardKind.Proposal,
+  [MessageType.Critique]: BoardKind.Critique,
+  [MessageType.Agreement]: BoardKind.Agreement,
+  [MessageType.Question]: BoardKind.Question,
+  [MessageType.ToolIntent]: BoardKind.ToolIntent,
+};
+
+function rulingLine(ruling: Ruling): string {
+  return ruling.note === '' ? ruling.verdict : `${ruling.verdict}: ${ruling.note}`;
 }
 
 function isInside(root: string, candidate: string): boolean {
@@ -493,7 +507,44 @@ ${this.prompts.tail(result.failureText())}`,
     span.setAttribute('indaba.permissions.scope', capability?.scope ?? EnforcementScope.None);
   }
 
+  /**
+   * A debate's messages, outcome and ruling go to the run board as they happen (specs/run-blackboard, AC-19), and are
+   * `accepted` when it ends whatever the outcome: the transcript is a record, not a claim. A cancelled debate settles nothing.
+   */
   private async runConsensus(
+    step: StepDefinition,
+    workflow: WorkflowDefinition,
+    workdir: string,
+    span: Span,
+    options: StepRunOptions,
+  ): Promise<StepOutcome> {
+    const outcome = await this.deliberateStep(step, workflow, workdir, span, options);
+    if (!outcome.cancelled && options.board !== undefined) {
+      options.board.settle({ stepId: step.id, attempt: options.attempt ?? 1, outcome: 'accepted' });
+    }
+    return outcome;
+  }
+
+  private engineNote(
+    step: StepDefinition,
+    options: StepRunOptions,
+    kind: BoardKind,
+    sender: string,
+    text: string,
+    round?: number,
+  ): void {
+    options.board?.post({
+      stepId: step.id,
+      attempt: options.attempt ?? 1,
+      source: 'engine',
+      sender,
+      kind,
+      ...(round !== undefined ? { round } : {}),
+      text,
+    });
+  }
+
+  private async deliberateStep(
     step: StepDefinition,
     workflow: WorkflowDefinition,
     workdir: string,
@@ -544,8 +595,14 @@ ${this.prompts.tail(result.failureText())}`,
           span.setAttribute('indaba.arbiter.kind', kind);
           span.setAttribute('indaba.arbiter.source', RulingSource.Memo);
           span.setAttribute('indaba.arbiter.verdict', earlier.verdict);
+          const remembered = new Ruling(
+            earlier.verdict,
+            this.redact(sanitize(earlier.note)),
+            RulingSource.Memo,
+          );
+          this.engineNote(step, options, BoardKind.Decision, kind, rulingLine(remembered));
           return this.afterRuling(
-            new Ruling(earlier.verdict, this.redact(sanitize(earlier.note)), RulingSource.Memo),
+            remembered,
             kind,
             `Ruled earlier (${when}); the same question on the same files, so no new debate.`,
           );
@@ -563,6 +620,22 @@ ${this.prompts.tail(result.failureText())}`,
 ${digest}`,
       participants,
       step.decisionType ?? DecisionType.Consensus,
+      (message) =>
+        this.engineNote(
+          step,
+          options,
+          BOARD_KIND_OF[message.type],
+          message.sender,
+          message.content,
+          message.round,
+        ),
+    );
+    this.engineNote(
+      step,
+      options,
+      BoardKind.Result,
+      step.role ?? step.id,
+      `${result.outcome} after ${result.rounds} round(s)${result.reached() ? '' : `. Open objections: ${result.openObjections()}`}`,
     );
     span.setAttribute('indaba.consensus.outcome', result.outcome);
     span.setAttribute('indaba.consensus.rounds', result.rounds);
@@ -623,6 +696,7 @@ ${digest}`,
 
     const note = this.redact(sanitize(ruling.note));
     const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
+    this.engineNote(step, options, BoardKind.Decision, arbiterName, rulingLine(ruled));
     span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
     span.setAttribute('indaba.arbiter.verdict', ruled.verdict);
     await this.discussions?.save(
