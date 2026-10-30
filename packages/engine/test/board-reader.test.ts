@@ -162,11 +162,41 @@ describe('BoardReader.follow', () => {
 
     const stopped = new AbortController();
     stopped.abort();
-    const none: BoardFileRecord[] = [];
+    // an aborted signal still gets one look at the file, then ends: it does not wait
+    const once: BoardFileRecord[] = [];
     for await (const record of new BoardReader(dir).follow(TRACE, stopped.signal)) {
-      none.push(record);
+      once.push(record);
     }
-    expect(none).toEqual([]);
+    expect(once.map((r) => r.type)).toEqual(['board']);
+
+    const absent: BoardFileRecord[] = [];
+    for await (const record of new BoardReader(await makeTempDir()).follow(TRACE, stopped.signal)) {
+      absent.push(record);
+    }
+    expect(absent).toEqual([]);
+  });
+
+  it('yields what was written just before the abort, with one last look', async () => {
+    const dir = await makeTempDir();
+    const records: BoardRecord[] = [];
+    const b = board(records);
+    post(b, 'early');
+    const file = join(dir, `${TRACE}${BOARD_FILE_SUFFIX}`);
+    const [start, early] = records.map(lineOf) as [string, string];
+    await writeFile(file, start + early);
+    const controller = new AbortController();
+    // the run ends during the wait: the last settlement is written, then the consumer aborts
+    post(b, 'last');
+    const last = records.map(lineOf)[2] as string;
+    const sleep = ticker(async () => {
+      await appendFile(file, last);
+      controller.abort();
+    });
+    const seen: BoardFileRecord[] = [];
+    for await (const record of new BoardReader(dir, { sleep }).follow(TRACE, controller.signal)) {
+      seen.push(record);
+    }
+    expect(seen).toEqual(records);
   });
 
   it('wakes from the default wait when the signal aborts', async () => {

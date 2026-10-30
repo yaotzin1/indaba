@@ -109,6 +109,7 @@ export class RunBoard {
   settle(input: SettleInput): void;
   /** Settles as 'superseded' the accepted entries of each listed step (a retry reset them): one 'settle' record per accepted (stepId, attempt, scope) of each step. */
   supersede(stepIds: readonly string[]): void;
+  readonly limits: BoardLimits;                             // the defaults with the embedder's overrides; the engine scans replies under the same ones
   stateOf(entry: BoardEntry): EntryState;                   // the latest settlement that follows the entry, else pending
   entries(view?: BoardView): readonly BoardEntry[];         // in seq order
   facts(view?: Pick<BoardView, 'steps'>): ReadonlyMap<string, BoardEntry>;   // accepted facts, latest seq per key

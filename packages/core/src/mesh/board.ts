@@ -197,7 +197,8 @@ function groupKey(stepId: string, attempt: number, scope: string): string {
 
 /** The run's board. Append-only; no I/O; no clock of its own; no environment. */
 export class RunBoard {
-  private readonly limits: BoardLimits;
+  /** The limits in force: the defaults with the embedder's overrides. The engine scans replies under the same ones. */
+  readonly limits: BoardLimits;
   private readonly clock: Clock;
   private readonly redact: ((text: string) => string) | undefined;
   private sink: ((record: BoardRecord) => void) | undefined;

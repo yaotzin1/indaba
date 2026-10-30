@@ -43,7 +43,7 @@ an API; a reader needs no part of the engine.
 | `attempt` | integer, from 1 | the attempt of that step |
 | `scope` | string | `step`, or `variant:<n>` |
 | `source` | `agent` or `engine` | an agent's line in its reply, or the engine itself |
-| `sender` | string | the role that spoke, or the step id for an engine entry |
+| `sender` | string | the role that spoke; for an entry no role spoke (a debate's `result` and `decision`) the step id |
 | `kind` | string | `note`, `question`, `result`, `fact`, `proposal`, `critique`, `agreement`, `tool_intent`, `decision` |
 | `key` | string, facts only | matches `[a-z0-9][a-z0-9_.-]{0,63}` |
 | `round` | integer, debate messages only | the debate round |

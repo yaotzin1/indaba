@@ -57,8 +57,9 @@ export class BoardReader {
   }
 
   /**
-   * Records as they are written, from the first one, until the signal aborts: a board has no end marker of its own,
-   * so whoever follows it also follows the run and stops it. A file that does not exist yet is waited for.
+   * Records as they are written, from the first one, until the signal aborts and one last look at the file has
+   * yielded what it holds: a board has no end marker of its own, so whoever follows it also follows the run and
+   * aborts when the run is over. A file that does not exist yet is waited for.
    */
   async *follow(runId: string, signal: AbortSignal): AsyncGenerator<BoardFileRecord> {
     const file = this.file(runId);
@@ -66,11 +67,16 @@ export class BoardReader {
     let offset = 0;
     let tail = '';
 
-    while (!signal.aborted) {
+    // One look more after the abort: whoever aborts does so when the run is over, and the last records (the final
+    // settlements) were written after the previous look.
+    let last = false;
+    while (true) {
+      last = signal.aborted;
       const size = await sizeOf(file);
       if (size !== undefined && size < offset) {
         offset = 0; // the file was replaced by a shorter one: start over
         tail = '';
+        decoder.end();
       }
       if (size !== undefined && size > offset) {
         const chunk = await readRange(file, offset, size);
@@ -83,6 +89,9 @@ export class BoardReader {
           }
         }
         continue; // more may have arrived while this was read
+      }
+      if (last) {
+        return;
       }
       await this.sleep(this.pollMs, signal);
     }

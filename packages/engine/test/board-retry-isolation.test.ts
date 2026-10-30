@@ -109,3 +109,66 @@ describe('retry isolation on the board (AC-24)', () => {
     expect(posts.some((p) => p.text === 'b-try-1')).toBe(false); // a failed reply is never scanned
   });
 });
+
+describe('a retried debate on the board (AC-19, AC-24)', () => {
+  const DEBATE = `
+version: "1.0"
+name: debate-retry
+roles:
+  one: {runner: work}
+  two: {runner: work}
+steps:
+  - id: talk
+    role: one
+    goal: GOAL-TALK
+    consensus_with: [two]
+  - id: check
+    role: one
+    goal: GOAL-CHECK
+    depends_on: [talk]
+    on_failure: {action: retry_step, target: talk, max_retries: 1}
+`;
+
+  it('supersedes the failed attempt’s debate entries when the engine resets the step, and keeps the second attempt', async () => {
+    const repo = await makeGitRepo();
+    const events = new SimpleEventDispatcher();
+    const records: BoardRecord[] = [];
+    events.addListener(BoardRecorded, (e) => {
+      records.push(e.record);
+    });
+    let checks = 0;
+    const runner = new FakeRunner('work', (request) => {
+      if (request.prompt.includes('GOAL-CHECK')) {
+        checks += 1;
+        return new RunResult({ exitCode: checks === 1 ? 1 : 0, output: 'checked' });
+      }
+      return new RunResult({ exitCode: 0, output: 'AGREEMENT: fine' });
+    });
+    const ids = new SequenceIds();
+    const tracer = new Tracer(new FixedClock(), events, ids);
+    const engine = new WorkflowEngine({
+      executor: new StepExecutor({
+        runners: new FakeRegistry([runner]),
+        guards: GuardRegistry.withDefaults(),
+        tracer,
+      }),
+      tracer,
+      events,
+      workspaces: new GitWorktreeManager(repo),
+      projectDir: repo,
+      ids,
+    });
+    const result = await engine.run(parseWorkflow(DEBATE));
+    expect(result.status).toBe(WorkflowStatus.Completed);
+
+    const posts = records.filter((r) => r.type === 'post' && r.stepId === 'talk');
+    expect(posts.map((p) => p.type === 'post' && p.attempt)).toEqual([1, 1, 1, 2, 2, 2]);
+    const settles = records.filter((r) => r.type === 'settle' && r.stepId === 'talk');
+    // attempt 1: accepted when the debate ended, superseded when check's failure reset it; attempt 2: accepted
+    expect(settles.map((s) => s.type === 'settle' && `${s.attempt}:${s.outcome}`)).toEqual([
+      '1:accepted',
+      '1:superseded',
+      '2:accepted',
+    ]);
+  });
+});

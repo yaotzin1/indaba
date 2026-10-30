@@ -84,8 +84,8 @@ async function fixture(
     redact: (text) => text.split(SECRET).join('[redacted]'),
   });
   const span = await tracer.startTrace('root');
-  const run = (step: StepDefinition, attempt = 1) =>
-    executor.run(step, workflow, repo, span, { board, attempt });
+  const run = (step: StepDefinition, attempt = 1, signal?: AbortSignal) =>
+    executor.run(step, workflow, repo, span, { board, attempt, ...(signal === undefined ? {} : { signal }) });
   return { board, run, repo };
 }
 
@@ -113,7 +113,7 @@ describe('a debate on the run board', () => {
       [BoardKind.Critique, 'b', 1, 'a map leaks', 'engine'],
       [BoardKind.Agreement, 'a', 2, 'fine', 'engine'],
       [BoardKind.Agreement, 'b', 2, 'fine', 'engine'],
-      [BoardKind.Result, 'a', undefined, 'reached after 2 round(s)', 'engine'],
+      [BoardKind.Result, 'debate', undefined, 'reached after 2 round(s)', 'engine'],
     ]);
     expect(entries.map((e) => board.stateOf(e))).toEqual(Array(5).fill('accepted'));
   });
@@ -136,7 +136,7 @@ describe('a debate on the run board', () => {
     expect((await run(debate({ arbiter: 'human' }))).ok).toBe(true);
     const decision = only(shown(board), BoardKind.Decision);
     expect(decision.text).toBe('accept: good enough [redacted]');
-    expect(decision.sender).toBe('human');
+    expect(decision.sender).toBe('debate');
     expect(board.stateOf(decision)).toBe('accepted');
   });
 
@@ -153,6 +153,26 @@ describe('a debate on the run board', () => {
     const entries = shown(second.board);
     expect(entries.map((e) => [e.kind, e.text])).toEqual([[BoardKind.Decision, 'accept: fine']]);
     expect(second.board.stateOf(only(entries, BoardKind.Decision))).toBe('accepted');
+  });
+
+  it('settles nothing for a debate that is cancelled during its last call: its entries stay pending', async () => {
+    const controller = new AbortController();
+    // The process runners report an abort as a failed result, not an exception, and a later call would throw: only an
+    // abort during the final call of the final round lets the debate finish and end as an escalation first.
+    const aborting = new FakeRunner('ra', (_request, n) => {
+      if (n === 4) {
+        controller.abort();
+        return new RunResult({ exitCode: 130, output: '' });
+      }
+      // each round differs, or the ping-pong detector would stall the debate before its last round
+      return new RunResult({ exitCode: 0, output: `CRITIQUE: no, attempt ${n}` });
+    });
+    const { board, run } = await fixture([aborting]);
+    const outcome = await run(debate({ consensusWith: [] }), 1, controller.signal);
+    expect(outcome.cancelled).toBe(true);
+    const entries = shown(board);
+    expect(entries.length).toBeGreaterThan(0);
+    expect(entries.map((e) => board.stateOf(e))).toEqual(entries.map(() => 'pending'));
   });
 
   it('copies exactly what the debate’s own transcript holds', async () => {

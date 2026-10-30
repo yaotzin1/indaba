@@ -356,7 +356,7 @@ ${this.prompts.tail(result.failureText())}`,
     if (post === undefined || post.length === 0 || options.board === undefined) {
       return;
     }
-    const parsed = parseBoardLines(output, post);
+    const parsed = parseBoardLines(output, post, options.board.limits);
     let posted = 0;
     for (const line of parsed.posts) {
       const entry = options.board.post({
@@ -519,7 +519,8 @@ ${this.prompts.tail(result.failureText())}`,
     options: StepRunOptions,
   ): Promise<StepOutcome> {
     const outcome = await this.deliberateStep(step, workflow, workdir, span, options);
-    if (!outcome.cancelled && options.board !== undefined) {
+    // The process runners report an abort as a failed result, so `run` has not yet turned this into `cancelled`.
+    if (!outcome.cancelled && options.signal?.aborted !== true && options.board !== undefined) {
       options.board.settle({ stepId: step.id, attempt: options.attempt ?? 1, outcome: 'accepted' });
     }
     return outcome;
@@ -600,7 +601,7 @@ ${this.prompts.tail(result.failureText())}`,
             this.redact(sanitize(earlier.note)),
             RulingSource.Memo,
           );
-          this.engineNote(step, options, BoardKind.Decision, kind, rulingLine(remembered));
+          this.engineNote(step, options, BoardKind.Decision, step.id, rulingLine(remembered));
           return this.afterRuling(
             remembered,
             kind,
@@ -634,7 +635,7 @@ ${digest}`,
       step,
       options,
       BoardKind.Result,
-      step.role ?? step.id,
+      step.id,
       `${result.outcome} after ${result.rounds} round(s)${result.reached() ? '' : `. Open objections: ${result.openObjections()}`}`,
     );
     span.setAttribute('indaba.consensus.outcome', result.outcome);
@@ -696,7 +697,7 @@ ${digest}`,
 
     const note = this.redact(sanitize(ruling.note));
     const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
-    this.engineNote(step, options, BoardKind.Decision, arbiterName, rulingLine(ruled));
+    this.engineNote(step, options, BoardKind.Decision, step.id, rulingLine(ruled));
     span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
     span.setAttribute('indaba.arbiter.verdict', ruled.verdict);
     await this.discussions?.save(
