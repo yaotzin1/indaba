@@ -1,5 +1,6 @@
 import {
   AdjudicatorRegistry,
+  type BoardEntry,
   BoardKind,
   DecisionType,
   Isolation,
@@ -88,6 +89,14 @@ async function fixture(
   return { board, run, repo };
 }
 
+function only(entries: readonly BoardEntry[], kind: BoardKind): BoardEntry {
+  const found = entries.find((e) => e.kind === kind);
+  if (found === undefined) {
+    throw new Error(`no ${kind} entry`);
+  }
+  return found;
+}
+
 const shown = (board: RunBoard) =>
   board.entries({ states: ['pending', 'accepted', 'discarded', 'superseded'] });
 
@@ -125,10 +134,10 @@ describe('a debate on the run board', () => {
       ruling: new Ruling(Verdict.Accept, `good enough ${SECRET}`),
     });
     expect((await run(debate({ arbiter: 'human' }))).ok).toBe(true);
-    const decision = shown(board).find((e) => e.kind === BoardKind.Decision);
-    expect(decision?.text).toBe('accept: good enough [redacted]');
-    expect(decision?.sender).toBe('human');
-    expect(board.stateOf(decision as never)).toBe('accepted');
+    const decision = only(shown(board), BoardKind.Decision);
+    expect(decision.text).toBe('accept: good enough [redacted]');
+    expect(decision.sender).toBe('human');
+    expect(board.stateOf(decision)).toBe('accepted');
   });
 
   it('posts the remembered ruling and nothing else when the ledger skips the debate', async () => {
@@ -143,7 +152,7 @@ describe('a debate on the run board', () => {
     expect(asked.requests).toHaveLength(0);
     const entries = shown(second.board);
     expect(entries.map((e) => [e.kind, e.text])).toEqual([[BoardKind.Decision, 'accept: fine']]);
-    expect(second.board.stateOf(entries[0] as never)).toBe('accepted');
+    expect(second.board.stateOf(only(entries, BoardKind.Decision))).toBe('accepted');
   });
 
   it('copies exactly what the debate’s own transcript holds', async () => {
