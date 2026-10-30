@@ -2,6 +2,7 @@ import { join, resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import type { Logger } from '@indaba/core';
 import {
+  BoardReader,
   emptyRun,
   formatEvent,
   formatPlain,
@@ -14,6 +15,7 @@ import {
   TraceReader,
   watchExitCode,
 } from '@indaba/engine';
+import { formatBoardSection } from './board-section.js';
 import type { Io } from './main.js';
 import { printableText } from './printable.js';
 import type { TuiLoad } from './tui-loader.js';
@@ -34,7 +36,8 @@ Options:
       --color           Colour the states (never the only sign of one); NO_COLOR turns it off
 
 On a terminal, with @indaba/tui installed, a run opens as a dashboard (q quits, ? lists the keys); anywhere else,
-and with --plain or --output, it prints lines. Install the dashboard with: npm install @indaba/tui
+and with --plain or --output, it prints lines, ending with the board: the facts and the newest 50 notes between
+steps. Install the dashboard with: npm install @indaba/tui
 
 Exit status mirrors the run: 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a
 final state or the run goes quiet.
@@ -166,6 +169,15 @@ function pick(name: string, runs: readonly RunSummary[]): { id: string } | { err
 function print(io: Io, lines: readonly string[]): void {
   if (lines.length > 0) {
     io.stdout.write(`${lines.join('\n')}\n`);
+  }
+}
+
+/** The board section for a run, empty when it has no board file. A file that cannot be read leaves the section out. */
+async function boardSection(directory: string, runId: string): Promise<string> {
+  try {
+    return formatBoardSection(await new BoardReader(directory).readAll(runId));
+  } catch {
+    return '';
   }
 }
 
@@ -343,17 +355,20 @@ export async function watch(args: readonly string[], io: Io, options: WatchOptio
   if (parsed.replay) {
     const state = await replay(io, records, parsed.speed, parsed.output, options.sleep ?? realSleep);
     io.stdout.write(formatPlain(state, { color: parsed.color }));
+    io.stdout.write(await boardSection(directory, chosen.id));
     return io.signal?.aborted === true ? 130 : watchExitCode(state.status);
   }
 
   if (finished) {
     const state = records.reduce(reduceRun, emptyRun());
     io.stdout.write(formatPlain(state, { color: parsed.color, allOutput: parsed.output }));
+    io.stdout.write(await boardSection(directory, chosen.id));
     return watchExitCode(state.status);
   }
 
   const { state, quiet } = await follow(io, reader, chosen.id, parsed.output, parsed.staleMs);
   io.stdout.write(formatPlain(state, { color: parsed.color, allOutput: parsed.output }));
+  io.stdout.write(await boardSection(directory, chosen.id));
   if (io.signal?.aborted === true) {
     return 130;
   }
