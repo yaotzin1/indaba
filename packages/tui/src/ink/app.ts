@@ -6,7 +6,7 @@ import {
   type RunState,
   reduceRun,
 } from '@indaba/engine';
-import { type BoardPane, boardKey } from '../board-screen.js';
+import { type BoardKeyContext, type BoardPane, boardKey } from '../board-screen.js';
 import { type BoardState, emptyBoard, reduceBoard } from '../board-state.js';
 import { computeLayout } from '../layout.js';
 import { buildScreen } from '../screen.js';
@@ -174,12 +174,13 @@ export function App(props: AppProps): ReactElement {
       return;
     }
     if (ui.board && ui.focus === 'board' && !ui.help && !ui.confirmQuit) {
-      const next = boardKey(boardState, press, {
+      const keyContext: BoardKeyContext = {
         pageSize: context.pageSize,
         ...(selectedStep === undefined ? {} : { stepId: selectedStep.id }),
-      });
-      if (next !== undefined) {
-        setBoardState(next);
+      };
+      if (boardKey(boardState, press, keyContext) !== undefined) {
+        // from the latest state, not the one drawn: records folded in since then must not be lost
+        setBoardState((latest) => boardKey(latest, press, keyContext) ?? latest);
         return;
       }
     }

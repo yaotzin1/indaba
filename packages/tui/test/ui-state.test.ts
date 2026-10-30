@@ -227,3 +227,10 @@ describe('the board pane (b)', () => {
     expect(press(helped, 'escape')).toMatchObject({ help: false, board: true });
   });
 });
+
+describe('the board pane and the other overlays', () => {
+  it('does not open or close the board behind the help screen', () => {
+    const helped = press(initialUi(), ch('?'));
+    expect(press(helped, ch('b'))).toEqual(helped);
+  });
+});

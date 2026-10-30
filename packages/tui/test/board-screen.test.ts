@@ -8,7 +8,7 @@ import {
   boardRows,
   KIND_MARKS,
 } from '../src/board-screen.js';
-import { BOARD_KINDS, boardAction, emptyBoard, reduceBoard } from '../src/board-state.js';
+import { BOARD_KINDS, boardAction, detailOf, emptyBoard, reduceBoard } from '../src/board-state.js';
 
 const AT = '2026-10-30T12:00:00.000Z';
 type Kind = Extract<BoardFileRecord, { type: 'post' }>['kind'];
@@ -362,5 +362,75 @@ describe('plain words (AC-40)', () => {
     for (const line of own) {
       expect(line, line).not.toMatch(banned);
     }
+  });
+});
+
+describe('what the independent review found', () => {
+  const k = (char: string) => ({ char });
+
+  it('says when an entry is longer than the pane, instead of cutting it silently', () => {
+    const long = 'word '.repeat(200);
+    const state = boardAction(
+      boardAction(paneOf([start, post(1, 'a', 'result', long)]).state, { type: 'last' }),
+      {
+        type: 'open',
+      },
+    );
+    const rows = boardRows({ state, degraded: false }, 40, 12, { ascii: false });
+    expect(rows).toHaveLength(12);
+    expect(rows.some((r) => /more lines do not fit/.test(r.text))).toBe(true);
+    const roomy = boardRows({ state, degraded: false }, 40, 60, { ascii: false });
+    expect(roomy.some((r) => /more lines do not fit/.test(r.text))).toBe(false);
+  });
+
+  it('keeps the opened entry when a newer one arrives', () => {
+    const open = boardAction(
+      paneOf([start, post(1, 'a', 'note', 'first'), post(2, 'a', 'note', 'second')]).state,
+      {
+        type: 'open',
+      },
+    );
+    expect(detailOf(open)?.post.text).toBe('second');
+    const later = reduceBoard(open, post(3, 'a', 'note', 'third'));
+    expect(detailOf(later)?.post.text).toBe('second');
+  });
+
+  it('turns a tab in an entry into a space', () => {
+    const tab = String.fromCharCode(9);
+    const out = text(boardRows(paneOf([start, post(1, 'a', 'note', `a${tab}b`)]), 60, 10, { ascii: false }));
+    expect(out).toContain('a b');
+    expect(out).not.toContain(tab);
+  });
+
+  it('says how many lines of the file could not be read', () => {
+    const state = reduceBoard(paneOf([start]).state, { type: 'unknown', text: 'garbage' });
+    expect(text(boardRows({ state, degraded: false }, 80, 10, { ascii: false }))).toContain(
+      '1 line(s) of the board could not be read and are left out.',
+    );
+  });
+
+  it('draws only the window of a long board, with the selected entry in it', () => {
+    const records: BoardFileRecord[] = [start];
+    for (let i = 1; i <= 2000; i += 1) {
+      records.push(post(i, 's', 'note', `n${i}`));
+    }
+    const state = boardAction(paneOf(records).state, { type: 'first' });
+    const rows = boardRows({ state, degraded: false }, 60, 14, { ascii: false });
+    expect(rows).toHaveLength(14);
+    expect(rows.filter((r) => r.selected).map((r) => r.text)).toEqual([expect.stringContaining('#1  s')]);
+    expect(rows.filter((r) => r.text.startsWith('#'))).toHaveLength(11);
+  });
+
+  it('checks the words of the list lines too, not only the other rows', () => {
+    const banned = /digest|settle|supersede|degraded|jsonl/i;
+    const state = boardAction(paneOf(BOARD).state, { type: 'toggle-settled' });
+    const lines = boardRows({ state, degraded: false }, 100, 14, { ascii: false }).filter((r) =>
+      r.text.startsWith('#'),
+    );
+    expect(lines.length).toBeGreaterThan(3);
+    for (const line of lines) {
+      expect(line.text).not.toMatch(banned);
+    }
+    expect(k('b')).toEqual({ char: 'b' });
   });
 });

@@ -254,9 +254,10 @@ function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
     );
   }
   const follow = ui.follow ? 'f follow*' : 'f follow';
-  const keys = ui.board
-    ? `${arrows} board   tab pane   b close board   ? help   q quit`
-    : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
+  const keys =
+    ui.board && ui.focus === 'board'
+      ? `${arrows} board   tab pane   b close board   ? help   q quit`
+      : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
   return row(clip(keys, layout.columns, options.ascii), 'dim');
 }
 

@@ -51,7 +51,7 @@ const row = (text: string, tone: Tone = 'normal', selected = false): Row => ({ t
 
 /** Board text came from an agent: it is filtered for the terminal here, whatever was stored, and kept on one line. */
 function safe(text: string): string {
-  return sanitize(text).replaceAll('\n', ' ').trim();
+  return sanitize(text).replace(/\s+/g, ' ').trim();
 }
 
 function mark(kind: BoardEntryKind, ascii: boolean): string {
@@ -122,6 +122,14 @@ function notices(pane: BoardPane, width: number, ascii: boolean): Row[] {
   if (pane.degraded) {
     out.push(row(clip('The board is incomplete: part of it could not be saved.', width, ascii), 'warn'));
   }
+  if (state.unknown > 0) {
+    out.push(
+      row(
+        clip(`${state.unknown} line(s) of the board could not be read and are left out.`, width, ascii),
+        'warn',
+      ),
+    );
+  }
   if (state.truncated) {
     out.push(row(clip('The board reached its size limit; later notes were not kept.', width, ascii), 'warn'));
   }
@@ -130,18 +138,14 @@ function notices(pane: BoardPane, width: number, ascii: boolean): Row[] {
 
 function detailLines(item: BoardItem, width: number, ascii: boolean): Row[] {
   const { post } = item;
-  const fields: [string, string][] = [
-    ['Step', safe(post.stepId)],
-    ['Attempt', String(post.attempt)],
-    ['Sender', safe(post.sender)],
-    ['Kind', mark(post.kind, ascii)],
-    ...(post.round === undefined ? [] : [['Round', String(post.round)] as [string, string]]),
-    ...(post.key === undefined ? [] : [['Name', safe(post.key)] as [string, string]]),
-    ['Time', safe(post.at)],
-    ['State', STATE_WORD[item.state]],
-    ...(item.reason === undefined ? [] : [['Why', safe(item.reason)] as [string, string]]),
+  // few rows for the fields, so the text of the entry keeps the room
+  const groups: string[] = [
+    `Step: ${safe(post.stepId)}   Attempt: ${post.attempt}   Sender: ${safe(post.sender)}`,
+    `Kind: ${mark(post.kind, ascii)}   State: ${STATE_WORD[item.state]}${post.round === undefined ? '' : `   Round: ${post.round}`}`,
+    `Time: ${safe(post.at)}${post.key === undefined ? '' : `   Name: ${safe(post.key)}`}`,
+    ...(item.reason === undefined ? [] : [`Why: ${safe(item.reason)}`]),
   ];
-  const head = fields.map(([name, value]) => row(clip(`${name}: ${value}`, width, ascii)));
+  const head = groups.map((line) => row(clip(line, width, ascii)));
   const body = wrap(safe(post.text), width).map((line) => row(line));
   const cut = post.cut ? [row(clip('(this entry was cut to the size limit)', width, ascii), 'dim')] : [];
   return [...head, row(''), ...body, ...cut];
@@ -187,21 +191,32 @@ export function boardRows(
     body = facts.length === 0 ? [row('No facts yet.', 'dim')] : facts.slice(0, room);
   } else if (state.mode === 'detail') {
     const item = detailOf(state);
+    const lines = item === undefined ? [row('Nothing is selected.', 'dim')] : detailLines(item, width, ascii);
     body =
-      item === undefined
-        ? [row('Nothing is selected.', 'dim')]
-        : detailLines(item, width, ascii).slice(0, room);
+      lines.length <= room
+        ? lines
+        : [
+            ...lines.slice(0, Math.max(0, room - 1)),
+            row(
+              clip(
+                `(${lines.length - room + 1} more lines do not fit; make the terminal taller)`,
+                width,
+                ascii,
+              ),
+              'dim',
+            ),
+          ];
   } else if (entries.length === 0) {
     body = [
       row(state.items.length === 0 ? 'Nothing has been added yet.' : 'No entry matches the filters.', 'dim'),
     ];
   } else {
+    // rows are built only for the window: a board of 2000 entries is not sanitised in full on every key press
     const at = selectedIndex(state);
-    body = windowOf(
-      entries.map((item, i) => listLine(item, i === at, width, ascii)),
-      at,
-      room,
-    );
+    const first = Math.min(Math.max(0, at - Math.floor(room / 2)), Math.max(0, entries.length - room));
+    body = entries
+      .slice(first, first + room)
+      .map((item, i) => listLine(item, first + i === at, width, ascii));
   }
   return [...head, ...body, legend].slice(0, Math.max(1, height));
 }

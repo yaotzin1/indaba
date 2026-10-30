@@ -290,7 +290,10 @@ export function boardAction(state: BoardState, action: BoardAction): BoardState 
     case 'last':
       return pointAt(state, visible(state).at(-1));
     case 'open':
-      return visible(state).length === 0 || state.mode === 'facts' ? state : { ...state, mode: 'detail' };
+      // the entry is pinned: a note that arrives while it is open does not replace it
+      return visible(state).length === 0 || state.mode === 'facts'
+        ? state
+        : { ...pointAt(state, visible(state)[selectedIndex(state)]), mode: 'detail' };
     case 'close':
       return state.mode === 'list' ? state : { ...state, mode: 'list' };
     case 'facts':

@@ -114,7 +114,7 @@ export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiSta
   if (press === 'tab') {
     return { ...ui, focus: nextFocus(ui) };
   }
-  if (typeof press === 'object' && press.char === 'b') {
+  if (typeof press === 'object' && press.char === 'b' && !ui.help) {
     return ui.board ? { ...ui, board: false, focus: 'detail' } : { ...ui, board: true, focus: 'board' };
   }
   if (press === 'up' || (typeof press === 'object' && press.char === 'k')) {
