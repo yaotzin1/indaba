@@ -40,6 +40,7 @@ import {
   writeLoggingConfig,
 } from '@indaba/engine';
 import type { AuthChooser } from '@indaba/runners';
+import { describeBoard } from './board-plan.js';
 import {
   CATALOG_USAGE,
   type CatalogOptions,
@@ -892,6 +893,10 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
       }
     }
     io.stdout.write(`${n + 1}. ${step.id} [${who}]${extra.length === 0 ? '' : ` (${extra.join('; ')})`}\n`);
+    const board = describeBoard(step);
+    if (board !== undefined) {
+      io.stdout.write(`   ${board}\n`);
+    }
   });
 
   let failed = false;

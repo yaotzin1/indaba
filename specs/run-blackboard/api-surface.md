@@ -222,7 +222,7 @@ steps:
 | unknown key in `board` | refused | `steps[i].board.<key>` |
 
 `indaba validate` reports each with its path; `indaba plan` prints, per step with `board`, one line:
-`board: reads <steps|all ancestors> (<kinds>), at most <n> characters; may post <kinds|nothing>`.
+`   board: reads <steps|all ancestors> (<kinds>), at most <n> characters; may post <kinds|nothing>`, indented under the step's line. A step whose `board` has no `read` prints `   board: reads nothing; may post <kinds|nothing>`.
 
 ### `indaba` (the CLI)
 

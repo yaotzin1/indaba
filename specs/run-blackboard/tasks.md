@@ -58,7 +58,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   the event writer (the board has no default: unset, a secret reaches `.board.jsonl`; a test posts a secret through the built
   engine and finds it in no board record); registers `BoardWriter`; a write failure adds `indaba.board.degraded` (class name only)
   and does not fail the run. `layers.test.ts` stays green.
-- [ ] T18. `plan` prints the `board:` line; `validate` shows the errors of T8 with paths.
+- [x] T18. `plan` prints the `board:` line; `validate` shows the errors of T8 with paths.
 - [ ] T19. `watch --plain` prints the board section (AC-39), limited to 50 entries, with the count of older ones.
 - [ ] T20. End to end through the built CLI: a scripted runner posts lines; a later step's prompt (captured by the
   fake runner) holds the digest; a debate workflow shows its messages on the board; a replayed board equals the
