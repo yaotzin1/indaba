@@ -66,7 +66,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## `@indaba/tui`
 
-- [ ] T21. `emptyBoard`, `reduceBoard`, the filtered list, the facts and the detail view; pure tests: filters
+- [x] T21. `emptyBoard`, `reduceBoard`, the filtered list, the facts and the detail view; pure tests: filters
   combine and clear, discarded and superseded hidden by default, an unknown record, a record out of order.
 - [ ] T22. The board pane: layout, keys and legend of C-13, glyph and word per kind, `NO_COLOR`, ASCII fallback,
   sanitising of every string (a hostile entry cannot repaint the terminal), "no board file yet", "the board is

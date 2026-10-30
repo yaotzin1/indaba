@@ -10,6 +10,26 @@ import {
 import { runDashboard } from './dashboard.js';
 import { replay } from './replay.js';
 
+export type {
+  BoardAction,
+  BoardEntryKind,
+  BoardEntryState,
+  BoardFilters,
+  BoardItem,
+  BoardMode,
+  BoardState,
+} from './board-state.js';
+export {
+  activeFilters,
+  BOARD_KINDS,
+  boardAction,
+  detailOf,
+  emptyBoard,
+  factsOf,
+  reduceBoard,
+  selectedIndex,
+  visibleEntries,
+} from './board-state.js';
 export type { AppResult } from './ink/app.js';
 export type { Layout } from './layout.js';
 export { clip, computeLayout, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
