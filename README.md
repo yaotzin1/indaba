@@ -39,6 +39,10 @@ npx indaba@next run workflow.ai.yml
 - **A page to watch it in.** A local web view (`indaba ui`) shows your runs and follows one live: the steps as a graph,
   what each did, where a failure leads, and what it cost. It also starts and stops runs, lists your workflows, and edits
   a workflow as a form, a graph or text ([docs/web-view.md](docs/web-view.md); from a checkout for now).
+- **Notes between steps.** A step can leave short notes (a result, a fact, a question) on a run board and a later step can
+  read them, so agents hand work on without sharing a whole conversation. A debate's messages and outcome land on the same
+  board. `indaba watch --plain` ends with it and the dashboard has a board pane
+  ([docs/playbook.md](docs/playbook.md#reading-the-board)).
 - **Not only for code.** A step is an agent, an API call or a command, so a workflow can drive any
   tool reachable by `shell` or an MCP server: for example a media pipeline. Indaba ships no integration
   with any particular application.
@@ -100,7 +104,7 @@ write `pnpm indaba <command>` wherever these pages say `npx indaba <command>`, f
 
 More in `examples/`: `hello.workflow.ai.yml` (shell only, no key or agent; the first run of
 [getting-started](docs/getting-started.md)), `api-only.workflow.ai.yml`, `transport-fallback.workflow.ai.yml` (API, ACP
-and CLI in one workflow), `review-debate.workflow.ai.yml` (two agents debate a review) and `mcp.workflow.ai.yml`. A guided first run of this alpha is in
+and CLI in one workflow), `review-debate.workflow.ai.yml` (two agents debate a review), `board-handoff.workflow.ai.yml` (two steps pass notes through the board) and `mcp.workflow.ai.yml`. A recipe for each way of working is in [docs/playbook.md](docs/playbook.md), and one for AI agents in [docs/ai-playbook.md](docs/ai-playbook.md) (the site also serves `llms.txt` and `llms-full.txt`). A guided first run of this alpha is in
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
 
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no

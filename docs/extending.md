@@ -79,7 +79,10 @@ Behaviour worth knowing:
 
 Events you can listen to, all exported from `@indaba/core`: `StepStatusChanged` (`taskId`, `stepId`,
 `from`, `to`, optional `reason`), `SpanStarted` and `SpanEnded` (each carries a `span`), and `StepOutput` (`traceId`, `spanId`, `seq`, `text`: a
-chunk a runner streamed, not yet redacted). Names and payloads are public surface.
+chunk a runner streamed, not yet redacted), and `BoardRecorded` (`traceId` and `record`: every record the run's board
+makes, in order, already cleaned and redacted; a `board` start record, a `post`, a `settle` or a `truncated`). The built-in
+board file writer is a listener of `BoardRecorded` like any other, so a plugin sees exactly what it sees; for the notes
+between steps see [the board](workflow-format.md#the-board-notes-between-steps). Names and payloads are public surface.
 
 ## A complete plugin
 

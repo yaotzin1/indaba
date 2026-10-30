@@ -23,8 +23,27 @@ port". The PHP prototype that preceded them was never published.
   Every run now makes a board and hands it, with the attempt number, to each step; settlement follows the step's result
   and a retry's reset (`WorkflowEngineOptions.board` sets its limits and redaction).
   The step field `board:` (`read`, `post`, `digest_chars`) is parsed, validated with the path of each problem and
-  described in the editor schema; no run uses it yet, because the engine wiring, the file and the TUI pane follow in
-  the same feature.
+  described in the editor schema.
+- **The run board, in `@indaba/engine` and `indaba`** (minor; same feature). A step with `board.post` has its reply scanned
+  for `BOARD <kind>: <text>` lines (`BOARD fact <key>: <text>` for a fact); a step with `board.read` gets the notes of earlier steps
+  added to its prompt as a bounded section. Notes are settled with the step: accepted when it completes, discarded when it
+  fails, replaced when a retry resets it. A debate's messages, outcome and ruling are put on the board by the engine. Every
+  run writes `.indaba/traces/<traceId>.board.jsonl` (`BoardWriter`, read with `BoardReader`), redacted as the event stream is;
+  a failure to write it never fails the run and is reported once on the root span (`indaba.board.degraded`). New span
+  attributes: `indaba.board.digest.entries`, `.digest.chars`, `.digest.omitted`, `indaba.board.posted`, `indaba.board.ignored`.
+  `indaba plan` prints a `board:` line under each step that has the field, and `indaba watch --plain` ends with the board
+  (a run with no board file prints what it did). Workflows without `board` fields run byte for byte as before; the trace file
+  and event stream are pinned by a test against files the older code wrote. The new third file in `.indaba/traces` is the one
+  visible difference.
+- **The board pane, in `@indaba/tui`** (minor; same feature). `b` opens the board in the dashboard: one line per entry with a
+  symbol and a word per kind, filters by step, kind and sender, the facts, one entry in full, and plain messages when there is
+  no board file yet or the board is incomplete. `watch` follows the board file beside the trace. Exports: `reduceBoard`,
+  `boardAction`, `boardRows` and the related state functions. Docking the pane beside the step list on a wide terminal is not
+  done yet.
+- **Playbooks, and documentation for machines.** [docs/playbook.md](docs/playbook.md) has a recipe for each way of working, with terminal
+  pictures made from real output; [docs/ai-playbook.md](docs/ai-playbook.md) is for an AI agent that uses Indaba (the loop, exit
+  codes, the files, the board grammar, failures and what to do). The site build now also writes `llms.txt` (an index) and
+  `llms-full.txt` (every page in one Markdown file) at the site root, so they always match the documentation; `examples/board-handoff.workflow.ai.yml` shows the board.
 
 ## [0.1.0-alpha.4] - 2026-10-28
 

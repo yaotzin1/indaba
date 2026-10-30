@@ -5,6 +5,7 @@
 > [Ink](https://github.com/vadimdemedes/ink). It reads the span events added by `specs/transport-priority`.
 > **Stage entry**: 3 (clarified; plan and tasks written)
 > **Semver impact**: minor (a new optional package, a new command and a new trace file; below 1.0)
+> **See also**: [`specs/run-blackboard`](../run-blackboard/spec.md) adds a board pane to this dashboard (`b`) and a board section to `watch --plain`.
 > **Siblings**: [`specs/web-app`](../web-app/spec.md) and [`specs/desktop-app`](../desktop-app/spec.md)
 > are separate specs. This one is the smallest of the three and can ship first.
 > **Licensing rule**: every dependency must be open source and MIT-compatible, transitively. See

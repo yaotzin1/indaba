@@ -78,13 +78,13 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 ## Documentation and gates
 
-- [ ] T24. `docs/workflow-format.md` (the `board` field, the post lines with a worked example, the digest, what a
+- [x] T24. `docs/workflow-format.md` (the `board` field, the post lines with a worked example, the digest, what a
   retry does to the board, the limits and that they are not measured), `docs/getting-started.md` (reading the
   board in the TUI), `docs/extending.md` (the `BoardRecorded` event for listeners), `README.md`, `CHANGELOG.md`
   under Unreleased, `specs/DEPENDENCY_MAP.md`, `AGENTS.md` repository map if a path changed.
-- [ ] T25. An example `examples/board-handoff.workflow.ai.yml` (two steps, the second reading the first's result
+- [x] T25. An example `examples/board-handoff.workflow.ai.yml` (two steps, the second reading the first's result
   and fact); it passes `indaba validate` and `indaba plan` from the built CLI, and a test keeps it parsing.
-- [ ] T26. `specs/agent-mesh` and `specs/tui` get a pointer to this spec; `specs/workflow-editor` is told of the new
+- [x] T26. `specs/agent-mesh` and `specs/tui` get a pointer to this spec; `specs/workflow-editor` is told of the new
   field (its schema is generated from the parser, so no text is copied).
 - [ ] T27. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
 - [ ] T28. Fill `review.md`.

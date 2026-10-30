@@ -10,6 +10,7 @@
 > section 3B. Treat as a description to be corrected by review.
 > **Stage entry**: 1 (retroactive)
 > **Semver impact**: minor (first public surface; below 1.0)
+> **See also**: [`specs/run-blackboard`](../run-blackboard/spec.md) puts a debate's messages, outcome and rulings on the run board, so later steps can read them; the mesh itself is unchanged.
 
 ---
 

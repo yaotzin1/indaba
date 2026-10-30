@@ -23,6 +23,7 @@ const DOCS = path.join(ROOT, 'docs');
 const SITE = path.join(ROOT, 'site');
 const OUT = path.join(ROOT, '_site');
 export const REPO = 'https://github.com/yaotzin1/indaba';
+export const SITE_URL = 'https://yaotzin1.github.io/indaba/';
 
 /** The navigation, in order. `file` is relative to docs/; `blurb` is the line on the landing page's map. */
 export const PAGES = [
@@ -30,6 +31,8 @@ export const PAGES = [
         group: 'Start here',
         items: [
             { file: 'getting-started.md', label: 'Getting started', blurb: 'Install, a first run, the commands' },
+            { file: 'playbook.md', label: 'Playbook', blurb: 'Recipes for each way of working: check, plan, run, watch, the board, debates' },
+            { file: 'ai-playbook.md', label: 'Playbook for AI agents', blurb: 'For an agent that uses Indaba: the loop, exit codes, files, the board grammar' },
             { file: 'using-the-alpha.md', label: 'Using the alpha', blurb: 'API, ACP or CLI: which transport, when' },
             { file: 'positioning.md', label: 'What Indaba is', blurb: 'Who it is for, and what it is not' },
         ],
@@ -94,6 +97,42 @@ export function checkNavigation(docFiles) {
         }
     }
     return problems;
+}
+
+/** The index for language models (llms.txt): the project in a few lines, then every page with its one-line purpose. */
+export function llmsIndex(pages = PAGES) {
+    const lines = [
+        '# Indaba',
+        '',
+        '> Indaba is a deterministic orchestration, debate and observability engine for multi-agent AI workflows, in TypeScript for Node 22+, MIT licensed. A workflow is a graph of steps with quality gates; agents can debate to consensus; steps can leave each other notes on a run board; every run is traced with token and cost accounting.',
+        '',
+        'Start with the playbook for AI agents. The whole documentation as one file is llms-full.txt.',
+        '',
+        `- [llms-full.txt](${SITE_URL}llms-full.txt): every page below in one Markdown file`,
+        '',
+    ];
+    for (const g of pages) {
+        lines.push(`## ${g.group}`, '');
+        for (const i of g.items) lines.push(`- [${i.label}](${SITE_URL}${htmlName(i.file)}): ${i.blurb}`);
+        lines.push('');
+    }
+    lines.push('## Source', '', `- [Repository](${REPO}): code, specs and examples`, `- [Examples](${REPO}/tree/main/examples): workflow files that validate`, '');
+    return lines.join('\n');
+}
+
+/** Every page of the navigation as one Markdown document, in navigation order, each under its title and address. */
+export function llmsFull(read, pages = PAGES) {
+    const parts = [llmsIndex(pages).trimEnd()];
+    for (const g of pages) {
+        for (const i of g.items) {
+            parts.push(`---
+
+Source: ${SITE_URL}${htmlName(i.file)}
+
+${read(i.file).trimEnd()}`);
+        }
+    }
+    return `${parts.join('\n\n')}\n`;
 }
 
 /** A heading's id, the way GitHub makes it, so `#logs` style links written for GitHub keep working. */
@@ -169,6 +208,8 @@ async function build() {
         fs.copyFileSync(path.join(fontsource, from), path.join(OUT, 'site', 'fonts', name));
     }
     fs.writeFileSync(path.join(OUT, '.nojekyll'), '');
+    fs.writeFileSync(path.join(OUT, 'llms.txt'), llmsIndex());
+    fs.writeFileSync(path.join(OUT, 'llms-full.txt'), llmsFull((file) => fs.readFileSync(path.join(DOCS, file), 'utf8')));
 
     const sidenav = (current) =>
         PAGES.map(
