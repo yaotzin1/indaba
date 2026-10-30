@@ -35,7 +35,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   today); `runAgent` and the debate topic use it; the three span attributes.
 - [x] T11. Posting from replies: only with `board.post`, only a successful result, only the runner's output;
   counts on the span; a failing step's posts are `discarded`; a completed step's are `accepted`.
-- [ ] T12. Retry isolation (AC-24): a step fails once, is retried; the second prompt holds the last failure and no
+- [x] T12. (the debate-retry clause is tested with T13, when debates post.) Retry isolation (AC-24): a step fails once, is retried; the second prompt holds the last failure and no
   entry of the first attempt (settled or still pending); entries of reset steps are `superseded` and absent from
   digests; a step run again from attempt 1 leaves the state of its earlier entries as it was (a re-run test);
   a debate step that is retried supersedes the failed attempt's entries.
