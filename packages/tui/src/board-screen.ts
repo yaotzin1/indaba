@@ -90,7 +90,8 @@ export function boardKeyLines(mode: BoardState['mode'], ascii: boolean): readonl
       return ['f back to the list   s step   x clear   b close the board'];
     case 'list':
       return [
-        `${arrows} move   Enter open   s step   t kind   r sender   x clear   f facts   d discarded   b close`,
+        `${arrows} move   Enter open   s step   t kind   r sender`,
+        'x clear   f facts   d show or hide discarded   b close the board',
       ];
   }
 }
@@ -180,8 +181,8 @@ export function boardRows(
     'dim',
   );
   const head = [title, ...notices(pane, width, ascii), shown];
-  const legend = row(clip(boardKeyLines(state.mode, ascii).join(' '), width, ascii), 'dim');
-  const room = Math.max(1, height - head.length - 1);
+  const legend = boardKeyLines(state.mode, ascii).map((line) => row(clip(line, width, ascii), 'dim'));
+  const room = Math.max(1, height - head.length - legend.length);
 
   let body: Row[];
   if (state.mode === 'facts') {
@@ -218,7 +219,7 @@ export function boardRows(
       .slice(first, first + room)
       .map((item, i) => listLine(item, first + i === at, width, ascii));
   }
-  return [...head, ...body, legend].slice(0, Math.max(1, height));
+  return [...head, ...body, ...legend].slice(0, Math.max(1, height));
 }
 
 export interface BoardKeyContext {

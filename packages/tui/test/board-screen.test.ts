@@ -85,7 +85,8 @@ describe('boardRows', () => {
     expect(text(rows)).toContain('#6  build  build  ● Note (pending)  half done');
     expect(text(rows)).not.toContain('which size?');
     expect(rows[0]?.text).toBe('Board: notes between steps (4)');
-    expect(rows.at(-1)?.text).toContain('Enter open');
+    expect(rows.at(-2)?.text).toContain('Enter open');
+    expect(rows.at(-1)?.text).toContain('b close the board');
   });
 
   it('shows the discarded entry, in words, once asked', () => {
@@ -306,7 +307,7 @@ describe('the board keys', () => {
       'r sender',
       'x clear',
       'f facts',
-      'd discarded',
+      'd show or hide discarded',
       'b close',
     ]) {
       expect(legend).toContain(word);
@@ -418,7 +419,7 @@ describe('what the independent review found', () => {
     const rows = boardRows({ state, degraded: false }, 60, 14, { ascii: false });
     expect(rows).toHaveLength(14);
     expect(rows.filter((r) => r.selected).map((r) => r.text)).toEqual([expect.stringContaining('#1  s')]);
-    expect(rows.filter((r) => r.text.startsWith('#'))).toHaveLength(11);
+    expect(rows.filter((r) => r.text.startsWith('#'))).toHaveLength(10);
   });
 
   it('checks the words of the list lines too, not only the other rows', () => {
