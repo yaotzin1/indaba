@@ -235,14 +235,28 @@ steps:
 ### `@indaba/tui`
 
 ```ts
-export interface BoardState { /* entries by seq, settlements, facts, filters, selection; opaque to callers */ }
+// board-state.ts: pure, no terminal (T21)
+export interface BoardState { /* items (entry + state), settlements, filters, mode, cursor; opaque to callers */ }
 export function emptyBoard(): BoardState;
-export function reduceBoard(state: BoardState, record: BoardFileRecord): BoardState;     // pure, total
-export function formatBoardPlain(state: BoardState, options?: { readonly maxEntries?: number }): string;   // default 50
+export function reduceBoard(state: BoardState, record: BoardFileRecord): BoardState;   // pure, total, any order
+export function boardAction(state: BoardState, action: BoardAction): BoardState;
+export function visibleEntries(state): readonly BoardItem[];   // also selectedIndex, factsOf, detailOf, activeFilters
+
+// board-screen.ts (T22): rows for the pane, every string sanitised
+export interface BoardPane { readonly state: BoardState; readonly degraded: boolean }
+export function boardRows(pane: BoardPane | undefined, width: number, height: number, options: { ascii: boolean }): Row[];
+export function boardKey(state: BoardState, press: KeyName, context: { stepId?: string; pageSize: number }): BoardState | undefined;
 ```
 
-The dashboard gains the board pane, its keys and its legend lines (`specs/run-blackboard/spec.md`, C-13).
-`watch` accepts an optional `BoardReader`-compatible source; with none, the board pane says there is no board.
+`UiState` gains `board: boolean` (the pane is open) and `focus` gains `'board'`; `buildScreen` gains an optional fifth
+parameter, `BoardPane`; `AppProps`/`watch` gain an optional board source. All additive. The plain section of
+`watch --plain` is in the CLI (`board-section.ts`, T19), not in the TUI. The pane is switchable with `b`; docking it
+beside the step list on a wide terminal (C-13) waits for a width chosen from a sketch.
+
+Keys, when the board has the arrow keys (`b` opens it and gives it focus, `tab` moves the focus): `up`/`down`/`j`/`k` move,
+`g`/`G` first/last, `PgUp`/`PgDn` page, `Enter` opens an entry, `Esc` goes back (then closes the pane), `s` filters to the
+selected step, `t` the kind, `r` the sender, `x` clears the filters, `f` shows the facts, `d` shows or hides discarded and
+replaced entries. `f` and `d` mean follow and scroll on the other panes: the focus decides.
 
 ## Events and attributes
 

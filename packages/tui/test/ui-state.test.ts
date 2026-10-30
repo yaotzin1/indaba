@@ -20,6 +20,7 @@ describe('initialUi', () => {
       scroll: 0,
       follow: true,
       focus: 'list',
+      board: false,
       help: false,
       confirmQuit: false,
       quit: 'none',
@@ -196,5 +197,33 @@ describe('clampUi', () => {
   it('returns the same object when nothing needed clamping', () => {
     const ui = from({ selected: 1, scroll: 2 });
     expect(clampUi(ui, ctx())).toBe(ui);
+  });
+});
+
+describe('the board pane (b)', () => {
+  it('opens in place of the detail pane and takes the arrow keys, and b or Esc closes it', () => {
+    const open = press(initialUi(), ch('b'));
+    expect(open).toMatchObject({ board: true, focus: 'board' });
+    expect(press(open, ch('b'))).toMatchObject({ board: false, focus: 'detail' });
+    expect(press(open, 'escape')).toMatchObject({ board: false, focus: 'detail' });
+  });
+
+  it('moves the arrow keys between the step list and the board with tab, and not to a pane that is hidden', () => {
+    const open = press(initialUi(), ch('b'));
+    expect(press(open, 'tab').focus).toBe('list');
+    expect(press(press(open, 'tab'), 'tab').focus).toBe('board');
+    expect(press(initialUi(), 'tab').focus).toBe('detail');
+  });
+
+  it('leaves the step selection and the output scroll alone when the arrows belong to the board', () => {
+    const open = press(initialUi(), ch('b'));
+    expect(press(open, 'down')).toEqual(open);
+    expect(press(open, 'up')).toEqual(open);
+    expect(press(open, ch('j'))).toEqual(open);
+  });
+
+  it('closes help before it closes the board', () => {
+    const helped = press(press(initialUi(), ch('b')), ch('?'));
+    expect(press(helped, 'escape')).toMatchObject({ help: false, board: true });
   });
 });

@@ -10,6 +10,8 @@ import {
 import { runDashboard } from './dashboard.js';
 import { replay } from './replay.js';
 
+export type { BoardKeyContext, BoardPane } from './board-screen.js';
+export { boardHelpRows, boardKey, boardKeyLines, boardRows, KIND_MARKS } from './board-screen.js';
 export type {
   BoardAction,
   BoardEntryKind,

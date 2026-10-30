@@ -8,7 +8,9 @@ export interface UiState {
   readonly scroll: number;
   /** Stay at the newest output as it arrives. */
   readonly follow: boolean;
-  readonly focus: 'list' | 'detail';
+  readonly focus: 'list' | 'detail' | 'board';
+  /** The board pane takes the place of the detail pane (`b`). */
+  readonly board: boolean;
   readonly help: boolean;
   /** The "detach or cancel?" question is open (only for a run the screen started). */
   readonly confirmQuit: boolean;
@@ -46,6 +48,7 @@ export function initialUi(): UiState {
     scroll: 0,
     follow: true,
     focus: 'list',
+    board: false,
     help: false,
     confirmQuit: false,
     quit: 'none',
@@ -74,6 +77,14 @@ function scrollBy(ui: UiState, lines: number, context: UiContext): UiState {
   return { ...ui, scroll, follow: scroll === 0 };
 }
 
+/** Tab moves the arrow keys between the step list and the other pane, which is the board while it is open. */
+function nextFocus(ui: UiState): UiState['focus'] {
+  if (ui.focus === 'list') {
+    return ui.board ? 'board' : 'detail';
+  }
+  return 'list';
+}
+
 export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiState {
   if (ui.confirmQuit) {
     if (typeof press === 'object') {
@@ -95,16 +106,30 @@ export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiSta
     return context.attached ? { ...ui, confirmQuit: true } : { ...ui, quit: 'close' };
   }
   if (press === 'escape') {
-    return ui.help ? { ...ui, help: false } : ui;
+    if (ui.help) {
+      return { ...ui, help: false };
+    }
+    return ui.board ? { ...ui, board: false, focus: 'detail' } : ui;
   }
   if (press === 'tab') {
-    return { ...ui, focus: ui.focus === 'list' ? 'detail' : 'list' };
+    return { ...ui, focus: nextFocus(ui) };
+  }
+  if (typeof press === 'object' && press.char === 'b') {
+    return ui.board ? { ...ui, board: false, focus: 'detail' } : { ...ui, board: true, focus: 'board' };
   }
   if (press === 'up' || (typeof press === 'object' && press.char === 'k')) {
-    return ui.focus === 'list' ? select(ui, ui.selected - 1, context) : scrollBy(ui, 1, context);
+    return ui.focus === 'list'
+      ? select(ui, ui.selected - 1, context)
+      : ui.focus === 'board'
+        ? ui
+        : scrollBy(ui, 1, context);
   }
   if (press === 'down' || (typeof press === 'object' && press.char === 'j')) {
-    return ui.focus === 'list' ? select(ui, ui.selected + 1, context) : scrollBy(ui, -1, context);
+    return ui.focus === 'list'
+      ? select(ui, ui.selected + 1, context)
+      : ui.focus === 'board'
+        ? ui
+        : scrollBy(ui, -1, context);
   }
   if (press === 'home' || (typeof press === 'object' && press.char === 'g')) {
     return select(ui, 0, context);

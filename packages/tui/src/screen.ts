@@ -8,6 +8,7 @@ import {
   stepMark,
   toolsText,
 } from '@indaba/engine';
+import { type BoardPane, boardHelpRows, boardRows } from './board-screen.js';
 import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS, wrap } from './layout.js';
 import type { UiState } from './ui-state.js';
 
@@ -239,6 +240,7 @@ export function helpRows(width: number, ascii: boolean): Row[] {
     row('f            follow the newest output', 'normal'),
     row('tab          move the arrow keys between the panes', 'normal'),
     row('?            close this', 'normal'),
+    row('b            the board: notes between steps', 'normal'),
     row('q, ctrl-c    quit', 'normal'),
   ].map((r) => ({ ...r, text: clip(r.text, width, ascii) }));
 }
@@ -252,12 +254,20 @@ function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
     );
   }
   const follow = ui.follow ? 'f follow*' : 'f follow';
-  const keys = `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   ? help   q quit`;
+  const keys = ui.board
+    ? `${arrows} board   tab pane   b close board   ? help   q quit`
+    : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
   return row(clip(keys, layout.columns, options.ascii), 'dim');
 }
 
 /** Everything the screen shows, as rows. Pure: the same run, state and size always give the same rows. */
-export function buildScreen(run: RunState, ui: UiState, layout: Layout, options: ScreenOptions): Screen {
+export function buildScreen(
+  run: RunState,
+  ui: UiState,
+  layout: Layout,
+  options: ScreenOptions,
+  board?: BoardPane,
+): Screen {
   const header = row(
     clip(formatHeader(run, { ascii: options.ascii }), layout.columns, options.ascii),
     runTone(run.status),
@@ -270,10 +280,17 @@ export function buildScreen(run: RunState, ui: UiState, layout: Layout, options:
     return {
       header,
       list,
-      detail: helpRows(layout.detailWidth, options.ascii).slice(0, layout.detailRows),
+      detail: [
+        ...helpRows(layout.detailWidth, options.ascii),
+        ...boardHelpRows(layout.detailWidth, options.ascii),
+      ].slice(0, layout.detailRows),
       footer: footerRow(ui, layout, options),
       outputLines: 0,
     };
+  }
+  if (ui.board) {
+    const rows = boardRows(board, layout.detailWidth, layout.detailRows, { ascii: options.ascii });
+    return { header, list, detail: rows, footer: footerRow(ui, layout, options), outputLines: 0 };
   }
   const { rows, outputLines } = detailRows(run, ui, layout, options);
   return { header, list, detail: rows, footer: footerRow(ui, layout, options), outputLines };

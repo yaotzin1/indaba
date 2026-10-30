@@ -68,9 +68,11 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 
 - [x] T21. `emptyBoard`, `reduceBoard`, the filtered list, the facts and the detail view; pure tests: filters
   combine and clear, discarded and superseded hidden by default, an unknown record, a record out of order.
-- [ ] T22. The board pane: layout, keys and legend of C-13, glyph and word per kind, `NO_COLOR`, ASCII fallback,
+- [x] T22. The board pane: layout, keys and legend of C-13, glyph and word per kind, `NO_COLOR`, ASCII fallback,
   sanitising of every string (a hostile entry cannot repaint the terminal), "no board file yet", "the board is
   incomplete". Reconcile the keys with the dashboard's legend.
+  Done as a switchable pane (`b`); the dock beside the step list on a wide terminal (C-13) is left for a width chosen
+  from a sketch, and AC-33 stays open for it. AC-34's word for `superseded` is now `replaced` (AC-40).
 - [ ] T23. `watch` follows the board file beside the trace; a layers test keeps `@indaba/tui` importing only
   `BoardReader` and value types from the engine; `@indaba/tui` still loads optionally.
 

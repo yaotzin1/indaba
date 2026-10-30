@@ -200,7 +200,8 @@ Checkable statements; each becomes at least one test when implementation is sche
 - [ ] AC-34. The pane filters by step (the one selected in the step list), by kind and by sender; filters
   combine, show what is active, and clear in one key. `pending` entries are shown by default and marked
   `pending`, so a step's notes can be read while it runs; `discarded` and `superseded` entries are hidden by
-  default, can be shown, and then carry the word `discarded` or `superseded`.
+  default, can be shown, and then carry the word `discarded` or `replaced` (the word for a `superseded` entry:
+  AC-40 keeps `supersede` out of everything the person reads).
 - [ ] AC-35. `Enter` opens one entry in full (its step, attempt, sender, kind, round, time, text) and `Esc`
   returns to the list. A facts view lists the current value of each fact with the step that set it.
 - [ ] AC-36. All board text is sanitised by the TUI's sanitiser before it reaches a component (`specs/tui`
