@@ -33,7 +33,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   Settlement after `execute` (ok, failed, escalated, cancelled) and `supersede` in the retry reset loop.
 - [x] T10. Digest in prompts: `PromptBuilder.build` with and without a digest (the latter byte-identical to
   today); `runAgent` and the debate topic use it; the three span attributes.
-- [ ] T11. Posting from replies: only with `board.post`, only a successful result, only the runner's output;
+- [x] T11. Posting from replies: only with `board.post`, only a successful result, only the runner's output;
   counts on the span; a failing step's posts are `discarded`; a completed step's are `accepted`.
 - [ ] T12. Retry isolation (AC-24): a step fails once, is retried; the second prompt holds the last failure and no
   entry of the first attempt (settled or still pending); entries of reset steps are `superseded` and absent from

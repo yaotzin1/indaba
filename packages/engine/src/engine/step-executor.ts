@@ -30,6 +30,7 @@ import {
   isShellStep,
   McpUnavailableError,
   PermissionLevel,
+  parseBoardLines,
   permissionCapabilitiesOf,
   Ruling,
   RulingSource,
@@ -321,12 +322,44 @@ export class StepExecutor {
       );
     }
 
-    return result.succeeded()
-      ? StepOutcome.ok()
-      : StepOutcome.failed(
-          `Runner ${chain.name} exited with code ${result.exitCode}.
+    if (result.succeeded()) {
+      this.postFromReply(step, result.output, span, options);
+      return StepOutcome.ok();
+    }
+    return StepOutcome.failed(
+      `Runner ${chain.name} exited with code ${result.exitCode}.
 ${this.prompts.tail(result.failureText())}`,
-        );
+    );
+  }
+
+  /**
+   * Takes the `BOARD` lines of a successful reply onto the run board (specs/run-blackboard, AC-04 to AC-08). Only a step
+   * with `board.post` is scanned, and only the runner's own output; the entries stay pending until the step settles.
+   * The span gets counts, never text.
+   */
+  private postFromReply(step: StepDefinition, output: string, span: Span, options: StepRunOptions): void {
+    const post = step.board?.post;
+    if (post === undefined || post.length === 0 || options.board === undefined) {
+      return;
+    }
+    const parsed = parseBoardLines(output, post);
+    let posted = 0;
+    for (const line of parsed.posts) {
+      const entry = options.board.post({
+        stepId: step.id,
+        attempt: options.attempt ?? 1,
+        source: 'agent',
+        sender: step.role ?? step.id,
+        kind: line.kind,
+        ...(line.key !== undefined ? { key: line.key } : {}),
+        text: line.text,
+      });
+      if (entry !== undefined) {
+        posted += 1;
+      }
+    }
+    span.setAttribute('indaba.board.posted', posted);
+    span.setAttribute('indaba.board.ignored', parsed.ignored + (parsed.posts.length - posted));
   }
 
   /**
