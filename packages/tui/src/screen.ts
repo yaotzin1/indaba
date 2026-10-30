@@ -32,6 +32,8 @@ export interface Screen {
   readonly header: Row;
   readonly list: readonly Row[];
   readonly detail: readonly Row[];
+  /** The board docked beside the detail pane; empty unless the layout docks it. */
+  readonly dock: readonly Row[];
   readonly footer: Row;
   /** Lines of output the selected step has, for the scroll limit. */
   readonly outputLines: number;
@@ -255,8 +257,8 @@ function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
   }
   const follow = ui.follow ? 'f follow*' : 'f follow';
   const keys =
-    ui.board && ui.focus === 'board'
-      ? `${arrows} board   tab pane   b close board   ? help   q quit`
+    ui.focus === 'board'
+      ? `${arrows} board   tab pane   b ${layout.dockWidth > 0 ? 'back to the steps' : 'close board'}   ? help   q quit`
       : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
   return row(clip(keys, layout.columns, options.ascii), 'dim');
 }
@@ -274,7 +276,14 @@ export function buildScreen(
     runTone(run.status),
   );
   if (layout.mode === 'too-small') {
-    return { header, list: [], detail: tooSmallRows(layout), footer: row('', 'dim'), outputLines: 0 };
+    return {
+      header,
+      list: [],
+      detail: tooSmallRows(layout),
+      dock: [],
+      footer: row('', 'dim'),
+      outputLines: 0,
+    };
   }
   const list = listRows(run, ui, layout, options);
   if (ui.help) {
@@ -285,14 +294,17 @@ export function buildScreen(
         ...helpRows(layout.detailWidth, options.ascii),
         ...boardHelpRows(layout.detailWidth, options.ascii),
       ].slice(0, layout.detailRows),
+      dock: [],
       footer: footerRow(ui, layout, options),
       outputLines: 0,
     };
   }
-  if (ui.board) {
+  const docked = layout.dockWidth > 0;
+  const dock = docked ? boardRows(board, layout.dockWidth, layout.dockRows, { ascii: options.ascii }) : [];
+  if (ui.board && !docked) {
     const rows = boardRows(board, layout.detailWidth, layout.detailRows, { ascii: options.ascii });
-    return { header, list, detail: rows, footer: footerRow(ui, layout, options), outputLines: 0 };
+    return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines: 0 };
   }
   const { rows, outputLines } = detailRows(run, ui, layout, options);
-  return { header, list, detail: rows, footer: footerRow(ui, layout, options), outputLines };
+  return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines };
 }

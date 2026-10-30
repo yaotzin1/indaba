@@ -250,8 +250,9 @@ export function boardKey(state: BoardState, press: KeyName, context: { stepId?: 
 
 `UiState` gains `board: boolean` (the pane is open) and `focus` gains `'board'`; `buildScreen` gains an optional fifth
 parameter, `BoardPane`; `AppProps`/`watch` gain an optional board source. All additive. The plain section of
-`watch --plain` is in the CLI (`board-section.ts`, T19), not in the TUI. The pane is switchable with `b`; docking it
-beside the step list on a wide terminal (C-13) waits for a width chosen from a sketch.
+`watch --plain` is in the CLI (`board-section.ts`, T19), not in the TUI. The pane is switchable with `b`; with a board and at least `DOCK_COLUMNS` (160, a first choice) columns it is
+docked beside the other panes instead, `computeLayout` gains an optional third parameter `{ dock }`, `Layout` gains
+`dockWidth` and `dockRows`, `Screen` gains `dock`, and `UiContext` an optional `docked`; `b` then moves the arrow keys.
 
 Keys, when the board has the arrow keys (`b` opens it and gives it focus, `tab` moves the focus): `up`/`down`/`j`/`k` move,
 `g`/`G` first/last, `PgUp`/`PgDn` page, `Enter` opens an entry, `Esc` goes back (then closes the pane), `s` filters to the

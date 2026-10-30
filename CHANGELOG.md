@@ -38,8 +38,9 @@ port". The PHP prototype that preceded them was never published.
 - **The board pane, in `@indaba/tui`** (minor; same feature). `b` opens the board in the dashboard: one line per entry with a
   symbol and a word per kind, filters by step, kind and sender, the facts, one entry in full, and plain messages when there is
   no board file yet or the board is incomplete. `watch` follows the board file beside the trace. Exports: `reduceBoard`,
-  `boardAction`, `boardRows` and the related state functions. Docking the pane beside the step list on a wide terminal is not
-  done yet.
+  `boardAction`, `boardRows` and the related state functions. On a terminal at least `DOCK_COLUMNS` (160) wide, with a board,
+  the pane is docked beside the steps and the output; `computeLayout` takes an optional `{ dock }`, `Layout` gains `dockWidth` and
+  `dockRows`, `Screen` gains `dock`. The width is a first choice from rendering a few sizes, not a measurement.
 - **Playbooks, and documentation for machines.** [docs/playbook.md](docs/playbook.md) has a recipe for each way of working, with terminal
   pictures made from real output; [docs/ai-playbook.md](docs/ai-playbook.md) is for an AI agent that uses Indaba (the loop, exit
   codes, the files, the board grammar, failures and what to do). The site build now also writes `llms.txt` (an index) and

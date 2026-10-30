@@ -71,8 +71,8 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
 - [x] T22. The board pane: layout, keys and legend of C-13, glyph and word per kind, `NO_COLOR`, ASCII fallback,
   sanitising of every string (a hostile entry cannot repaint the terminal), "no board file yet", "the board is
   incomplete". Reconcile the keys with the dashboard's legend.
-  Done as a switchable pane (`b`); the dock beside the step list on a wide terminal (C-13) is left for a width chosen
-  from a sketch, and AC-33 stays open for it. AC-34's word for `superseded` is now `replaced` (AC-40).
+  Done as a switchable pane (`b`); the dock beside the step list on a wide terminal (C-13) followed, at 160 columns, a first
+  choice from rendering 120, 140 and 160 (`DOCK_COLUMNS`), to be moved when people have tried real terminals. AC-34's word for `superseded` is now `replaced` (AC-40).
 - [x] T23. `watch` follows the board file beside the trace; a layers test keeps `@indaba/tui` importing only
   `BoardReader` and value types from the engine; `@indaba/tui` still loads optionally.
 

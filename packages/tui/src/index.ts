@@ -36,7 +36,7 @@ export {
 } from './board-state.js';
 export type { AppResult } from './ink/app.js';
 export type { Layout } from './layout.js';
-export { clip, computeLayout, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
+export { clip, computeLayout, DOCK_COLUMNS, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
 export { MAX_REPLAY_WAIT_MS, replay } from './replay.js';
 export type { Row, Screen, ScreenOptions, Tone } from './screen.js';
 export { buildScreen, stepLine, stepTone, tooSmallRows } from './screen.js';

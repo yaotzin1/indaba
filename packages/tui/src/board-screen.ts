@@ -91,7 +91,7 @@ export function boardKeyLines(mode: BoardState['mode'], ascii: boolean): readonl
     case 'list':
       return [
         `${arrows} move   Enter open   s step   t kind   r sender`,
-        'x clear   f facts   d show or hide discarded   b close the board',
+        'x clear   f facts   d discarded   b close',
       ];
   }
 }

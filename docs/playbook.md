@@ -93,7 +93,7 @@ left and the output of the selected one on the right; below 80 columns they stac
 | `PgUp` `PgDn` | scroll the output |
 | `f` | follow the newest output |
 | `tab` | move the arrow keys to the other pane |
-| `b` | open or close the board |
+| `b` | open or close the board (on a wide terminal: move the arrow keys to it and back) |
 | `?` | list the keys |
 | `q` | quit (it asks what to do with a run it started) |
 
@@ -130,7 +130,14 @@ thrown away because their step failed (`discarded`), or replaced because a retry
 | `x` | clear every filter |
 | `f` | the facts: the current value of each, and the step that set it |
 | `d` | show or hide discarded and replaced entries |
-| `b` or `Esc` | close the board |
+| `b` or `Esc` | close the board (docked: hand the arrow keys back to the steps) |
+
+**On a wide terminal** (160 columns or more, and a run that has a board) the board is docked on the right, beside the steps
+and their output, and you see the discussion and the step in progress without pressing anything. `b` then moves the arrow
+keys to the board and back, `tab` goes round the steps, the output and the board, and `Esc` hands the arrow keys back to
+the steps. The width is a first choice, not a measurement; below it, `b` swaps the board in for the output as described here.
+
+![The board docked beside the steps and the output](assets/board-dock.svg)
 
 Which keys apply depends on where the arrow keys are: after `b` they are on the board, and `tab` moves them back to the
 step list. That is why `f` follows the output in the step list and shows the facts on the board.

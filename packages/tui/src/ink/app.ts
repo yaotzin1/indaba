@@ -158,7 +158,7 @@ export function App(props: AppProps): ReactElement {
     };
   }, [props.board]);
 
-  const layout = computeLayout(size.columns, size.rows);
+  const layout = computeLayout(size.columns, size.rows, { dock: props.board !== undefined });
   const selectedStep = run.steps[ui.selected];
   const context: UiContext = {
     steps: run.steps.length,
@@ -166,6 +166,7 @@ export function App(props: AppProps): ReactElement {
       selectedStep === undefined ? 0 : selectedStep.output.length + (selectedStep.partialLine === '' ? 0 : 1),
     pageSize: Math.max(1, layout.detailRows - 3),
     attached: props.attached,
+    docked: layout.dockWidth > 0,
   };
 
   useInput((input, key) => {
@@ -173,7 +174,7 @@ export function App(props: AppProps): ReactElement {
     if (press === undefined) {
       return;
     }
-    if (ui.board && ui.focus === 'board' && !ui.help && !ui.confirmQuit) {
+    if (ui.focus === 'board' && !ui.help && !ui.confirmQuit) {
       const keyContext: BoardKeyContext = {
         pageSize: context.pageSize,
         ...(selectedStep === undefined ? {} : { stepId: selectedStep.id }),
@@ -190,7 +191,7 @@ export function App(props: AppProps): ReactElement {
   // after the run changed, keep the selection and the scroll inside what exists
   useEffect(() => {
     dispatch({ clamp: context });
-  }, [context.steps, context.outputLines]);
+  }, [context.steps, context.outputLines, context.docked]);
 
   useEffect(() => {
     if (ui.quit !== 'none' && !reported.current) {

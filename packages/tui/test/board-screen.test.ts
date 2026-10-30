@@ -86,7 +86,7 @@ describe('boardRows', () => {
     expect(text(rows)).not.toContain('which size?');
     expect(rows[0]?.text).toBe('Board: notes between steps (4)');
     expect(rows.at(-2)?.text).toContain('Enter open');
-    expect(rows.at(-1)?.text).toContain('b close the board');
+    expect(rows.at(-1)?.text).toContain('b close');
   });
 
   it('shows the discarded entry, in words, once asked', () => {
@@ -307,7 +307,7 @@ describe('the board keys', () => {
       'r sender',
       'x clear',
       'f facts',
-      'd show or hide discarded',
+      'd discarded',
       'b close',
     ]) {
       expect(legend).toContain(word);
