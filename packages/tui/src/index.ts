@@ -1,4 +1,6 @@
 import {
+  type BoardFileRecord,
+  BoardReader,
   isRunId,
   type Logger,
   noopLogger,
@@ -109,6 +111,14 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
     ? replay(await reader.readAll(options.runId), { speed: options.speed, signal: controller.signal })
     : reader.follow(options.runId, controller.signal);
 
+  // the board is a file beside the trace: read whole for a replay, followed for a live run
+  const boards = new BoardReader(options.directory);
+  const board: AsyncIterable<BoardFileRecord> = options.replay
+    ? (async function* () {
+        yield* await boards.readAll(options.runId);
+      })()
+    : boards.follow(options.runId, controller.signal);
+
   logger.info('tui.dashboard', 'the dashboard opened', {
     replay: options.replay,
     attached: options.attached,
@@ -117,6 +127,7 @@ export async function watch(options: WatchOptions): Promise<WatchResult> {
     const result = await runDashboard({
       logger,
       source,
+      board,
       attached: options.attached,
       ascii: options.ascii,
       color: options.color,

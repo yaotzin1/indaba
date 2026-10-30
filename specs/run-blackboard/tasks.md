@@ -73,7 +73,7 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   incomplete". Reconcile the keys with the dashboard's legend.
   Done as a switchable pane (`b`); the dock beside the step list on a wide terminal (C-13) is left for a width chosen
   from a sketch, and AC-33 stays open for it. AC-34's word for `superseded` is now `replaced` (AC-40).
-- [ ] T23. `watch` follows the board file beside the trace; a layers test keeps `@indaba/tui` importing only
+- [x] T23. `watch` follows the board file beside the trace; a layers test keeps `@indaba/tui` importing only
   `BoardReader` and value types from the engine; `@indaba/tui` still loads optionally.
 
 ## Documentation and gates
