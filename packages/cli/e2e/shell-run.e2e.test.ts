@@ -71,7 +71,7 @@ describe('run with shell steps in a git repository', () => {
 
     const traceId = /trace ([0-9a-f]{32})/.exec(r.stdout)?.[1];
     const files = (await readdir(join(dir, '.indaba', 'traces'))).sort();
-    expect(files).toEqual([`${traceId}.events.jsonl`, `${traceId}.jsonl`]);
+    expect(files).toEqual([`${traceId}.board.jsonl`, `${traceId}.events.jsonl`, `${traceId}.jsonl`]);
 
     const records = await readTraceRecords(dir);
     expect(records.length).toBeGreaterThanOrEqual(5);

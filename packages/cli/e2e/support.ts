@@ -143,9 +143,9 @@ export async function writeFileIn(dir: string, name: string, content: string): P
 export async function readTraceRecords(dir: string): Promise<Record<string, unknown>[]> {
   const traces = join(dir, '.indaba', 'traces');
   const records: Record<string, unknown>[] = [];
-  // The trace file only: a run also leaves `<id>.events.jsonl`, which has its own record format.
+  // The trace file only: a run also leaves `<id>.events.jsonl` and `<id>.board.jsonl`, which have their own record formats.
   for (const name of (await readdir(traces)).filter(
-    (n) => n.endsWith('.jsonl') && !n.endsWith('.events.jsonl'),
+    (n) => n.endsWith('.jsonl') && !n.endsWith('.events.jsonl') && !n.endsWith('.board.jsonl'),
   )) {
     for (const line of (await readFile(join(traces, name), 'utf8')).split(/\r?\n/)) {
       if (line === '') {
