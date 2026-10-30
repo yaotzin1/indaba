@@ -65,6 +65,10 @@ The workflow file is described in [Workflow format](https://yaotzin1.github.io/i
 - Documentation: https://yaotzin1.github.io/indaba/
 - Source, issues and changelog: https://github.com/yaotzin1/indaba
 
+## Built by
+
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
+
 ## Licence
 
 MIT

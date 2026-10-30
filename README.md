@@ -222,6 +222,10 @@ spec under [`specs/`](specs), and pass the gates before committing. [`CONTRIBUTI
 has the details. Run the CLI from a checkout with `node packages/cli/dist/bin.js <command>` after
 `pnpm build`.
 
+## Built by
+
+Built by [APSW Labs](https://apswlabs.com) — creators of [Gridwright](https://github.com/yaotzin1/apsw-gridwright) (headless data grid).
+
 ## License
 
 MIT
