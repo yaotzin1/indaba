@@ -388,7 +388,7 @@ adds the digest to the topic of the debate.
 workflow and one this step depends on. A shell step can neither read nor post, because it has no prompt and no reply.
 `indaba validate` names the field of each problem, and `indaba plan` prints what each step reads and may post.
 
-**Limits.** An entry is cut at 2000 characters, a run holds at most 2000 entries and 1 MiB of text, and after that the
+**Limits.** A line in an agent's reply with more than 2000 characters of text is ignored, not cut; an entry the engine writes (a debate message) is cut at 2000 characters, a run holds at most 2000 entries and 1 MiB of text, and after that the
 board stops taking entries and says so. These are design choices that have not been measured, so they can change in a
 later version without it being a breaking change.
 

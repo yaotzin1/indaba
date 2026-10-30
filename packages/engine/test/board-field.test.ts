@@ -194,3 +194,19 @@ describe('the editor schema of the board field', () => {
     expect(text).toContain('"additionalProperties":false,"properties":{"read"');
   });
 });
+
+describe('a bare read: (what the final review found)', () => {
+  it('is refused with the way to ask for the defaults, instead of reading nothing without a word', () => {
+    const text = problemsOf(workflowWith('read:'));
+    expect(text).toContain('steps[3].board.read must be a mapping; write read: {} for the defaults');
+  });
+
+  it('does not say it twice for a value that is not a mapping at all', () => {
+    const text = problemsOf(workflowWith('read: 5'));
+    expect(text.split('\n').filter((l) => l.includes('board.read'))).toHaveLength(1);
+  });
+
+  it('still takes read: {} as the defaults', () => {
+    expect(() => parseWorkflow(workflowWith('read: {}'))).not.toThrow();
+  });
+});

@@ -86,5 +86,5 @@ Each task is checkable on its own; tests come with the code. Run `pnpm qa` after
   and fact); it passes `indaba validate` and `indaba plan` from the built CLI, and a test keeps it parsing.
 - [x] T26. `specs/agent-mesh` and `specs/tui` get a pointer to this spec; `specs/workflow-editor` is told of the new
   field (its schema is generated from the parser, so no text is copied).
-- [ ] T27. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
-- [ ] T28. Fill `review.md`.
+- [x] T27. `pnpm qa`, `pnpm e2e`, the node gates; coverage at least 85% on all four metrics.
+- [x] T28. Fill `review.md`.

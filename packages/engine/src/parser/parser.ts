@@ -461,7 +461,11 @@ export class WorkflowParser {
     for (const key of node.unknownKeys(BOARD_KEYS)) {
       errors.add(`${node.path}.${key} is not a board setting`);
     }
+    const readErrors = errors.all().length;
     const readNode = node.map('read');
+    if (readNode === undefined && node.has('read') && errors.all().length === readErrors) {
+      errors.add(`${node.path}.read must be a mapping; write read: {} for the defaults`);
+    }
     let read: StepBoard['read'];
     if (readNode !== undefined) {
       for (const key of readNode.unknownKeys(BOARD_READ_KEYS)) {
