@@ -208,6 +208,24 @@ commands). Treat these as an order of magnitude, not a promise: your agent, mode
 The agent calls dominate, and every retry and every extra debate round adds more. A debate has up to four rounds. Expect
 a first run to take longer than the numbers above while you read along.
 
+## Faster: leave out mutation testing
+
+Mutation testing is the slowest gate and it is optional. It is recommended, because it is the only gate that checks the
+tests themselves: in the run with a retry above, the first set of tests passed `npm test` and the acceptance test but
+Stryker scored them below 80, so the run went back to the tester. Without it, tests that pass but check little go through.
+
+To leave it out, edit the workflow before the run (`indaba validate` accepts both results; the edit was checked with
+`validate` and `plan`, not with a full run):
+
+1. Delete the `mutation` step.
+2. In `final_review`, change `depends_on: ["mutation"]` to the step before it: `["acceptance"]` in the CRUD workflow,
+   `["verify"]` in the idea-to-app workflow.
+
+The agents are still told about mutation testing by the files they write (the constitution and `AGENTS.md`) and the tester
+still creates `stryker.config.json`; nothing runs it, and the retry that sends surviving mutants back to the tester is gone
+with the step. To remove the rule too, take mutation testing out of the `foundation` and `tests` goals. In the two runs
+measured above the gate took 2.5 of 19 minutes, and about 12 of 28 when it sent the run back.
+
 ## What you can do in parallel today, and what is planned
 
 **Today the steps of one run run one at a time**, even where the order allows two of them to overlap. What you can do
