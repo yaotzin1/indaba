@@ -44,6 +44,7 @@ steps:
     consensus_with: ["architect", "tester"]
     decision_type: "consensus"
     arbiter: "human"
+    permissions: { level: read }
     isolation: "git_worktree"
     input_artifacts: ["${{ artifacts.idea }}"]
     goal: >-
@@ -116,7 +117,7 @@ steps:
     board:
       read:
         steps: ["idea_debate", "foundation"]
-        kinds: [agreement, result, fact]
+        kinds: [proposal, critique, agreement, result, decision, fact]
       post: [result, fact]
 
   - id: "plan"
@@ -262,6 +263,8 @@ steps:
     consensus_with: ["architect", "tester"]
     decision_type: "consensus"
     arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
     input_artifacts: ["${{ artifacts.idea }}"]
     goal: >-
       Review the finished application in src/, public/ and test/ against ${{ artifacts.idea }}, the spec in the feature

@@ -249,13 +249,13 @@ Both commands start nothing and cost nothing.
 ## 5. Run it
 
 ```bash
-indaba run crud-inventory.workflow.ai.yml --tui
+indaba run crud-inventory.workflow.ai.yml
 ```
 
-`--tui` opens the dashboard (install it with `npm install -g @indaba/tui@next`); without it you get one line per state
-change. Press `b` for the board to read the facts, the debates, the analysis and the coder's questions as they arrive.
-From a second terminal, `indaba watch latest` follows the same run, and `indaba ui` shows it in a browser
-(see [Web view](web-view.md)).
+You get one line per state change, and the terminal stays free to answer when a debate cannot settle (see below). Do not
+add `--tui` to this run: the dashboard cannot ask you, so a debate that fails would escalate instead of asking. To read the
+facts, the debates, the analysis and the coder's questions as they arrive, use a second terminal: `indaba watch latest`
+follows the same run, and `indaba ui` shows it in a browser (see [Web view](web-view.md)).
 
 A retry is visible as steps going back to `PENDING`:
 
@@ -313,7 +313,7 @@ the new feature and the `add-endpoint` skill for the work, and the same three ga
 | `verify` or `acceptance` fails until the run ends `escalated` | the code could not be made to pass | `indaba watch latest --plain` shows the last failure and the coder's questions; often a test contradicts the spec. The branch holds the work so far |
 | `mutation` fails until the run ends `escalated` | the tests still miss behaviours | run `npm run mutation` on the branch and read the survivors; some are equivalent mutants no test can kill. Add the tests yourself, or lower `break` |
 | no runner of a step could run | neither ACP nor the `claude` CLI could start | the reason names each runner and why; see [Using the alpha](using-the-alpha.md) |
-| a debate escalates with no question | there was no terminal (a pipe, CI) | run from a terminal, or remove `arbiter: "human"` to let it escalate on purpose |
+| a debate escalates with no question | there was no terminal (a pipe, CI, or `--tui`) | run from a terminal, or remove `arbiter: "human"` to let it escalate on purpose |
 
 For anything else, `indaba report latest` gathers the log, the trace and the environment into one redacted folder; see
 [Playbook: when a run fails](playbook.md#when-a-run-fails).

@@ -65,11 +65,12 @@ git add . && git commit -m "My idea"
 Save [`examples/idea-to-app.workflow.ai.yml`](../examples/idea-to-app.workflow.ai.yml) in the folder, then:
 
 ```bash
-indaba run idea-to-app.workflow.ai.yml --tui
+indaba run idea-to-app.workflow.ai.yml
 ```
 
-The dashboard (`npm install -g @indaba/tui@next`) shows each stage as it runs; press `b` to read what the agents tell
-each other. The run takes a while and costs what the agent calls cost: at least ten of them, more when a debate takes
+The terminal prints each stage as it runs, and stays free to ask you when a debate cannot settle (do not add `--tui`: the
+dashboard cannot ask). To read what the agents tell each other, open a second terminal and run `indaba watch latest`, or
+`indaba ui` for a browser. The run takes a while and costs what the agent calls cost: at least ten of them, more when a debate takes
 several rounds or a gate sends work back.
 
 ## 3. Take the result

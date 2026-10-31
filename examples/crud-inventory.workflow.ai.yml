@@ -101,6 +101,8 @@ steps:
     consensus_with: ["architect"]
     decision_type: "consensus"
     arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
     goal: >-
       Review specs/001-inventory-app/spec.md for what a tester or a coder would trip over: missing status codes, unclear
       validation, edge cases (an sku changed to one that exists, an adjustment of 0, a body with extra fields), anything
@@ -122,6 +124,7 @@ steps:
     board:
       read:
         steps: ["specify", "spec_review"]
+        kinds: [proposal, critique, agreement, result, fact, decision]
 
   - id: "plan"
     isolation: "git_worktree"
@@ -222,6 +225,7 @@ steps:
     board:
       read:
         steps: ["spec_review", "analyze"]
+        kinds: [proposal, critique, agreement, result, fact, decision]
       post: [result]
 
   - id: "checkpoint_tests"
@@ -248,6 +252,7 @@ steps:
     board:
       read:
         steps: ["spec_review", "analyze", "tests"]
+        kinds: [proposal, critique, agreement, result, fact, decision]
       post: [note, question]
 
   - id: "checkpoint_code"
@@ -297,6 +302,8 @@ steps:
     consensus_with: ["architect"]
     decision_type: "consensus"
     arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
     goal: >-
       Review src/, public/ and test/ against specs/001-inventory-app (spec, plan, contracts) and AGENTS.md: correctness,
       validation, error handling, the page, and anything the tests do not cover (reports/mutation/mutation.json lists any
