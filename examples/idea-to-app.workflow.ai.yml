@@ -221,6 +221,8 @@ steps:
       .gitignore already exists, leave it alone. src/server.js only starts the app on PORT (default 3000). Make every
       test in test/ pass without changing test/, package.json or stryker.config.json. Tick the tasks you complete. If a
       test contradicts the spec, follow the spec and post: BOARD question: <which test, and why>
+      If src/ already exists, this is a rerun after the mutation gate sent the run back to the tests: keep the code that
+      passes, and change only what the new or changed tests need.
     board:
       read:
         steps: ["specify", "skills", "tests"]

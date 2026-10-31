@@ -48,11 +48,11 @@ And around the code, what a project needs so the next agent or person can work o
 | Step | Who | Does | May change |
 | :--- | :--- | :--- | :--- |
 | `foundation` | architect | constitution (spec-kit skill), `AGENTS.md`, `CLAUDE.md` | `.specify/memory/**`, `AGENTS.md`, `CLAUDE.md` |
-| `specify` | architect | `specs/001-inventory-app/spec.md` (spec-kit skill), from the feature description in its goal | `specs/**` |
+| `specify` | architect | `specs/001-inventory-app/spec.md` (spec-kit skill), from the feature description in its goal | `specs/**`, `.specify/feature.json` |
 | `spec_review` | reviewer + architect | debate the spec until both accept the same findings | nothing |
-| `clarify` | architect | answers the open questions from the findings and records them in the spec (spec-kit skill) | `specs/**` |
-| `plan` | architect | plan, research, data model, API contract, quickstart (spec-kit skill) | `specs/**` |
-| `tasks` | architect | `tasks.md`, tests before code (spec-kit skill) | `specs/**` |
+| `clarify` | architect | answers the open questions from the findings and records them in the spec (spec-kit skill) | `specs/**`, `.specify/feature.json` |
+| `plan` | architect | plan, research, data model, API contract, quickstart (spec-kit skill) | `specs/**`, `.specify/feature.json` |
+| `tasks` | architect | `tasks.md`, tests before code (spec-kit skill) | `specs/**`, `.specify/feature.json` |
 | `analyze` | reviewer | checks spec, plan, tasks and constitution against each other (spec-kit skill); posts findings | nothing |
 | `skill` | architect | the `add-endpoint` project skill, listed in `AGENTS.md` | `.claude/skills/add-endpoint/**`, `AGENTS.md` |
 | `tests` | tester | `package.json`, `stryker.config.json`, `test/` | `test/**`, those two files, `tasks.md` |
@@ -113,7 +113,8 @@ What each part is for:
 
 Save [`examples/crud-inventory.workflow.ai.yml`](../examples/crud-inventory.workflow.ai.yml) in the folder as
 `crud-inventory.workflow.ai.yml`. Or, to have Indaba find it with no file argument, save it as
-`.indaba/workflow.ai.yml`.
+`.indaba/workflow.ai.yml`. If you keep it in the folder, commit it before the run (`git add . && git commit -m "Add the workflow"`):
+with uncommitted changes Indaba does not reuse an earlier ruling of yours, and asks again.
 
 ## 3. Read what each stage does
 
@@ -191,8 +192,9 @@ src/app.js:8:19
 That report becomes the failure in the `tests` step's next prompt, so the tester knows exactly which behaviour has no
 test: here, no test sends a path with something in front of `/api/items/`, so dropping the `^` anchor changes nothing
 the tests can see (a real survivor, from a test run of this recipe). The retry goes back to
-`tests`, further than the others, because a surviving mutant is a missing test, not broken code. The code then runs
-against the stronger tests, and every gate runs again. Some survivors cannot be killed (a change that does not alter
+`tests`, further than the others, because a surviving mutant is a missing test, not broken code. A retry resets the step
+it targets and every step after it, so `implement` runs again too; its goal tells it to keep the code that already
+passes. The code then runs against the stronger tests, and every gate runs again. Some survivors cannot be killed (a change that does not alter
 behaviour, called an equivalent mutant), which is why the threshold is below 100.
 
 The threshold is `"break": 80` in `stryker.config.json`: a starting value chosen for this recipe, not a measured one.

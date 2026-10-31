@@ -225,7 +225,7 @@ steps:
     board:
       read:
         steps: ["spec_review", "analyze"]
-        kinds: [proposal, critique, agreement, result, fact, decision]
+        kinds: [proposal, critique, agreement, result, fact, decision, note, question]
       post: [result]
 
   - id: "checkpoint_tests"
@@ -249,10 +249,12 @@ steps:
       DATA_FILE optional) and public/index.html. Make every test in test/ pass without changing test/, package.json,
       stryker.config.json or acceptance/. Tick the tasks you complete in tasks.md. If a test contradicts the spec, follow
       the spec and post: BOARD question: <which test, and why>
+      If src/ already exists, this is a rerun after the mutation gate sent the run back to the tests: keep the code that
+      passes, and change only what the new or changed tests need.
     board:
       read:
         steps: ["spec_review", "analyze", "tests"]
-        kinds: [proposal, critique, agreement, result, fact, decision]
+        kinds: [proposal, critique, agreement, result, fact, decision, note, question]
       post: [note, question]
 
   - id: "checkpoint_code"

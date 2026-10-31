@@ -60,6 +60,7 @@ const isError = (res, status) => {
 };
 
 let mug;
+const created = () => assert.ok(mug?.id, 'the check that creates the item must pass first');
 check('GET / serves an HTML page', async () => {
   const res = await call('GET', '/');
   assert.equal(res.status, 200);
@@ -90,15 +91,20 @@ check('POST refuses bad input (400) and a duplicate sku (409)', async () => {
   isError(await call('POST', '/api/items', { sku: 'MUG-02', name: 'x', quantity: -1, priceCents: 1 }), 400);
   isError(await call('POST', '/api/items', { sku: 'MUG-02', name: 'x', quantity: 1.5, priceCents: 1 }), 400);
   isError(await call('POST', '/api/items', { sku: 'MUG-02', name: 'x', quantity: 1 }), 400);
+  isError(await call('POST', '/api/items', { sku: 'MUG-02', name: '   ', quantity: 1, priceCents: 1 }), 400);
+  isError(await call('POST', '/api/items', { sku: 'MUG-02', name: 'n'.repeat(201), quantity: 1, priceCents: 1 }), 400);
+  isError(await call('POST', '/api/items', { sku: 'MUG-02', name: 'x', quantity: 1, priceCents: 1, colour: 'blue' }), 400);
   isError(await call('POST', '/api/items', { sku: 'MUG-01', name: 'Again', quantity: 1, priceCents: 1 }), 409);
 });
 check('GET /api/items/:id reads it, an unknown id is 404', async () => {
+  created();
   const res = await call('GET', `/api/items/${mug.id}`);
   assert.equal(res.status, 200);
   assert.deepEqual(res.body, mug);
   isError(await call('GET', '/api/items/does-not-exist'), 404);
 });
 check('PATCH changes fields, validates and keeps sku unique', async () => {
+  created();
   const cup = (await call('POST', '/api/items', { sku: 'CUP-01', name: 'Cup', quantity: 2, priceCents: 500 })).body;
   const res = await call('PATCH', `/api/items/${mug.id}`, { name: 'Red mug', priceCents: 950 });
   assert.equal(res.status, 200);
@@ -107,6 +113,8 @@ check('PATCH changes fields, validates and keeps sku unique', async () => {
   assert.equal(res.body.sku, 'MUG-01');
   assert.equal(res.body.createdAt, mug.createdAt);
   isError(await call('PATCH', `/api/items/${mug.id}`, { quantity: -3 }), 400);
+  isError(await call('PATCH', `/api/items/${mug.id}`, {}), 400);
+  isError(await call('PATCH', `/api/items/${mug.id}`, { colour: 'blue' }), 400);
   isError(await call('PATCH', `/api/items/${mug.id}`, { sku: 'CUP-01' }), 409);
   isError(await call('PATCH', '/api/items/does-not-exist', { name: 'x' }), 404);
   assert.equal((await call('PATCH', `/api/items/${cup.id}`, { sku: 'CUP-01' })).status, 200, 'an item may keep its own sku');
@@ -117,8 +125,10 @@ check('GET /api/items?lowStock=n lists items with quantity below n', async () =>
   assert.deepEqual(res.body.map((i) => i.sku), ['CUP-01']);
   assert.deepEqual((await call('GET', '/api/items?lowStock=2')).body, []);
   isError(await call('GET', '/api/items?lowStock=-1'), 400);
+  isError(await call('GET', '/api/items?lowStock=abc'), 400);
 });
 check('POST /api/items/:id/adjust changes stock, never below 0', async () => {
+  created();
   const res = await call('POST', `/api/items/${mug.id}/adjust`, { delta: -2 });
   assert.equal(res.status, 200);
   assert.equal(res.body.quantity, 10);
@@ -130,10 +140,15 @@ check('POST /api/items/:id/adjust changes stock, never below 0', async () => {
   assert.equal((await call('GET', `/api/items/${mug.id}`)).body.quantity, 15);
 });
 check('DELETE removes it (204), then it is gone (404)', async () => {
+  created();
   const res = await call('DELETE', `/api/items/${mug.id}`);
   assert.equal(res.status, 204);
   isError(await call('GET', `/api/items/${mug.id}`), 404);
   isError(await call('DELETE', `/api/items/${mug.id}`), 404);
+});
+check('any other path or method is 404 with an error body', async () => {
+  isError(await call('GET', '/api/nothing'), 404);
+  isError(await call('PUT', '/api/items'), 404);
 });
 
 let failed = 0;

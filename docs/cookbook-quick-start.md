@@ -62,7 +62,9 @@ git add . && git commit -m "My idea"
 
 ## 2. Run it
 
-Save [`examples/idea-to-app.workflow.ai.yml`](../examples/idea-to-app.workflow.ai.yml) in the folder, then:
+Save [`examples/idea-to-app.workflow.ai.yml`](../examples/idea-to-app.workflow.ai.yml) in the folder and commit it
+(`git add . && git commit -m "Add the workflow"`): with uncommitted changes Indaba does not reuse an earlier ruling of
+yours, and asks again. Then:
 
 ```bash
 indaba run idea-to-app.workflow.ai.yml
