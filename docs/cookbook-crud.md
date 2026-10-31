@@ -54,7 +54,7 @@ And around the code, what a project needs so the next agent or person can work o
 | `plan` | architect | plan, research, data model, API contract, quickstart (spec-kit skill) | `specs/**`, `.specify/feature.json` |
 | `tasks` | architect | `tasks.md`, tests before code (spec-kit skill) | `specs/**`, `.specify/feature.json` |
 | `analyze` | reviewer | checks spec, plan, tasks and constitution against each other (spec-kit skill); posts findings | nothing |
-| `skill` | architect | the `add-endpoint` project skill, listed in `AGENTS.md` | `.claude/skills/add-endpoint/**`, `AGENTS.md` |
+| `skill` | architect | the `add-endpoint` project skill, listed in `AGENTS.md` | `.agents/skills/add-endpoint/**`, `AGENTS.md` |
 | `tests` | tester | `package.json`, `stryker.config.json`, `test/` | `test/**`, those two files, `tasks.md` |
 | `implement` | implementer | `src/`, `public/` (spec-kit skill and the project skill) | `src/**`, `public/**`, `tasks.md` |
 | `verify` | shell | `npm install`, `npm test`; a failure goes back to `implement`, at most 3 times | |
@@ -62,7 +62,7 @@ And around the code, what a project needs so the next agent or person can work o
 | `mutation` | shell | `npx stryker run`; surviving mutants go back to `tests`, at most 2 times | |
 | `final_review` | reviewer + architect | debate the finished code against the spec | nothing |
 
-Between them sit five `checkpoint_*` shell steps that commit what came before to the branch `indaba/inventory-app`.
+Between them sit six `checkpoint_*` shell steps that commit what came before to the branch `indaba/inventory-app`.
 That branch is what you get at the end (see [Checkpoints](#checkpoints)).
 
 ## What you need
@@ -154,8 +154,11 @@ findings as board notes, which the tester and the implementer read in their prom
 
 ### A project skill: `skill`
 
-The architect writes `.claude/skills/add-endpoint/SKILL.md`, a skill in the format Claude Code loads (front matter
-with a `name` and a `description` of when to use it), and lists it in `AGENTS.md`. It is the procedure for this
+The architect writes `.agents/skills/add-endpoint/SKILL.md`, a skill in the format Claude Code loads (front matter
+with a `name` and a `description` of when to use it), and lists it in `AGENTS.md`. An agent run by the `claude-code`
+runner cannot write under `.claude/` (Claude Code protects that folder and cannot ask in a non-interactive run), which
+is why the skill is written under `.agents/skills/` and the `checkpoint_skill` shell step copies it to
+`.claude/skills/add-endpoint/`, where Claude Code finds it. It is the procedure for this
 project: contract first, failing tests first, validation, store, route, then the tests and the mutation run. The
 `tests` and `implement` steps are told to follow it, and it stays in the repository for every later change, whoever
 makes it.
@@ -210,7 +213,9 @@ step's permissions are held by a scope guard that looks at everything changed si
 Without a commit between steps that write to different places, `implement` would be blamed for the files `tests`
 wrote. Each checkpoint commits and moves the branch `indaba/inventory-app` to that commit, so each step is judged on its
 own changes, and the branch keeps the work even if a later step fails. Steps that write to the same place (`specify`
-to `tasks`, all in `specs/**`) share one checkpoint.
+to `tasks`, all in `specs/**`) share one checkpoint, except that the read-only `spec_review` gets its own
+(`checkpoint_draft`) after `specify`: its guard allows no change at all, so it must not be blamed for the spec that
+`specify` wrote.
 
 ### How spec-kit is used
 
@@ -228,7 +233,7 @@ indaba validate crud-inventory.workflow.ai.yml
 indaba plan crud-inventory.workflow.ai.yml
 ```
 
-`validate` should print `crud-inventory is valid (19 steps, 4 roles).` followed by `permissions:` notes describing how
+`validate` should print `crud-inventory is valid (20 steps, 4 roles).` followed by `permissions:` notes describing how
 each runner holds the `edit` and `read` levels. `plan` prints the order, the runners, what each step may change and
 what it reads from the board:
 
@@ -237,13 +242,13 @@ what it reads from the board:
 2. checkpoint_foundation [shell: git add -A && git commit -q --allow-empty -m "inventory-app: constitution and AGENTS.md" && git branch -f indaba/inventory-app HEAD] (after foundation)
 3. specify [architect] (after checkpoint_foundation; runners acp -> claude-code; may only change specs/**, .specify/feature.json)
 ...
-9. analyze [reviewer] (after checkpoint_spec; runners acp -> claude-code; may only change nothing)
-10. skill [architect] (after analyze; runners acp -> claude-code; may only change .claude/skills/add-endpoint/**, AGENTS.md)
+10. analyze [reviewer] (after checkpoint_spec; runners acp -> claude-code; may only change nothing)
+11. skill [architect] (after analyze; runners acp -> claude-code; may only change .agents/skills/add-endpoint/**, AGENTS.md)
 ...
-16. verify [shell: npm install --no-package-lock --no-audit --no-fund && npm test] (after checkpoint_code)
-17. acceptance [shell: node acceptance/inventory.mjs] (after verify)
-18. mutation [shell: npx stryker run] (after acceptance)
-19. final_review [reviewer] (after mutation; consensus with architect)
+17. verify [shell: npm install --no-package-lock --no-audit --no-fund && npm test] (after checkpoint_code)
+18. acceptance [shell: node acceptance/inventory.mjs] (after verify)
+19. mutation [shell: npx stryker run] (after acceptance)
+20. final_review [reviewer] (after mutation; consensus with architect)
 ```
 
 Both commands start nothing and cost nothing.

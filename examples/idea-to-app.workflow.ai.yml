@@ -156,14 +156,15 @@ steps:
     depends_on: ["checkpoint_spec"]
     role: "architect"
     isolation: "git_worktree"
-    permissions: { level: edit, fs: { write: [".claude/skills/**", "AGENTS.md"] } }
+    permissions: { level: edit, fs: { write: [".agents/skills/**", "AGENTS.md"] } }
     goal: >-
       Write one to three project skills for the work that will recur in this application, taken from AGENTS.md, the
       plan and the contracts. One must be the procedure for adding or changing a feature: contract first, failing tests
       first, then the code, then npm test and npm run mutation, killing each surviving mutant with a test. Each skill is
-      .claude/skills/<name>/SKILL.md with YAML front matter (name, and a one-line description of when to use it) and
+      .agents/skills/<name>/SKILL.md (the next step copies it to .claude/skills/, because an agent cannot write under
+      .claude/) with YAML front matter (name, and a one-line description of when to use it) and
       under 60 lines. Do not touch the existing .claude/skills/speckit-* skills. Add every new skill to the Skills
-      section of AGENTS.md. Do not run commands.
+      section of AGENTS.md by its final path, .claude/skills/<name>/SKILL.md. Do not run commands.
       End your reply with: BOARD result: <the skills you wrote, one phrase each>
     board:
       post: [result]
@@ -172,6 +173,7 @@ steps:
     depends_on: ["skills"]
     runner: "shell"
     commands:
+      - "node -e \"require('node:fs').cpSync('.agents/skills', '.claude/skills', { recursive: true })\""
       - "git add -A"
       - "git commit -q --allow-empty -m \"Project skills\""
       - "git branch -f indaba/app HEAD"

@@ -95,8 +95,17 @@ steps:
     board:
       post: [result, fact]
 
-  - id: "spec_review"
+  # The review is read-only, so the guard must not see the spec that specify just wrote: commit it first.
+  - id: "checkpoint_draft"
     depends_on: ["specify"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"inventory-app: draft specification\""
+      - "git branch -f indaba/inventory-app HEAD"
+
+  - id: "spec_review"
+    depends_on: ["checkpoint_draft"]
     role: "reviewer"
     consensus_with: ["architect"]
     decision_type: "consensus"
@@ -179,21 +188,23 @@ steps:
     isolation: "git_worktree"
     depends_on: ["analyze"]
     role: "architect"
-    permissions: { level: edit, fs: { write: [".claude/skills/add-endpoint/**", "AGENTS.md"] } }
+    permissions: { level: edit, fs: { write: [".agents/skills/add-endpoint/**", "AGENTS.md"] } }
     goal: >-
-      Write a project skill at .claude/skills/add-endpoint/SKILL.md, with YAML front matter (name: add-endpoint and a
+      Write a project skill at .agents/skills/add-endpoint/SKILL.md (the next step copies it to
+      .claude/skills/add-endpoint/, because an agent cannot write under .claude/), with YAML front matter (name: add-endpoint and a
       one-line description saying when to use it), for adding or changing an API endpoint or a field in this app. It is
       the procedure the next steps follow, taken from AGENTS.md, the plan and contracts/api.md: contract first, failing
       tests first (which test file for what, exact statuses and bodies, every boundary), pure validation in
       src/validate.js, data rules in src/store.js, the route in src/app.js, then npm test and npm run mutation, killing
       each surviving mutant with a test; never edit acceptance/ or lower a threshold. Keep it under 60 lines. Add it to
-      the Skills section of AGENTS.md. Do not run commands.
-    outputs: [".claude/skills/add-endpoint/SKILL.md"]
+      the Skills section of AGENTS.md by its final path, .claude/skills/add-endpoint/SKILL.md. Do not run commands.
+    outputs: [".agents/skills/add-endpoint/SKILL.md"]
 
   - id: "checkpoint_skill"
     depends_on: ["skill"]
     runner: "shell"
     commands:
+      - "node -e \"require('node:fs').cpSync('.agents/skills', '.claude/skills', { recursive: true })\""
       - "git add -A"
       - "git commit -q --allow-empty -m \"inventory-app: add-endpoint skill\""
       - "git branch -f indaba/inventory-app HEAD"
