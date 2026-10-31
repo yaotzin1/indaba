@@ -1,0 +1,275 @@
+version: "1.0"
+name: "idea-to-app"
+
+# From a short idea to a working, tested web application. You write idea.md (a few sentences); the agents debate it
+# into a first-version scope, then write the project rules (a spec-kit constitution and AGENTS.md), a spec-kit
+# specification, plan and tasks, project skills, tests, and the code, held to two gates (the tests and mutation
+# testing) before they review the result against your idea. The walkthrough is docs/cookbook-quick-start.md.
+#
+# Before the run: a git repository with one commit that holds idea.md, spec-kit
+# (specify init --here --integration claude --script py) and a .gitignore with .indaba/, node_modules/, reports/ and
+# .stryker-tmp/.
+#   indaba run idea-to-app.workflow.ai.yml
+#   git merge indaba/app                  # the checkpoint steps commit each stage to this branch
+#
+# The application is a Node 22 web app with no runtime npm dependencies, so the gates need nothing but npm. Change the
+# "Constraints" sentence in the goals to target something else, and the gates to match.
+#
+# Agents follow spec-kit's skills (.claude/skills/speckit-*/SKILL.md) but run no commands; Indaba runs every command
+# in the shell steps. Checkpoints commit between steps that write to different places, because the scope guard of a
+# step looks at everything changed since the worktree's last commit.
+
+artifacts:
+  idea: "idea.md"
+  scope: ".indaba/artifacts/idea_debate.transcript.md"
+
+roles:
+  product:
+    runner: ["acp", "claude-code"]   # ACP first; the claude-code CLI only when ACP cannot start
+    agent: "claude"
+  architect:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+  tester:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+  implementer:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+
+steps:
+  # 1. Three agents argue the idea into a first version they would all ship.
+  - id: "idea_debate"
+    role: "product"
+    consensus_with: ["architect", "tester"]
+    decision_type: "consensus"
+    arbiter: "human"
+    isolation: "git_worktree"
+    input_artifacts: ["${{ artifacts.idea }}"]
+    goal: >-
+      Read ${{ artifacts.idea }}: a person's idea for an application. Agree on the first version to build. Constraints:
+      a web application on Node 22 with no runtime npm dependencies (node:http and the standard library; one HTML page
+      for people, a JSON API for programs), data in memory with an optional JSON file, buildable in a day.
+      The scope names: who uses it, at most six features, what is out of scope, the data and its rules (field types,
+      limits, uniqueness), the HTTP API (each request, status codes, errors as { "error": "<message>" }), the edge cases,
+      and how a person will know it works. The product role speaks for the person who wrote the idea, the architect for
+      what can be built well, the tester for what can be tested.
+      Do not modify any file and do not run commands. Keep each reply under 300 words.
+      CRITIQUE: means you propose a scope or change the latest one; give the whole scope with your change.
+      AGREEMENT: means you would ship the latest scope as version 1; say anything you would still drop.
+      In your first reply propose a scope and begin with CRITIQUE:.
+
+  # 2. Project rules from the agreed scope.
+  - id: "foundation"
+    depends_on: ["idea_debate"]
+    role: "architect"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: [".specify/memory/**", "AGENTS.md", "CLAUDE.md"] } }
+    input_artifacts: ["${{ artifacts.idea }}", "${{ artifacts.scope }}"]
+    goal: >-
+      The idea is in ${{ artifacts.idea }} and the scope the agents agreed is in the debate transcript
+      ${{ artifacts.scope }} and on the board. Read .claude/skills/speckit-constitution/SKILL.md and follow it to write
+      .specify/memory/constitution.md for this application, with these principles at least: spec first (every change
+      starts as a spec-kit feature in specs/); tests first, asserting exact status codes and bodies; mutation-tested
+      (npm run mutation must reach a Stryker score of 80, and a surviving mutant is fixed with a test, never by lowering
+      the threshold); no runtime npm dependencies; small and explicit. Where the skill says to run a script, read
+      .specify/templates/constitution-template.md instead.
+      Then write AGENTS.md, the rules every coding agent reads: what the application is (from the scope), the layout
+      (src/ for the code with src/server.js only starting the app on PORT, default 3000; public/ for the page; test/;
+      specs/), the commands (npm install, npm test, npm run mutation, npm start), the rules, a "Skills" section listing
+      .claude/skills/speckit-*, and what "done" means. Write CLAUDE.md as the single line @AGENTS.md. Do not run
+      commands.
+      End your reply with: BOARD fact app.name: <a short lowercase name for the application, with - between words>
+    outputs: ["AGENTS.md", ".specify/memory/constitution.md"]
+    board:
+      read:
+        steps: ["idea_debate"]
+        kinds: [proposal, critique, agreement, result, decision]
+      digest_chars: 8000
+      post: [fact]
+
+  - id: "checkpoint_foundation"
+    depends_on: ["foundation"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"Project rules: constitution and AGENTS.md\""
+      - "git branch -f indaba/app HEAD"
+
+  # 3. The spec-kit specification, plan and tasks.
+  - id: "specify"
+    depends_on: ["checkpoint_foundation"]
+    role: "architect"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: ["specs/**", ".specify/feature.json"] } }
+    input_artifacts: ["${{ artifacts.idea }}", "${{ artifacts.scope }}"]
+    goal: >-
+      Read .claude/skills/speckit-specify/SKILL.md and follow it. The feature description is the scope the agents agreed
+      in ${{ artifacts.scope }} (the idea is in ${{ artifacts.idea }}). Create the feature directory and its files
+      directly (do not run commands) and write .specify/feature.json. The HTTP API is used by programs, so keep it in
+      the requirements. Record each decision the debate made in the spec's Clarifications section, and leave no
+      [NEEDS CLARIFICATION] marker: decide, and record the decision.
+      End your reply with these lines, each starting at the first character:
+      BOARD result: <one sentence summarising the application>
+      BOARD fact feature.dir: <the feature directory, for example specs/001-reading-list>
+    outputs: [".specify/feature.json"]
+    board:
+      read:
+        steps: ["idea_debate", "foundation"]
+        kinds: [agreement, result, fact]
+      post: [result, fact]
+
+  - id: "plan"
+    depends_on: ["specify"]
+    role: "architect"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: ["specs/**", ".specify/feature.json"] } }
+    goal: >-
+      Read .claude/skills/speckit-plan/SKILL.md and follow it for the feature in .specify/feature.json. Do not run the
+      setup script: copy .specify/templates/plan-template.md to plan.md in the feature directory yourself. Technical
+      context: JavaScript ES modules on Node 22, node:http and the standard library, no runtime dependency, tests with
+      node:test, mutation testing with Stryker's command runner, storage in memory with an optional JSON file
+      (DATA_FILE), the layout in AGENTS.md, validation as pure functions so it can be unit-tested. Write research.md,
+      data-model.md, contracts/ (every request, body, status and error) and quickstart.md. Do not run commands.
+
+  - id: "tasks"
+    depends_on: ["plan"]
+    role: "architect"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: ["specs/**", ".specify/feature.json"] } }
+    goal: >-
+      Read .claude/skills/speckit-tasks/SKILL.md and follow it for the feature in .specify/feature.json. Do not run the
+      setup script: use .specify/templates/tasks-template.md. Put the test tasks before the code tasks, and end with a
+      task for the gates: npm test and npm run mutation. Do not run commands.
+
+  - id: "checkpoint_spec"
+    depends_on: ["tasks"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"Spec, plan and tasks\""
+      - "git branch -f indaba/app HEAD"
+
+  # 4. Project skills: the procedures the coding agents (and you, later) follow in this application.
+  - id: "skills"
+    depends_on: ["checkpoint_spec"]
+    role: "architect"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: [".claude/skills/**", "AGENTS.md"] } }
+    goal: >-
+      Write one to three project skills for the work that will recur in this application, taken from AGENTS.md, the
+      plan and the contracts. One must be the procedure for adding or changing a feature: contract first, failing tests
+      first, then the code, then npm test and npm run mutation, killing each surviving mutant with a test. Each skill is
+      .claude/skills/<name>/SKILL.md with YAML front matter (name, and a one-line description of when to use it) and
+      under 60 lines. Do not touch the existing .claude/skills/speckit-* skills. Add every new skill to the Skills
+      section of AGENTS.md. Do not run commands.
+      End your reply with: BOARD result: <the skills you wrote, one phrase each>
+    board:
+      post: [result]
+
+  - id: "checkpoint_skills"
+    depends_on: ["skills"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"Project skills\""
+      - "git branch -f indaba/app HEAD"
+
+  # 5. Tests first, then the code.
+  - id: "tests"
+    depends_on: ["checkpoint_skills"]
+    role: "tester"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: ["test/**", "package.json", "stryker.config.json", "specs/**/tasks.md"] } }
+    goal: >-
+      Read AGENTS.md and the feature in .specify/feature.json (spec, contracts, tasks), and follow the project skill for
+      adding a feature, doing only its test parts: write the tests, not the code.
+      If package.json does not exist, write it with "type": "module", "private": true, the name from AGENTS.md, the
+      scripts { "test": "node --test", "start": "node src/server.js", "mutation": "stryker run" } and the only
+      devDependency { "@stryker-mutator/core": "^9.6.1" }. If stryker.config.json does not exist, write it as exactly
+      { "testRunner": "command", "commandRunner": { "command": "npm test" }, "coverageAnalysis": "off",
+      "mutate": ["src/**/*.js", "!src/server.js"], "reporters": ["clear-text", "json"],
+      "clearTextReporter": { "allowColor": false }, "thresholds": { "high": 90, "low": 80, "break": 80 } }.
+      Tests use node:test and node:assert/strict: unit tests for every validation rule and boundary, and API tests that
+      start the app on port 0 and call it with fetch, asserting exact status codes and bodies. Tick the test tasks you
+      completed in tasks.md. Do not write anything under src/ or public/. Do not run commands.
+      If this is a retry, the failure below is a mutation-testing report: each [Survived] mutant is a change to the code
+      that no test noticed (reports/mutation/mutation.json lists all of them). Add or sharpen tests until each would
+      fail. Do not change stryker.config.json.
+      End your reply with: BOARD result: <how many tests, and what they cover>
+    board:
+      post: [result]
+
+  - id: "checkpoint_tests"
+    depends_on: ["tests"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"Tests\""
+      - "git branch -f indaba/app HEAD"
+
+  - id: "implement"
+    depends_on: ["checkpoint_tests"]
+    role: "implementer"
+    isolation: "git_worktree"
+    permissions: { level: edit, fs: { write: ["src/**", "public/**", "specs/**/tasks.md"] } }
+    goal: >-
+      Read AGENTS.md, then read .claude/skills/speckit-implement/SKILL.md and follow it for the feature in
+      .specify/feature.json, with these changes: do not run the setup script or any command (Indaba runs the tests after
+      this step); the test tasks are done, so implement the rest, following the project skill for adding a feature;
+      .gitignore already exists, leave it alone. src/server.js only starts the app on PORT (default 3000). Make every
+      test in test/ pass without changing test/, package.json or stryker.config.json. Tick the tasks you complete. If a
+      test contradicts the spec, follow the spec and post: BOARD question: <which test, and why>
+    board:
+      read:
+        steps: ["specify", "skills", "tests"]
+      post: [note, question]
+
+  - id: "checkpoint_code"
+    depends_on: ["implement"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"Code\""
+      - "git branch -f indaba/app HEAD"
+
+  # 6. The gates.
+  - id: "verify"
+    depends_on: ["checkpoint_code"]
+    runner: "shell"
+    commands:
+      - "npm install --no-package-lock --no-audit --no-fund"
+      - "npm test"
+    on_failure:
+      action: "retry_step"
+      target: "implement"
+      max_retries: 3
+
+  - id: "mutation"
+    depends_on: ["verify"]
+    runner: "shell"
+    commands:
+      - "npx stryker run"
+    on_failure:
+      action: "retry_step"
+      target: "tests"
+      max_retries: 2
+
+  # 7. Does it do what the idea asked? The same three agents settle on one list of findings.
+  - id: "final_review"
+    depends_on: ["mutation"]
+    role: "product"
+    consensus_with: ["architect", "tester"]
+    decision_type: "consensus"
+    arbiter: "human"
+    input_artifacts: ["${{ artifacts.idea }}"]
+    goal: >-
+      Review the finished application in src/, public/ and test/ against ${{ artifacts.idea }}, the spec in the feature
+      directory and AGENTS.md: does it do what the person asked for, is anything in the agreed scope missing, what is
+      wrong or untested. Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT:
+      means you accept the other participants' findings as the review's result (they may criticise the work).
+      CRITIQUE: means a finding is missing, wrong or badly worded. In your first reply list your own findings (at most
+      five, each with a file path) and begin with CRITIQUE:.
+    board:
+      read:
+        steps: ["specify", "skills", "tests", "implement"]
