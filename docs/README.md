@@ -16,6 +16,7 @@ documentation site, [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indab
 | [playbook.md](playbook.md) | You want a recipe for one way of working: check, plan, run, watch, read the board, run a debate, find out why a run failed, script it |
 | [cookbook-quick-start.md](cookbook-quick-start.md) | You have an idea for an application and want to see what Indaba does with it: you write a few sentences, agents debate them and build a tested app with its spec, skills and `AGENTS.md` |
 | [cookbook-crud.md](cookbook-crud.md) | You want every stage of building an application with agents explained: spec-kit, `AGENTS.md`, a project skill, tests first, a test gate, an acceptance test, mutation testing and review debates |
+| [cookbook-stages.md](cookbook-stages.md) | You want to know what files each stage of a run produces, with real excerpts, where your code is while and after it runs, and how to watch the run |
 | [ai-playbook.md](ai-playbook.md) | You are an AI agent that uses Indaba: the loop, the exit codes, the files to read, the board line grammar, failures and what to do. The site also serves it as `llms.txt` and `llms-full.txt` |
 | [workflow-format.md](workflow-format.md) | You are writing a workflow file: every field, guards, retries, MCP servers, with examples |
 | [web-view.md](web-view.md) | You want to use `indaba ui`: follow runs, start and stop them, list your workflows, edit a workflow as a form, a graph or text, change the logging settings, and how it keeps your work private |
