@@ -198,7 +198,8 @@ the tests can see (a real survivor, from a test run of this recipe). The retry g
 `tests`, further than the others, because a surviving mutant is a missing test, not broken code. A retry resets the step
 it targets and every step after it, so `implement` runs again too; its goal tells it to keep the code that already
 passes. The code then runs against the stronger tests, and every gate runs again. Some survivors cannot be killed (a change that does not alter
-behaviour, called an equivalent mutant), which is why the threshold is below 100.
+behaviour, called an equivalent mutant), which is why the threshold is below 100. When the gate passes, the step also writes `reports/mutation/survivors.txt`: the mutant counts, then each surviving
+mutant as `file:line mutator`, a plain-text list the final review can read (Stryker's own report is one long line of JSON).
 
 The threshold is `"break": 80` in `stryker.config.json`: a starting value chosen for this recipe, not a measured one.
 

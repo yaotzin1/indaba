@@ -303,6 +303,7 @@ steps:
     runner: "shell"
     commands:
       - "npx stryker run"
+      - "node -e \"const r=require('./reports/mutation/mutation.json');const s=[];let n=0;for(const[f,v]of Object.entries(r.files))for(const m of v.mutants){n++;if(m.status==='Survived')s.push(f+':'+m.location.start.line+' '+m.mutatorName)}require('node:fs').writeFileSync('reports/mutation/survivors.txt',[n+' mutants, '+s.length+' survived',...s].join(String.fromCharCode(10))+String.fromCharCode(10))\""
     on_failure:
       action: "retry_step"
       target: "tests"
@@ -319,8 +320,8 @@ steps:
     permissions: { level: read }
     goal: >-
       Review src/, public/ and test/ against specs/001-inventory-app (spec, plan, contracts) and AGENTS.md: correctness,
-      validation, error handling, the page, and anything the tests do not cover (reports/mutation/mutation.json lists any
-      surviving mutants). Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT:
+      validation, error handling, the page, and anything the tests do not cover (reports/mutation/survivors.txt gives the
+      mutant counts and lists each survivor as file:line and mutator; read it). Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT:
       means you accept the other participant's findings as the review's result (they may criticise the code). CRITIQUE:
       means a finding is missing, wrong or badly worded. In your first reply list your own findings (at most five, each
       with a file path) and begin with CRITIQUE:.
