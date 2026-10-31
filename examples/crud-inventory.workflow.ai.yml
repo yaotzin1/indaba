@@ -206,7 +206,7 @@ steps:
       specs/001-inventory-app/contracts/api.md, doing only its test parts: write the tests, not the code.
       If package.json does not exist, write it as exactly
       { "name": "inventory-app", "type": "module", "private": true, "scripts": { "test": "node --test",
-      "start": "node src/server.js", "mutation": "stryker run" }, "devDependencies": { "@stryker-mutator/core": "^9.6.1" } }
+      "start": "node src/server.js", "mutation": "stryker run" }, "devDependencies": { "@stryker-mutator/core": "^10.1.1" } }
       and stryker.config.json as exactly
       { "testRunner": "command", "commandRunner": { "command": "npm test" }, "coverageAnalysis": "off",
       "mutate": ["src/**/*.js", "!src/server.js"], "reporters": ["clear-text", "json"],

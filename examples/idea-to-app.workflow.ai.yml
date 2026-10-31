@@ -186,7 +186,7 @@ steps:
       adding a feature, doing only its test parts: write the tests, not the code.
       If package.json does not exist, write it with "type": "module", "private": true, the name from AGENTS.md, the
       scripts { "test": "node --test", "start": "node src/server.js", "mutation": "stryker run" } and the only
-      devDependency { "@stryker-mutator/core": "^9.6.1" }. If stryker.config.json does not exist, write it as exactly
+      devDependency { "@stryker-mutator/core": "^10.1.1" }. If stryker.config.json does not exist, write it as exactly
       { "testRunner": "command", "commandRunner": { "command": "npm test" }, "coverageAnalysis": "off",
       "mutate": ["src/**/*.js", "!src/server.js"], "reporters": ["clear-text", "json"],
       "clearTextReporter": { "allowColor": false }, "thresholds": { "high": 90, "low": 80, "break": 80 } }.
