@@ -15,6 +15,14 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+## [0.1.0-alpha.5] - 2026-10-31
+
+The fifth preview, published under the `next` tag. Its point is the run board: steps can leave each other notes, a
+debate's messages land on the same board, `indaba plan` and `indaba watch --plain` show it, and the dashboard has a
+board pane (`b`). The documentation gains a playbook for people and one for AI agents, and the site serves `llms.txt`
+and `llms-full.txt`. Every change is additive; a workflow without `board` fields runs exactly as before, and the one
+visible difference is a third file per run in `.indaba/traces`.
+
 ### Added
 
 - **The run board, in `@indaba/core`** (minor; track `feature`; `specs/run-blackboard`). `RunBoard` (an append-only board of
