@@ -267,11 +267,11 @@ steps:
     arbiter: "human"
     isolation: "git_worktree"
     permissions: { level: read }
-    input_artifacts: ["${{ artifacts.idea }}"]
+    input_artifacts: ["${{ artifacts.idea }}", "${{ artifacts.scope }}"]
     goal: >-
-      Review the finished application in src/, public/ and test/ against ${{ artifacts.idea }}, the spec in the feature
-      directory and AGENTS.md: does it do what the person asked for, is anything in the agreed scope missing, what is
-      wrong or untested. Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT:
+      Review the finished application in src/, public/ and test/ against ${{ artifacts.idea }}, the scope the agents agreed
+      in ${{ artifacts.scope }}, the spec in the feature directory and AGENTS.md: does it do what the person asked for,
+      is anything in the agreed scope missing, what is wrong or untested. Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT:
       means you accept the other participants' findings as the review's result (they may criticise the work).
       CRITIQUE: means a finding is missing, wrong or badly worded. In your first reply list your own findings (at most
       five, each with a file path) and begin with CRITIQUE:.
