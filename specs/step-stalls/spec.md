@@ -18,11 +18,17 @@
 An agent call can stop making progress without failing. The process is alive, uses almost no CPU, writes nothing and
 prints nothing, and Indaba waits for it.
 
-This was seen on 2026-10-31, in a real run of the CRUD cookbook (`examples/crud-inventory.workflow.ai.yml`) with the
-`claude-code` runner. `verify` failed (`npm test`), the `on_failure` of `verify` sent the run back to `implement`, and the
-second `implement` produced nothing for more than ten minutes: the agent process had used 16 CPU-seconds since it
-started, and the worktree had no file change after the attempt began. The `implement` of an earlier, complete run of
-the same workflow took 1.6 minutes.
+On 2026-10-31, in a real run of the CRUD cookbook (`examples/crud-inventory.workflow.ai.yml`) with the `claude-code`
+runner, `verify` failed (`npm test`) and its `on_failure` sent the run back to `implement`. That `implement` ran for 10
+minutes 13 seconds before it finished; the same step took 1.6 minutes in a complete run and 5.5 minutes on its next retry.
+For the whole of those ten minutes nothing showed whether the call was working or stuck: no file changed in the worktree,
+the agent process had used 16 CPU-seconds, and the `claude-code` runner prints nothing until the answer is complete. It
+did finish, and the run went on.
+
+**What this shows and does not show.** It shows that a slow call and a stuck call cannot be told apart from outside, to the
+person following the run or to Indaba. It does **not** show a call that never returns: no hang has been observed in the
+runs made for this specification, so the retry of a stalled attempt (AC-07) guards a failure that is plausible for a call
+to a hosted agent but not yet measured. The per-step limit and the visibility of activity stand on the observation alone.
 
 Today a person who runs Indaba has these means, and none is enough:
 
@@ -31,8 +37,8 @@ Today a person who runs Indaba has these means, and none is enough:
    safe for the second wastes thirteen minutes on the first.
 2. **A timeout is a plain failure.** When it elapses, the step fails. A step with no `on_failure` of its own ends the run
    `failed`, even when the step is the target of another step's `retry_step` that still has retries left (the engine
-   counts a retry against the step that *fails*, not against the one that is *re-run*). The stalled `implement` above has
-   no `on_failure`; its timeout would have ended a run in which `verify` had two retries left.
+   counts a retry against the step that *fails*, not against the one that is *re-run*). `implement` in the CRUD cookbook has
+   no `on_failure`; if its call timed out, the run would end although `verify` had retries left.
 3. **No way to tell a stall from slowness.** The `claude-code` runner calls `claude -p` in its plain mode, which prints
    nothing until the answer is complete, so from outside a stalled call and a slow call look the same for the whole of
    the limit. `indaba watch --stale` only stops the *person* following a quiet run; it does nothing to the run.
@@ -217,6 +223,9 @@ Every item is a decision this specification **recommends**; the maintainer confi
 
 ## 9. Open questions for the maintainer
 
+- Whether to ship the in-place retry of a stalled attempt (AC-05 to AC-09, AC-13, AC-15) before a hang has been observed.
+  The per-step `timeout_seconds` (AC-01 to AC-03) and the visibility of activity (AC-18) need no hang to be useful, and could
+  be a first release by themselves; the stall limit and its retry could follow once a stuck call has been measured.
 - Whether `retries` should default to 1 when `stall` is set, so that the common case is one line (`stall: { after_seconds: 300 }`).
   This specification says 0, so that setting `stall` never retries by surprise.
 - Whether `claude`'s thinking events should count as activity. They do here, because a long think is not a stall; if they

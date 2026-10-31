@@ -10,7 +10,7 @@ the `claude-code` runner (Claude Code 2.1.316), one machine; they are an order o
 | `implement`, a complete run, no retry | 1.6 minutes |
 | the whole workflow, no retry | about 19 minutes of step time |
 | the whole workflow, one mutation retry | about 28 minutes |
-| the stalled `implement` (a retry after `npm test` failed) | no file change and about 16 CPU-seconds after more than 10 minutes; the default limit is 15 minutes |
+| a slow `implement` (a retry after `npm test` failed) | 10 min 13 s, with no file change and about 16 CPU-seconds at the ten-minute mark; it then finished normally. The next retry took 5.5 minutes. No call that never returned has been observed |
 | `claude -p <prompt>` in its plain mode | prints nothing until the answer is complete |
 | `claude -p <prompt> --output-format stream-json --verbose` | a stream of events during the call: `system/init`, `system/thinking_tokens`, `assistant`, `rate_limit_event`, `result/success` (7 events for a three-line answer) |
 
@@ -42,6 +42,7 @@ exist, which does not change a default.
 
 ## Not measured
 
+- Whether a call ever hangs for good. None did in the runs above; the stall retry rests on that being plausible.
 - How long a healthy `claude` call can be silent in the streaming mode between events. The thinking events were seen in a
   three-line answer; a long reasoning step has not been measured. `after_seconds` has a floor of 30 and the author sets the
   number; the plan should record a measurement before the cookbooks propose one.
