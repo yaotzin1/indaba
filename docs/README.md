@@ -14,6 +14,7 @@ documentation site, [yaotzin1.github.io/indaba](https://yaotzin1.github.io/indab
 | [using-the-alpha.md](using-the-alpha.md) | You want to try this alpha: which transport (API, ACP or CLI) to choose when, a first run, and what to expect to break |
 | [getting-started.md](getting-started.md) | You want to run a workflow: prerequisites, the commands, environment variables, runners, what a run leaves on disk |
 | [playbook.md](playbook.md) | You want a recipe for one way of working: check, plan, run, watch, read the board, run a debate, find out why a run failed, script it |
+| [playbook.md#choose-a-way-of-working](playbook.md#choose-a-way-of-working) | You are choosing a cookbook: the recommended way (you write the specs, agents review them) and what the others show |
 | [cookbook-quick-start.md](cookbook-quick-start.md) | You have an idea for an application and want to see what Indaba does with it: you write a few sentences, agents debate them and build a tested app with its spec, skills and `AGENTS.md` |
 | [cookbook-crud.md](cookbook-crud.md) | You want every stage of building an application with agents explained: spec-kit, `AGENTS.md`, a project skill, tests first, a test gate, an acceptance test, mutation testing and review debates |
 | [cookbook-stages.md](cookbook-stages.md) | You want to know what files each stage of a run produces, with real excerpts, where your code is while and after it runs, and how to watch the run |

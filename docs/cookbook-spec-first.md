@@ -10,6 +10,9 @@ from then on the process is kept by Indaba: you write the spec, and the run does
 Every spec, word for word, and each step in the order you do it, are in the
 [tutorial](cookbook-spec-first-tutorial.md). This page explains the process and the three workflow files.
 
+This is the recommended way of working for an application you will keep. How it compares with the other cookbooks,
+and what each of them shows: [Choose a way of working](playbook.md#choose-a-way-of-working).
+
 ## What gets built
 
 **contacts-app**: the shared contact list of a small office, a JSON API and three windows (web pages), on Node 22 with

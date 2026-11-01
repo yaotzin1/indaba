@@ -33,7 +33,9 @@ port". The PHP prototype that preceded them was never published.
   ([`examples/contacts.workflow.ai.yml`](examples/contacts.workflow.ai.yml)): a spec gate, tasks, tests first, code, a test
   gate with retries and a code review, committed stage by stage to a branch. [docs/cookbook-spec-first-tutorial.md](docs/cookbook-spec-first-tutorial.md)
   gives every text word for word: the constitution, `AGENTS.md`, and the specs of a login window, a contact list window, a
-  contact window (add, change, delete) and a CSV export. Documentation and examples only; no package changes.
+  contact window (add, change, delete) and a CSV export. The playbook's new section
+  [Choose a way of working](docs/playbook.md#choose-a-way-of-working) recommends this way for an application you will keep,
+  and says what each of the other cookbooks shows. Documentation and examples only; no package changes.
 - **Specification: step stalls.** [specs/step-stalls](specs/step-stalls/spec.md) specifies an optional per-step
   `timeout_seconds`, a `stall` block (a silence limit and a bounded retry in place) and an optional `StallCapable` runner
   interface, with the `claude-code` runner's streaming mode as the activity signal. Specification only: nothing is
