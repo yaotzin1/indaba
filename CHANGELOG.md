@@ -15,6 +15,17 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **Two cookbooks that build a whole application with agents.** [docs/cookbook-quick-start.md](docs/cookbook-quick-start.md):
+  you write a few sentences in `idea.md`, and [`examples/idea-to-app.workflow.ai.yml`](examples/idea-to-app.workflow.ai.yml)
+  has agents debate it into a first version, then write a spec-kit constitution, `AGENTS.md`, a spec-kit spec, plan and
+  tasks, project skills, tests and code, held to a test gate and a mutation-testing gate (Stryker), before a review
+  debate. [docs/cookbook-crud.md](docs/cookbook-crud.md) explains every stage of the same process for one application
+  (an inventory CRUD app), with [`examples/crud-inventory.workflow.ai.yml`](examples/crud-inventory.workflow.ai.yml) and a
+  black-box acceptance test, [`examples/crud-inventory/acceptance.mjs`](examples/crud-inventory/acceptance.mjs), as a third
+  gate. Both are on the documentation site. Documentation and examples only; no package changes.
+
 ## [0.1.0-alpha.5] - 2026-10-31
 
 The fifth preview, published under the `next` tag. Its point is the run board: steps can leave each other notes, a

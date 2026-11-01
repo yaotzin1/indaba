@@ -32,6 +32,8 @@ export const PAGES = [
         items: [
             { file: 'getting-started.md', label: 'Getting started', blurb: 'Install, a first run, the commands' },
             { file: 'playbook.md', label: 'Playbook', blurb: 'Recipes for each way of working: check, plan, run, watch, the board, debates' },
+            { file: 'cookbook-quick-start.md', label: 'Cookbook: idea to app', blurb: 'Write a few sentences; agents debate them and build a tested app with its spec, skills and AGENTS.md' },
+            { file: 'cookbook-crud.md', label: 'Cookbook: CRUD, step by step', blurb: 'Every stage explained: spec-kit, AGENTS.md, a project skill, tests first, three gates, review' },
             { file: 'ai-playbook.md', label: 'Playbook for AI agents', blurb: 'For an agent that uses Indaba: the loop, exit codes, files, the board grammar' },
             { file: 'using-the-alpha.md', label: 'Using the alpha', blurb: 'API, ACP or CLI: which transport, when' },
             { file: 'positioning.md', label: 'What Indaba is', blurb: 'Who it is for, and what it is not' },

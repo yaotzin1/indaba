@@ -104,7 +104,7 @@ write `pnpm indaba <command>` wherever these pages say `npx indaba <command>`, f
 
 More in `examples/`: `hello.workflow.ai.yml` (shell only, no key or agent; the first run of
 [getting-started](docs/getting-started.md)), `api-only.workflow.ai.yml`, `transport-fallback.workflow.ai.yml` (API, ACP
-and CLI in one workflow), `review-debate.workflow.ai.yml` (two agents debate a review), `board-handoff.workflow.ai.yml` (two steps pass notes through the board) and `mcp.workflow.ai.yml`. A recipe for each way of working is in [docs/playbook.md](docs/playbook.md), and one for AI agents in [docs/ai-playbook.md](docs/ai-playbook.md) (the site also serves `llms.txt` and `llms-full.txt`). A guided first run of this alpha is in
+and CLI in one workflow), `review-debate.workflow.ai.yml` (two agents debate a review), `board-handoff.workflow.ai.yml` (two steps pass notes through the board) and `mcp.workflow.ai.yml`. `idea-to-app.workflow.ai.yml` and `crud-inventory.workflow.ai.yml` build a whole tested application, walked through in [docs/cookbook-quick-start.md](docs/cookbook-quick-start.md) (from a few sentences of idea) and [docs/cookbook-crud.md](docs/cookbook-crud.md) (every stage explained). A recipe for each way of working is in [docs/playbook.md](docs/playbook.md), and one for AI agents in [docs/ai-playbook.md](docs/ai-playbook.md) (the site also serves `llms.txt` and `llms-full.txt`). A guided first run of this alpha is in
 [docs/using-the-alpha.md](docs/using-the-alpha.md).
 
 `run` exits `0` on success, `1` on failure, `2` when a step was escalated (retries exhausted or no
