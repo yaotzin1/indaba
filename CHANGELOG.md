@@ -25,6 +25,10 @@ port". The PHP prototype that preceded them was never published.
   (an inventory CRUD app), with [`examples/crud-inventory.workflow.ai.yml`](examples/crud-inventory.workflow.ai.yml) and a
   black-box acceptance test, [`examples/crud-inventory/acceptance.mjs`](examples/crud-inventory/acceptance.mjs), as a third
   gate. [docs/cookbook-stages.md](docs/cookbook-stages.md) shows what each stage produces, with real excerpts from a run, where the code is while and after a run, and how to watch it. [docs/cookbook-tutorial.md](docs/cookbook-tutorial.md) is a tutorial for new users: what to write in the idea, the principles, `AGENTS.md`, the specification and the skills, how to check each, running the recipe in two halves to review the spec before any code, and how to fix a bad result. All four are on the documentation site. Documentation and examples only; no package changes.
+- **Specification: step stalls.** [specs/step-stalls](specs/step-stalls/spec.md) specifies an optional per-step
+  `timeout_seconds`, a `stall` block (a silence limit and a bounded retry in place) and an optional `StallCapable` runner
+  interface, with the `claude-code` runner's streaming mode as the activity signal. Specification only: nothing is
+  implemented and no package changes; it waits for the maintainer's decisions listed in the pull request.
 
 ## [0.1.0-alpha.5] - 2026-10-31
 
