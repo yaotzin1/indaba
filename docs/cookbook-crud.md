@@ -13,7 +13,8 @@ JSON API and a one-page front end. Agents do every stage, the way a team would:
 Each stage is a step of [`examples/crud-inventory.workflow.ai.yml`](../examples/crud-inventory.workflow.ai.yml), and
 this page explains every one. For the short version, where you only write an idea and let the agents decide the
 rest, see [Cookbook: from an idea to an app](cookbook-quick-start.md). Every field the workflow uses is described in
-[Workflow format](workflow-format.md); the commands are in the [Playbook](playbook.md).
+[Workflow format](workflow-format.md); the commands are in the [Playbook](playbook.md). New to specs, skills and `AGENTS.md`?
+The [tutorial](cookbook-tutorial.md) shows what to write in each, how to check it and how to fix a bad result.
 
 ## What gets built
 
