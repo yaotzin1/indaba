@@ -126,6 +126,8 @@ rejected a debate). Whatever ended it, the branch `indaba/app` holds every stage
 
 ## Where to go next
 
+- Get a better result: the [tutorial](cookbook-tutorial.md) shows how to write the idea, what the rules, the specification
+  and the skills are for, and how to read and fix what a run produced.
 - Change the idea and run again in a new folder: the workflow does not know what app it builds.
 - Ask your agent to add a feature: it reads `AGENTS.md` and the project skills, so it works the way this run did.
 - The [step-by-step cookbook](cookbook-crud.md) explains every stage of a run like this one, with a fixed contract and an
