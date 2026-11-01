@@ -20,8 +20,41 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 | build an app with every stage explained | [Cookbook: CRUD, step by step](cookbook-crud.md) |
 | see what each stage of such a run produces, and where the code is | [Cookbook: what each stage produces](cookbook-stages.md) |
 | learn what to write (idea, specs, skills, rules) to get the best result from such a run | [Tutorial: get the best result](cookbook-tutorial.md) |
+| write the specs yourself and have agents review each spec and its code | [Cookbook: you write the specs](cookbook-spec-first.md) |
 | find out why a run failed | [When a run fails](#when-a-run-fails) |
 | script Indaba or run it in CI | [In a script or in CI](#in-a-script-or-in-ci) |
+| choose which cookbook to follow | [Choose a way of working](#choose-a-way-of-working) |
+
+## Choose a way of working
+
+The cookbooks build an application in three different ways. The difference is **who writes the specification**: the
+spec is where the decisions are made, and every test and line of code is written from it.
+
+**Recommended for an application you will keep: [you write the specs](cookbook-spec-first.md).** You write each
+feature's spec by hand, Indaba has two agents review it before any code exists and review the code afterwards, and
+once the loop is familiar you keep it as a `workflow.ai.yml` that builds the next spec you write. Every decision in the
+app is one you made or accepted, and the review catches the gaps (a missing status code, an unstated limit, a security
+hole) while fixing them costs a sentence. It asks the most of you: a spec per feature, and reading each review.
+
+The other ways show what Indaba can do with less of you in the loop:
+
+| Cookbook | Who writes the spec | You write | It shows | Use it to |
+| :--- | :--- | :--- | :--- | :--- |
+| [You write the specs](cookbook-spec-first.md) (recommended) | you | the constitution, `AGENTS.md`, every spec | review debates over a spec and over code, a spec gate, tests first, a test gate with retries, the process kept as a workflow | build an app you will maintain |
+| [Idea to app](cookbook-quick-start.md) | agents, after debating your idea | a few sentences in `idea.md` | the whole chain with no person in it: a debate, spec-kit, `AGENTS.md`, skills, tests, code, a test gate and mutation testing | see what Indaba does end to end; a prototype |
+| [CRUD, step by step](cookbook-crud.md) | an agent, from the feature description in the workflow, then a review debate and a clarify step | the feature description (the contract) and an acceptance test | every stage explained: spec-kit's skills, a project skill, checkpoints, three gates (tests, an acceptance test no agent can edit, mutation testing) | learn each stage; borrow a gate for your own workflow |
+
+Two pages go with the agent-written cookbooks: [what each stage produces](cookbook-stages.md) (the files, with real
+excerpts) and [get the best result](cookbook-tutorial.md) (what to write in the idea, rules and skills, and how to fix
+a bad result).
+
+In the agent-written ways, the agents decide whatever the idea leaves open: in one quick-start run the spec recorded
+17 decisions the two-sentence idea never made. They were reasonable, and they were not the author's. If you want agents
+to draft the spec but still own it, the middle way is to run the CRUD recipe in two halves and edit the spec between
+them: see [Review the spec before any code is written](cookbook-tutorial.md#10-review-the-spec-before-any-code-is-written).
+
+The ways mix. A spec-first project can add the CRUD recipe's acceptance test and mutation gate to its `workflow.ai.yml`,
+and an app started with idea to app can continue spec-first: from then on, write each new feature's spec yourself.
 
 ## Check a workflow
 

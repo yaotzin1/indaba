@@ -1,0 +1,170 @@
+version: "1.0"
+name: "contacts"
+
+# The process of contacts-app, kept as a workflow. It is written at the end of docs/cookbook-spec-first.md, after
+# three features were built by hand: you write the spec, and Indaba does the rest the way those features were done.
+# In the project it is saved as workflow.ai.yml, at the root, and committed.
+#
+# For each new feature:
+#   1. write specs/<NNN-name>/spec.md by hand (contacts-review-spec.workflow.ai.yml while you draft it), and commit it;
+#   2. change the feature line below to that directory, and commit;
+#   3. indaba validate workflow.ai.yml && indaba plan workflow.ai.yml
+#      indaba run workflow.ai.yml
+#   4. git merge indaba/<feature directory>     # the checkpoint steps commit each stage to this branch
+#
+# Checkpoints: every step runs in the same git worktree, and the scope guard that holds a step's permissions looks at
+# everything changed since the worktree's last commit. A checkpoint commits before the next step that may write
+# somewhere else, so each step is judged on its own changes.
+
+artifacts:
+  feature: "specs/004-export"   # the feature to build: change it for each spec
+
+roles:
+  architect:
+    runner: ["acp", "claude-code"]   # ACP first; the claude-code CLI only when ACP cannot start
+    agent: "claude"
+  reviewer:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+  tester:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+  implementer:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+
+steps:
+  # ---- 1. The spec gate: is the spec, as you wrote it, buildable? ------------------------------------------------
+  # The worktree is made from your last commit, so this fails when the feature line is wrong or the spec is not committed.
+  - id: "check_spec"
+    runner: "shell"
+    isolation: "git_worktree"
+    commands:
+      - "node -e \"if (!require('node:fs').existsSync(process.argv[1])) { console.error('No committed spec at ' + process.argv[1]); process.exit(1) }\" ${{ artifacts.feature }}/spec.md"
+
+  # Here AGREEMENT is a go: "nothing in the spec blocks building it". A reviewer who finds a blocker answers CRITIQUE,
+  # the debate does not settle, and you decide: accept builds anyway, reject ends the run before any code is written.
+  - id: "spec_gate"
+    depends_on: ["check_spec"]
+    role: "reviewer"
+    consensus_with: ["tester"]
+    decision_type: "consensus"
+    arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
+    input_artifacts: ["${{ artifacts.feature }}/spec.md"]
+    goal: >-
+      A person wrote ${{ artifacts.feature }}/spec.md and wants it built exactly as written. Read
+      .specify/memory/constitution.md, AGENTS.md and the earlier specs under specs/ first. Decide whether anything in
+      the spec blocks building it: a requirement no test could check, a missing failure case or status code, a
+      contradiction with the constitution or an earlier spec. A blocker means a tester could not write the test, or the
+      coder would have to guess. Do not modify any file and do not run commands. Keep your reply under 200 words.
+      Begin with AGREEMENT: when nothing blocks building it (then list at most three minor notes, or none), or with
+      CRITIQUE: when something does (then name each blocker and the requirement id it is about). In a later round,
+      answer AGREEMENT: if the other participant's blockers are not real blockers, and say why.
+
+  # ---- 2. Tasks, tests first, then the code ----------------------------------------------------------------------
+  - id: "tasks"
+    isolation: "git_worktree"
+    depends_on: ["spec_gate"]
+    role: "architect"
+    permissions: { level: edit, fs: { write: ["specs/**"] } }
+    goal: >-
+      Read AGENTS.md and ${{ artifacts.feature }}/spec.md. Write ${{ artifacts.feature }}/tasks.md: the work as an
+      ordered checklist (- [ ] T001 ...), each task naming the file it changes and the requirement ids it serves. Test
+      tasks come before code tasks, and the last task is: npm test passes. Do not change spec.md: it is the person's.
+      Do not run commands. End your reply with: BOARD result: <how many tasks, and in what order>
+    outputs: ["${{ artifacts.feature }}/tasks.md"]
+    board:
+      post: [result]
+
+  - id: "checkpoint_tasks"
+    depends_on: ["tasks"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"${{ artifacts.feature }}: tasks\""
+      - "git branch -f indaba/${{ artifacts.feature }} HEAD"
+
+  - id: "tests"
+    isolation: "git_worktree"
+    depends_on: ["checkpoint_tasks"]
+    role: "tester"
+    permissions: { level: edit, fs: { write: ["test/**", "specs/*/tasks.md"] } }
+    goal: >-
+      Read AGENTS.md, .specify/memory/constitution.md and ${{ artifacts.feature }}/spec.md, then do the test tasks of
+      ${{ artifacts.feature }}/tasks.md: one or more tests for every requirement (FR-...) and every acceptance scenario,
+      asserting exact status codes and bodies, using node:test and node:assert/strict as the existing tests in test/
+      do. Do not write anything under src/ or public/. The new tests must fail now, because the code does not exist
+      yet. Tick the test tasks you completed. Do not run commands.
+      End your reply with: BOARD result: <how many tests, and what they cover>
+    board:
+      read:
+        steps: ["spec_gate"]
+        kinds: [proposal, critique, agreement, result, decision]
+      post: [result]
+
+  - id: "checkpoint_tests"
+    depends_on: ["tests"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"${{ artifacts.feature }}: tests\""
+      - "git branch -f indaba/${{ artifacts.feature }} HEAD"
+
+  - id: "implement"
+    isolation: "git_worktree"
+    depends_on: ["checkpoint_tests"]
+    role: "implementer"
+    permissions: { level: edit, fs: { write: ["src/**", "public/**", "specs/*/tasks.md"] } }
+    goal: >-
+      Read AGENTS.md and ${{ artifacts.feature }}/spec.md, then do the remaining tasks of ${{ artifacts.feature }}/tasks.md.
+      Make every test in test/ pass without changing test/, package.json or spec.md. Tick the tasks you complete.
+      If a test contradicts the spec, follow the spec and post: BOARD question: <which test, and why>
+      Do not run commands: Indaba runs the tests after this step. If src/ already has this feature's code, this is a
+      retry after the tests failed: change only what the failure below needs.
+    board:
+      read:
+        steps: ["spec_gate", "tests"]
+        kinds: [proposal, critique, agreement, result, decision, note, question]
+      post: [note, question]
+
+  - id: "checkpoint_code"
+    depends_on: ["implement"]
+    runner: "shell"
+    commands:
+      - "git add -A"
+      - "git commit -q --allow-empty -m \"${{ artifacts.feature }}: code\""
+      - "git branch -f indaba/${{ artifacts.feature }} HEAD"
+
+  # ---- 3. The gate and the review --------------------------------------------------------------------------------
+  - id: "verify"
+    depends_on: ["checkpoint_code"]
+    runner: "shell"
+    commands:
+      - "npm test"
+    on_failure:
+      action: "retry_step"
+      target: "implement"
+      max_retries: 3
+
+  - id: "code_review"
+    depends_on: ["verify"]
+    role: "reviewer"
+    consensus_with: ["tester"]
+    decision_type: "consensus"
+    arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
+    goal: >-
+      Review src/, public/ and test/ against ${{ artifacts.feature }}/spec.md, .specify/memory/constitution.md and
+      AGENTS.md: a requirement (FR-...) with no test or not met by the code, an acceptance scenario that behaves
+      differently, validation or error handling that differs from the spec, a security gap, and code that does
+      something the spec does not ask for. The tests passed in the step before this one. Do not modify any file and do
+      not run commands. Keep your reply under 200 words. AGREEMENT: means you accept the other participant's findings
+      as the review's result (they may criticise the code). CRITIQUE: means a finding is missing, wrong or badly
+      worded. In your first reply list your own findings (at most five, each with a file path and the requirement id)
+      and begin with CRITIQUE:.
+    board:
+      read:
+        steps: ["tests", "implement"]

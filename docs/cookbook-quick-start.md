@@ -7,7 +7,8 @@ Then they review the result against what you asked for.
 
 This page is the short way, and it is meant to show what the Indaba engine can do for you. The
 [step-by-step cookbook](cookbook-crud.md) builds one application with every stage explained and every setting spelled
-out; read it when you want to change how the work is done.
+out; read it when you want to change how the work is done. For an application you will keep, the recommended way is to
+write the specs yourself: see [Choose a way of working](playbook.md#choose-a-way-of-working).
 
 ## What you get
 
