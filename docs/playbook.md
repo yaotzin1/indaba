@@ -19,6 +19,7 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 | build a whole app from an idea and see what Indaba can do | [Cookbook: idea to app](cookbook-quick-start.md) |
 | build an app with every stage explained | [Cookbook: CRUD, step by step](cookbook-crud.md) |
 | see what each stage of such a run produces, and where the code is | [Cookbook: what each stage produces](cookbook-stages.md) |
+| learn what to write (idea, specs, skills, rules) to get the best result from such a run | [Tutorial: get the best result](cookbook-tutorial.md) |
 | find out why a run failed | [When a run fails](#when-a-run-fails) |
 | script Indaba or run it in CI | [In a script or in CI](#in-a-script-or-in-ci) |
 
