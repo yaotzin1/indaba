@@ -61,6 +61,7 @@ What it left behind is under `.indaba/`: the trace of the run, the steps and the
 
 - give a step a `role` backed by an agent or a model: [Runners](#runners) and [workflow-format.md](workflow-format.md);
 - let two agents debate a decision: [consensus steps](workflow-format.md#consensus-steps);
+- build a whole application with agents, from an idea: [Cookbook: idea to app](cookbook-quick-start.md), or with every stage explained: [Cookbook: CRUD, step by step](cookbook-crud.md);
 - follow, start and edit runs in a browser with `indaba ui`: [The web view](#the-web-view-indaba-ui) (from a checkout for now).
 
 ## Prerequisites
