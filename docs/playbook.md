@@ -16,6 +16,8 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 | read what the steps told each other | [Reading the board](#reading-the-board) |
 | have two agents argue until they agree | [A debate](#a-debate) |
 | watch in a browser | [The web view](#the-web-view) |
+| build a whole app from an idea and see what Indaba can do | [Cookbook: idea to app](cookbook-quick-start.md) |
+| build an app with every stage explained | [Cookbook: CRUD, step by step](cookbook-crud.md) |
 | find out why a run failed | [When a run fails](#when-a-run-fails) |
 | script Indaba or run it in CI | [In a script or in CI](#in-a-script-or-in-ci) |
 
