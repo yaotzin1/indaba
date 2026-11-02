@@ -114,9 +114,10 @@ How to read the result:
   good"), and `CRITIQUE:` means a finding is missing, wrong or badly worded. This is the
   [review debate pattern](workflow-format.md#pattern-a-review-debate); without it, two reviewers who find the same
   problems never settle.
-- **`completed`** means they settled on one list. Read it on the board (`indaba watch latest --plain`, or the dashboard); the web view
-  (`indaba ui`) does not show the board yet. The transcript file of a debate is written inside the worktree, which is removed when the run ends, so
-  the board is where the messages stay.
+- **`completed`** means they settled on one list. Read it on the board (`indaba watch latest --plain`, or the dashboard). The transcript file of a debate is written
+  inside the worktree, which is removed when the run ends, so the board is where the messages stay; a copy of the
+  debate is also kept in `.indaba/discussions/<traceId>.<stepId>.json`, which the web view (`indaba ui`) shows, but the
+  web view does not show the board itself yet.
 - **When they cannot settle**, the human arbiter shows you the transcript and asks `accept` or `reject`. Either answer
   ends the review; the findings are still the messages. Your ruling is appended to `.indaba-decisions/<workflow>.jsonl`.
   Commit that folder: it is the record of who decided what, and an identical re-run reuses the ruling instead of asking
@@ -156,7 +157,7 @@ After feature 003 you have done the same thing three times. Save
 | :--- | :--- | :--- | :--- |
 | `check_spec` | shell | fails with `No committed spec at specs/<feature>/spec.md` when the feature line is wrong or the spec is not committed | |
 | `spec_gate` | reviewer + tester | debate whether anything in your spec blocks building it | nothing |
-| `tasks` | architect | `specs/<feature>/tasks.md`: the work in order, tests first, each task naming its file and requirement ids | `specs/**` |
+| `tasks` | architect | `specs/<feature>/tasks.md`: the work in order, tests first, each task naming its file and requirement ids | `specs/*/tasks.md` |
 | `checkpoint_tasks` | shell | commits, and points `indaba/specs/<feature>` at the commit | |
 | `tests` | tester | a test for every requirement and scenario, failing for now | `test/**`, `specs/*/tasks.md` |
 | `checkpoint_tests` | shell | commits | |
@@ -208,8 +209,8 @@ change you make by hand.
 ## How this recipe was checked
 
 The specs, the constitution and `AGENTS.md` are those of the tutorial. The API that the four specs describe was built as
-a reference implementation, and 24 `node:test` tests of their requirements pass against it. The three workflows were run
-end to end with stand-in agents (a plugin that writes the reference files instead of calling a model): real git,
+a reference implementation, and 24 `node:test` tests of their requirements passed against it. Neither the reference nor the tests are in this repository, so you cannot repeat that part. The three workflows were run
+end to end with stand-in agents (a plugin that writes the reference files instead of calling a model; also not shipped): real git,
 worktrees, scope guards, checkpoints and `npm test`, including a `verify` failure sent back to `implement`, a scope
 guard failure when the tester wrote under `src/`, and `check_spec` stopping a run whose feature line had a typo. They have not been run with real agents for this page yet, and real
 agents word their findings differently every time. The windows (`public/`) were not part of the reference.

@@ -68,7 +68,7 @@ steps:
     isolation: "git_worktree"
     depends_on: ["spec_gate"]
     role: "architect"
-    permissions: { level: edit, fs: { write: ["specs/**"] } }
+    permissions: { level: edit, fs: { write: ["specs/*/tasks.md"] } }
     goal: >-
       Read AGENTS.md and ${{ artifacts.feature }}/spec.md. Write ${{ artifacts.feature }}/tasks.md: the work as an
       ordered checklist (- [ ] T001 ...), each task naming the file it changes and the requirement ids it serves. Test
@@ -156,6 +156,7 @@ steps:
     arbiter: "human"
     isolation: "git_worktree"
     permissions: { level: read }
+    input_artifacts: ["${{ artifacts.feature }}/spec.md"]
     goal: >-
       Review src/, public/ and test/ against ${{ artifacts.feature }}/spec.md, .specify/memory/constitution.md and
       AGENTS.md: a requirement (FR-...) with no test or not met by the code, an acceptance scenario that behaves

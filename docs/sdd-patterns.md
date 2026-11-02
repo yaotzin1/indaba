@@ -81,7 +81,7 @@ agent notices.
 
 The clearest sign of the year is convergence. Kiro, a phase pipeline, added a **design-first** variant and a separate
 **bugfix spec** (current behaviour, expected behaviour, and behaviour that must not change), which is a step towards
-change deltas. Spec Kit reached 1.0.0 in August 2026, one year after its first commit, with an extension system and a
+change deltas. Spec Kit reached 1.0.0 in August 2026 (see its releases in Sources), one year after its first commit, with an extension system and a
 guide for adopting it in an existing project, and community extensions add a post-implementation check of the code
 against the spec. BMAD, the heaviest, offers a quick mode for smaller work. In practice a team now picks a family per kind of change, not
 a product for life.
@@ -99,8 +99,8 @@ bear:
 | Time overhead quoted in tool guides | Spec Kit adds one to three hours or more per feature, review included; Kiro's spec flow adds 15 to 30 minutes on a new project | estimates, not controlled measurements |
 | Keeping a spec true through later changes | the mechanisms exist (OpenSpec's merge and archive, Kiro's sync, review against the spec) | nobody has compared what they cost; this is the biggest open question |
 
-Two cautions apply to all of it. Self-reported productivity has overstated benefits before (METR's warning, quoted in
-several of these guides). And "merged at first delivery" says whether the work was accepted, not whether the spec is
+Two cautions apply to all of it. Self-reported productivity has overstated benefits before (treat a reported gain as unmeasured unless its source
+says how it was measured). And "merged at first delivery" says whether the work was accepted, not whether the spec is
 still true six months later, which is the whole promise of the spec-anchored level.
 
 ### Measuring it yourself with Indaba
@@ -173,6 +173,7 @@ steps:
     depends_on: ["checkpoint_test"]
     runner: "shell"
     commands:
+      - "node -e \"if (!require('node:fs').existsSync('test/regression') || require('node:fs').readdirSync('test/regression').length === 0) process.exit(1)\""
       - "node -e \"const r = require('node:child_process').spawnSync(process.execPath, ['--test', 'test/regression/**/*.test.*'], { stdio: 'inherit' }); process.exit(r.status === 0 ? 1 : 0)\""
 
   - id: "fix"
@@ -190,7 +191,7 @@ steps:
 ```
 
 `test_fails_first` passes only when the new tests fail now; it fails when they all pass already (the bug was not
-reproduced) and when there are none. It cannot tell a test that fails for the right reason from one that fails because
+reproduced). The first command checks that a test file exists, because `node --test` also exits non-zero when it finds none, which this gate would count as a pass. It cannot tell a test that fails for the right reason from one that fails because
 it is broken, so read its output in the run, or let the code review check it.
 
 **Cross-component change: one writer per component, one contract gate.** (Add `change: "specs/changes/007-sync"` under `artifacts:` first.) The gate retries only `implement_api`; if the web side broke the contract, point `target` at `implement_web` or split the gate in two. Each component's step may change only its own
