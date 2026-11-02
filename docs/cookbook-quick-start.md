@@ -41,6 +41,7 @@ mkdir my-app && cd my-app
 git init
 uvx --from git+https://github.com/github/spec-kit.git@v1.2.5 specify init --here --force --integration claude --script py --non-interactive
 printf ".indaba/\nnode_modules/\nreports/\n.stryker-tmp/\n" > .gitignore
+# PowerShell: Set-Content .gitignore ".indaba/","node_modules/","reports/",".stryker-tmp/"
 ```
 
 The `uvx` line installs spec-kit's templates and skills into the project (add `--ignore-agent-tools` if the `claude`
@@ -72,8 +73,9 @@ indaba run idea-to-app.workflow.ai.yml
 ```
 
 The terminal prints each stage as it runs, and stays free to ask you when a debate cannot settle (do not add `--tui`: the
-dashboard cannot ask). To read what the agents tell each other, open a second terminal and run `indaba watch latest`, or
-`indaba ui` for a browser. The run takes a while and costs what the agent calls cost: at least ten of them, more when a debate takes
+dashboard cannot ask). With no terminal to ask (`--tui`, a pipe, CI), an unsettled debate does not wait: its step
+escalates and the run ends `escalated` ([Arbiter](workflow-format.md#arbiter)). To read what the agents tell each
+other, open a second terminal and run `indaba watch latest`, or `indaba ui` for a browser. The run takes a while and costs what the agent calls cost: at least ten of them, more when a debate takes
 several rounds or a gate sends work back.
 
 ## 3. Take the result
