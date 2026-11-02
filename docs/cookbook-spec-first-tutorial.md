@@ -533,7 +533,7 @@ Change the feature line of both review workflows to `specs/003-contact-edit`. Th
 ```markdown
 # Feature 003: Contact window (add, change, delete)
 
-**Status**: reviewed | **Depends on**: 001-login, 002-contact-list, 003-contact-window
+**Status**: reviewed | **Depends on**: 001-login, 002-contact-list
 
 ## Summary
 
@@ -709,7 +709,7 @@ From here on you write only the spec. Review it while you draft, as before (chan
 ```markdown
 # Feature 004: Export the list as CSV
 
-**Status**: reviewed | **Depends on**: 001-login, 002-contact-list
+**Status**: reviewed | **Depends on**: 001-login, 002-contact-list, 003-contact-edit
 
 ## Summary
 

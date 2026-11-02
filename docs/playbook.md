@@ -30,7 +30,7 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 The cookbooks build an application in three different ways. The difference is **who writes the specification**: the
 spec is where the decisions are made, and every test and line of code is written from it.
 
-**Suggested for an application you will keep: [you write the specs](cookbook-spec-first.md)** (checked with stand-in agents, not yet with real ones). You write each
+**Suggested for an application you will keep: [you write the specs](cookbook-spec-first.md)** (run end to end with real agents on four features; see its last section). You write each
 feature's spec by hand, Indaba has two agents review it before any code exists and review the code afterwards, and
 once the loop is familiar you keep it as a `workflow.ai.yml` that builds the next spec you write. Every decision in the
 app is one you made or accepted, and the review catches the gaps (a missing status code, an unstated limit, a security

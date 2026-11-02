@@ -10,7 +10,7 @@ from then on the process is kept by Indaba: you write the spec, and the run does
 Every spec, word for word, and each step in the order you do it, are in the
 [tutorial](cookbook-spec-first-tutorial.md). This page explains the process and the three workflow files.
 
-This is the way of working Indaba suggests for an application you will keep (the recipe is checked with stand-in agents, not yet with real ones: see "How this recipe was checked"). How it compares with the other cookbooks,
+This is the way of working Indaba suggests for an application you will keep (the recipe was run end to end with real agents: see "How this recipe was checked"). How it compares with the other cookbooks,
 and what each of them shows: [Choose a way of working](playbook.md#choose-a-way-of-working).
 
 ## What gets built
@@ -208,12 +208,35 @@ change you make by hand.
 
 ## How this recipe was checked
 
-The specs, the constitution and `AGENTS.md` are those of the tutorial. The API that the four specs describe was built as
-a reference implementation, and 24 `node:test` tests of their requirements passed against it. Neither the reference nor the tests are in this repository, so you cannot repeat that part. The three workflows were run
-end to end with stand-in agents (a plugin that writes the reference files instead of calling a model; also not shipped): real git,
-worktrees, scope guards, checkpoints and `npm test`, including a `verify` failure sent back to `implement`, a scope
-guard failure when the tester wrote under `src/`, and `check_spec` stopping a run whose feature line had a typo. They have not been run with real agents for this page yet, and real
-agents word their findings differently every time. The windows (`public/`) were not part of the reference.
+The tutorial's constitution, `AGENTS.md`, `package.json` and final specs 001 to 004 were put in an empty folder, and the
+kept `workflow.ai.yml` was run on each spec in turn (001, 002, 003, then 004), with real agents: Claude Code for every
+role, on Windows 11 with Node 22. After each run the branch was merged and `npm test` run on the result. (In the tutorial
+you build 001 to 003 yourself; here the same workflow built them, which is the harder test for 004: it exports the list the
+earlier code built.)
+
+| Feature | Spec gate | Tests after the run | Test gate | Code review |
+| :--- | :--- | :--- | :--- | :--- |
+| 001 login | settled in 1 round | 106 pass | passed | settled in 3 rounds |
+| 002 contact list | settled in 1 round | 194 pass | failed once, sent back to `implement`, passed | 4 rounds, not settled |
+| 003 contact edit | settled in 1 round | 290 pass | passed | settled in 3 rounds |
+| 004 export | settled in 1 round | 345 pass | passed | 4 rounds, not settled |
+
+What this showed:
+
+- The chain works as written: `check_spec`, the spec gate, tasks, tests, code, `npm test` and the code review ran, each
+  `checkpoint_*` step committed, and the result was the branch `indaba/specs/<feature>`. The `verify` failure of 002 went
+  back to `implement` and the second attempt passed.
+- The code reviews found real problems in the generated code, for example that parallel wrong passwords in 001 all pass
+  the lockout check before any failure is counted, and that `__proto__` was not rejected as an unknown field in 003.
+  Nothing was fixed in these runs; fixing what you agree with is the step after the review.
+- The two reviews that did not settle ended `escalated`, because the run had no terminal for the human arbiter. Run with a
+  terminal and the arbiter asks you `accept` or `reject`, as described above.
+
+What was not checked: the windows (`public/`) were never opened in a browser; the agents' tests of the pages were run, not
+the pages. Only Claude Code was used, so a debate between two different agents was not tried with this workflow. The cost of a run is shown as unknown.
+On this machine the run was marked `failed` after every step had completed, because Windows refused to remove the task
+worktree at the end ("Permission denied"); the branch and the commits were intact. If you see that, check the steps, not
+only the final line. Real agents word their findings differently every time, so yours will differ.
 
 ## See also
 
