@@ -42,8 +42,8 @@ export interface CliRunnerOptions {
  */
 export abstract class AbstractCliRunner implements Runner, PermissionCapable {
   abstract readonly name: string;
-  private readonly usePty: boolean;
-  private readonly spawner: ProcessSpawner;
+  protected readonly usePty: boolean;
+  protected readonly spawner: ProcessSpawner;
 
   protected constructor(options: CliRunnerOptions = {}) {
     this.usePty = options.usePty ?? true;

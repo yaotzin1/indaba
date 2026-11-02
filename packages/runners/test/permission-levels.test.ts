@@ -34,16 +34,26 @@ async function commandOf(
   return spawner.last.command;
 }
 
+/** What a default ClaudeRunner adds to ask the CLI for its usage (specs/claude-code-usage). */
+const USAGE = ['--output-format', 'stream-json', '--verbose'];
 const claude = (spawner: FakeSpawner) => new ClaudeRunner({ spawner, usePty: false });
 const agy = (spawner: FakeSpawner) => new AntigravityRunner({ spawner, usePty: false });
 
 describe('claude-code levels (specs/agent-permissions AC-07, AC-08)', () => {
   it('passes the permission mode of each written level', async () => {
-    expect(await commandOf(claude, 'read')).toEqual(['claude', '-p', 'p', '--permission-mode', 'plan']);
+    expect(await commandOf(claude, 'read')).toEqual([
+      'claude',
+      '-p',
+      'p',
+      ...USAGE,
+      '--permission-mode',
+      'plan',
+    ]);
     expect(await commandOf(claude, 'edit')).toEqual([
       'claude',
       '-p',
       'p',
+      ...USAGE,
       '--permission-mode',
       'acceptEdits',
     ]);
@@ -51,13 +61,21 @@ describe('claude-code levels (specs/agent-permissions AC-07, AC-08)', () => {
       'claude',
       '-p',
       'p',
+      ...USAGE,
       '--permission-mode',
       'bypassPermissions',
     ]);
   });
 
   it('keeps its built-in default for a step that writes no level', async () => {
-    expect(await commandOf(claude)).toEqual(['claude', '-p', 'p', '--permission-mode', 'acceptEdits']);
+    expect(await commandOf(claude)).toEqual([
+      'claude',
+      '-p',
+      'p',
+      ...USAGE,
+      '--permission-mode',
+      'acceptEdits',
+    ]);
   });
 
   it('puts the written level after extraArgs so an embedder cannot widen it', async () => {
@@ -70,7 +88,7 @@ describe('claude-code levels (specs/agent-permissions AC-07, AC-08)', () => {
 
   it('keeps extraArgs as the replacement default when no level is written', async () => {
     const make = (spawner: FakeSpawner) => new ClaudeRunner({ spawner, usePty: false, extraArgs: ['--x'] });
-    expect(await commandOf(make)).toEqual(['claude', '-p', 'p', '--x']);
+    expect(await commandOf(make)).toEqual(['claude', '-p', 'p', ...USAGE, '--x']);
   });
 });
 
@@ -186,7 +204,7 @@ describe('extraArgs can never widen a written level (AC-07)', () => {
       'claude',
       '-p',
       'p',
-      '--verbose',
+      ...USAGE,
       '--permission-mode',
       'plan',
     ]);

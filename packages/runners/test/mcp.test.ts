@@ -120,7 +120,14 @@ describe('MCP in the runners', () => {
     const spawner = new FakeSpawner();
     await new ClaudeRunner({ spawner, extraArgs: [] }).run({ prompt: 'go', workdir: TMP });
 
-    expect(spawner.last.command).toEqual(['claude', '-p', 'go']);
+    expect(spawner.last.command).toEqual([
+      'claude',
+      '-p',
+      'go',
+      '--output-format',
+      'stream-json',
+      '--verbose',
+    ]);
   });
 
   it('CodexRunner injects overrides before the prompt', async () => {
