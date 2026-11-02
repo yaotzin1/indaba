@@ -35,8 +35,8 @@ Three habits make the review short:
 ```bash
 mkdir contacts-app && cd contacts-app
 git init
-mkdir -p .specify/memory specs src public test
-printf ".indaba/\nnode_modules/\ndata/\n" > .gitignore
+mkdir -p .specify/memory specs src public test   # PowerShell: mkdir .specify/memory, specs, src, public, test
+printf ".indaba/\nnode_modules/\ndata/\n" > .gitignore   # PowerShell or cmd: create the file in an editor
 ```
 
 `data/` holds the users file and the contacts file the server writes; they are data, not code, and stay out of git.
@@ -174,7 +174,7 @@ pull request as accepted.
 ````
 
 ```bash
-echo "@AGENTS.md" > CLAUDE.md
+echo @AGENTS.md > CLAUDE.md   # any shell; or create CLAUDE.md in an editor with the single line @AGENTS.md
 ```
 
 ### The two review workflows
@@ -788,7 +788,9 @@ a commit on the branch `indaba/specs/004-export`:
 ```bash
 git log --oneline indaba/specs/004-export
 git diff main...indaba/specs/004-export          # or master, whichever your first branch is
-npm test                                          # on the branch: git checkout indaba/specs/004-export
+git checkout indaba/specs/004-export             # try the result on the branch
+npm test
+git checkout main                                 # or master
 git merge indaba/specs/004-export
 ```
 
