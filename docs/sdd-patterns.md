@@ -146,7 +146,7 @@ alternatives), **reported** (one team's trial), **documented** (the tools descri
 
 And for the two hardest rows of the matrix:
 
-**Bug fix: prove the bug before fixing it.** A gate that requires the new test to fail first turns "I fixed it" into
+**Bug fix: prove the bug before fixing it.** (Each `checkpoint_*` step ends with `git branch -f`: the worktree is removed when the run ends, and a commit no branch points at is lost with it.) A gate that requires the new test to fail first turns "I fixed it" into
 evidence. A sketch, with the agents' steps shortened:
 
 ```yaml
@@ -167,13 +167,12 @@ steps:
   - id: "checkpoint_test"
     depends_on: ["regression_test"]
     runner: "shell"
-    commands: ["git add -A", "git commit -q -m \"regression test\""]
+    commands: ["git add -A", "git commit -q -m \"regression test\"", "git branch -f indaba/${{ artifacts.bug }} HEAD"]
 
   - id: "test_fails_first"                     # the bug is reproduced: the new tests must not all pass yet
     depends_on: ["checkpoint_test"]
     runner: "shell"
     commands:
-      - "node -e \"if (!require('node:fs').existsSync('test/regression') || require('node:fs').readdirSync('test/regression').length === 0) process.exit(1)\""
       - "node -e \"const r = require('node:child_process').spawnSync(process.execPath, ['--test', 'test/regression/**/*.test.*'], { stdio: 'inherit' }); process.exit(r.status === 0 ? 1 : 0)\""
 
   - id: "fix"
@@ -191,7 +190,7 @@ steps:
 ```
 
 `test_fails_first` passes only when the new tests fail now; it fails when they all pass already (the bug was not
-reproduced). The first command checks that a test file exists, because `node --test` also exits non-zero when it finds none, which this gate would count as a pass. It cannot tell a test that fails for the right reason from one that fails because
+reproduced) and when there are none (checked with Node 22: `node --test` exits 0 on a pattern that matches no file). It cannot tell a test that fails for the right reason from one that fails because
 it is broken, so read its output in the run, or let the code review check it.
 
 **Cross-component change: one writer per component, one contract gate.** (Add `change: "specs/changes/007-sync"` under `artifacts:` first.) The gate retries only `implement_api`; if the web side broke the contract, point `target` at `implement_web` or split the gate in two. Each component's step may change only its own
@@ -207,7 +206,7 @@ folder, so an agent fixing the web app cannot quietly change the API to suit its
   - id: "checkpoint_api"
     depends_on: ["implement_api"]
     runner: "shell"
-    commands: ["git add -A", "git commit -q -m \"api side\""]
+    commands: ["git add -A", "git commit -q -m \"api side\"", "git branch -f indaba/${{ artifacts.change }} HEAD"]
 
   - id: "implement_web"
     depends_on: ["checkpoint_api"]
@@ -216,8 +215,13 @@ folder, so an agent fixing the web app cannot quietly change the API to suit its
     permissions: { level: edit, fs: { write: ["apps/web/**"] } }
     goal: "Implement the web side of ${{ artifacts.change }}/contract.md. The API side is done; do not change it."
 
-  - id: "contract"
+  - id: "checkpoint_web"
     depends_on: ["implement_web"]
+    runner: "shell"
+    commands: ["git add -A", "git commit -q -m \"web side\"", "git branch -f indaba/${{ artifacts.change }} HEAD"]
+
+  - id: "contract"
+    depends_on: ["checkpoint_web"]
     runner: "shell"
     commands: ["npm run test:contract"]   # your own script: it exercises the API and the web side against contract.md
     on_failure: { action: "retry_step", target: "implement_api", max_retries: 2 }

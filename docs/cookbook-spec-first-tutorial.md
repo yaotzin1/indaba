@@ -174,7 +174,7 @@ pull request as accepted.
 ````
 
 ```bash
-echo @AGENTS.md > CLAUDE.md   # any shell; or create CLAUDE.md in an editor with the single line @AGENTS.md
+echo "@AGENTS.md" > CLAUDE.md   # bash; in PowerShell: Set-Content CLAUDE.md "@AGENTS.md" -Encoding utf8NoBOM (PowerShell 7), or use an editor
 ```
 
 ### The two review workflows
@@ -306,7 +306,7 @@ Alice opens the app and signs in, so that she can work with the contacts.
   - `401` `{ "error": "Wrong username or password." }` for an unknown username or a wrong password: the same status
     and body. For an unknown username a stored dummy hash is verified, so both cases do the same work.
   - `429` `{ "error": "Too many attempts. Try again in <n> minutes." }` with `Retry-After: <seconds>` while the
-    username is locked (FR-007). `<n>` is the seconds left divided by 60, rounded up.
+    username is locked (FR-007). `<n>` is the seconds left divided by 60, rounded up; when it is 1 the text reads "Try again in 1 minute."
 - **FR-005** A session lives in the server's memory. It ends 30 minutes after the last request that carried it; every
   request that carries a valid session moves that time forward. Restarting the server ends every session.
 - **FR-006** `POST /api/logout` ends the session in the cookie, if there is one, and answers `204` with
@@ -533,7 +533,7 @@ Change the feature line of both review workflows to `specs/003-contact-edit`. Th
 ```markdown
 # Feature 003: Contact window (add, change, delete)
 
-**Status**: reviewed | **Depends on**: 001-login, 002-contact-list
+**Status**: reviewed | **Depends on**: 001-login, 002-contact-list, 003-contact-window
 
 ## Summary
 

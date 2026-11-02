@@ -74,8 +74,9 @@ are told never to edit it, so the review is how it gets a second reader.
   `tester` role's runner and agent.
 - A terminal for the runs: the debates use `arbiter: "human"`, which asks you only when the agents cannot agree.
 
-A review debate calls each of its two agents once per round, for up to four rounds, so one review is between two and
-eight agent calls.
+A debate calls each of its two agents once per round, for up to four rounds. The two review workflows tell the agents to
+begin their first reply with `CRITIQUE:`, so a review needs at least two rounds: four agent calls, at most eight. The
+spec gate in `workflow.ai.yml` lets a reviewer answer `AGREEMENT:` at once, so it can settle in one round: two calls.
 
 ## The three workflow files
 
@@ -96,8 +97,8 @@ The goals refer to it as `${{ artifacts.feature }}`, so changing that one line p
 feature. `indaba run` has no option to pass a value in, which is why the line is in the file.
 
 **Commit before every run.** Each review runs in a git worktree made from your last commit, so an uncommitted draft is
-not what the agents read. The debates are read-only (`permissions: { level: read }`), and the scope guard fails the
-step if anything changed.
+not what the agents read. The debates are read-only: the step declares `permissions: { level: read }`, and its scope guard
+(`indaba plan` shows "may only change nothing") fails the step if anything in the worktree changed, whichever agent changed it.
 
 ## Reviewing a spec
 
@@ -171,8 +172,7 @@ Three choices in it are worth knowing:
 - **The spec gate is a go or no-go, not a list of findings.** Its goal makes `AGREEMENT:` mean "nothing in the spec blocks
   building it" (which is also what the engine tells debaters an `AGREEMENT` is). When a reviewer finds a blocker it
   answers `CRITIQUE:`, the debate does not settle, and the human arbiter asks you: `accept` builds anyway, `reject` ends
-  the run before any test or code is written. You already reviewed the spec while you wrote it, so usually both agree
-  in the first round and the run goes on.
+  the run before any test or code is written. If both find nothing that blocks the build, the gate settles in the first round and the run goes on.
 - **Checkpoints.** Every agent step runs in one worktree, and the scope guard compares it with its last commit. Each
   `checkpoint_*` step commits, so `tests` is judged only on what it wrote; a tester that touches `src/` fails with
   `Guard diff_within_scope failed: Changes outside the allowed scope (test/**, specs/*/tasks.md)`.
