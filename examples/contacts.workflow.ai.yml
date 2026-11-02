@@ -12,7 +12,7 @@ name: "contacts"
 #      indaba run workflow.ai.yml
 #   4. git merge indaba/<feature directory>     # the checkpoint steps commit each stage to this branch
 #
-# Checkpoints: every step runs in the same git worktree, and the scope guard that holds a step's permissions looks at
+# Checkpoints: every step that depends on an isolated step (isolation: git_worktree) runs in that same worktree, so the shell steps below need no isolation of their own, and the scope guard that holds a step's permissions looks at
 # everything changed since the worktree's last commit. A checkpoint commits before the next step that may write
 # somewhere else, so each step is judged on its own changes.
 

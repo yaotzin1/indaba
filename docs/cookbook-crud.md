@@ -15,7 +15,7 @@ this page explains every one. For the short version, where you only write an ide
 rest, see [Cookbook: from an idea to an app](cookbook-quick-start.md). Every field the workflow uses is described in
 [Workflow format](workflow-format.md); the commands are in the [Playbook](playbook.md). New to specs, skills and `AGENTS.md`?
 The [tutorial](cookbook-tutorial.md) shows what to write in each, how to check it and how to fix a bad result. Which
-cookbook to follow, and why writing the specs yourself is the recommended way for an app you will keep:
+cookbook to follow, and why writing the specs yourself is the suggested way for an app you will keep:
 [Choose a way of working](playbook.md#choose-a-way-of-working).
 
 ## What gets built

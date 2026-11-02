@@ -131,7 +131,7 @@ alternatives), **reported** (one team's trial), **documented** (the tools descri
 | :--- | :--- | :--- | :--- | :--- |
 | **Bug fix** | a bugfix spec (the change-delta idea, small) | current behaviour, expected behaviour, and what must not change | a regression test first, a gate that the test **fails** before the fix, the fix, the full test suite | documented (Kiro's bugfix spec); no comparison found |
 | **Feature in an existing codebase** | change deltas, or the phase pipeline scoped to one feature folder | only what the change adds or alters, with the existing behaviour it relies on | spec gate debate, tasks, tests, implement limited to the touched folders, test gate, code review | compared once: the frameworks were within noise of each other |
-| **Change across several components** | phase pipeline with a written contract between components; role team when the design is the hard part | the contract (requests, events, shapes) and each component's part | one implement step per component, each with its own `fs.write`, then a contract or integration gate that sends the failing side back | documented; no comparison found |
+| **Change across several components** | phase pipeline with a written contract between components; role team when the design is the hard part | the contract (requests, events, shapes) and each component's part | one implement step per component, each with its own `fs.write`, then a contract or integration gate that sends the work back to one chosen step | documented; no comparison found |
 | **New application** | phase pipeline; role team for regulated or very large work | the constitution, then a spec per feature | the [CRUD](cookbook-crud.md) or [spec-first](cookbook-spec-first.md) cookbook | reported (single-task timings); quality not compared |
 | **Changing behaviour later** (keeping the spec true) | spec-anchored: the spec changes first | the changed requirement, edited in place, with its id kept | spec edit committed first, then the same workflow; a review that flags code doing what no spec says | open: mechanisms documented, cost unknown |
 
@@ -152,6 +152,7 @@ evidence. A sketch, with the agents' steps shortened:
 ```yaml
 artifacts:
   bug: "specs/bugs/012-login-crash"          # bugfix.md: current, expected and unchanged behaviour
+  # the cross-component sketch below uses  change: "specs/changes/007-sync"  # contract.md: the requests, events and shapes
 
 steps:
   - id: "regression_test"
@@ -192,7 +193,7 @@ steps:
 reproduced) and when there are none. It cannot tell a test that fails for the right reason from one that fails because
 it is broken, so read its output in the run, or let the code review check it.
 
-**Cross-component change: one writer per component, one contract gate.** Each component's step may change only its own
+**Cross-component change: one writer per component, one contract gate.** (Add `change: "specs/changes/007-sync"` under `artifacts:` first.) The gate retries only `implement_api`; if the web side broke the contract, point `target` at `implement_web` or split the gate in two. Each component's step may change only its own
 folder, so an agent fixing the web app cannot quietly change the API to suit itself:
 
 ```yaml
@@ -217,7 +218,7 @@ folder, so an agent fixing the web app cannot quietly change the API to suit its
   - id: "contract"
     depends_on: ["implement_web"]
     runner: "shell"
-    commands: ["npm run test:contract"]
+    commands: ["npm run test:contract"]   # your own script: it exercises the API and the web side against contract.md
     on_failure: { action: "retry_step", target: "implement_api", max_retries: 2 }
 ```
 

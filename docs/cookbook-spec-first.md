@@ -10,7 +10,7 @@ from then on the process is kept by Indaba: you write the spec, and the run does
 Every spec, word for word, and each step in the order you do it, are in the
 [tutorial](cookbook-spec-first-tutorial.md). This page explains the process and the three workflow files.
 
-This is the recommended way of working for an application you will keep. How it compares with the other cookbooks,
+This is the way of working Indaba suggests for an application you will keep (the recipe is checked with stand-in agents, not yet with real ones: see "How this recipe was checked"). How it compares with the other cookbooks,
 and what each of them shows: [Choose a way of working](playbook.md#choose-a-way-of-working).
 
 ## What gets built
@@ -114,8 +114,8 @@ How to read the result:
   good"), and `CRITIQUE:` means a finding is missing, wrong or badly worded. This is the
   [review debate pattern](workflow-format.md#pattern-a-review-debate); without it, two reviewers who find the same
   problems never settle.
-- **`completed`** means they settled on one list. Read it on the board (`indaba watch latest --plain`) or in the web view
-  (`indaba ui`). The transcript file of a debate is written inside the worktree, which is removed when the run ends, so
+- **`completed`** means they settled on one list. Read it on the board (`indaba watch latest --plain`, or the dashboard); the web view
+  (`indaba ui`) does not show the board yet. The transcript file of a debate is written inside the worktree, which is removed when the run ends, so
   the board is where the messages stay.
 - **When they cannot settle**, the human arbiter shows you the transcript and asks `accept` or `reject`. Either answer
   ends the review; the findings are still the messages. Your ruling is appended to `.indaba-decisions/<workflow>.jsonl`.

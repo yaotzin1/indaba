@@ -30,7 +30,7 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 The cookbooks build an application in three different ways. The difference is **who writes the specification**: the
 spec is where the decisions are made, and every test and line of code is written from it.
 
-**Recommended for an application you will keep: [you write the specs](cookbook-spec-first.md).** You write each
+**Suggested for an application you will keep: [you write the specs](cookbook-spec-first.md)** (checked with stand-in agents, not yet with real ones). You write each
 feature's spec by hand, Indaba has two agents review it before any code exists and review the code afterwards, and
 once the loop is familiar you keep it as a `workflow.ai.yml` that builds the next spec you write. Every decision in the
 app is one you made or accepted, and the review catches the gaps (a missing status code, an unstated limit, a security
@@ -40,7 +40,7 @@ The other ways show what Indaba can do with less of you in the loop:
 
 | Cookbook | Who writes the spec | You write | It shows | Use it to |
 | :--- | :--- | :--- | :--- | :--- |
-| [You write the specs](cookbook-spec-first.md) (recommended) | you | the constitution, `AGENTS.md`, every spec | review debates over a spec and over code, a spec gate, tests first, a test gate with retries, the process kept as a workflow | build an app you will maintain |
+| [You write the specs](cookbook-spec-first.md) (suggested) | you | the constitution, `AGENTS.md`, every spec | review debates over a spec and over code, a spec gate, tests first, a test gate with retries, the process kept as a workflow | build an app you will maintain |
 | [Idea to app](cookbook-quick-start.md) | agents, after debating your idea | a few sentences in `idea.md` | the whole chain with no person in it: a debate, spec-kit, `AGENTS.md`, skills, tests, code, a test gate and mutation testing | see what Indaba does end to end; a prototype |
 | [CRUD, step by step](cookbook-crud.md) | an agent, from the feature description in the workflow, then a review debate and a clarify step | the feature description (the contract) and an acceptance test | every stage explained: spec-kit's skills, a project skill, checkpoints, three gates (tests, an acceptance test no agent can edit, mutation testing) | learn each stage; borrow a gate for your own workflow |
 

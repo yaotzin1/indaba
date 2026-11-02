@@ -1,6 +1,6 @@
 # Tutorial: every spec, step by step
 
-This is the [spec-first cookbook](cookbook-spec-first.md) done in order: every document you write, word for word, and
+This is the [spec-first cookbook](cookbook-spec-first.md) done in order: every document you write, word for word (the three workflow files are copied from the `examples/` folder of the Indaba repository), and
 every command between them. You build **contacts-app**, the shared contact list of a small office, one window at a
 time: login, list, a window to add, change and delete, and finally an export that Indaba builds from your spec alone.
 
@@ -179,9 +179,9 @@ echo "@AGENTS.md" > CLAUDE.md
 
 ### The two review workflows
 
-Save [`examples/contacts-review-spec.workflow.ai.yml`](../examples/contacts-review-spec.workflow.ai.yml) and
+Copy [`examples/contacts-review-spec.workflow.ai.yml`](../examples/contacts-review-spec.workflow.ai.yml) and
 [`examples/contacts-review-code.workflow.ai.yml`](../examples/contacts-review-code.workflow.ai.yml) in the folder under
-the same names. Check them for free (no agent is started):
+the same names. Copy them from a checkout of the Indaba repository or from the links. Check them for free (no agent is started):
 
 ```bash
 indaba validate contacts-review-spec.workflow.ai.yml && indaba plan contacts-review-spec.workflow.ai.yml
@@ -734,7 +734,7 @@ every page) as a CSV file that a spreadsheet opens correctly.
 
 ## Requirements
 
-- **FR-001** `GET /api/contacts/export` takes `q`, `sort` and `order` with the rules, defaults and errors of 002
+- **FR-001** `GET /api/contacts/export` is matched before `GET /api/contacts/<id>` (003 FR-004), so `export` is never read as an id. It takes `q`, `sort` and `order` with the rules, defaults and errors of 002
   (FR-001, FR-003, FR-004). `page` and `pageSize` are unknown parameters here (400).
 - **FR-002** It answers `200` with `Content-Type: text/csv; charset=utf-8` and
   `Content-Disposition: attachment; filename="contacts-<YYYY-MM-DD>.csv"`, the date being today in UTC from the
