@@ -234,12 +234,16 @@ What this showed:
 
 What was not checked: the windows (`public/`) were never opened in a browser; the agents' tests of the pages were run, not
 the pages. Only Claude Code was used, so a debate between two different agents was not tried with this workflow.
-**Cost.** The runs showed `tokens unknown, cost unknown`, so this page gives no figure and neither can `--max-cost`
-or `--max-tokens` limit these runs. Two reasons add up: the roles list `acp` first, and on Windows the `acp` `claude` preset
-needs `npx`, a `.cmd` shim that Indaba does not start (see [ACP agents](getting-started.md#acp-agents)), so each call fell
-back to `claude-code`; and the `claude-code` runner does not read usage from the CLI yet, although the CLI can print it.
-To get usage today, name a native ACP agent in `agent` (`{ command: [...] }`), which was not tried here. The runs were
-not metered, so check your own bill after the first one.
+
+**Cost.** The runs above showed `tokens unknown, cost unknown`, so this page gives no figure for them. On Windows the
+`acp` `claude` preset needs `npx`, a `.cmd` shim that Indaba does not start (see
+[ACP agents](getting-started.md#acp-agents)), so every call fell back to `claude-code`, and at the time that runner did not
+read usage from the CLI. It does now: a `claude-code` step reports the tokens (the cache reads and writes counted in the
+input) and the cost the CLI prints, and `indaba watch` shows them. A one-step run of it after that change showed
+`27756 in / 4 out, $0.0465`; the four runs above were not repeated, so there is still no figure for this recipe. The
+other CLI runners (`codex`, `cursor`, `antigravity`, `opencode`) report nothing yet, so a step on them stays `unknown`.
+See [which runners report usage](getting-started.md).
+
 On this machine the run was marked `failed` after every step had completed, because Windows refused to remove the task
 worktree at the end ("Permission denied"); the branch and the commits were intact. If you see that, check the steps, not
 only the final line. Real agents word their findings differently every time, so yours will differ.
