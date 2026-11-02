@@ -107,7 +107,7 @@ walked away comes back to nothing.
 
 - [ ] AC-15. The `claude-code` runner offers the capability. In a step that sets `stall` it asks `claude` for its
       streaming output and treats each event it receives, including the ones sent while the model is thinking, as
-      activity. In a step that does not set `stall`, its command line and its result are exactly what they are today.
+      activity. In a step that does not set `stall`, its command line and its result are exactly what they are today (after [`specs/claude-code-usage`](../claude-code-usage/spec.md), "today" already includes `--output-format stream-json --verbose` and the answer, tokens and cost read from its final event).
 - [ ] AC-16. The result a step produces with the streaming output is the same text, in the same `RunResult` fields, as the
       plain output would have given, so a step's board lines, outputs and guards do not depend on whether `stall` is set.
 - [ ] AC-17. Each other built-in runner either offers the capability, with its activity signal named in `plan.md` and

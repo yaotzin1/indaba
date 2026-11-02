@@ -440,7 +440,8 @@ All recommended; the maintainer confirms.
     `unmetered` with the reason "the CLI prints no usage that Indaba reads". A follow-up task (T-27) checks, per
     CLI, whether a machine-readable source exists in the tool's own output; where one does, the runner reports
     from it. A tokenizer count of a prompt or output may be offered as `estimated` only where such a source
-    makes it meaningful and only labelled so; it is never presented as reported.
+    makes it meaningful and only labelled so; it is never presented as reported. Done for `claude-code` by
+    [`specs/claude-code-usage`](../claude-code-usage/spec.md); the others remain open.
 15. **Version and the strict default.** The obligation changes what a published contract requires and makes any
     workflow that runs a CLI runner fail `validate` until it says `metering_policy: optional`. By this
     repository's own rule that is a major; below 1.0 it can ship as the next preview number, which the alpha

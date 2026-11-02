@@ -17,6 +17,12 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **Tokens and cost from the `claude-code` runner.** The runner now asks Claude Code for `--output-format stream-json
+  --verbose` and reports the tokens (input counts the cache reads and writes) and the `total_cost_usd` of its final
+  `result` event, so `indaba watch`, the trace and the summary show them instead of "unknown" (follow-up T-27 of
+  [step budgets](specs/step-budgets/spec.md), for this CLI; the others stay unmetered). The call runs on pipes rather than
+  a pseudo-terminal and the answer reaches `onOutput` once; `new ClaudeRunner({ reportUsage: false })`, or an `extraArgs` that
+  holds `--output-format`, keeps the plain-text call. Specification: [specs/claude-code-usage](specs/claude-code-usage/spec.md).
 - **Two cookbooks that build a whole application with agents.** [docs/cookbook-quick-start.md](docs/cookbook-quick-start.md):
   you write a few sentences in `idea.md`, and [`examples/idea-to-app.workflow.ai.yml`](examples/idea-to-app.workflow.ai.yml)
   has agents debate it into a first version, then write a spec-kit constitution, `AGENTS.md`, a spec-kit spec, plan and

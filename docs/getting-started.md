@@ -186,7 +186,7 @@ A runner is what a role's `runner:` (or a step's) names.
 | `shell` | A command line from the workflow file, through the platform shell | nothing |
 | `openrouter` | A streamed chat completion over HTTPS. The API choice for text work | `OPENROUTER_API_KEY`, and a `model` on the role |
 | `acp` | An agent over the Agent Client Protocol. The choice for agents that edit code | the agent program (see [ACP agents](#acp-agents)) |
-| `claude-code` | `claude -p <prompt> --permission-mode acceptEdits` (plus `--model`, MCP config; with a `permissions.level`: `plan`, `acceptEdits` or `bypassPermissions`). A last resort | the `claude` CLI, logged in |
+| `claude-code` | `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits` (plus `--model`, MCP config; with a `permissions.level`: `plan`, `acceptEdits` or `bypassPermissions`). It reports the tokens and the cost the CLI prints (see below). A last resort | the `claude` CLI, logged in |
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |
@@ -315,8 +315,15 @@ confirmed on real installs yet.
 
 `.indaba/` is runtime state; add it to your `.gitignore`. `.indaba-decisions/` is not: commit it.
 
-A cost is shown only when the model's price is known and the usage was reported; an unknown cost is
-absent, not zero.
+A cost is shown only when the model's price is known and the usage was reported, or when the runner itself reported a
+cost; an unknown cost is absent, not zero.
+
+**Which runners report usage.** `openrouter` (the provider's usage frame) and `claude-code` (the CLI's own `result`
+event: tokens, with the cache reads and writes counted in the input, and `total_cost_usd`) report it. An `acp` agent may.
+`codex`, `antigravity`, `cursor` and `opencode` print nothing Indaba reads yet, so their calls show tokens and cost as
+unknown. `claude-code` runs on pipes, not a terminal, and gives the answer to the output stream once it is known; to get
+the previous plain-text call, construct the runner with `reportUsage: false` or pass your own `--output-format` in
+`extraArgs`.
 
 ## Watching a run
 
