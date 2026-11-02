@@ -1,0 +1,44 @@
+version: "1.0"
+name: "contacts-review-spec"
+
+# Two agents review a specification that a person wrote by hand, before any code exists, and debate until both
+# accept the same list of findings. You run it after each draft, fix the spec, commit and run it again.
+# The walkthrough is docs/cookbook-spec-first.md; every spec it reviews is in docs/cookbook-spec-first-tutorial.md.
+#
+# Before each run: change the feature line below to the spec you are writing, and commit the spec (the review runs
+# in a git worktree made from your last commit, so an uncommitted draft is not what it reads).
+#   indaba run contacts-review-spec.workflow.ai.yml
+#   indaba watch latest --plain          # the findings: the board at the end lists every message of the debate
+#
+# AGREEMENT here means "I accept the other reviewer's findings as the review's result", not "the spec is good":
+# see "Pattern: a review debate" in docs/workflow-format.md.
+
+artifacts:
+  feature: "specs/001-login"   # the feature directory to review: change it for each spec
+
+roles:
+  reviewer:
+    runner: ["acp", "claude-code"]   # ACP first; the claude-code CLI only when ACP cannot start
+    agent: "claude"
+  tester:
+    runner: ["acp", "claude-code"]   # a second agent (codex, gemini) here gives a more independent review
+    agent: "claude"
+
+steps:
+  - id: "spec_review"
+    role: "reviewer"
+    consensus_with: ["tester"]
+    decision_type: "consensus"
+    arbiter: "human"   # if they cannot agree, you rule on the transcript (needs a terminal)
+    isolation: "git_worktree"
+    permissions: { level: read }
+    input_artifacts: ["${{ artifacts.feature }}/spec.md"]
+    goal: >-
+      A person wrote ${{ artifacts.feature }}/spec.md by hand, before any code. Review it for what a tester or a coder
+      would trip over: a requirement no test could check, a missing failure case or status code, a limit or format
+      that is not stated, a state of a window that is not described (empty, loading, error), a security gap, and
+      anything that contradicts .specify/memory/constitution.md, AGENTS.md or an earlier spec under specs/. Read those
+      first. Do not modify any file and do not run commands. Keep your reply under 200 words. AGREEMENT: means you
+      accept the other participant's findings as the review's result (they may criticise the spec; that is fine).
+      CRITIQUE: means a finding is missing, wrong or badly worded, and you say which. In your first reply list your
+      own findings (at most five, each naming the requirement id or section it is about) and begin with CRITIQUE:.

@@ -1,0 +1,48 @@
+version: "1.0"
+name: "contacts-review-code"
+
+# After a feature is implemented (by you or by your coding agent), Indaba runs the tests and then two agents review
+# the code against the feature's specification until both accept the same list of findings.
+# The walkthrough is docs/cookbook-spec-first.md.
+#
+# Before each run: change the feature line below and commit the code (the steps run in a git worktree made from
+# your last commit).
+#   indaba run contacts-review-code.workflow.ai.yml
+#   indaba watch latest --plain          # the findings are on the board at the end
+
+artifacts:
+  feature: "specs/001-login"   # the feature whose code to review: change it for each feature
+
+roles:
+  reviewer:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+  tester:
+    runner: ["acp", "claude-code"]
+    agent: "claude"
+
+steps:
+  - id: "verify"
+    runner: "shell"
+    isolation: "git_worktree"
+    commands:
+      - "npm test"
+
+  - id: "code_review"
+    depends_on: ["verify"]
+    role: "reviewer"
+    consensus_with: ["tester"]
+    decision_type: "consensus"
+    arbiter: "human"
+    isolation: "git_worktree"
+    permissions: { level: read }
+    input_artifacts: ["${{ artifacts.feature }}/spec.md"]
+    goal: >-
+      Review src/, public/ and test/ against ${{ artifacts.feature }}/spec.md, .specify/memory/constitution.md and
+      AGENTS.md: a requirement (FR-...) with no test or not met by the code, an acceptance scenario that behaves
+      differently, validation or error handling that differs from the spec, a security gap, and code that does
+      something the spec does not ask for. The tests passed in the step before this one. Do not modify any file and do
+      not run commands. Keep your reply under 200 words. AGREEMENT: means you accept the other participant's findings
+      as the review's result (they may criticise the code). CRITIQUE: means a finding is missing, wrong or badly
+      worded. In your first reply list your own findings (at most five, each with a file path and the requirement id)
+      and begin with CRITIQUE:.
