@@ -56,6 +56,10 @@ them: see [Review the spec before any code is written](cookbook-tutorial.md#10-r
 The ways mix. A spec-first project can add the CRUD recipe's acceptance test and mutation gate to its `workflow.ai.yml`,
 and an app started with idea to app can continue spec-first: from then on, write each new feature's spec yourself.
 
+How these recipes relate to the SDD frameworks (Spec Kit, OpenSpec, BMAD, Kiro), what has been measured about them,
+and which pattern suits a bug fix, a brownfield feature or a change across components: see
+[Spec-driven development a year on](sdd-patterns.md).
+
 ## Check a workflow
 
 **Use it** every time you edit a file, and before the first run.

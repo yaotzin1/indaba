@@ -35,7 +35,11 @@ port". The PHP prototype that preceded them was never published.
   gives every text word for word: the constitution, `AGENTS.md`, and the specs of a login window, a contact list window, a
   contact window (add, change, delete) and a CSV export. The playbook's new section
   [Choose a way of working](docs/playbook.md#choose-a-way-of-working) recommends this way for an application you will keep,
-  and says what each of the other cookbooks shows. Documentation and examples only; no package changes.
+  and says what each of the other cookbooks shows. [docs/sdd-patterns.md](docs/sdd-patterns.md) places the cookbooks among
+  the spec-driven development frameworks a year on: four pattern families (gated phase pipeline, change deltas, a planning
+  team of role agents, gates inside the prompt), what has and has not been measured, a choice matrix by kind of change,
+  how Indaba supports each family, and workflow sketches for a bug fix (the test must fail first) and a change across
+  components. Documentation and examples only; no package changes.
 - **Specification: step stalls.** [specs/step-stalls](specs/step-stalls/spec.md) specifies an optional per-step
   `timeout_seconds`, a `stall` block (a silence limit and a bounded retry in place) and an optional `StallCapable` runner
   interface, with the `claude-code` runner's streaming mode as the activity signal. Specification only: nothing is

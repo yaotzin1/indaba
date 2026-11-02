@@ -220,4 +220,6 @@ agents word their findings differently every time. The windows (`public/`) were 
   four specs, and the commands in order.
 - [Cookbook: CRUD, step by step](cookbook-crud.md): the same kind of app with agents writing the specs, spec-kit's skills,
   an acceptance test and mutation testing, any of which can be added to your `workflow.ai.yml`.
+- [Spec-driven development a year on](sdd-patterns.md): how this way of working relates to Spec Kit, OpenSpec, BMAD and
+  Kiro, what has been measured, and workflow shapes for a bug fix and a change across components.
 - [Workflow format](workflow-format.md): debates, the arbiter, permissions, guards, retries.
