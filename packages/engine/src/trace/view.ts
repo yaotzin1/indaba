@@ -32,6 +32,7 @@ export function emptyRun(): RunState {
     steps: [],
     structure: undefined,
     cost: { usd: 0, unknown: 0, calls: 0 },
+    reasoningTokens: null,
     notes: [],
     owners: {},
   };
@@ -62,6 +63,8 @@ function newStep(id: string): StepView {
     output: [],
     partialLine: '',
     outputTruncated: false,
+    thoughts: [],
+    partialThought: '',
   };
 }
 
@@ -206,6 +209,7 @@ function endedSpan(state: RunState, record: SpanEndedRecord): RunState {
     const cost = number(attributes['indaba.cost.usd']);
     const counted = countEvents(record.events);
     const exit = number(attributes['indaba.exit_code']);
+    const reasoning = number(attributes['indaba.usage.reasoning_tokens']);
     const stepId = owner.stepId;
     const operation = base.steps
       .find((s) => s.id === stepId)
@@ -226,6 +230,7 @@ function endedSpan(state: RunState, record: SpanEndedRecord): RunState {
               costUsd: cost,
               inputTokens: number(attributes['gen_ai.usage.input_tokens']),
               outputTokens: number(attributes['gen_ai.usage.output_tokens']),
+              reasoningTokens: reasoning,
             }
           : r,
       ),
@@ -237,6 +242,8 @@ function endedSpan(state: RunState, record: SpanEndedRecord): RunState {
     }));
     return {
       ...withRunner,
+      reasoningTokens:
+        reasoning === undefined ? withRunner.reasoningTokens : (withRunner.reasoningTokens ?? 0) + reasoning,
       cost: {
         usd: withRunner.cost.usd + (priced ?? 0),
         unknown: withRunner.cost.unknown + unknownAdded,
@@ -257,6 +264,31 @@ function mergeCounts(
     out[kind] = (out[kind] ?? 0) + n;
   }
   return out;
+}
+
+/** The most reasoning text kept on one attempt; the newest is kept. */
+const MAX_ATTEMPT_THOUGHT_CHARS = 4000;
+
+function appendThought(step: StepView, chunk: string): StepView {
+  const parts = (step.partialThought + chunk).split('\n');
+  const partial = parts.pop() ?? '';
+  const complete = parts.map((line) => (line.length > MAX_LINE_CHARS ? line.slice(0, MAX_LINE_CHARS) : line));
+  const thoughts =
+    complete.length === 0 ? step.thoughts : [...step.thoughts, ...complete].slice(-MAX_OUTPUT_LINES);
+  const open = step.history.at(-1);
+  const history =
+    open === undefined
+      ? step.history
+      : [
+          ...step.history.slice(0, -1),
+          { ...open, thought: ((open.thought ?? '') + chunk).slice(-MAX_ATTEMPT_THOUGHT_CHARS) },
+        ];
+  return {
+    ...step,
+    thoughts,
+    history,
+    partialThought: partial.length > MAX_LINE_CHARS ? partial.slice(0, MAX_LINE_CHARS) : partial,
+  };
 }
 
 function appendOutput(step: StepView, chunk: string): StepView {
@@ -326,6 +358,15 @@ export function reduceRun(state: RunState, record: RunRecord): RunState {
       }
       return withStep({ ...state, lastAt: record.at }, owner.stepId, (step) =>
         appendOutput(step, record.text),
+      );
+    }
+    case 'thought': {
+      const owner = state.owners[record.spanId];
+      if (owner?.stepId === undefined) {
+        return { ...state, lastAt: record.at };
+      }
+      return withStep({ ...state, lastAt: record.at }, owner.stepId, (step) =>
+        appendThought(step, record.text),
       );
     }
     case 'truncated': {

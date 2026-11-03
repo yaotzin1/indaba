@@ -41,6 +41,7 @@ function cleanStep(step: StepView): StepView {
       ...attempt,
       outcome: clean(attempt.outcome),
       reason: cleanOptional(attempt.reason),
+      ...(attempt.thought === undefined ? {} : { thought: clean(attempt.thought) }),
     })),
     runners: step.runners.map(cleanRunner),
     skipped: step.skipped.map((skipped) => ({
@@ -54,6 +55,8 @@ function cleanStep(step: StepView): StepView {
         : { ...step.consensus, outcome: clean(step.consensus.outcome) },
     output: step.output.map(clean),
     partialLine: clean(step.partialLine),
+    thoughts: step.thoughts.map(clean),
+    partialThought: clean(step.partialThought),
   };
 }
 

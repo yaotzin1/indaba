@@ -68,6 +68,8 @@ const SAMPLES: Writable[] = [
   },
   { type: 'output', at: AT, traceId: TRACE, spanId: SPAN, seq: 0, text: 'hello\n', cut: false },
   { type: 'output', at: AT, traceId: TRACE, spanId: SPAN, seq: 7, text: 'x'.repeat(10), cut: true },
+  { type: 'thought', at: AT, traceId: TRACE, spanId: SPAN, seq: 0, text: 'hmm\n', cut: false },
+  { type: 'thought', at: AT, traceId: TRACE, spanId: SPAN, seq: 3, text: 'y'.repeat(10), cut: true },
   { type: 'truncated', at: AT, traceId: TRACE, spanId: SPAN },
 ];
 
@@ -157,6 +159,11 @@ describe('parseRecord is total', () => {
       { type: 'step_status', at: 't', trace_id: 'a', task_id: 'x', step_id: 'y', from: 'b' },
     ],
     ['output without a span', { type: 'output', at: 't', trace_id: 'a', seq: 0, text: 'x' }],
+    ['thought without a span', { type: 'thought', at: 't', trace_id: 'a', seq: 0, text: 'x' }],
+    [
+      'thought with a negative seq',
+      { type: 'thought', at: 't', trace_id: 'a', span_id: 's', seq: -1, text: 'x' },
+    ],
     ['output without text', { type: 'output', at: 't', trace_id: 'a', span_id: 's', seq: 0 }],
     [
       'output with a negative seq',

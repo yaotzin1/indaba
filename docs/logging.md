@@ -142,7 +142,7 @@ project:
 | File | Holds |
 | :--- | :--- |
 | `log.jsonl` | the log lines of the commands that ran the run, from every file sink of the project |
-| `events.jsonl`, `trace.jsonl` | what the run did, and its spans with tokens and cost |
+| `events.jsonl`, `trace.jsonl` | what the run did, and its spans with tokens and cost. The reasoning a model streamed is in `events.jsonl` (redacted chunk by chunk, so a secret split across two chunks can escape the redactor) and never in `trace.jsonl` |
 | `workflow.ai.yml` | the workflow file (`.indaba/workflow.ai.yml`, or `--workflow <file>`) |
 | `indaba.config` | the project configuration, when there is one |
 | `environment.json` | Indaba, Node, the platform and architecture, now and when the run started |

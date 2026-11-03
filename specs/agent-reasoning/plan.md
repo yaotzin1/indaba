@@ -8,21 +8,20 @@
 | :--- | :--- |
 | `packages/core/src/runner/index.ts` | Add `readonly onThought?: (chunk: string) => void` to `RunRequest` |
 | `packages/core/src/observability/index.ts` | Add `StepThought`, `TokenUsage.reasoningTokens` (validated as a non-negative safe integer when defined), `Tracer.ATTR_REASONING_TOKENS = 'indaba.usage.reasoning_tokens'`, `Tracer.ATTR_THOUGHT_CHARS = 'indaba.thought.chars'`, and set `ATTR_REASONING_TOKENS` in `Tracer.recordUsage` when `usage.reasoningTokens !== undefined` |
-| `packages/core/src/web-contract/run.ts` | Add `thought?: string` to `AttemptView`, `reasoningTokens?: number` to `RunnerView`, `reasoningTokens: number \| null` to `RunSummaryOfUse`, `thoughts: readonly string[]` and `partialThought: string` to `StepView`, and `{ readonly type: 'thought'; readonly spanId: string; readonly seq: number; readonly text: string; readonly cut: boolean }` to `RunStreamEvent` (re-exported via `packages/core/src/web-contract/index.ts`) |
+| `packages/core/src/web-contract/run.ts` | Add `thought?: string` to `AttemptView`, `reasoningTokens?: number` to `RunnerView`, `reasoningTokens: number \| null` to `RunState`, and `thoughts: readonly string[]` and `partialThought: string` to `StepView` (`RunStreamEvent` is `{ id, run: RunSnapshot }` and is unchanged; the snapshot carries the reasoning) |
 | `packages/core/src/index.ts` | Re-export `StepThought` from `./observability/index.js` |
 | `packages/runners/src/acp-runner.ts` | Handle `case 'agent_thought_chunk':` in `AcpHandlers.notification` by forwarding non-empty `content.text` (`content.type === 'text'`) to `request.onThought?.(text)` without touching `output` or `request.onOutput` |
 | `packages/runners/src/openrouter-runner.ts` | In `readStream`, extract non-empty string `delta.reasoning` (falling back to `delta.reasoning_content`) and pass to `request.onThought?.(reasoning)`; in `readUsage`, parse `completion_tokens_details.reasoning_tokens` (when a non-negative safe integer) into `new TokenUsage(input, output, reasoning)` |
 | `packages/engine/src/engine/step-executor.ts` | Add `thoughtSink(request, span)` alongside `outputSink(request, span)` in `StepExecutor.invoke`: maintains a per-span `seq` starting at `0` and a raw `thoughtChars` counter, catches any exception thrown by `request.onThought` or `events.dispatch`, dispatches `new StepThought(span.traceId, span.spanId, seq++, chunk)` for non-empty chunks, and sets `Tracer.ATTR_THOUGHT_CHARS` on `span` before `endSpan` (both success and catch paths) when `thoughtChars > 0` |
 | `packages/engine/src/trace/records.ts` | Add `ThoughtRecord`, extend `RunRecord` union, serialize and parse `type: 'thought'` in `serializeRecord` and `readRunRecord` |
 | `packages/engine/src/trace/event-writer.ts` | Add `onThought(event: StepThought): Promise<void>` sharing `outputOfTrace` (`maxRunChars`) and `maxRecordChars` with `onOutput`, redacting before length checks |
-| `packages/engine/src/trace/view.ts` | Handle `case 'thought':` in `reduceRun` (accumulating bounded lines on `StepView.thoughts` / `partialThought` and `AttemptView.thought`) and read `indaba.usage.reasoning_tokens` onto `RunnerView.reasoningTokens` in `endedSpan` |
-| `packages/engine/src/trace/trace-reader.ts` | Sum `indaba.usage.reasoning_tokens` into `RunSummaryOfUse.reasoningTokens` (`null` when no span reported it, never `0`) |
+| `packages/engine/src/trace/view.ts` | Handle `case 'thought':` in `reduceRun` (accumulating bounded lines on `StepView.thoughts` / `partialThought` and `AttemptView.thought`) and read `indaba.usage.reasoning_tokens` onto `RunnerView.reasoningTokens` in `endedSpan` and sum it into `RunState.reasoningTokens` (`null` when no span reported it, never `0`) |
 | `packages/engine/src/trace/plain.ts` | Add `readonly thoughts?: boolean` to `PlainOptions`; when `true`, render each step's thought lines prefixed with `[thought] ` before output lines |
 | `packages/engine/src/index.ts` | Re-export `ThoughtRecord` from `./trace/index.js` |
 | `packages/cli/src/engine-factory.ts` | Register `StepThought` listener on `EventDispatcher` calling `eventWriter.onThought(event)` |
 | `packages/cli/src/watch.ts` & `packages/cli/src/main.ts` | Parse `--thoughts` on `indaba watch` and pass `thoughts: true` to `PlainOptions` and the TUI watch view |
 | `packages/tui/src/screen.ts` & `packages/tui/src/ink/view.ts` | Render a collapsible/distinct sanitized reasoning section when a step has thought lines |
-| `packages/server/src/sse.ts` & `packages/web/src/ui/StepPanel.ts` | Forward `thought` stream events and render a collapsible plain-text `<details>` section in `StepPanel` |
+| `packages/web/src/ui/StepPanel.ts` | Render `StepView.thoughts` (already in the snapshot the server streams) as a collapsible plain-text `<details>` section; `packages/server` changes only if its snapshot bounds need it |
 
 ## Where the behaviour lives
 
@@ -30,7 +29,7 @@
 | :--- | :--- | :--- |
 | Pure domain (`@indaba/core`) | `RunRequest.onThought`, `StepThought`, `TokenUsage.reasoningTokens`, `Tracer` attribute constants and `recordUsage`, web-contract types | Pure value types and contracts with zero `node:` imports or I/O |
 | Runners (`@indaba/runners`) | Extracting `agent_thought_chunk` (ACP) and `delta.reasoning` / `completion_tokens_details.reasoning_tokens` (OpenRouter) | Transport-specific wire parsing belongs exclusively in the runner adapters |
-| Engine (`@indaba/engine`) | `StepExecutor.invoke` (`thoughtSink` and `indaba.thought.chars`), `RunEventWriter.onThought`, `ThoughtRecord` serialization, `reduceRun` and `TraceReader` aggregation | Because `StepExecutor.invoke` wraps single-agent steps, retry attempts, and `RunnerParticipant` debate turns, wiring `thoughtSink` in `invoke` gives every agent call and debate turn its own `invoke_agent` span, `seq` counter and character count without touching `RunnerParticipant` |
+| Engine (`@indaba/engine`) | `StepExecutor.invoke` (`thoughtSink` and `indaba.thought.chars`), `RunEventWriter.onThought`, `ThoughtRecord` serialization, `reduceRun` and `reduceRun` aggregation | Because `StepExecutor.invoke` wraps single-agent steps, retry attempts, and `RunnerParticipant` debate turns, wiring `thoughtSink` in `invoke` gives every agent call and debate turn its own `invoke_agent` span, `seq` counter and character count without touching `RunnerParticipant` |
 | Console & Web (`indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web`) | Wiring `StepThought` to `RunEventWriter.onThought` in `engine-factory.ts`, `--thoughts` CLI flag, TUI and web collapsible view | Composition root and presentation |
 
 ## Trade-offs taken
@@ -53,7 +52,7 @@
 
 | Check | Result |
 | :--- | :--- |
-| Published signature broken? | No. Every addition is optional (`onThought?`, `reasoningTokens?`, `PlainOptions.thoughts?`, additive union members). Semver: `minor` (below 1.0). |
+| Published signature broken? | No. Every addition is optional (`onThought?`, `reasoningTokens?`, `EventLineOptions.thoughts?`, additive union members). Semver: `minor` (below 1.0). |
 | `node:` import in `@indaba/core`? | No. `StepThought`, `TokenUsage` and `RunRequest` use only TypeScript primitives. |
 | New runtime dependency? | None. |
 | Untrusted data to shell, path, URL or log? | Reasoning text never reaches a shell, path, URL, span attribute, board parser, or debate parser. It is redacted by `createRedactor` before entering `<traceId>.events.jsonl` and sanitized (`sanitize()`) before terminal display; in `@indaba/web` it is rendered as plain text nodes, never `innerHTML`. |

@@ -57,6 +57,19 @@ export interface OutputRecord extends Base {
   readonly cut: boolean;
 }
 
+/**
+ * A chunk of the model's reasoning, apart from its output. The text is redacted before it is stored, and it never
+ * takes part in any parsing: it is for people reading the run.
+ */
+export interface ThoughtRecord extends Base {
+  readonly type: 'thought';
+  readonly spanId: string;
+  readonly seq: number;
+  readonly text: string;
+  /** The text was longer than one record may be, and was cut. */
+  readonly cut: boolean;
+}
+
 /** Written once per run when the output allowance ran out; no `output` follows it. */
 export interface TruncatedRecord extends Base {
   readonly type: 'truncated';
@@ -74,6 +87,7 @@ export type RunRecord =
   | SpanEndedRecord
   | StepStatusRecord
   | OutputRecord
+  | ThoughtRecord
   | TruncatedRecord
   | UnknownRecord;
 
@@ -178,7 +192,8 @@ export function parseRecord(line: string): RunRecord {
       }
       return { type: 'step_status', at, traceId, taskId, stepId, from, to, reason: text(data.reason) };
     }
-    case 'output': {
+    case 'output':
+    case 'thought': {
       const spanId = text(data.span_id);
       const body = text(data.text);
       const seq = data.seq;
@@ -191,7 +206,15 @@ export function parseRecord(line: string): RunRecord {
       ) {
         return unknown(line);
       }
-      return { type: 'output', at, traceId, spanId, seq, text: body, cut: data.cut === true };
+      return {
+        type: data.type === 'thought' ? 'thought' : 'output',
+        at,
+        traceId,
+        spanId,
+        seq,
+        text: body,
+        cut: data.cut === true,
+      };
     }
     case 'truncated': {
       const spanId = text(data.span_id);
@@ -238,6 +261,7 @@ export function serializeRecord(record: Exclude<RunRecord, UnknownRecord>): stri
         ...(record.reason === undefined ? {} : { reason: record.reason }),
       });
     case 'output':
+    case 'thought':
       return JSON.stringify({
         type: record.type,
         at: record.at,

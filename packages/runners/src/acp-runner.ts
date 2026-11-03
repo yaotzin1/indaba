@@ -246,6 +246,16 @@ export class AcpRunner implements Runner, McpCapable, PermissionCapable {
             }
             break;
           }
+          case 'agent_thought_chunk': {
+            // The model's reasoning goes to its own sink: it must never reach `output`, which is parsed for
+            // protocol lines.
+            const content = update.content;
+            const text = isRecord(content) && content.type === 'text' ? str(content.text) : undefined;
+            if (text !== undefined && text !== '') {
+              request.onThought?.(text);
+            }
+            break;
+          }
           case 'tool_call':
           case 'tool_call_update': {
             const status = str(update.status);

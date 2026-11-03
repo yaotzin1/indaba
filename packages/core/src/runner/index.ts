@@ -10,6 +10,11 @@ export interface RunRequest {
   readonly env?: Readonly<Record<string, string>>;
   /** Receives output as it streams. */
   readonly onOutput?: (chunk: string) => void;
+  /**
+   * Receives the model's reasoning as it streams, when the transport carries it separately. Never part of
+   * `RunResult.output` and never read by the engine's parsers: it is for people watching a run.
+   */
+  readonly onThought?: (chunk: string) => void;
   /** Servers the runner is asked to make available; only honoured by runners whose capability is Injected. */
   readonly mcpServers?: readonly McpServerDefinition[];
   /** What the step may touch. Runners that cannot enforce it ignore it; the scope guard still applies. */

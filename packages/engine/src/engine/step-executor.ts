@@ -43,6 +43,7 @@ import {
   SHELL_RUNNER,
   SpanStatus,
   StepOutput,
+  StepThought,
   Tracer,
 } from '@indaba/core';
 import { type DiscussionStore, discussionOf } from '../arbiter/discussions.js';
@@ -777,6 +778,47 @@ ${digest}`,
     };
   }
 
+  /**
+   * What a runner is given for the model's reasoning: the caller's own sink and, when there is a dispatcher, a
+   * `StepThought` event for each non-empty chunk, numbered from 0 within this span. It also counts the characters
+   * received, which the span records when it ends. An observer that throws never fails the step, and the text goes
+   * nowhere else: not to the output, a parser or a span attribute.
+   */
+  private thoughtSink(
+    request: RunRequest,
+    span: Span,
+  ): { readonly sink: Pick<RunRequest, 'onThought'>; readonly chars: () => number } {
+    const events = this.events;
+    const caller = request.onThought;
+    let seq = 0;
+    let chars = 0;
+    return {
+      chars: () => chars,
+      sink: {
+        onThought: (chunk) => {
+          if (chunk === '') {
+            return;
+          }
+          chars += chunk.length;
+          try {
+            caller?.(chunk);
+          } catch {
+            // an observer's failure is not the step's
+          }
+          if (events !== undefined) {
+            try {
+              events
+                .dispatch(new StepThought(span.traceId, span.spanId, seq++, chunk))
+                .catch(() => undefined);
+            } catch {
+              // as above
+            }
+          }
+        },
+      },
+    };
+  }
+
   private async invoke(
     runner: Runner,
     request: RunRequest,
@@ -791,6 +833,13 @@ ${digest}`,
       'indaba.label': this.redact(label),
     });
 
+    const thought = this.thoughtSink(request, span);
+    const markThought = (): void => {
+      if (thought.chars() > 0) {
+        span.setAttribute(Tracer.ATTR_THOUGHT_CHARS, thought.chars());
+      }
+    };
+
     let result: RunResult;
     try {
       signal?.throwIfAborted();
@@ -799,10 +848,12 @@ ${digest}`,
           ...request,
           onEvent: (name, attributes) => span.addEvent(name, attributes),
           ...this.outputSink(request, span),
+          ...thought.sink,
         },
         signal,
       );
     } catch (error) {
+      markThought();
       await this.tracer.endSpan(
         span,
         SpanStatus.Error,
@@ -821,6 +872,7 @@ ${digest}`,
       span.setAttribute(Tracer.ATTR_COST_USD, result.reportedCostUsd);
     }
     span.setAttribute('indaba.exit_code', result.exitCode);
+    markThought();
     await this.tracer.endSpan(span, result.succeeded() ? SpanStatus.Ok : SpanStatus.Error);
     return result;
   }

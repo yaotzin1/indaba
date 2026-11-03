@@ -665,3 +665,36 @@ describe('formatEvent', () => {
     expect(all).toContain('xy');
   });
 });
+
+describe('formatEvent: reasoning', () => {
+  const base: RunRecord[] = [root(), stepStart('code'), change('code', 'RUNNING', undefined, T(3))];
+  const withRunner = [...base, ...runner('code', 'acp', T(4), T(14), {})];
+  const thought: RunRecord = {
+    type: 'thought',
+    at: T(5),
+    traceId: TRACE,
+    spanId: 'p-code-acp',
+    seq: 0,
+    text: `first\n\nsecond \u001b[31mred\n`,
+    cut: false,
+  };
+  const state = reduceAll([...withRunner, thought]);
+
+  it('prints nothing by default, and nothing when switched off', () => {
+    expect(formatEvent(state, thought)).toEqual([]);
+    expect(formatEvent(state, thought, { thoughts: false })).toEqual([]);
+  });
+
+  it('prints [thought] lines when asked, cleaned of escape sequences', () => {
+    expect(formatEvent(state, thought, { thoughts: true })).toEqual([
+      '12:00:05 code [thought] first',
+      '12:00:05 code [thought] ',
+      '12:00:05 code [thought] second red',
+    ]);
+  });
+
+  it('prints nothing for reasoning of a span it does not know', () => {
+    const ghost: RunRecord = { ...thought, spanId: 'ghost' };
+    expect(formatEvent(reduceAll([root()]), ghost, { thoughts: true })).toEqual([]);
+  });
+});

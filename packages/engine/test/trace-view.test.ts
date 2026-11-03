@@ -648,3 +648,74 @@ describe('the run view types, now declared in @indaba/core', () => {
     expect(coreSummary.runId).toBe('a1');
   });
 });
+
+const thought = (step: string, name: string, seq: number, text: string): RunRecord => ({
+  type: 'thought',
+  at: T(5),
+  traceId: TRACE,
+  spanId: `p-${step}-${name}`,
+  seq,
+  text,
+  cut: false,
+});
+
+describe('reduceRun: reasoning', () => {
+  const base = [
+    root(),
+    stepStart('a'),
+    change('a', 'PENDING', 'RUNNING', undefined, T(3)),
+    runnerStart('a', 'acp'),
+  ];
+
+  it('keeps the reasoning apart from the output, in lines, with the unfinished one aside', () => {
+    const state = reduceAll([
+      ...base,
+      thought('a', 'acp', 0, 'one\ntw'),
+      thought('a', 'acp', 1, 'o\nthree'),
+      out('a', 'acp', 0, 'answer\n'),
+    ]);
+    expect(stepOf(state, 'a')).toMatchObject({
+      thoughts: ['one', 'two'],
+      partialThought: 'three',
+      output: ['answer'],
+    });
+  });
+
+  it('keeps a bounded tail on the open attempt, and bounds lines and their number', () => {
+    const lots = Array.from({ length: MAX_OUTPUT_LINES + 5 }, (_, i) => `l${i}`).join('\n');
+    const state = reduceAll([
+      ...base,
+      thought('a', 'acp', 0, `${lots}\n`),
+      thought('a', 'acp', 1, 'z'.repeat(MAX_LINE_CHARS + 50)),
+    ]);
+    const step = stepOf(state, 'a');
+    expect(step.thoughts).toHaveLength(MAX_OUTPUT_LINES);
+    expect(step.partialThought).toHaveLength(MAX_LINE_CHARS);
+    expect(step.history.at(-1)?.thought?.length).toBeLessThanOrEqual(4000);
+  });
+
+  it('ignores reasoning of a span it does not know, and keeps it for a step with no attempt yet', () => {
+    const ghost = { ...thought('a', 'acp', 0, 'lost'), spanId: 'ghost' } as RunRecord;
+    expect(stepOf(reduceAll([...base, ghost]), 'a').thoughts).toEqual([]);
+    const early = reduceAll([root(), stepStart('a'), runnerStart('a', 'acp'), thought('a', 'acp', 0, 'x\n')]);
+    expect(stepOf(early, 'a').thoughts).toEqual(['x']);
+    expect(stepOf(early, 'a').history).toEqual([]);
+  });
+
+  it('sums reasoning tokens over the spans that reported them, and is null, never 0, when none did', () => {
+    const none = reduceAll([...base, runnerEnd('a', 'acp', { 'indaba.exit_code': 0 })]);
+    expect(none.reasoningTokens).toBeNull();
+
+    const one = reduceAll([...base, runnerEnd('a', 'acp', { 'indaba.usage.reasoning_tokens': 7 })]);
+    expect(one.reasoningTokens).toBe(7);
+    expect(stepOf(one, 'a').runners[0]?.reasoningTokens).toBe(7);
+
+    const two = reduceAll([
+      ...base,
+      runnerStart('a', 'other'),
+      runnerEnd('a', 'acp', { 'indaba.usage.reasoning_tokens': 7 }),
+      runnerEnd('a', 'other', { 'indaba.usage.reasoning_tokens': 5 }),
+    ]);
+    expect(two.reasoningTokens).toBe(12);
+  });
+});

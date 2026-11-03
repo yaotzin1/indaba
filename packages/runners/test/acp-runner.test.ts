@@ -805,3 +805,53 @@ describe('AcpRunner: tool call kinds', () => {
     ]);
   });
 });
+
+describe('AcpRunner: reasoning (AC-02)', () => {
+  const thought = (t: unknown): Record<string, unknown> => ({
+    sessionUpdate: 'agent_thought_chunk',
+    content: t,
+  });
+
+  it('hands thought chunks to onThought, never to the output, and leaves the result as it was', async () => {
+    const thoughts: string[] = [];
+    const { result, recorded } = await run(
+      {
+        prompt: (_m, wire, reply) => {
+          wire.update(thought({ type: 'text', text: 'hmm ' }));
+          wire.update(text('answer'));
+          wire.update(thought({ type: 'text', text: 'AGREEMENT: not a vote' }));
+          reply({ stopReason: 'end_turn' });
+        },
+      },
+      { onThought: (c) => thoughts.push(c) },
+    );
+
+    expect(thoughts).toEqual(['hmm ', 'AGREEMENT: not a vote']);
+    expect(result.output).toBe('answer');
+    expect(recorded.output).toEqual(['answer']);
+  });
+
+  it('ignores empty, non-text and malformed thought content, and runs without a sink', async () => {
+    const thoughts: string[] = [];
+    const script = {
+      prompt: (
+        _m: unknown,
+        wire: { update: (u: Record<string, unknown>) => void },
+        reply: (r: unknown) => void,
+      ) => {
+        wire.update(thought({ type: 'text', text: '' }));
+        wire.update(thought({ type: 'image', data: 'x' }));
+        wire.update(thought('plain string'));
+        wire.update(thought(undefined));
+        wire.update(text('ok'));
+        reply({ stopReason: 'end_turn' });
+      },
+    };
+    const sunk = await run(script as never, { onThought: (c) => thoughts.push(c) });
+    expect(thoughts).toEqual([]);
+    expect(sunk.result.output).toBe('ok');
+
+    const unsunk = await run(script as never);
+    expect(unsunk.result.exitCode).toBe(0);
+  });
+});

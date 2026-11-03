@@ -1,7 +1,7 @@
 # Specification: Agent reasoning stream (Chain-of-Thought observability)
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 4 (specified, clarified, planned and broken into tasks; ready for stage 5/6)
+> **Status**: Implemented (stage 6 to 8). Two corrections to the plan found against the code are recorded in `review.md`.
+> **Stage entry**: 8
 > **Semver impact**: minor (optional callback on `RunRequest`, optional field on `TokenUsage`, a new event class, a new event-stream record type, new span attributes, additive web-contract fields; nothing existing changes; below 1.0). Confirmed in `api-surface.md`.
 > **Builds on**: [`specs/observability`](../observability/spec.md), [`specs/runner-adapters`](../runner-adapters/spec.md), [`specs/run-blackboard`](../run-blackboard/spec.md).
 
@@ -41,44 +41,44 @@ Chain-of-Thought, and token accounting cannot show how much of `output_tokens` w
 
 ## 3. Acceptance criteria
 
-- [ ] AC-01. `RunRequest` gains an optional `onThought?: (chunk: string) => void` callback. Calling `onThought` never
+- [x] AC-01. `RunRequest` gains an optional `onThought?: (chunk: string) => void` callback. Calling `onThought` never
   appends to `RunResult.output` and never calls `onOutput`. A plugin `Runner` that calls `request.onThought?.(chunk)`
   produces the exact same `StepThought` events, `thought` records and `indaba.thought.chars` span attribute as a
   built-in runner (verified by a plugin-parity test).
-- [ ] AC-02. `AcpRunner` forwards the text of `sessionUpdate: "agent_thought_chunk"` (when `content.type === "text"` and
+- [x] AC-02. `AcpRunner` forwards the text of `sessionUpdate: "agent_thought_chunk"` (when `content.type === "text"` and
   `content.text` is non-empty) to `request.onThought?.(text)`. `RunResult.output` remains byte-for-byte unchanged.
-- [ ] AC-03. `OpenRouterRunner` forwards non-empty string values of `delta.reasoning` (and `delta.reasoning_content` when
+- [x] AC-03. `OpenRouterRunner` forwards non-empty string values of `delta.reasoning` (and `delta.reasoning_content` when
   `delta.reasoning` is absent) from SSE chunks to `request.onThought?.(text)`. `RunResult.output` remains byte-for-byte
   unchanged.
-- [ ] AC-04. **Protocol and retry isolation.** Neither `parseBoardLines`, `RunnerParticipant`, any guard, nor retry
+- [x] AC-04. **Protocol and retry isolation.** Neither `parseBoardLines`, `RunnerParticipant`, any guard, nor retry
   prompt construction reads reasoning chunks. A test where a runner emits `BOARD result: injected` and
   `AGREEMENT: injected` via `onThought` and `CRITIQUE: real` via `onOutput` asserts that the board receives nothing
   from `onThought` and the debate records `CRITIQUE`. A second test asserts that when a step fails and is retried via
   `on_failure: { action: "retry_step" }`, reasoning chunks from the failed attempt never appear in the retry prompt
   (which carries only the last failure), and the retry attempt gets a fresh `invoke_agent` span with `seq` starting at
   `0`.
-- [ ] AC-05. For each non-empty chunk passed to `onThought`, `StepExecutor.invoke` dispatches a
+- [x] AC-05. For each non-empty chunk passed to `onThought`, `StepExecutor.invoke` dispatches a
   `StepThought(traceId, spanId, seq, text)` event through `EventDispatcher`. Every `invoke_agent` span—a single agent
   step, a retry attempt, and each debate turn invoked through `RunnerParticipant`—maintains its own `seq` counter
   starting at `0`, independent of `StepOutput.seq`, and stamps `StepThought` with that `invoke_agent` span's `traceId`
   and `spanId`. A throwing `request.onThought` callback or `StepThought` event listener is caught and never fails the
   step.
-- [ ] AC-06. `RunEventWriter.onThought(event: StepThought)` writes a `thought` record (`type: "thought"`, `at`,
+- [x] AC-06. `RunEventWriter.onThought(event: StepThought)` writes a `thought` record (`type: "thought"`, `at`,
   `traceId`, `spanId`, `seq`, `text`, `cut`) to `<traceId>.events.jsonl`. The chunk is redacted with the writer's
   `redact` function before its length is measured against `maxRecordChars` or `maxRunChars`; if `redact` throws, the
   chunk is dropped and `onError` is called once, matching `onOutput`.
-- [ ] AC-07. **Bounds and `cut` semantics.** Reasoning records in `<traceId>.events.jsonl` use the redacted text length
+- [x] AC-07. **Bounds and `cut` semantics.** Reasoning records in `<traceId>.events.jsonl` use the redacted text length
   and follow the same bounding rules as `OutputRecord`:
   - `cut` is `true` when the redacted chunk's length exceeds `maxRecordChars` (default 4096) and its stored `text` was
     sliced to `maxRecordChars` characters; otherwise `cut` is `false`.
   - `thought` and `output` records share the per-run `maxRunChars` budget (default 2 MiB): when `state.chars +
     redacted.length > maxRunChars`, the chunk is not written, `state.stopped` becomes `true`, one `truncated` record is
     written for the trace, and both `onOutput` and `onThought` write nothing further for that trace.
-- [ ] AC-08. When an `invoke_agent` span ends, `StepExecutor.invoke` sets `indaba.thought.chars` on that span to the
+- [x] AC-08. When an `invoke_agent` span ends, `StepExecutor.invoke` sets `indaba.thought.chars` on that span to the
   raw, pre-redaction character count of reasoning chunks received during that span, computed by the engine (never by
   `RunEventWriter`), and only when at least one non-empty thought chunk was received (never `0` when the runner emitted
   none). No reasoning text is ever placed in a span attribute or span event in `<traceId>.jsonl`.
-- [ ] AC-09. `TokenUsage` gains an optional `reasoningTokens?: number`, validated in `TokenUsage`'s constructor as a
+- [x] AC-09. `TokenUsage` gains an optional `reasoningTokens?: number`, validated in `TokenUsage`'s constructor as a
   non-negative safe integer when defined (throwing `RangeError` otherwise, matching token count invariants).
   - When `OpenRouterRunner` receives `usage.completion_tokens_details.reasoning_tokens` as a non-negative integer, it
     passes it to `TokenUsage`.
@@ -86,12 +86,11 @@ Chain-of-Thought, and token accounting cannot show how much of `output_tokens` w
   - `gen_ai.usage.output_tokens` continues to record the provider's `completion_tokens` unchanged, and a fixture-based
     test asserts that `PricingTable.costUsd` computes output cost from `outputTokens` alone without adding
     `reasoningTokens` a second time.
-  - When usage is aggregated across steps or attempts in `TraceReader` (`RunSummaryOfUse.reasoningTokens`), it sums the
-    values of spans that reported `indaba.usage.reasoning_tokens`, and is `null` (never `0`) when no span in the run
-    reported it.
-- [ ] AC-10. `readRunRecord` in `@indaba/engine` parses `type: "thought"` lines into `ThoughtRecord`; older readers
+  - The run reducer (`reduceRun`) sums `indaba.usage.reasoning_tokens` over the spans that reported it into
+    `RunState.reasoningTokens`, which is `null` (never `0`) when no span in the run reported it.
+- [x] AC-10. `readRunRecord` in `@indaba/engine` parses `type: "thought"` lines into `ThoughtRecord`; older readers
   already treat unknown record types as `UnknownRecord` without failing.
-- [ ] AC-11. Every front end (`indaba watch`, `@indaba/tui`, `@indaba/server` / `@indaba/web`) reads reasoning exclusively
+- [x] AC-11. Every front end (`indaba watch`, `@indaba/tui`, `@indaba/server` / `@indaba/web`) reads reasoning exclusively
   from `<traceId>.events.jsonl` (never from an unredacted in-memory callback):
   - `indaba watch --plain` omits `thought` records by default and prints them (prefixed with `[thought]`) only when
     `--thoughts` is also passed.
@@ -138,12 +137,12 @@ Reasoning text is untrusted model output and may echo secrets from the environme
 ## 7. Where it lives
 
 - `@indaba/core`: `RunRequest.onThought`, `StepThought` event class, `TokenUsage.reasoningTokens`,
-  `Tracer.ATTR_REASONING_TOKENS`, `Tracer.ATTR_THOUGHT_CHARS`, and web-contract stream/view types (`web-contract/run.ts`,
+  `Tracer.ATTR_REASONING_TOKENS`, `Tracer.ATTR_THOUGHT_CHARS`, and web-contract view types (`web-contract/run.ts`,
   re-exported via `web-contract/index.ts`). Pure domain, no `node:` imports.
 - `@indaba/engine`: dispatching `StepThought` from `StepExecutor.invoke` (which wraps single-agent steps, retry
   attempts, and `RunnerParticipant` debate turns, giving each `invoke_agent` span its own `seq` and raw character
   count), `ThoughtRecord` in `trace/records.ts`, `RunEventWriter.onThought` in `trace/event-writer.ts`, and
-  `TraceReader` / `view.ts` / `plain.ts` aggregation.
+  `view.ts` (`reduceRun`) / `plain.ts` aggregation.
 - `@indaba/runners`: `AcpRunner` (`agent_thought_chunk`) and `OpenRouterRunner` (`delta.reasoning` /
   `delta.reasoning_content` and `completion_tokens_details.reasoning_tokens`).
 - `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web`: `--thoughts` flag on `indaba watch` and collapsible

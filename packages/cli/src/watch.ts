@@ -3,6 +3,7 @@ import { parseArgs } from 'node:util';
 import type { Logger } from '@indaba/core';
 import {
   BoardReader,
+  type EventLineOptions,
   emptyRun,
   formatEvent,
   formatPlain,
@@ -30,6 +31,7 @@ Options:
       --plain           Line-oriented output, even on a terminal that could show the dashboard
       --ascii           Draw the dashboard without box or arrow characters
       --output          Also print each line of output a step streams
+      --thoughts        Also print the model's reasoning, where the runner streams it, as [thought] lines (--plain only)
       --replay          Replay a finished run with its original timing
       --speed <n>       Replay speed: 1 (as it happened) or 10 (default: 1)
       --stale <secs>    Give up on a run that writes nothing for this long (default: 120)
@@ -60,6 +62,7 @@ interface Parsed {
   readonly run: string | undefined;
   readonly workdir: string;
   readonly output: boolean;
+  readonly thoughts: boolean;
   readonly replay: boolean;
   readonly speed: number;
   readonly staleMs: number;
@@ -94,6 +97,7 @@ function parseWatch(args: readonly string[], noColor: boolean): Parsed {
     run: positionals[0],
     workdir: values.workdir ?? '.',
     output: values.output === true,
+    thoughts: values.thoughts === true,
     replay: values.replay === true,
     speed,
     staleMs: stale * 1000,
@@ -116,6 +120,7 @@ function parseOptions(args: readonly string[]) {
       plain: { type: 'boolean' },
       ascii: { type: 'boolean' },
       output: { type: 'boolean' },
+      thoughts: { type: 'boolean' },
       replay: { type: 'boolean' },
       speed: { type: 'string' },
       stale: { type: 'string' },
@@ -182,9 +187,17 @@ async function boardSection(directory: string, runId: string): Promise<string> {
 }
 
 /** Reads one record: where it leaves the state, and what to print for it. */
-function step(state: RunState, record: RunRecord, output: boolean): { state: RunState; lines: string[] } {
+function step(
+  state: RunState,
+  record: RunRecord,
+  shown: EventLineOptions,
+): { state: RunState; lines: string[] } {
   const next = reduceRun(state, record);
-  return { state: next, lines: formatEvent(next, record, { output }) };
+  return { state: next, lines: formatEvent(next, record, shown) };
+}
+
+function shownOf(parsed: Parsed): EventLineOptions {
+  return { output: parsed.output, thoughts: parsed.thoughts };
 }
 
 const realSleep = (ms: number): Promise<void> => new Promise((resolveSleep) => setTimeout(resolveSleep, ms));
@@ -193,7 +206,7 @@ async function replay(
   io: Io,
   records: readonly RunRecord[],
   speed: number,
-  output: boolean,
+  shown: EventLineOptions,
   sleep: (ms: number) => Promise<void>,
 ): Promise<RunState> {
   let state = emptyRun();
@@ -209,7 +222,7 @@ async function replay(
       }
       previous = Number.isNaN(at) ? previous : at;
     }
-    const stepped = step(state, record, output);
+    const stepped = step(state, record, shown);
     state = stepped.state;
     print(io, stepped.lines);
   }
@@ -224,7 +237,7 @@ async function follow(
   io: Io,
   reader: TraceReader,
   runId: string,
-  output: boolean,
+  shown: EventLineOptions,
   staleMs: number,
 ): Promise<{ state: RunState; quiet: boolean }> {
   const controller = new AbortController();
@@ -253,7 +266,7 @@ async function follow(
       if (next.done === true) {
         break;
       }
-      const stepped = step(state, next.value, output);
+      const stepped = step(state, next.value, shown);
       state = stepped.state;
       print(io, stepped.lines);
     }
@@ -353,21 +366,25 @@ export async function watch(args: readonly string[], io: Io, options: WatchOptio
   const finished = summariseRun(records).status !== 'running';
 
   if (parsed.replay) {
-    const state = await replay(io, records, parsed.speed, parsed.output, options.sleep ?? realSleep);
-    io.stdout.write(formatPlain(state, { color: parsed.color }));
+    const state = await replay(io, records, parsed.speed, shownOf(parsed), options.sleep ?? realSleep);
+    io.stdout.write(formatPlain(state, { color: parsed.color, thoughts: parsed.thoughts }));
     io.stdout.write(await boardSection(directory, chosen.id));
     return io.signal?.aborted === true ? 130 : watchExitCode(state.status);
   }
 
   if (finished) {
     const state = records.reduce(reduceRun, emptyRun());
-    io.stdout.write(formatPlain(state, { color: parsed.color, allOutput: parsed.output }));
+    io.stdout.write(
+      formatPlain(state, { color: parsed.color, allOutput: parsed.output, thoughts: parsed.thoughts }),
+    );
     io.stdout.write(await boardSection(directory, chosen.id));
     return watchExitCode(state.status);
   }
 
-  const { state, quiet } = await follow(io, reader, chosen.id, parsed.output, parsed.staleMs);
-  io.stdout.write(formatPlain(state, { color: parsed.color, allOutput: parsed.output }));
+  const { state, quiet } = await follow(io, reader, chosen.id, shownOf(parsed), parsed.staleMs);
+  io.stdout.write(
+    formatPlain(state, { color: parsed.color, allOutput: parsed.output, thoughts: parsed.thoughts }),
+  );
   io.stdout.write(await boardSection(directory, chosen.id));
   if (io.signal?.aborted === true) {
     return 130;

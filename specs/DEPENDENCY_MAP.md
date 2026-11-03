@@ -156,6 +156,7 @@ gantt
 | `workflow-editor` | Implemented: part 1 (`diagnose`, #61), part 2 (`WorkflowDocument`, the schema, `indaba schema`, #62), part 3 (descriptions, `indaba catalog`, #63). Voters and prompts in the catalog wait for their specs | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Implemented | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `agent-reasoning` | Implemented (builds on `observability`, `runner-adapters` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |

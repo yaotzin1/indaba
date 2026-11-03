@@ -457,3 +457,56 @@ describe('indaba watch --replay', () => {
     expect(await watch([id, '--replay'], captured.io)).toBe(0);
   });
 });
+
+describe('indaba watch --thoughts', () => {
+  const thought = (trace: string, text: string): Writable => ({
+    type: 'thought',
+    at: T(4),
+    traceId: trace,
+    spanId: 'p1',
+    seq: 0,
+    text,
+    cut: false,
+  });
+  const withThought = (trace: string): Writable[] => {
+    const records = finishedRun(trace, 'COMPLETED');
+    records.splice(5, 0, thought(trace, `weighing it ${ESC}[2Jup\n`));
+    return records;
+  };
+
+  it('hides the reasoning of a finished run unless asked, and prints it as [thought] lines when asked', async () => {
+    const { dir, traces } = await project();
+    const id = 'a'.repeat(32);
+    await writeRun(traces, id, withThought(id));
+
+    expect((await run([id], dir)).out).not.toContain('weighing it');
+    expect((await run([id, '--output'], dir)).out).not.toContain('weighing it');
+    const asked = await run([id, '--thoughts'], dir);
+    expect(asked.out).toContain('[thought] weighing it up');
+    expect(asked.out).not.toContain(ESC);
+  });
+
+  it('prints it as the lines of a replay, and as they are written while following', async () => {
+    const { dir, traces } = await project();
+    const id = 'b'.repeat(32);
+    await writeRun(traces, id, withThought(id));
+    const replayed = await run([id, '--replay', '--speed', '10', '--thoughts'], dir);
+    expect(replayed.out).toContain('12:00:04 build [thought] weighing it up');
+    expect((await run([id, '--replay', '--speed', '10'], dir)).out).not.toContain('[thought]');
+
+    const live = 'c'.repeat(32);
+    const file = await writeRun(traces, live, [root(live), stepStart(live), change(live, 'RUNNING')]);
+    setTimeout(() => {
+      void appendFile(
+        file,
+        line(runnerStart(live)) +
+          line(thought(live, 'live thinking\n')) +
+          line(change(live, 'COMPLETED', T(20))) +
+          line(rootEnd(live, 'COMPLETED')),
+      );
+    }, 80);
+    const followed = await run([live, '--thoughts'], dir);
+    // followed live it is a line with a time; if the file was complete when read, it is in the final view
+    expect(followed.out).toContain('[thought] live thinking');
+  });
+});

@@ -137,6 +137,11 @@ function infoRows(step: StepView, width: number, ascii: boolean): Row[] {
   if (tools !== undefined) {
     add(tools);
   }
+  const thought = step.thoughts.length + (step.partialThought === '' ? 0 : 1);
+  if (thought > 0) {
+    // Kept out of the pane on purpose: reasoning is not output, and the pane has no room for both.
+    add(`reasoning: ${thought} line(s); indaba watch --plain --thoughts prints them`, 'dim');
+  }
   if (step.consensus !== undefined) {
     add(`consensus: ${safe(step.consensus.outcome)} after ${step.consensus.rounds} round(s)`, 'accent');
   }

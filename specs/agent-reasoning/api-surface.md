@@ -25,11 +25,10 @@ given.
 | `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | field | `RunnerView.reasoningTokens?: number` (reasoning tokens reported for this runner span, when present) |
 | `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | field | `StepView.thoughts: readonly string[]` (bounded lines of redacted thought text for the step) |
 | `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | field | `StepView.partialThought: string` (trailing incomplete thought line) |
-| `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | field | `RunSummaryOfUse.reasoningTokens: number \| null` (`null` when no span reported `reasoningTokens`, never `0`) |
-| `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | union member | `RunStreamEvent` gains `{ readonly type: 'thought'; readonly spanId: string; readonly seq: number; readonly text: string; readonly cut: boolean }` |
+| `@indaba/core` (`web-contract/run.ts`, re-exported via `web-contract/index.ts`) | field | `RunState.reasoningTokens: number \| null` (so also on `RunSnapshot`; `null` when no span reported `reasoningTokens`, never `0`) |
 | `@indaba/engine` (`trace/records.ts`) | interface | `ThoughtRecord { readonly type: 'thought'; readonly at: string; readonly traceId: string; readonly spanId: string; readonly seq: number; readonly text: string; readonly cut: boolean }` |
 | `@indaba/engine` (`trace/event-writer.ts`) | method | `RunEventWriter.onThought(event: StepThought): Promise<void>` |
-| `@indaba/engine` (`trace/plain.ts`) | field | `PlainOptions.thoughts?: boolean` |
+| `@indaba/engine` (`trace/plain.ts`) | field | `EventLineOptions.thoughts?: boolean` (follow lines) and `PlainOptions.thoughts?: boolean` (the final view) |
 
 ## Public symbols changed
 
@@ -37,7 +36,7 @@ given.
 | :--- | :--- | :--- | :--- |
 | `TokenUsage.constructor` | `(inputTokens: number, outputTokens: number)` | `(inputTokens: number, outputTokens: number, reasoningTokens?: number)` | additive optional parameter; validates non-negative safe integer when defined |
 | `RunRecord` (`@indaba/engine`) | `SpanStartedRecord \| SpanEndedRecord \| StepStatusRecord \| OutputRecord \| TruncatedRecord \| UnknownRecord` | adds `\| ThoughtRecord` | additive union member on event stream reader |
-| `RunStreamEvent` (`@indaba/core`) | existing SSE stream event union | adds `\| { readonly type: 'thought'; ... }` | additive union member on web stream contract |
+| `RunStreamEvent` (`@indaba/core`) | `{ id, run: RunSnapshot }` | unchanged | the stream sends whole snapshots, so reasoning travels in `StepView.thoughts` and needs no new event |
 
 ## Removed or deprecated
 
@@ -59,11 +58,11 @@ None.
 | Option | Old default | New default |
 | :--- | :--- | :--- |
 | `indaba watch --thoughts` | (none) | `false` |
-| `PlainOptions.thoughts` | (none) | `false` |
+| `EventLineOptions.thoughts` | (none) | `false` |
 
 ## Checks
 
-- [ ] Every type appearing in a new public signature is itself public (or deliberately marked `@internal` and not re-exported from the package index)
-- [ ] Implementations are not exported for subclassing; the extension point is an interface
-- [ ] Collections are typed precisely and read-only where they are not mutated (`readonly T[]`, `Readonly<Record<string, V>>`)
-- [ ] `pnpm qa` (Biome, `tsc` strict, Vitest) passes with no suppression comment
+- [x] Every type appearing in a new public signature is itself public (or deliberately marked `@internal` and not re-exported from the package index)
+- [x] Implementations are not exported for subclassing; the extension point is an interface
+- [x] Collections are typed precisely and read-only where they are not mutated (`readonly T[]`, `Readonly<Record<string, V>>`)
+- [x] `pnpm qa` (Biome, `tsc` strict, Vitest) passes with no suppression comment

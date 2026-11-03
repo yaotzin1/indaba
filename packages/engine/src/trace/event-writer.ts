@@ -1,6 +1,6 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
-import type { Clock, SpanEnded, SpanStarted, StepOutput, StepStatusChanged } from '@indaba/core';
+import type { Clock, SpanEnded, SpanStarted, StepOutput, StepStatusChanged, StepThought } from '@indaba/core';
 import { isRunId, type RunRecord, serializeRecord, type UnknownRecord } from './records.js';
 
 export const DEFAULT_MAX_RECORD_CHARS = 4096;
@@ -103,6 +103,15 @@ export class RunEventWriter {
   }
 
   onOutput(event: StepOutput): Promise<void> {
+    return this.onText('output', event);
+  }
+
+  /** The model's reasoning: redacted and bounded like output, and counted against the same allowance. */
+  onThought(event: StepThought): Promise<void> {
+    return this.onText('thought', event);
+  }
+
+  private onText(type: 'output' | 'thought', event: StepOutput | StepThought): Promise<void> {
     const state = this.outputOfTrace.get(event.traceId) ?? { chars: 0, stopped: false };
     this.outputOfTrace.set(event.traceId, state);
     if (state.stopped) {
@@ -130,7 +139,7 @@ export class RunEventWriter {
 
     const cut = body.length > this.maxRecordChars;
     return this.write(event.traceId, {
-      type: 'output',
+      type,
       at: this.clock.now().toISOString(),
       traceId: event.traceId,
       spanId: event.spanId,

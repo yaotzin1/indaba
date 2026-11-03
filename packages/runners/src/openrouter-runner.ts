@@ -255,13 +255,31 @@ export class OpenAiCompatibleRunner implements Runner, PermissionCapable {
       request.onOutput?.(content);
     }
 
+    // Reasoning has its own sink and never joins `content`, which the engine parses for protocol lines.
+    if (isRecord(delta)) {
+      const thought =
+        typeof delta.reasoning === 'string' && delta.reasoning !== ''
+          ? delta.reasoning
+          : delta.reasoning === undefined && typeof delta.reasoning_content === 'string'
+            ? delta.reasoning_content
+            : '';
+      if (thought !== '') {
+        request.onThought?.(thought);
+      }
+    }
+
     const raw = event.usage;
     if (isRecord(raw)) {
+      const details = raw.completion_tokens_details;
+      const reasoning = isRecord(details) ? details.reasoning_tokens : undefined;
       return {
         content,
         usage: new TokenUsage(
           Number.isInteger(raw.prompt_tokens) ? Number(raw.prompt_tokens) : 0,
           Number.isInteger(raw.completion_tokens) ? Number(raw.completion_tokens) : 0,
+          typeof reasoning === 'number' && Number.isSafeInteger(reasoning) && reasoning >= 0
+            ? reasoning
+            : undefined,
         ),
       };
     }

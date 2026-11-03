@@ -117,7 +117,7 @@ becomes a card.
 | :--- | :--- |
 | The heading | The workflow, the run's state, when it started, how long it has run or took, and its id |
 | **Steps** (the graph) | Every step of the workflow, left to right in the order they wait for each other (top to bottom below 640 px), including steps that have not run yet. A grey arrow is "waits for" (`depends_on`); it turns green when the step it comes from has completed. A red dashed line under the steps is where a failure leads (`on_failure: retry_step`), with how many retries are used |
-| The step panel | The selected step: what happened in it (its runner, model, tokens and cost, or its commands and exit codes), what happens if it fails, its tries with the reason each one failed, and its output |
+| The step panel | The selected step: what happened in it (its runner, model, tokens and cost, or its commands and exit codes), what happens if it fails, its tries with the reason each one failed, its output, and, when the runner streamed it, the model's reasoning in a section of its own that starts shut |
 | **Steps** (the list) | The same steps as a table; a step that ran more than once opens to show each try |
 | **Cost** | What the run cost so far, the number of model calls, the budget, and a table of each step that called a model: its calls (and any still running), its tokens in and out (on a phone, in the step's own panel), and its cost. The rows add up to the total, which is the same number the Runs screen shows |
 
