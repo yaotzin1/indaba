@@ -173,7 +173,7 @@ steps:
     depends_on: ["checkpoint_test"]
     runner: "shell"
     commands:
-      - "node -e \"const r = require('node:child_process').spawnSync(process.execPath, ['--test', 'test/regression/**/*.test.*'], { stdio: 'inherit' }); process.exit(r.status === 0 ? 1 : 0)\""
+      - "node scripts/fails-first.cjs"
 
   - id: "fix"
     depends_on: ["test_fails_first"]
@@ -189,9 +189,68 @@ steps:
     on_failure: { action: "retry_step", target: "fix", max_retries: 3 }
 ```
 
-`test_fails_first` passes only when the new tests fail now; it fails when they all pass already (the bug was not
-reproduced) and when there are none (checked with Node 22: `node --test` exits 0 on a pattern that matches no file). It cannot tell a test that fails for the right reason from one that fails because
-it is broken, so read its output in the run, or let the code review check it.
+`test_fails_first` runs a small script that you commit to the project first, as `scripts/fails-first.cjs` (Node 22).
+A bare `node --test` exit code is not enough: Node exits non-zero for a bad import, a syntax error, an error thrown
+while the file loads, or a test that cannot reach a service, so a broken test would count as "the bug is reproduced".
+The script reads the test events instead and passes only when at least one test ran and every failure is a failed
+assertion (`ERR_ASSERTION`). It fails when the tests all pass already, when none ran (no file, an empty file, or every
+test skipped), and when any test broke for another reason.
+
+```js
+// Passes (exit 0) only when the regression tests ran and every failure is a failed assertion.
+const { run } = require('node:test');
+const { globSync } = require('node:fs');
+
+const files = globSync(process.argv[2] ?? 'test/regression/**/*.test.*');
+if (files.length === 0) {
+  console.error('No regression test file found.');
+  process.exit(1);
+}
+
+let ran = 0;
+let assertions = 0;
+const others = [];
+
+const stream = run({ files });
+stream.on('test:pass', () => {
+  ran += 1;
+});
+stream.on('test:fail', (event) => {
+  ran += 1;
+  const error = event.details?.error;
+  const cause = error?.cause ?? error;
+  if (cause?.code === 'ERR_ASSERTION') {
+    assertions += 1;
+  } else {
+    others.push(`${event.name}: ${cause?.code ?? cause?.name ?? 'the file did not load'}`);
+  }
+});
+stream.on('data', () => {});
+stream.on('end', () => {
+  if (ran === 0) {
+    console.error('No test ran: every file is empty or skipped.');
+    process.exit(1);
+  }
+  if (others.length > 0) {
+    console.error(`A test broke for a reason that is not a failed assertion: ${others.join('; ')}`);
+    process.exit(1);
+  }
+  if (assertions === 0) {
+    console.error('Every regression test passed: the bug is not reproduced.');
+    process.exit(1);
+  }
+  console.log(`ok: ${assertions} test(s) fail on an assertion, as expected`);
+});
+```
+
+We checked it on Node 22.20 with one test file per case: an assertion failure, a bad import, a thrown error at load, a
+syntax error, an ECONNREFUSED error, an assertion failure next to an environment error, an empty file, a skipped test
+and no file. It gave the right answer in every case; the one-line `node --test` check let the bad import, the throw, the
+syntax error and the environment error through. Two limits remain. A test that fails on a wrong assertion (the wrong
+value, for the wrong reason) still passes this gate, so read its output in the run or let the code review check it. And
+a test that fails through another assertion library, whose errors do not carry `ERR_ASSERTION`, is rejected: use
+`node:assert`, or adapt the check. The script relies on `run()` and `fs.globSync` of Node 22, where `globSync` is
+still marked experimental.
 
 **Cross-component change: one writer per component, one contract gate.** (Add `change: "specs/changes/007-sync"` under `artifacts:` first.) The gate retries only `implement_api`; if the web side broke the contract, point `target` at `implement_web` or split the gate in two. Each component's step may change only its own
 folder, so an agent fixing the web app cannot quietly change the API to suit itself:
