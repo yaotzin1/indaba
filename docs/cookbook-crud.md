@@ -75,7 +75,8 @@ That branch is what you get at the end (see [Checkpoints](#checkpoints)).
 - [uv](https://docs.astral.sh/uv/), to install spec-kit's files with `uvx`.
 - Indaba: `npm install -g indaba@next`, or write `npx indaba@next` wherever this page writes `indaba`.
 - One agent. The roles use Claude over ACP and fall back to the `claude-code` CLI when ACP cannot start, so either an
-  ACP-capable Claude or an installed, logged-in `claude` CLI will do. See
+  ACP-capable Claude or an installed, logged-in `claude` CLI will do (each role lists them in order:
+  `runner: ["acp", "claude-code"]`; see [Transports and fallback](workflow-format.md#transports-and-fallback)). See
   [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent) and [Using the alpha](using-the-alpha.md).
 - A terminal for the run: the two debates use `arbiter: "human"`, which asks you only when the agents cannot agree.
 
@@ -89,6 +90,7 @@ mkdir inventory-app && cd inventory-app
 git init
 uvx --from git+https://github.com/github/spec-kit.git@v1.2.5 specify init --here --force --integration claude --script py --non-interactive
 printf ".indaba/\nnode_modules/\nreports/\n.stryker-tmp/\n" > .gitignore
+# PowerShell: Set-Content .gitignore ".indaba/","node_modules/","reports/",".stryker-tmp/"
 mkdir acceptance
 ```
 
@@ -110,7 +112,9 @@ What each part is for:
 - **`.gitignore`.** Installed packages, Stryker's reports and Indaba's runtime state must not end up in the commits.
   On Windows `cmd`, write it in an editor with those four lines.
 - **The acceptance test.** It starts the real server and checks the contract over HTTP, outside the agents' control:
-  no step may change `acceptance/`. Whatever the agents write, a completed run means this test passed.
+  no step may change `acceptance/`. Whatever the agents write, a completed run means this test passed. It asks the
+  system for a free port and hands it to the server as `PORT`, so a dev server you already run, or a second run, does
+  not collide.
 
 ## 2. Get the workflow file
 

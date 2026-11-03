@@ -36,7 +36,7 @@ Three habits make the review short:
 mkdir contacts-app && cd contacts-app
 git init
 mkdir -p .specify/memory specs src public test   # PowerShell: mkdir .specify/memory, specs, src, public, test
-printf ".indaba/\nnode_modules/\ndata/\n" > .gitignore   # PowerShell or cmd: create the file in an editor
+printf ".indaba/\nnode_modules/\ndata/\n" > .gitignore   # PowerShell: Set-Content .gitignore ".indaba/","node_modules/","data/"
 ```
 
 `data/` holds the users file and the contacts file the server writes; they are data, not code, and stay out of git.
@@ -235,6 +235,27 @@ debate. For a draft like this, expect findings of this kind (written for this pa
 4. **FR-001** "starts a session": for how long, in what cookie, with which flags? Constitution IV requires `HttpOnly`
    and `SameSite=Strict`, and the draft does not mention either.
 5. **Summary**: there is no sign-up window and no way to create an account, so nobody can ever sign in.
+
+In `watch --plain` they look like this: the step's line, how the debate ended, then the board with one line per
+message. The layout is what Indaba prints; the messages are shortened here, and your agents word theirs differently
+and may need more rounds:
+
+```text
+  ✔ spec_review  completed
+      consensus: reached after 2 round(s)
+Board
+  Notes between steps:
+  #1 spec_review critique: 1. FR-001 gives no status codes or bodies for a right password, a wrong one or a malformed request. 2. US2 does not say what an unknown username gets. 3. FR-001 "starts a session": no lifetime, cookie or flags; constitution IV requires HttpOnly and SameSite=Strict.
+  #2 spec_review critique: I hold all three and add two. 4. Nothing limits failed attempts. 5. There is no way to create an account, so nobody can sign in.
+  #3 spec_review agreement: I accept the five findings as the review's result.
+  #4 spec_review agreement: I accept the five findings as the review's result.
+  #5 spec_review result: reached after 2 round(s)
+```
+
+Read it from the top: a `critique` lists or adds findings, an `agreement` means that reviewer accepts the other's list
+(not that the spec is good), and the `result` line says whether they settled. The findings are the list the last
+`agreement` accepts. If the debate ends without one, the `human` arbiter shows you the transcript and asks you to rule.
+Every message, unshortened, stays in `.indaba/discussions/<run id>.spec_review.json` after the run.
 
 ### 2.3 Fix it
 
