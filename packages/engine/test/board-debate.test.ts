@@ -60,7 +60,7 @@ const says = (name: string, ...replies: string[]): FakeRunner =>
 
 async function fixture(
   runners: FakeRunner[],
-  options: { ruling?: Ruling; ledger?: boolean; repo?: string } = {},
+  options: { ruling?: Ruling; ledger?: boolean; repo?: string; workflow?: WorkflowDefinition } = {},
 ) {
   const repo = options.repo ?? (await makeGitRepo());
   const adjudicators = new AdjudicatorRegistry();
@@ -85,7 +85,11 @@ async function fixture(
   });
   const span = await tracer.startTrace('root');
   const run = (step: StepDefinition, attempt = 1, signal?: AbortSignal) =>
-    executor.run(step, workflow, repo, span, { board, attempt, ...(signal === undefined ? {} : { signal }) });
+    executor.run(step, options.workflow ?? workflow, repo, span, {
+      board,
+      attempt,
+      ...(signal === undefined ? {} : { signal }),
+    });
   return { board, run, repo };
 }
 
@@ -116,6 +120,23 @@ describe('a debate on the run board', () => {
       [BoardKind.Result, 'debate', undefined, 'reached after 2 round(s)', 'engine'],
     ]);
     expect(entries.map((e) => board.stateOf(e))).toEqual(Array(5).fill('accepted'));
+  });
+
+  it('hands each role’s agent to its runner in a debate, as an ordinary step does (#111)', async () => {
+    const ra = says('ra', 'AGREEMENT: fine');
+    const rb = says('rb', 'AGREEMENT: fine');
+    const { run } = await fixture([ra, rb], {
+      workflow: {
+        ...workflow,
+        roles: {
+          a: { name: 'a', runner: 'ra', agent: { preset: 'claude' }, mcp: [] },
+          b: { name: 'b', runner: 'rb', mcp: [] },
+        },
+      },
+    });
+    expect((await run(debate())).ok).toBe(true);
+    expect(ra.requests.every((r) => r.agent?.preset === 'claude')).toBe(true);
+    expect(rb.requests.every((r) => r.agent === undefined)).toBe(true);
   });
 
   it('keeps an unresolved debate’s entries accepted, with the open objections in the result', async () => {

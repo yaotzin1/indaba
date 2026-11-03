@@ -1,5 +1,5 @@
 import type { Runner, RunRequest, RunResult } from '../runner/index.js';
-import type { McpServerDefinition } from '../workflow/model.js';
+import type { AgentSpec, McpServerDefinition } from '../workflow/model.js';
 import type { Blackboard } from './blackboard.js';
 import type { Participant } from './consensus.js';
 import { AgentMessage, MessageType } from './message.js';
@@ -9,6 +9,8 @@ export interface RunnerParticipantOptions {
   readonly runner: Runner;
   readonly workdir: string;
   readonly model?: string;
+  /** Which agent an agent-protocol runner starts; the role's `agent`. */
+  readonly agent?: AgentSpec;
   /** Hook around the runner call, for tracing. */
   readonly invoke?: (runner: Runner, request: RunRequest) => Promise<RunResult>;
   /** Servers to ask the runner to provide. */
@@ -28,11 +30,12 @@ export class RunnerParticipant implements Participant {
   }
 
   async respond(topic: string, board: Blackboard, round: number): Promise<AgentMessage> {
-    const { runner, workdir, model, invoke, mcpServers, signal } = this.options;
+    const { runner, workdir, model, agent, invoke, mcpServers, signal } = this.options;
     const request: RunRequest = {
       prompt: this.prompt(topic, board, round),
       workdir,
       ...(model !== undefined ? { model } : {}),
+      ...(agent !== undefined ? { agent } : {}),
       ...(mcpServers !== undefined ? { mcpServers } : {}),
     };
     const result = invoke === undefined ? await runner.run(request, signal) : await invoke(runner, request);

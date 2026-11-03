@@ -51,6 +51,16 @@ port". The PHP prototype that preceded them was never published.
   interface, with the `claude-code` runner's streaming mode as the activity signal. Specification only: nothing is
   implemented and no package changes; it waits for the maintainer's decisions listed in the pull request.
 
+### Fixed
+
+- **A debate participant now gets its role's `agent` (#111).** In a `consensus_with` step the role's `agent` was not
+  passed to the runner, so `acp` was skipped with "needs an agent" and the debate fell back to the next runner. On a
+  machine where ACP works, a debate whose roles list `acp` first now runs over ACP, as an ordinary step does.
+- **Removing a task worktree is retried, then forced (#110).** On Windows a handle held inside the folder could make
+  `git worktree remove` fail, which marked a run whose steps all completed as `failed`. The removal is now tried four
+  times with a doubling wait (250 ms first); if git still refuses, the folder is deleted directly and the registration
+  pruned. A run is marked failed for this only when that also fails.
+
 ## [0.1.0-alpha.5] - 2026-10-31
 
 The fifth preview, published under the `next` tag. Its point is the run board: steps can leave each other notes, a

@@ -569,6 +569,7 @@ ${this.prompts.tail(result.failureText())}`,
         runner: this.chainRunner(plan, workflow, step, roleName, span, roleName, options.signal),
         workdir,
         ...(plan.model !== undefined ? { model: plan.model } : {}),
+        ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
         invoke: (chain, request) => chain.run(request, options.signal),
       });
     });

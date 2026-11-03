@@ -132,6 +132,27 @@ describe('RunnerParticipant', () => {
     expect(seen[0]?.model).toBeUndefined();
   });
 
+  it('passes the agent and the model to the runner, and leaves them out when absent', async () => {
+    const seen: RunRequest[] = [];
+    const reply = new RunResult({ exitCode: 0, output: 'AGREEMENT: fine' });
+    const withAgent = new RunnerParticipant({
+      role: 'r',
+      runner: runner(reply, seen),
+      workdir: '/w',
+      model: 'm',
+      agent: { preset: 'claude' },
+    });
+    await withAgent.respond('t', new Board(), 1);
+    expect(seen[0]?.agent).toEqual({ preset: 'claude' });
+    expect(seen[0]?.model).toBe('m');
+    await new RunnerParticipant({ role: 'r', runner: runner(reply, seen), workdir: '/w' }).respond(
+      't',
+      new Board(),
+      1,
+    );
+    expect(Object.hasOwn(seen[1] ?? {}, 'agent')).toBe(false);
+  });
+
   it('turns a failed run into a critique', async () => {
     const p = new RunnerParticipant({
       role: 'r',
