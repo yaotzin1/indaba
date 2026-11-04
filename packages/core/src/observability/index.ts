@@ -15,7 +15,16 @@ export class TokenUsage {
   constructor(
     readonly inputTokens: number,
     readonly outputTokens: number,
-  ) {}
+    /**
+     * The part of `outputTokens` a provider says went on hidden reasoning. A breakdown, not an addition:
+     * `outputTokens` already includes it, so cost is computed from `outputTokens` alone.
+     */
+    readonly reasoningTokens?: number,
+  ) {
+    if (reasoningTokens !== undefined && !(Number.isSafeInteger(reasoningTokens) && reasoningTokens >= 0)) {
+      throw new RangeError(`reasoningTokens must be a non-negative safe integer, got ${reasoningTokens}`);
+    }
+  }
 }
 
 export interface ModelRate {
@@ -152,6 +161,20 @@ export class StepOutput {
 }
 
 /**
+ * A chunk of the model's reasoning stream, kept apart from its reply. Same shape as {@link StepOutput} but its own
+ * counter: `seq` counts from 0 within the span, independent of the output chunks. The text is untrusted model
+ * output exactly as the runner produced it: redact it before it is stored, and never parse it.
+ */
+export class StepThought {
+  constructor(
+    readonly traceId: string,
+    readonly spanId: string,
+    readonly seq: number,
+    readonly text: string,
+  ) {}
+}
+
+/**
  * Dispatched for every record the run's board makes, in order, already cleaned and redacted. The built-in file
  * writer listens to it like any plugin can.
  */
@@ -173,6 +196,8 @@ export class Tracer {
   static readonly ATTR_INPUT_TOKENS = 'gen_ai.usage.input_tokens';
   static readonly ATTR_OUTPUT_TOKENS = 'gen_ai.usage.output_tokens';
   static readonly ATTR_COST_USD = 'indaba.cost.usd';
+  static readonly ATTR_REASONING_TOKENS = 'indaba.usage.reasoning_tokens';
+  static readonly ATTR_THOUGHT_CHARS = 'indaba.thought.chars';
 
   constructor(
     private readonly clock: Clock,
@@ -204,6 +229,9 @@ export class Tracer {
     span.setAttribute(Tracer.ATTR_MODEL, model);
     span.setAttribute(Tracer.ATTR_INPUT_TOKENS, usage.inputTokens);
     span.setAttribute(Tracer.ATTR_OUTPUT_TOKENS, usage.outputTokens);
+    if (usage.reasoningTokens !== undefined) {
+      span.setAttribute(Tracer.ATTR_REASONING_TOKENS, usage.reasoningTokens);
+    }
     const cost = this.pricing.costUsd(model, usage);
     if (cost !== undefined) {
       span.setAttribute(Tracer.ATTR_COST_USD, cost);

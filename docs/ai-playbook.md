@@ -44,7 +44,7 @@ All state is in files under `<project>/.indaba/`:
 | File | What | Format |
 | :--- | :--- | :--- |
 | `traces/<id>.jsonl` | spans with token and cost accounting | JSON lines, OpenTelemetry GenAI attribute names |
-| `traces/<id>.events.jsonl` | step changes, span starts and ends, streamed output | JSON lines; `type` is `span_started`, `span_ended`, `step_status`, `output` or `truncated`; wire names are snake_case |
+| `traces/<id>.events.jsonl` | step changes, span starts and ends, streamed output and (for `acp` and `openrouter`) the model's reasoning as `thought` records, which `watch --plain` hides unless `--thoughts` is given | JSON lines; `type` is `span_started`, `span_ended`, `step_status`, `output`, `thought` or `truncated`; wire names are snake_case |
 | `traces/<id>.board.jsonl` | the run board: notes between steps | JSON lines; `type` is `board` (first), `post`, `settle` or `truncated`; format in [specs/run-blackboard/data-model.md](../specs/run-blackboard/data-model.md) |
 | `logs/` | the redacted log of each command | JSON lines |
 | `discussions/` | the messages of each debate | files per debate |

@@ -235,7 +235,7 @@ settings are in [The web view](web-view.md). The page does not show the board ye
 ## When a run fails
 
 1. `indaba watch latest --plain` shows which step failed, its reason, and the board.
-2. `indaba watch latest --replay --speed 10` plays it back; add `--output` to see what each step printed.
+2. `indaba watch latest --replay --speed 10` plays it back; add `--output` to see what each step printed, and `--thoughts` to see what the model wrote while thinking (kept apart from the output, and only for runners that stream it).
 3. `indaba report latest` gathers the log, trace and environment into a folder to attach to an issue. Secrets are
    removed from it.
 4. The logs are in `.indaba/logs/`; [Logging](logging.md) says how to change the level and where they go.

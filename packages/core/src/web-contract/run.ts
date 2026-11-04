@@ -42,6 +42,8 @@ export interface RunnerView {
   readonly costUsd: number | undefined;
   readonly inputTokens: number | undefined;
   readonly outputTokens: number | undefined;
+  /** The part of `outputTokens` the provider said went on reasoning; already inside `outputTokens`. Undefined when unreported. */
+  readonly reasoningTokens?: number | undefined;
 }
 
 export interface SkippedRunnerView {
@@ -60,6 +62,8 @@ export interface AttemptView {
   readonly outcome: string;
   /** Why it failed or escalated, when the engine said. */
   readonly reason: string | undefined;
+  /** The model's reasoning during this attempt, redacted, when the runner streamed any. Bounded like the output. */
+  readonly thought?: string | undefined;
 }
 
 export interface StepView {
@@ -86,6 +90,10 @@ export interface StepView {
   readonly partialLine: string;
   /** Output stopped being stored for the run (the allowance ran out). */
   readonly outputTruncated: boolean;
+  /** The model's reasoning, redacted: complete lines, oldest first, a bounded number. Apart from `output`. */
+  readonly thoughts: readonly string[];
+  /** The reasoning line being written, with no newline yet. */
+  readonly partialThought: string;
 }
 
 /** Where a step's failure leads, as the workflow declared it (`on_failure`). */
@@ -133,6 +141,8 @@ export interface RunState {
   readonly structure: readonly StepStructure[] | undefined;
   /** What the agent runs cost, where known. */
   readonly cost: RunCost;
+  /** Reasoning tokens summed over the spans that reported them; null, never 0, when none did. */
+  readonly reasoningTokens: number | null;
   /** Lines the view could not make sense of, newest last. */
   readonly notes: readonly string[];
   /** span id to what it belongs to; internal to the reducer. */

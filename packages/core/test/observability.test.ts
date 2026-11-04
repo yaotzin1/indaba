@@ -9,6 +9,7 @@ import {
   SpanStarted,
   SpanStatus,
   StepOutput,
+  StepThought,
   TokenUsage,
   Tracer,
 } from '../src/index.js';
@@ -127,6 +128,54 @@ describe('StepOutput', () => {
       spanId: 'b'.repeat(16),
       seq: 3,
       text: 'hello \u001b[0m',
+    });
+  });
+});
+
+describe('TokenUsage reasoning tokens', () => {
+  it.each([0, 500])('accepts %i and keeps it as a breakdown', (n) => {
+    expect(new TokenUsage(10, 20, n).reasoningTokens).toBe(n);
+  });
+
+  it('leaves it undefined when the provider said nothing', () => {
+    expect(new TokenUsage(10, 20).reasoningTokens).toBeUndefined();
+  });
+
+  it.each([-1, 1.5, Number.NaN, Number.POSITIVE_INFINITY, 2 ** 53])('refuses %s', (n) => {
+    expect(() => new TokenUsage(1, 1, n)).toThrow(RangeError);
+  });
+
+  it('prices output from outputTokens alone, never adding the reasoning a second time', () => {
+    const pricing = new PricingTable({ 'm/x': { input: 1, output: 2 } });
+    expect(pricing.costUsd('m/x', new TokenUsage(1000, 500, 400))).toBe(
+      pricing.costUsd('m/x', new TokenUsage(1000, 500)),
+    );
+  });
+
+  it('records reasoning tokens on the span only when reported, and leaves output_tokens as given', async () => {
+    const events = new SimpleEventDispatcher();
+    const tracer = new Tracer(new MockClock(Date.UTC(2026, 0, 1)), events, new CountingIds());
+    const root = await tracer.startTrace('task');
+    const withReasoning = await tracer.startSpan('a', root);
+    const without = await tracer.startSpan('b', root);
+    tracer.recordUsage(withReasoning, 'p', 'm/x', new TokenUsage(1, 20, 12));
+    tracer.recordUsage(without, 'p', 'm/x', new TokenUsage(1, 20));
+
+    expect(withReasoning.attributes[Tracer.ATTR_REASONING_TOKENS]).toBe(12);
+    expect(withReasoning.attributes[Tracer.ATTR_OUTPUT_TOKENS]).toBe(20);
+    expect(without.attributes).not.toHaveProperty(Tracer.ATTR_REASONING_TOKENS);
+    expect(Tracer.ATTR_REASONING_TOKENS).toBe('indaba.usage.reasoning_tokens');
+    expect(Tracer.ATTR_THOUGHT_CHARS).toBe('indaba.thought.chars');
+  });
+});
+
+describe('StepThought', () => {
+  it('carries the ids of its span, its place in the stream and the text as given', () => {
+    expect(new StepThought('a'.repeat(32), 'b'.repeat(16), 2, 'hmm')).toMatchObject({
+      traceId: 'a'.repeat(32),
+      spanId: 'b'.repeat(16),
+      seq: 2,
+      text: 'hmm',
     });
   });
 });

@@ -1,4 +1,4 @@
-import { RunnerError, RunnerUnavailableError } from '@indaba/core';
+import { PricingTable, RunnerError, RunnerUnavailableError } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import { type FetchFunction, OpenRouterRunner } from '../src/index.js';
 
@@ -214,5 +214,94 @@ describe('OpenRouterRunner', () => {
 
     expect(result.exitCode).toBe(130);
     expect(result.output).toBe('part');
+  });
+});
+
+describe('OpenRouterRunner: reasoning (AC-03, AC-09)', () => {
+  async function stream(events: string[], onThought?: (c: string) => void) {
+    const { fetch } = recordingFetch(
+      () => new Response(streamOf(sse(...events, 'data: [DONE]')), { status: 200 }),
+    );
+    const output: string[] = [];
+    const result = await new OpenRouterRunner({ apiKey: KEY, fetch }).run({
+      prompt: 'p',
+      workdir: '.',
+      model: 'm/x',
+      onOutput: (c) => output.push(c),
+      ...(onThought === undefined ? {} : { onThought }),
+    });
+    return { result, output };
+  }
+
+  it('hands delta.reasoning to onThought and keeps it out of the output, byte for byte', async () => {
+    const thoughts: string[] = [];
+    const { result, output } = await stream(
+      [
+        data({ choices: [{ delta: { reasoning: 'let me ' } }] }),
+        data({ choices: [{ delta: { reasoning: 'think' } }] }),
+        data({ choices: [{ delta: { content: 'Hello' } }] }),
+        data({ choices: [{ delta: { reasoning: '' } }] }),
+      ],
+      (c) => thoughts.push(c),
+    );
+    expect(thoughts).toEqual(['let me ', 'think']);
+    expect(result.output).toBe('Hello');
+    expect(output).toEqual(['Hello']);
+  });
+
+  it('falls back to delta.reasoning_content only when delta.reasoning is absent', async () => {
+    const thoughts: string[] = [];
+    await stream(
+      [
+        data({ choices: [{ delta: { reasoning_content: 'alt' } }] }),
+        data({ choices: [{ delta: { reasoning: 'main', reasoning_content: 'ignored' } }] }),
+        data({ choices: [{ delta: { reasoning: 7, reasoning_content: 'not used for a non-string' } }] }),
+      ],
+      (c) => thoughts.push(c),
+    );
+    expect(thoughts).toEqual(['alt', 'main']);
+  });
+
+  it('runs without a sink', async () => {
+    const { result } = await stream([data({ choices: [{ delta: { reasoning: 'x', content: 'y' } }] })]);
+    expect(result.output).toBe('y');
+  });
+
+  it('reports reasoning tokens as a breakdown that is already inside the output tokens', async () => {
+    const { result } = await stream([
+      data({
+        choices: [],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 50,
+          completion_tokens_details: { reasoning_tokens: 40 },
+        },
+      }),
+    ]);
+    expect(result.usage).toMatchObject({ inputTokens: 10, outputTokens: 50, reasoningTokens: 40 });
+    const pricing = new PricingTable({ 'm/x': { input: 1, output: 2 } });
+    expect(result.usage && pricing.costUsd('m/x', result.usage)).toBe((10 * 1 + 50 * 2) / 1_000_000);
+  });
+
+  it.each([-1, 1.5, 'bad', null, 2 ** 60])('ignores a reasoning_tokens of %s', async (bad) => {
+    const { result } = await stream([
+      data({
+        choices: [],
+        usage: {
+          prompt_tokens: 1,
+          completion_tokens: 2,
+          completion_tokens_details: { reasoning_tokens: bad },
+        },
+      }),
+    ]);
+    expect(result.usage?.outputTokens).toBe(2);
+    expect(result.usage?.reasoningTokens).toBeUndefined();
+  });
+
+  it('leaves reasoning tokens undefined when there are no details', async () => {
+    const { result } = await stream([
+      data({ choices: [], usage: { prompt_tokens: 1, completion_tokens: 2 } }),
+    ]);
+    expect(result.usage?.reasoningTokens).toBeUndefined();
   });
 });

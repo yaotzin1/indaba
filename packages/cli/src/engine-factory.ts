@@ -15,6 +15,7 @@ import {
   SpanStarted,
   StepOutput,
   StepStatusChanged,
+  StepThought,
   Tracer,
   type WorkflowRegistry,
 } from '@indaba/core';
@@ -140,6 +141,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
   events.addListener(SpanEnded, (event) => stream.onSpanEnded(event));
   events.addListener(StepStatusChanged, (event) => stream.onStepStatus(event));
   events.addListener(StepOutput, (event) => stream.onOutput(event));
+  events.addListener(StepThought, (event) => stream.onThought(event));
 
   // The notes between steps (specs/run-blackboard): one file per run beside the other two. The board redacts with the
   // function above, which it has no default for. A file that cannot be written does not fail the run: the root span says so,

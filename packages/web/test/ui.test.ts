@@ -1607,3 +1607,47 @@ describe('the source view and the Run panel when things go wrong (test gaps)', (
     expect(document.activeElement).toBe(buttons[buttons.length - 1]);
   });
 });
+
+describe('the reasoning of a step', () => {
+  const graph = buildGraph(liveRun());
+  const node = (id: string) => {
+    const found = graph.nodes.find((n) => n.id === id);
+    if (found === undefined) throw new Error(id);
+    return found;
+  };
+
+  it('shows it as text in a section of its own, shut by default, apart from the output (AC-11)', () => {
+    const hostile = `<img src=x onerror=${'alert'}(1)>`;
+    const agent = {
+      ...node('code'),
+      step: step('code', {
+        status: 'COMPLETED',
+        output: ['the answer'],
+        thoughts: [hostile, 'second line'],
+        partialThought: 'tail',
+      }),
+    };
+    const { container } = render(
+      h(StepPanel, { node: agent, structureKnown: true, retriedBy: [], now: NOW }),
+    );
+    const details = container.querySelector('details.reasoning');
+    expect(details).not.toBeNull();
+    expect(details?.hasAttribute('open')).toBe(false);
+    expect(details?.querySelector('img')).toBeNull();
+    expect(details?.querySelector('pre')?.textContent).toBe(`${hostile}\nsecond line\ntail`);
+    expect(screen.getByText('Reasoning')).toBeTruthy();
+    expect(container.querySelectorAll('pre')).toHaveLength(2);
+  });
+
+  it('draws no section for a step that did not think', () => {
+    const { container } = render(
+      h(StepPanel, {
+        node: { ...node('code'), step: step('code', { output: ['x'] }) },
+        structureKnown: true,
+        retriedBy: [],
+        now: NOW,
+      }),
+    );
+    expect(container.querySelector('details.reasoning')).toBeNull();
+  });
+});

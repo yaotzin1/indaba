@@ -114,6 +114,9 @@ const echo: Runner = {
       return new RunResult({ exitCode: 1, output: '', errorOutput: 'aborted' });
     }
     request.onOutput?.(request.prompt);
+    // A runner whose transport streams the model's reasoning separately sends it here, never to onOutput:
+    // it reaches `watch --thoughts`, the dashboard and the web view, but no parser and no prompt.
+    request.onThought?.('echoing the prompt');
     return new RunResult({ exitCode: 0, output: request.prompt });
   },
 };

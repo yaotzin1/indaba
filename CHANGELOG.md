@@ -17,6 +17,16 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The model's reasoning, apart from its answer.** A runner whose transport streams reasoning (`acp`'s
+  `agent_thought_chunk`, OpenRouter's `delta.reasoning` and `delta.reasoning_content`) hands it to the new optional
+  `RunRequest.onThought`; a plugin runner uses the same callback. It never joins `RunResult.output`, so a model thinking
+  about `AGREEMENT:` or `BOARD note:` changes no vote and posts nothing. The engine dispatches a `StepThought` event per
+  chunk, `<id>.events.jsonl` gets `thought` records (redacted, bounded, and counted against the same 2 MiB as the
+  output), and the `invoke_agent` span gets `indaba.thought.chars`, never the text. `indaba watch --thoughts` prints
+  `[thought]` lines; the dashboard says how many lines a step has and the web view shows them in a shut section.
+  `TokenUsage` gains an optional `reasoningTokens`, read from `completion_tokens_details.reasoning_tokens` and recorded as
+  `indaba.usage.reasoning_tokens`; it is a breakdown of `output_tokens`, so cost is not charged twice. Specification:
+  [specs/agent-reasoning](specs/agent-reasoning/spec.md).
 - **Tokens and cost from the `claude-code` runner.** The runner now asks Claude Code for `--output-format stream-json
   --verbose` and reports the tokens (input counts the cache reads and writes) and the `total_cost_usd` of its final
   `result` event, so `indaba watch`, the trace and the summary show them instead of "unknown" (follow-up T-27 of

@@ -578,6 +578,8 @@ export const messages = {
     outputLive: 'live',
     outputNothing: 'Nothing yet.',
     outputCut: 'Only the last part is shown.',
+    reasoning: 'Reasoning',
+    reasoningHint: 'What the model wrote while thinking, apart from its answer. It can be incomplete.',
     openLog: 'Open the full log',
     runner: 'Runner',
     command: 'Command',

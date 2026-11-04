@@ -207,6 +207,22 @@ function outputOf(step: StepView | undefined): ReactElement {
   );
 }
 
+/** The model's reasoning, shut by default and apart from the output. Plain text only, like the output. */
+function thoughtOf(step: StepView | undefined): ReactElement | null {
+  if (step === undefined || (step.thoughts.length === 0 && step.partialThought === '')) {
+    return null;
+  }
+  const lines = step.thoughts.slice(-OUTPUT_LINES_SHOWN);
+  const text = [...lines, ...(step.partialThought === '' ? [] : [step.partialThought])].join('\n');
+  return h(
+    'details',
+    { className: 'reasoning' },
+    h('summary', null, messages.step.reasoning),
+    h('p', { className: 'muted' }, messages.step.reasoningHint),
+    h('pre', { 'aria-live': 'off', tabIndex: 0 }, text),
+  );
+}
+
 export interface StepPanelProps {
   readonly node: GraphNode;
   readonly structureKnown: boolean;
@@ -263,6 +279,7 @@ export function StepPanel(props: StepPanelProps): ReactElement {
       Section,
       { title: live ? `${messages.step.output} (${messages.step.outputLive})` : messages.step.output },
       outputOf(step),
+      thoughtOf(step),
     ),
   );
 }

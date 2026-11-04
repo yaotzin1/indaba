@@ -8,6 +8,7 @@ import {
   StepOutput,
   StepStatus,
   StepStatusChanged,
+  StepThought,
 } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import {
@@ -292,5 +293,66 @@ describe('RunEventWriter: failure is never the run’s problem', () => {
     const w = new RunEventWriter({ directory: dir, clock: new FixedClock() });
     await w.onOutput(new StepOutput(TRACE, CHILD, 0, 'plain'));
     expect((await lines(dir))[0]).toMatchObject({ text: 'plain' });
+  });
+});
+
+describe('RunEventWriter: thoughts', () => {
+  it('writes a thought record, redacted before it is stored', async () => {
+    const dir = await makeTempDir();
+    const secret = ['sk', 'live', 'abcdef123456'].join('-');
+    const w = writer(dir, { redact: (text) => text.replaceAll(secret, '[redacted]') });
+    await w.onThought(new StepThought(TRACE, CHILD, 0, `my key ${secret}`));
+
+    const [record] = await lines(dir);
+    expect(record).toMatchObject({
+      type: 'thought',
+      spanId: CHILD,
+      seq: 0,
+      text: 'my key [redacted]',
+      cut: false,
+    });
+    expect(await readFile(join(dir, `${TRACE}.events.jsonl`), 'utf8')).not.toContain(secret);
+  });
+
+  it('cuts a long chunk after redacting it, and measures the redacted length', async () => {
+    const dir = await makeTempDir();
+    const w = writer(dir, {
+      maxRecordChars: 10,
+      redact: (text) => text.replaceAll('SECRETSECRETSECRET', 'x'),
+    });
+    await w.onThought(new StepThought(TRACE, CHILD, 0, 'SECRETSECRETSECRET'));
+    await w.onThought(new StepThought(TRACE, CHILD, 1, 'y'.repeat(11)));
+
+    const [short, long] = await lines(dir);
+    expect(short).toMatchObject({ text: 'x', cut: false });
+    expect(long).toMatchObject({ text: 'y'.repeat(10), cut: true });
+  });
+
+  it('shares the run allowance with output: one truncated record, then nothing from either', async () => {
+    const dir = await makeTempDir();
+    const w = writer(dir, { maxRunChars: 10 });
+    await w.onOutput(new StepOutput(TRACE, CHILD, 0, 'aaaaa'));
+    await w.onThought(new StepThought(TRACE, CHILD, 0, 'bbbbb'));
+    await w.onThought(new StepThought(TRACE, CHILD, 1, 'c'));
+    await w.onOutput(new StepOutput(TRACE, CHILD, 1, 'd'));
+    await w.onThought(new StepThought(TRACE, CHILD, 2, 'e'));
+
+    expect((await lines(dir)).map((x) => x.type)).toEqual(['output', 'thought', 'truncated']);
+  });
+
+  it('stores nothing, and tells onError once, when redaction fails', async () => {
+    const dir = await makeTempDir();
+    const errors: unknown[] = [];
+    const w = writer(dir, {
+      redact: () => {
+        throw new Error('redactor broke');
+      },
+      onError: (e) => errors.push(e),
+    });
+    await w.onThought(new StepThought(TRACE, CHILD, 0, 'secret text'));
+    await w.onThought(new StepThought(TRACE, CHILD, 1, 'more'));
+
+    expect(errors).toHaveLength(1);
+    expect(await readdir(dir).catch(() => [])).toEqual([]);
   });
 });

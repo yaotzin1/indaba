@@ -12,6 +12,8 @@ export interface PlainOptions {
   readonly outputLines?: number;
   /** Show output for every step, not only those running or not completed. */
   readonly allOutput?: boolean;
+  /** Also show the last lines of each step's reasoning, prefixed `[thought]`. Off unless asked. */
+  readonly thoughts?: boolean;
 }
 
 interface Look {
@@ -211,6 +213,14 @@ function stepLines(step: StepView, options: PlainOptions, idWidth: number): stri
   }
 
   const wanted = options.outputLines ?? 4;
+  if (options.thoughts === true && wanted > 0) {
+    const reasoning = [...step.thoughts, ...(step.partialThought === '' ? [] : [step.partialThought])].slice(
+      -wanted,
+    );
+    for (const line of reasoning) {
+      lines.push(`${pad}[thought] ${sanitize(line)}`);
+    }
+  }
   const showOutput = options.allOutput === true || (step.status !== 'COMPLETED' && step.status !== 'PENDING');
   if (showOutput && wanted > 0) {
     const tail = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])].slice(-wanted);
@@ -271,6 +281,8 @@ export function watchExitCode(status: RunStatus): number {
 export interface EventLineOptions {
   /** Also print every line of output a step streams. */
   readonly output?: boolean;
+  /** Also print the model's reasoning, each line prefixed `[thought]`. Off unless asked. */
+  readonly thoughts?: boolean;
 }
 
 function clock(at: string): string {
@@ -328,6 +340,16 @@ export function formatEvent(after: RunState, record: RunRecord, options: EventLi
         .map((line) =>
           line === '' ? `${time} ${oneLine(step)} |` : `${time} ${oneLine(step)} | ${sanitize(line)}`,
         );
+    }
+    case 'thought': {
+      const step = stepOf(record.spanId);
+      if (options.thoughts !== true || step === undefined) {
+        return [];
+      }
+      return record.text
+        .split('\n')
+        .filter((line, i, all) => line !== '' || i < all.length - 1)
+        .map((line) => `${time} ${oneLine(step)} [thought] ${sanitize(line)}`);
     }
     case 'truncated':
       return [`${time} output for this run ran out; the rest is not stored`];

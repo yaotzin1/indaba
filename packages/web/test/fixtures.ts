@@ -19,6 +19,8 @@ export function step(id: string, patch: Partial<StepView> = {}): StepView {
     output: [],
     partialLine: '',
     outputTruncated: false,
+    thoughts: [],
+    partialThought: '',
     ...patch,
   };
 }
@@ -77,6 +79,7 @@ export function liveRun(patch: Partial<RunSnapshot> = {}): RunSnapshot {
     startedAt: T(0),
     endedAt: undefined,
     lastAt: T(30),
+    reasoningTokens: null,
     structure: STRUCTURE,
     steps: [
       step('rfc', {

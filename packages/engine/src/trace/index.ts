@@ -28,6 +28,7 @@ export type {
   SpanEventRecord,
   SpanStartedRecord,
   StepStatusRecord,
+  ThoughtRecord,
   TruncatedRecord,
   UnknownRecord,
 } from './records.js';

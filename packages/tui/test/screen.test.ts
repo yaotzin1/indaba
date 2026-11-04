@@ -241,3 +241,36 @@ describe('stepTone', () => {
     expect(stepTone(statusName)).toBe(tone);
   });
 });
+
+describe('reasoning in the detail pane', () => {
+  const esc = String.fromCharCode(27);
+  const thought = (id: string, text: string): RunRecord => ({
+    type: 'thought',
+    at: T(3),
+    traceId: TRACE,
+    spanId: `s-${id}`,
+    seq: 0,
+    text,
+    cut: false,
+  });
+
+  it('says how many lines of reasoning a step has, and shows none of them in the output', () => {
+    const state = run(
+      root(),
+      stepStart('a'),
+      status('a', 'RUNNING'),
+      output('a', 1, 'the answer\n'),
+      thought('a', `one\ntwo\n${esc}[2Jthree`),
+    );
+    const detail = text(buildScreen(state, ui(), computeLayout(100, 24), opts).detail);
+    expect(detail).toContain('reasoning: 3 line(s)');
+    expect(detail).toContain('the answer');
+    expect(detail).not.toContain('two');
+    expect(detail).not.toContain(esc);
+  });
+
+  it('says nothing about reasoning when there was none', () => {
+    const state = run(root(), stepStart('a'), status('a', 'RUNNING'), output('a', 1, 'x\n'));
+    expect(text(buildScreen(state, ui(), computeLayout(100, 24), opts).detail)).not.toContain('reasoning');
+  });
+});

@@ -21,7 +21,14 @@ function run(): RunState {
         status: dirty('FAILED'),
         attempts: 1,
         history: [
-          { attempt: 1, startedAt: 'x', endedAt: undefined, outcome: dirty('FAILED'), reason: dirty('r') },
+          {
+            attempt: 1,
+            startedAt: 'x',
+            endedAt: undefined,
+            outcome: dirty('FAILED'),
+            reason: dirty('r'),
+            thought: dirty('mind'),
+          },
         ],
         reason: dirty('why'),
         startedAt: undefined,
@@ -48,6 +55,8 @@ function run(): RunState {
         output: [dirty('line')],
         partialLine: dirty('part'),
         outputTruncated: false,
+        thoughts: [dirty('think')],
+        partialThought: dirty('part'),
       },
     ],
   };
@@ -69,6 +78,9 @@ describe('what the page receives of a run', () => {
       costUsd: 0.5,
     });
     expect(step?.history[0]?.outcome).toBe('FAILED');
+    expect(step?.thoughts).toEqual(['think']);
+    expect(step?.partialThought).toBe('part');
+    expect(step?.history[0]?.thought).toBe('mind');
     expect(step?.consensus).toEqual({ outcome: 'agreed', rounds: 2 });
     // Two kinds that are the same once cleaned are counted together.
     expect(step?.toolCalls).toEqual({ edit: 3 });

@@ -302,7 +302,7 @@ confirmed on real installs yet.
 
 | Path (under the project directory) | Content |
 | :--- | :--- |
-| `.indaba/traces/<traceId>.events.jsonl` | The run as it happens: span starts and ends, step status changes and the output steps stream (credentials redacted, 2 MiB at most). `indaba watch` reads it |
+| `.indaba/traces/<traceId>.events.jsonl` | The run as it happens: span starts and ends, step status changes and the output and the reasoning steps stream (credentials redacted, 2 MiB at most between them). `indaba watch` reads it |
 | `.indaba/traces/<traceId>.jsonl` | One JSON object per ended span: the task, each step, each agent call or command, with `gen_ai.*` attributes, token counts and cost where known. Safe to read and diff; it never contains secrets |
 | `.indaba/worktrees/<taskId>` | The git worktree of an isolated step. It exists only while the run is going and is removed when it ends, however it ends |
 | `.indaba/artifacts/<step>.transcript.md`, `<step>.ruling.md` | The messages of a debate step and, when an arbiter ruled, its ruling |
@@ -348,7 +348,9 @@ ones are not shown. A run with no board file prints exactly what it did before. 
 beside the steps; the [playbook](playbook.md#reading-the-board) has the keys.
 
 Other options: `-w <dir>` for another project, `--output` to also print each line a step streams, `--stale <secs>` to
-give up on a run that writes nothing for that long (default 120), and `--color` to colour the states.
+give up on a run that writes nothing for that long (default 120), and `--color` to colour the states. `--thoughts`
+also prints the model's reasoning as `[thought]` lines, for the runners that stream it (`acp` and `openrouter`); it is
+off by default, and the dashboard and the web view show it apart from the output.
 
 The same runs can be followed in a browser: see [The web view](#the-web-view-indaba-ui).
 
