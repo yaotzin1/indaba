@@ -1,5 +1,15 @@
 # API surface contract: step stalls
 
+> **Two releases (spec section 11).** Items marked **R1** ship first; everything else is **R2** and is specified here so the
+> contract stays whole, but nothing marked R2 is implemented in release 1. Code names: the spec's `Step` and `StepInit`
+> are `StepDefinition` and `defineStep` (`packages/core/src/workflow/model.ts`).
+
+**R1 surface, complete:** `StepDefinition.timeoutSeconds?: number`; `MAX_TIMEOUT_SECONDS = 86400`;
+`RunnerParticipantOptions.timeoutSeconds?: number` (so a debate step can limit each participant call; absent means the
+runner's own 900, as today); the workflow field `timeout_seconds` with the message
+`step "<id>": timeout_seconds must be a whole number from 1 to 86400`; the span attribute `indaba.step.timeout_seconds`;
+`plan` and `schema` describe the field. Nothing else in this file is added in R1.
+
 > **Immutable during stage 6.** Nothing locks this file; it holds because agents hold it. An
 > implementation that finds this wrong stops and returns to stage 3; it does not edit this file.
 
