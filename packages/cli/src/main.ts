@@ -881,6 +881,9 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     if (isConsensusStep(step)) {
       extra.push(`consensus with ${step.consensusWith.join(', ')}`);
     }
+    if (step.timeoutSeconds !== undefined) {
+      extra.push(`timeout ${step.timeoutSeconds}s`);
+    }
     if (!isShellStep(step) && !isConsensusStep(step)) {
       const names = planForStep(step, workflow).names;
       if (names.length > 1) {

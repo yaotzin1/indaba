@@ -19,6 +19,7 @@ import {
   FailureAction,
   Isolation,
   isConsensusStep,
+  MAX_TIMEOUT_SECONDS,
   McpPolicy,
   PermissionLevel,
   PermissionMode,
@@ -322,6 +323,8 @@ export class WorkflowParser {
     const onFailure = this.parseOnFailure(node.map('on_failure'), errors);
     const mcpPolicy = this.parsePolicy(node, errors);
     const board = this.parseBoard(node.map('board'), errors);
+    const timeoutMessage = `step "${id}": timeout_seconds must be a whole number from 1 to ${MAX_TIMEOUT_SECONDS}`;
+    const timeoutSeconds = node.boundedInt('timeout_seconds', 1, MAX_TIMEOUT_SECONDS, timeoutMessage);
 
     return {
       id,
@@ -346,6 +349,7 @@ export class WorkflowParser {
       mcp: node.stringList('mcp'),
       ...(mcpPolicy !== undefined ? { mcpPolicy } : {}),
       ...(board !== undefined ? { board } : {}),
+      ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
     };
   }
 

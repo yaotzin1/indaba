@@ -238,6 +238,7 @@ export {
   Isolation,
   isConsensusStep,
   isShellStep,
+  MAX_TIMEOUT_SECONDS,
   McpPolicy,
   PermissionLevel,
   PermissionMode,

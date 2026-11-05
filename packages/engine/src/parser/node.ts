@@ -59,6 +59,19 @@ export class Node {
     return value;
   }
 
+  /** A whole number in `min`..`max`, or undefined when absent. Anything else records `message` and gives undefined. */
+  boundedInt(key: string, min: number, max: number, message: string): number | undefined {
+    const value = this.present(key);
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < min || value > max) {
+      this.errors.add(message);
+      return undefined;
+    }
+    return value;
+  }
+
   stringList(key: string, interpolate = false): string[] {
     const value = this.present(key);
     if (value === undefined) {

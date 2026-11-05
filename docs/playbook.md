@@ -103,7 +103,7 @@ Task demo finished: COMPLETED (trace 9ad25c8a0001ea4000c2056f6acd2bf7)
 ```
 
 The exit status is 0 when it completed, 1 when it failed, 2 when a human is needed (a debate no one could settle) and 130
-when it was cancelled. Useful options: `-w <dir>` runs it against another project, `--timeout <secs>` limits a step,
+when it was cancelled. Useful options: `-w <dir>` runs it against another project, `--timeout <secs>` limits a step (a step's own `timeout_seconds` wins over it),
 `-v` prints what each span cost and `-vv` also streams the agents' output, `--permissions read` lowers what agents may do
 for this run only.
 

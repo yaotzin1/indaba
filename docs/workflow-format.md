@@ -126,6 +126,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | `commands` | shell steps | List of command lines (interpolated), run in order; the first non-zero exit fails the step. Only a `runner: "shell"` step may have them, and it must have at least one |
 | `guards` | no | Checks run after the step succeeds (see Guards) |
 | `isolation` | no | `none` (default) or `git_worktree` |
+| `timeout_seconds` | no | A whole number from 1 to 86400. The limit, in seconds, of **each call** of a runner and **each command** of a shell step; it replaces `indaba run --timeout` (default 900) for this step. It is not a limit on the step as a whole: a step that falls back to another runner, or a debate with several rounds, can take longer in total. On a debate step it limits each call of each participant (a debate without it is not bound by `--timeout`). It is not the `timeout_seconds` of a `permissions` block, which is still refused. A step that times out fails with `Timed out after N seconds.` and its `on_failure` applies |
 | `on_failure` | no | What to do when the step fails (see Retries) |
 | `consensus_with` | no | Roles that debate with this step's `role` |
 | `decision_type` | no | `consensus` (every participant agrees) or `majority` (more than half) |
@@ -235,8 +236,7 @@ permissions: { level: full }                                      # no limit fro
 `runner: "shell"` runs each command line through the platform shell (`/bin/sh -c` on macOS and Linux,
 `cmd.exe /d /s /c` on Windows), in the step's working directory. This is the one place a string is given
 to a shell. The command lines are yours, written in the file; never put text produced by a model into a
-command. Each command is limited by the step timeout (900 seconds unless `indaba run --timeout` says
-otherwise). Write commands that work on every OS you target, or call one executable with simple
+command. Each command is limited by the step timeout (the step's `timeout_seconds`, else `indaba run --timeout`, else 900 seconds). Write commands that work on every OS you target, or call one executable with simple
 arguments.
 
 #### Consensus steps

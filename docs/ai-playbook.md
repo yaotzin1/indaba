@@ -86,6 +86,7 @@ step, that step's earlier notes are replaced.
 - One goal per step, written as an instruction a stranger could follow, with the output you expect (a file, a verdict, `BOARD` lines).
 - Give every step that edits files `isolation: git_worktree` and a `guards` entry that checks the result. A step without a guard
   is a step whose failure nobody notices.
+- Give a step that is slower or faster than the rest its own `timeout_seconds` (1 to 86400, per call) instead of raising `--timeout` for the whole run.
 - Set `permissions` to the lowest level the step needs (`read`, then `edit`; `full` only when nothing less works). A step with
   no level takes the runner's own default, which is usually more than you want.
 - Bound retries with `on_failure: { action: retry_step, target: <id>, max_retries: <n> }`. The retry prompt carries only the last

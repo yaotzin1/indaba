@@ -153,3 +153,15 @@ describe('plain words in what the command line says about the board (AC-40)', ()
     }
   });
 });
+
+describe('indaba plan and timeout_seconds (specs/step-stalls)', () => {
+  it('prints the step limit among the extras of a step that sets it, and nothing for the others', async () => {
+    const r = await run(
+      ['plan'],
+      `${HEAD}steps:\n  - {id: a, role: worker, goal: g, timeout_seconds: 120}\n  - {id: b, role: worker, goal: g}\n`,
+    );
+    const lines = r.out.split('\n');
+    expect(lines.find((l) => l.includes(' a ['))).toContain('timeout 120s');
+    expect(lines.find((l) => l.includes(' b ['))).not.toContain('timeout');
+  });
+});

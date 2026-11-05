@@ -1,7 +1,7 @@
 # Specification: Step stalls (a per-step time limit, a no-activity limit, and a bounded retry of the stalled attempt)
 
-> **Status**: Clarified (stage 2) and planned (stage 3 and 4) in two releases (section 11). Nothing here is implemented yet.
-> **Stage entry**: 5 (release 1 goes through analysis and implementation next; release 2 waits for the condition in section 11)
+> **Status**: Release 1 (`timeout_seconds`) implemented; release 2 (`stall` and its retry) specified, not implemented (section 11).
+> **Stage entry**: 8 for release 1; release 2 waits for the condition in section 11
 > **Semver impact**: minor (optional step fields, one optional runner interface, optional members of `RunRequest` and
 > `RunResult`, new span attributes and one new span event; below 1.0). **Nothing changes for a workflow that uses none of
 > the new fields**: no default moves. Confirmed in [`api-surface.md`](api-surface.md).
@@ -63,11 +63,11 @@ walked away comes back to nothing.
 
 **The per-step limit**
 
-- [ ] AC-01 (R1). A step accepts an optional `timeout_seconds` (a whole number from 1 to 86400). It replaces the global
+- [x] AC-01 (R1). A step accepts an optional `timeout_seconds` (a whole number from 1 to 86400). It replaces the global
       limit for that step. The order is: the step's field, then `indaba run --timeout`, then 900.
-- [ ] AC-02 (R1). `timeout_seconds` limits each call of a runner and each command of a shell step, as `--timeout` does today;
+- [x] AC-02 (R1). `timeout_seconds` limits each call of a runner and each command of a shell step, as `--timeout` does today;
       it does not limit the step as a whole.
-- [ ] AC-03 (R1). A step that times out ends as it does today: failed, with the reason `Timed out after N seconds.`, and its
+- [x] AC-03 (R1). A step that times out ends as it does today: failed, with the reason `Timed out after N seconds.`, and its
       `on_failure` policy applies. Only the number `N` can differ.
 
 **The no-activity limit and its retry**
@@ -100,7 +100,7 @@ walked away comes back to nothing.
       names the runner and the step, as an unsupported permission level is today.
 - [ ] AC-13 (R2). `stall.retries` above 0 on a step without `isolation: git_worktree` is an error: there is nothing to
       restore. `stall` with `retries: 0` needs no isolation.
-- [ ] AC-14 (R1). `timeout_seconds` is accepted on every kind of step. On a debate step it limits each call of each
+- [x] AC-14 (R1). `timeout_seconds` is accepted on every kind of step. On a debate step it limits each call of each
       participant.
 
 **The built-in runners**
@@ -125,7 +125,7 @@ describe the stall; R1 adds only the `indaba.step.timeout_seconds` attribute (ev
 
 **Compatibility**
 
-- [ ] AC-20 (R1+R2). A workflow with no `timeout_seconds` and no `stall` parses, plans, validates and runs exactly as before: the
+- [x] AC-20 (R1+R2). A workflow with no `timeout_seconds` and no `stall` parses, plans, validates and runs exactly as before: the
       same command lines, results, events and attributes. A test pins it.
 - [ ] AC-21 (R2). A runner plugin that does not implement the capability keeps working; it is refused only in a step that
       sets `stall`.
