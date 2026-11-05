@@ -319,6 +319,7 @@ export class WorkflowEngine {
     const span = await this.tracer.startSpan(`step ${step.id}`, root, {
       'indaba.step.id': step.id,
       'indaba.step.attempt': state.attempts() + 1,
+      ...(step.timeoutSeconds !== undefined ? { 'indaba.step.timeout_seconds': step.timeoutSeconds } : {}),
     });
 
     await this.move(state, taskId, StepStatus.Running);

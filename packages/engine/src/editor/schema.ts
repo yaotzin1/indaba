@@ -228,6 +228,13 @@ const STEP: Schema = {
     }),
     guards: orNull({ type: 'array', items: GUARD, description: 'Checks run after the step succeeds.' }),
     isolation: orNull({ enum: values(Isolation), description: 'none (default) or git_worktree.' }),
+    timeout_seconds: orNull({
+      type: 'integer',
+      minimum: 1,
+      maximum: 86400,
+      description:
+        'Limit in seconds for each call of a runner and each command of this step; replaces indaba run --timeout (default 900) for this step.',
+    }),
     on_failure: orNull(ON_FAILURE),
     consensus_with: orNull({ ...STRING_LIST, description: 'Roles that debate with this step’s role.' }),
     decision_type: orNull({

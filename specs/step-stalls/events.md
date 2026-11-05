@@ -3,6 +3,11 @@
 > A contract, like `api-surface.md`. Names follow the OpenTelemetry GenAI conventions where one exists and the `indaba.`
 > prefix where none does (`specs/observability`).
 
+## Release split
+
+**R1** adds one attribute, `indaba.step.timeout_seconds`, and nothing else in this file. Every other attribute, the
+`indaba.step.stalled` event, the status reasons and the ordering below are **R2**.
+
 ## Span attributes
 
 On the **step span** (`step <id>`), set only when the field is set on the step:

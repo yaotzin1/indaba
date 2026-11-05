@@ -17,6 +17,14 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **`timeout_seconds` on a step** (minor; track `feature`; `specs/step-stalls`, release 1). A step may set its own limit, a
+  whole number from 1 to 86400, for each call of a runner and each command of a shell step. It replaces `indaba run
+  --timeout` (default 900) for that step; a step without it behaves exactly as before. On a debate step it limits each
+  participant call (new optional `RunnerParticipantOptions.timeoutSeconds`); a debate without it is still not bound by
+  `--timeout`. The step span gets `indaba.step.timeout_seconds` when set, and `indaba plan` and `indaba schema` show the
+  field. New core exports: `MAX_TIMEOUT_SECONDS` and `StepDefinition.timeoutSeconds`. **Note:** the parser has never
+  rejected unknown step keys, so a file that already carries a `timeout_seconds` on a step, ignored until now, will start
+  to apply. The `stall` block and its retry are not part of this release.
 - **The model's reasoning, apart from its answer.** A runner whose transport streams reasoning (`acp`'s
   `agent_thought_chunk`, OpenRouter's `delta.reasoning` and `delta.reasoning_content`) hands it to the new optional
   `RunRequest.onThought`; a plugin runner uses the same callback. It never joins `RunResult.output`, so a model thinking
@@ -56,10 +64,10 @@ port". The PHP prototype that preceded them was never published.
   team of role agents, gates inside the prompt), what has and has not been measured, a choice matrix by kind of change,
   how Indaba supports each family, and workflow sketches for a bug fix (the test must fail first) and a change across
   components. Documentation and examples only; no package changes.
-- **Specification: step stalls.** [specs/step-stalls](specs/step-stalls/spec.md) specifies an optional per-step
-  `timeout_seconds`, a `stall` block (a silence limit and a bounded retry in place) and an optional `StallCapable` runner
-  interface, with the `claude-code` runner's streaming mode as the activity signal. Specification only: nothing is
-  implemented and no package changes; it waits for the maintainer's decisions listed in the pull request.
+- **Specification: step stalls.** [specs/step-stalls](specs/step-stalls/spec.md) specifies, in two releases, an optional per-step
+  `timeout_seconds` (release 1, implemented above), a `stall` block (a silence limit and a bounded retry in place) and an optional `StallCapable` runner
+  interface, with the `claude-code` runner's streaming mode as the activity signal. The `stall` block (release 2) is
+  specification only and waits for a measured hang.
 
 ### Fixed
 

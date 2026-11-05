@@ -148,7 +148,15 @@ export interface StepDefinition {
   readonly mcpPolicy?: McpPolicy;
   /** Absent: nothing is read from the board and no reply is scanned. */
   readonly board?: StepBoard;
+  /**
+   * The step's own limit, in seconds, for each call of a runner and each command of a shell step. Absent means the run's
+   * `--timeout`, then 900 (specs/step-stalls, AC-01).
+   */
+  readonly timeoutSeconds?: number;
 }
+
+/** The largest `timeout_seconds` a step may set: one day (specs/step-stalls, AC-01). */
+export const MAX_TIMEOUT_SECONDS = 86400;
 
 export interface WorkflowDefinition {
   readonly version: string;

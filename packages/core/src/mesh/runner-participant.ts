@@ -16,6 +16,8 @@ export interface RunnerParticipantOptions {
   /** Servers to ask the runner to provide. */
   readonly mcpServers?: readonly McpServerDefinition[];
   readonly signal?: AbortSignal;
+  /** The step's `timeout_seconds`, for each call; absent leaves the runner's own limit (specs/step-stalls, AC-14). */
+  readonly timeoutSeconds?: number;
 }
 
 /**
@@ -30,13 +32,14 @@ export class RunnerParticipant implements Participant {
   }
 
   async respond(topic: string, board: Blackboard, round: number): Promise<AgentMessage> {
-    const { runner, workdir, model, agent, invoke, mcpServers, signal } = this.options;
+    const { runner, workdir, model, agent, invoke, mcpServers, signal, timeoutSeconds } = this.options;
     const request: RunRequest = {
       prompt: this.prompt(topic, board, round),
       workdir,
       ...(model !== undefined ? { model } : {}),
       ...(agent !== undefined ? { agent } : {}),
       ...(mcpServers !== undefined ? { mcpServers } : {}),
+      ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
     };
     const result = invoke === undefined ? await runner.run(request, signal) : await invoke(runner, request);
 

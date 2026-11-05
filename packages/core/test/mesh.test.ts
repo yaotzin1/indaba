@@ -153,6 +153,24 @@ describe('RunnerParticipant', () => {
     expect(Object.hasOwn(seen[1] ?? {}, 'agent')).toBe(false);
   });
 
+  it("passes the step's timeout to the runner, and leaves it out when absent (specs/step-stalls, AC-14)", async () => {
+    const seen: RunRequest[] = [];
+    const reply = new RunResult({ exitCode: 0, output: 'AGREEMENT: fine' });
+    await new RunnerParticipant({
+      role: 'r',
+      runner: runner(reply, seen),
+      workdir: '/w',
+      timeoutSeconds: 120,
+    }).respond('t', new Board(), 1);
+    await new RunnerParticipant({ role: 'r', runner: runner(reply, seen), workdir: '/w' }).respond(
+      't',
+      new Board(),
+      1,
+    );
+    expect(seen[0]?.timeoutSeconds).toBe(120);
+    expect(Object.hasOwn(seen[1] ?? {}, 'timeoutSeconds')).toBe(false);
+  });
+
   it('turns a failed run into a critique', async () => {
     const p = new RunnerParticipant({
       role: 'r',

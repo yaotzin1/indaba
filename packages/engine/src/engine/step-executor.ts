@@ -247,7 +247,7 @@ export class StepExecutor {
       const request: RunRequest = {
         prompt: command,
         workdir,
-        timeoutSeconds: this.timeoutSeconds,
+        timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
         ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
       };
       const result = await this.invoke(shell, request, span, 'execute_tool', command, options.signal);
@@ -312,7 +312,7 @@ export class StepExecutor {
       prompt: this.prompts.build(step, options.feedback, this.digestFor(step, workflow, span, options)),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
-      timeoutSeconds: this.timeoutSeconds,
+      timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
       ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
       // At `full` the runner is sent no fs or terminal limits (specs/agent-permissions, AC-04); a block with no level is sent as before.
       ...(step.permissions !== undefined && step.permissions.level !== PermissionLevel.Full
@@ -571,6 +571,8 @@ ${this.prompts.tail(result.failureText())}`,
         workdir,
         ...(plan.model !== undefined ? { model: plan.model } : {}),
         ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
+        // Only the step's own limit: a debate has never been bound by `--timeout` (specs/step-stalls, section 11).
+        ...(step.timeoutSeconds !== undefined ? { timeoutSeconds: step.timeoutSeconds } : {}),
         invoke: (chain, request) => chain.run(request, options.signal),
       });
     });

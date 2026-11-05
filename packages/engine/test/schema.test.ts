@@ -62,6 +62,9 @@ const VALID: Readonly<Record<string, string>> = {
   defaults: `${head}defaults:\n  mcp_policy: optional\nsteps: []\n`,
   artifacts: `${head}artifacts:\n  spec: docs/spec.md\nsteps:\n  - id: a\n    goal: "{{ artifacts.spec }}"\n`,
   unknownKeys: `${head}governance: {}\nsteps:\n  - id: a\n    whatever: 1\n`,
+  timeoutLimits: step('    timeout_seconds: 1\n'),
+  timeoutDay: step('    timeout_seconds: 86400\n'),
+  timeoutNull: step('    timeout_seconds:\n'),
   noSteps: head,
   emptyGoalString: step('    goal: ""\n    role: ""\n'),
 };
@@ -92,6 +95,10 @@ const INVALID: Readonly<Record<string, string>> = {
   dependsItem: step('    depends_on: [3]\n'),
   goalNumber: step('    goal: 3\n'),
   isolationOther: step('    isolation: docker\n'),
+  timeoutZero: step('    timeout_seconds: 0\n'),
+  timeoutOverDay: step('    timeout_seconds: 86401\n'),
+  timeoutFraction: step('    timeout_seconds: 1.5\n'),
+  timeoutText: step('    timeout_seconds: "10"\n'),
   decisionOther: step('    decision_type: vote\n'),
   arbiterShape: step('    arbiter: "a b"\n'),
   policyOther: step('    mcp_policy: maybe\n'),
@@ -195,7 +202,7 @@ describe('no field without the schema (AC-10)', () => {
     const read = new Set(
       [
         ...source.matchAll(
-          /\.(?:string|int|stringList|stringOrList|stringOrMap|map|nodeList|nodeMap|stringMap)\('([a-z_]+)'/g,
+          /\.(?:string|int|stringList|stringOrList|stringOrMap|map|nodeList|nodeMap|stringMap|boundedInt)\('([a-z_]+)'/g,
         ),
       ].map((m) => m[1] ?? ''),
     );
