@@ -28,7 +28,7 @@ Ordered by dependency. Each task independently checkable. Tests are written firs
 
 - [x] **T-11** `docs/workflow-format.md` (field table, precedence, "per call", debates, not the same as `permissions.timeout_seconds`), `docs/playbook.md` and `docs/ai-playbook.md`, `docs/README.md` if a page is added, `llms.txt`, the Pages build (`node scripts/build-site.mjs --check`).
 - [x] **T-12** `CHANGELOG.md` under Unreleased; `specs/DEPENDENCY_MAP.md` (no new dependency: say so if it lists packages).
-- [ ] **T-13** Cookbook note: where `examples/crud-inventory.workflow.ai.yml` could set a longer limit on `implement`. Optional; do not change the example's behaviour in this release.
+- [x] **T-13** Cookbook note: where `examples/crud-inventory.workflow.ai.yml` could set a longer limit on `implement`. Optional; do not change the example's behaviour in this release.
 - [x] **T-14** `review.md` answered against `.agents/rules/review.md`; the seven answers with real `pnpm qa` and `check-workflow` output.
 
 ## Gates

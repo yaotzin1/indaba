@@ -346,5 +346,11 @@ For anything else, `indaba report latest` gathers the log, the trace and the env
   [quick start](cookbook-quick-start.md) does exactly that, from an `idea.md`.
 - **More resources.** Run a second feature through `specify` to `implement` with its own feature directory
   (`specs/002-suppliers`) and its own `fs.write`, so the agents cannot step on each other's files.
+- **A limit for each step.** `indaba run --timeout` gives every step the same number of seconds for each call, and the
+  default is 900. The steps here do not take the same time: in one measured run `implement` took 1.6 minutes, and
+  after a failed `npm test` the same step took 10 minutes. Give the slow step a limit of its own with
+  `timeout_seconds` (for example `timeout_seconds: 1800` on `implement`) and leave the others on the run's number. It
+  limits each call, not the whole step, so a retry from `verify` starts with a fresh limit. The field does not tell a
+  slow call from a stuck one; it only changes how long Indaba waits.
 - **A cheaper run.** Delete `spec_review`, `clarify`, `analyze` and `final_review` (and their entries in `depends_on`
   and `board.read.steps`), or drop `mutation` while you try the recipe out.
