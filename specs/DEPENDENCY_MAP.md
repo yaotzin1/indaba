@@ -16,7 +16,7 @@ graph BT
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter, log sinks, indaba.config"]
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
     Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
-    Tui["@indaba/tui: the Ink dashboard of a run"]
+    Tui["@indaba/tui: the Ink dashboard of a run (a run monitor today; the full terminal application is TUI-EPIC, not started)"]
     Server["@indaba/server: the local server of indaba ui, HTTP and SSE over the traces; starts and stops runs through the CLI (optional)"]
     Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
     Plugin["a third-party plugin"]
@@ -81,13 +81,14 @@ gantt
     cli                    :done, 2026-10-03, 2026-10-04
     mcp-support            :done, 2026-10-04, 1d
     typescript-port        :done, 2026-10-04, 2026-10-10
-    tui                    :done, 2026-10-04, 2026-10-10
+    tui read-only dashboard (TUI-0) :done, 2026-10-04, 2026-10-10
     transport-priority     :done, 2026-10-05, 2026-10-10
     debate-arbiter         :done, 2026-10-10, 1d
     opencode               :done, 2026-10-10, 1d
     attempt-history        :done, 2026-10-14, 1d
     watch-workflow-name    :done, 2026-10-14, 1d
     logging                :done, 2026-10-20, 2026-10-21
+    tui-default dashboard comes with indaba :done, 2026-11-06, 1d
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
     web-app-actions        :done, 2026-10-22, 1d
@@ -114,9 +115,65 @@ gantt
     parallel-steps         :active, 2026-10-27, 1d
     path-ownership         :active, 2026-10-27, 1d
     step-fanout            :active, 2026-10-27, 1d
+    tui-epic the full terminal application :active, 2026-11-06, 1d
+    tui-home (TUI-1)       :active, 2026-11-06, 1d
+    tui-run-control (TUI-2) :active, 2026-11-06, 1d
+    tui-agent-panes (TUI-3) :active, 2026-11-06, 1d
+    tui-questions (TUI-4)  :active, 2026-11-06, 1d
+    tui-workflows (TUI-5)  :active, 2026-11-06, 1d
+    tui-editing (TUI-6)    :active, 2026-11-06, 1d
 ```
 
 `desktop-app` was dropped and is left out of the chart.
+
+## Epics, features and stories
+
+Large work is split as **epic, feature, story**. An epic is a spec (`specs/<epic>/`) that orders its features; each feature is a
+spec of its own that is shippable alone; the stories are the numbered stories inside a feature's `spec.md`. Solid arrows are
+"needs before it can ship"; a dashed arrow is a dependency on a spec that is not implemented yet.
+
+### Epic `TUI-EPIC`: `@indaba/tui` as the real terminal application
+
+```mermaid
+graph LR
+    Epic(["TUI-EPIC: tui-epic"])
+    T0["TUI-0 delivered: tui, tui-default"]
+    T1["TUI-1: tui-home (release 1)"]
+    T2["TUI-2: tui-run-control (release 1)"]
+    T3A["TUI-3 slice 3a: panel, highlighting (release 1)"]
+    T3B["TUI-3 slice 3b: parallel panes, chat"]
+    T4["TUI-4: tui-questions"]
+    T5["TUI-5: tui-workflows (release 2)"]
+    T6["TUI-6: tui-editing (6.1 release 3, rest deferred)"]
+    Epic --> T1 & T2 & T3A & T3B & T4 & T5 & T6
+    T0 --> T1
+    T1 --> T2 & T3A
+    T3A --> T3B
+    T2 --> T4 & T5
+    T3B --> T4
+    T5 --> T6
+    T2 -.-> WAA["web-app-actions, workflow-inputs (implemented)"]
+    T3A -.-> RB["run-blackboard, agent-reasoning (implemented)"]
+    T5 -.-> WR["workflow-registry (implemented)"]
+    T6 -.-> WE["workflow-editor (implemented)"]
+    T3B -.-> PS["parallel-steps (not started)"]
+    T3B -.-> AC["agent-conversation (not started)"]
+    T4 -.-> AC
+    T4 -.-> QC["question-contract (not started)"]
+    T4 -.-> RG["review-gate (not started)"]
+    T4 -.-> RC["ruling-channel (not started)"]
+```
+
+| Epic | Feature | Stories | Ships without an unimplemented spec |
+| :--- | :--- | :--- | :--- |
+| `TUI-EPIC` | `TUI-1` `tui-home` | 1.1 to 1.6 | yes (release 1) |
+| | `TUI-2` `tui-run-control` | 2.1 to 2.8 | yes (release 1) |
+| | `TUI-3` `tui-agent-panes` | 3.1 to 3.6 | slice 3a (3.1 to 3.4) yes (release 1); slice 3b (3.5, 3.6) no |
+| | `TUI-4` `tui-questions` | 4.1 to 4.6 | no (blocked) |
+| | `TUI-5` `tui-workflows` | 5.1 to 5.4 | yes (release 2) |
+| | `TUI-6` `tui-editing` | 6.1 to 6.6 | 6.1 yes (release 3); 6.2 to 6.6 deferred behind a demand check |
+
+Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI), per the epic's rule R-01. The cut line is in the epic's section 3: release 1 is `TUI-1` + `TUI-2` + slice 3a.
 
 ## Feature to package
 
@@ -131,7 +188,7 @@ gantt
 | `git-workspace` | Implemented | `@indaba/engine` |
 | `observability` | Implemented | `@indaba/core` (tracer, value types), `@indaba/engine` (exporter) |
 | `cli` | Implemented | `indaba` |
-| `tui` | Implemented, except one manual run on Windows Terminal | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
+| `tui` | Implemented as the read-only dashboard (`TUI-0` of `tui-epic`), except one manual run on Windows Terminal | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
 | `mcp-support` | Implemented | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
 | `opencode` | Implemented | `@indaba/runners` (`OpenCodeRunner`, the `opencode` ACP preset) |
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
@@ -158,6 +215,13 @@ gantt
 | `run-blackboard` | Implemented | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-reasoning` | Implemented (builds on `observability`, `runner-adapters` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `tui-default` | Implemented (a packaging change; no symbol added) | `indaba` (`@indaba/tui` becomes a dependency) |
+| `tui-epic` | Epic. Draft (specified; no code) | orders `TUI-1` to `TUI-6`; `@indaba/tui`, `indaba` |
+| `tui-home` | Feature `TUI-1`, epic release 1. Not started (specified; draft) | `@indaba/tui`, `indaba` |
+| `tui-run-control` | Feature `TUI-2`, epic release 1. Not started (specified; draft; builds on `web-app-actions`, `workflow-registry`, `workflow-inputs`) | `@indaba/tui`, `indaba` |
+| `tui-agent-panes` | Feature `TUI-3`; slice 3a is epic release 1, slice 3b waits for `parallel-steps` and `agent-conversation`. Not started (specified; draft) | `@indaba/tui` |
+| `tui-questions` | Feature `TUI-4`. Not started (specified; draft; blocked; waits for `agent-conversation`, `question-contract`, `review-gate`, `ruling-channel`) | `@indaba/tui`, `indaba` |
+| `tui-workflows` | Feature `TUI-5`, epic release 2. Not started (specified; draft; builds on `workflow-registry`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
+| `tui-editing` | Feature `TUI-6`; 6.1 is epic release 3, the rest deferred behind a demand check. Not started (specified; draft; builds on `workflow-editor`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |
