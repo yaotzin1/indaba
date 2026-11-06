@@ -1,10 +1,10 @@
 # @indaba/tui
 
 A terminal dashboard for [Indaba](https://github.com/yaotzin1/indaba) runs, built on Ink: follow a run live, or replay one from its files.
-Optional: `indaba` works without it.
+It comes with `indaba` (a dependency of it), so there is nothing extra to install; `indaba` still runs, in plain output, if it cannot be loaded.
 
 ```bash
-npm install -g indaba@next @indaba/tui@next
+npm install -g indaba@next
 ```
 
 ```bash

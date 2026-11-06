@@ -16,7 +16,7 @@ graph BT
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter, log sinks, indaba.config"]
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
     Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
-    Tui["@indaba/tui: the Ink dashboard of a run (optional)"]
+    Tui["@indaba/tui: the Ink dashboard of a run"]
     Server["@indaba/server: the local server of indaba ui, HTTP and SSE over the traces; starts and stops runs through the CLI (optional)"]
     Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
     Plugin["a third-party plugin"]
@@ -30,7 +30,7 @@ graph BT
     Cli --> Engine
     Cli --> Runners
     Cli --> Domain
-    Cli -. "optional peer" .-> Tui
+    Cli --> Tui
     Tui --> Engine
     Server --> Engine
     Server --> Domain
@@ -157,6 +157,7 @@ gantt
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Implemented | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-reasoning` | Implemented (builds on `observability`, `runner-adapters` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
+| `tui-default` | Implemented (a packaging change; no symbol added) | `indaba` (`@indaba/tui` becomes a dependency) |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |

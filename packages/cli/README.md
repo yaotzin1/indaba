@@ -37,13 +37,14 @@ The first run of [getting started](https://yaotzin1.github.io/indaba/getting-sta
 
 `indaba <command> --help` lists the options of one command. Every command accepts `--plugin <specifier>`.
 
-## Optional packages
+## Packages that come with it, and one that does not
 
-- [`@indaba/tui`](https://www.npmjs.com/package/@indaba/tui): a terminal dashboard for `indaba run --tui` and `indaba watch`.
-- [`@indaba/server`](https://www.npmjs.com/package/@indaba/server): the web view of `indaba ui`.
+- [`@indaba/tui`](https://www.npmjs.com/package/@indaba/tui): the terminal dashboard for `indaba run --tui` and `indaba watch`. Installed with `indaba`.
+- [`@indaba/server`](https://www.npmjs.com/package/@indaba/server): the web view of `indaba ui`. Optional; install it next to `indaba`.
 
 ```bash
-npm install -g indaba@next @indaba/tui@next @indaba/server@next
+npm install -g indaba@next @indaba/server@next
+# or, without installing: npx -p indaba@next -p @indaba/server@next indaba ui
 ```
 
 ## Using it from code

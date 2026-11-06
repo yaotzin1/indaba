@@ -135,7 +135,7 @@ export async function settingsCommand(
       return 0;
     }
     io.stderr.write(
-      'The Settings screen needs @indaba/tui (npm install @indaba/tui); printing the settings. --plain hides this.\n',
+      `The Settings screen (@indaba/tui) is not available (${'missing' in loaded ? loaded.missing : 'this version has no Settings screen'}); printing the settings. --plain hides this.\n`,
     );
   }
   io.stdout.write(`${settingsLines(config.logging.settings, config.path, config.present).join('\n')}\n`);

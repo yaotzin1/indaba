@@ -27,7 +27,7 @@ git merge indaba/inventory-app            # take it into your branch
 Open a second terminal in the project folder; leave the one that runs the workflow alone.
 
 ```bash
-indaba watch latest      # a dashboard of the steps (needs: npm install -g @indaba/tui@next); q quits, ? lists the keys
+indaba watch latest      # a dashboard of the steps (comes with indaba); q quits, ? lists the keys
 indaba watch latest --plain --output   # the same as lines, with what each step streams
 indaba ui                # a browser view of the runs (see Web view); the address carries a token, keep it to yourself
 ```

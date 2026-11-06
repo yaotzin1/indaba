@@ -53,13 +53,13 @@ importers:
       '@indaba/runners':
         specifier: workspace:*
         version: link:../runners
+      '@indaba/tui':
+        specifier: workspace:*
+        version: link:../tui
     devDependencies:
       '@indaba/server':
         specifier: workspace:*
         version: link:../server
-      '@indaba/tui':
-        specifier: workspace:*
-        version: link:../tui
 
   packages/core: {}
 

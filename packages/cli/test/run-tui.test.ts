@@ -235,7 +235,7 @@ describe('indaba run --tui', () => {
     };
     const code = await main(['run', 'wf.yml', '--tui'], io);
     expect(started).toBe(1);
-    expect(captured.stderr()).not.toContain('needs @indaba/tui');
+    expect(captured.stderr()).not.toContain('--tui needs the dashboard');
     expect(code).toBe(1);
   }, 30_000); // a cold import of Ink, React and yoga under a loaded machine
 
@@ -246,7 +246,7 @@ describe('indaba run --tui', () => {
     expect(r.code).toBe(2);
   });
 
-  it('says how to install the dashboard, and starts nothing, when it is missing', async () => {
+  it('says the dashboard could not be loaded, and starts nothing', async () => {
     const r = await runWith({ tui: false });
     expect(r.started).toHaveLength(0);
     expect(r.err).toBe(RUN_TUI_INSTALL);

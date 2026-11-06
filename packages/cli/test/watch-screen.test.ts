@@ -133,9 +133,10 @@ describe('indaba watch: the dashboard', () => {
     expect(r.out).toContain(TRACE);
   });
 
-  it('says how to install the dashboard when it is not there, and prints lines', async () => {
+  it('says why the dashboard could not be loaded, and prints lines', async () => {
     const r = await watchWith([TRACE], () => ({ missing: 'Cannot find package' }));
-    expect(r.err).toContain('npm install @indaba/tui');
+    expect(r.err).toContain('could not be loaded (Cannot find package)');
+    expect(r.err).not.toContain('npm install');
     expect(r.out).toContain('completed');
     expect(r.code).toBe(0);
   });

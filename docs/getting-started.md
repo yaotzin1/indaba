@@ -15,7 +15,7 @@ Indaba is a preview. What npm has today, and what only a checkout of the reposit
 | `indaba watch`, `report`, `settings`, `schema`, `catalog`, `workflows` | yes | yes |
 | `indaba ui` (the web view) | the command, yes; `@indaba/server` `0.1.0-alpha.3` is on npm but cannot be installed yet, so use a checkout | yes |
 | `--log-level`, `--log-dir`, `--tui`, `--permissions`, `--allow-full-access` | yes | yes |
-| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.3` (`npm install @indaba/tui@next`) | yes |
+| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.3` (a separate install until the next release; from then on it comes with `indaba`) | yes |
 
 Always write `npx indaba@next`. Plain `npx indaba` resolves to `latest`, the older `0.1.0-alpha.0`. The rest of
 this page writes `npx indaba` for short; from a checkout, write `pnpm indaba` (see
@@ -335,11 +335,11 @@ npx indaba watch latest --plain   # lines instead of the dashboard (also the def
 ```
 
 Open a second terminal, or run it after the fact: `watch` only reads the files above, so it never touches the run.
-On a terminal, with the optional dashboard package installed (`npm install @indaba/tui`), a run opens as a
+On a terminal, a run opens as a
 dashboard: steps on the left, the selected step's output on the right (stacked below 80 columns). `?` lists the
 keys: arrows or `j`/`k` select, `PgUp`/`PgDn` scroll, `f` follows the newest output, `q` quits. States are
 shown as a symbol and a word, never by colour alone; `--ascii` avoids box and arrow characters, and `NO_COLOR`
-turns colour off. Without the package, or with `--plain`, it prints lines. The exit status mirrors the run:
+turns colour off. With `--plain`, or if the dashboard cannot be loaded (it says why), it prints lines. The exit status mirrors the run:
 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a final state or the run goes quiet.
 
 When a run has a board (see [the board](workflow-format.md#the-board-notes-between-steps)), `--plain` ends with it: the
@@ -385,7 +385,9 @@ It prints an address that carries a token and works only on this machine; keep i
 the runs started from the page. Options: `--root <dir>` (repeatable), `--discussion-dir <dir>` (repeatable),
 `--port <n>`, `--no-open`, and `--log-level` and `--log-dir` as for every command.
 
-`indaba ui` needs the optional `@indaba/server` next to `indaba`; the page comes inside it. Version `0.1.0-alpha.3` is on
+`indaba ui` needs the optional `@indaba/server` next to `indaba`; the page comes inside it. Unlike the terminal
+dashboard, which comes with `indaba`, the web view is a second package, so with `npx` name both:
+`npx -p indaba@next -p @indaba/server@next indaba ui`. Version `0.1.0-alpha.3` is on
 npm but cannot be installed yet, so for now use `pnpm indaba ui` from a built checkout (below). Everything else is in
 [web-view.md](web-view.md).
 

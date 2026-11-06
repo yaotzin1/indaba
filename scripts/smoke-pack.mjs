@@ -5,8 +5,9 @@
  *
  * It packs every package under packages/ that is published (`pnpm pack` rewrites `workspace:` ranges
  * to real versions), audits the files in each tarball, and installs them twice into empty temporary
- * projects: once with only `indaba` and what it needs, which must boot and validate a workflow without
- * the optional @indaba/tui and @indaba/server (and say what to install for `indaba ui`), and once with
+ * projects: once with only `indaba` and what it needs, which must carry the terminal dashboard @indaba/tui
+ * (a dependency), boot and validate a workflow without the optional @indaba/server (and say what to install for
+ * `indaba ui`), and once with
  * everything, where @indaba/server must carry the built page of `indaba ui` and find it (T-10 of
  * specs/web-app). The private @indaba/web is never packed: its build ships inside @indaba/server.
  * It needs the packages built, and it must run through pnpm (`pnpm smoke`) so that `npm_execpath`
@@ -189,12 +190,16 @@ function main() {
         const problems = auditTarballs([...tarballs.values()], published.map((manifest) => manifest.name));
         if (problems.length > 0) fail(`the packed tarballs cannot be published as they are:\n  ${problems.join('\n  ')}`);
 
-        // 1. indaba alone: the optional packages are absent, and the CLI still boots and works.
+        // 1. indaba alone: the dashboard comes with it, the optional server is absent, and the CLI boots and works.
         const bare = install(work, 'bare', ['indaba'], tarballs);
-        for (const optional of ['@indaba/tui', '@indaba/server', '@indaba/web']) {
+        for (const optional of ['@indaba/server', '@indaba/web']) {
             if (fs.existsSync(path.join(bare, 'node_modules', ...optional.split('/')))) fail(`installing indaba alone installed ${optional}`);
         }
         const bin = path.join(bare, 'node_modules', 'indaba', 'dist', 'bin.js');
+        const dashboard = node(['--input-type=module', '-e', "import { createRequire } from 'node:module'; console.log(createRequire(process.argv[1]).resolve('@indaba/tui'))", fs.realpathSync(bin)], bare);
+        if (dashboard.status !== 0) fail(`installing indaba alone did not install @indaba/tui where indaba finds it
+${dashboard.stdout}
+${dashboard.stderr}`);
         if (!fs.existsSync(bin)) fail('the installed indaba package has no dist/bin.js');
         const version = node([bin, '--version'], bare);
         if (version.status !== 0) fail(`indaba --version exited ${version.status}\n${version.stdout}\n${version.stderr}`);
@@ -217,7 +222,7 @@ function main() {
         }
 
         console.log(
-            `smoke-pack: ${tarballs.size} packages packed and audited; indaba ${expected} boots without @indaba/tui and @indaba/server, and the installed server finds its page`,
+            `smoke-pack: ${tarballs.size} packages packed and audited; indaba ${expected} carries @indaba/tui, boots without @indaba/server, and the installed server finds its page`,
         );
     } finally {
         fs.rmSync(work, { recursive: true, force: true });
