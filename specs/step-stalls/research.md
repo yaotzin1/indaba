@@ -40,10 +40,40 @@ Both fields are opt-in. A default silence limit would be a major change: a legit
 plain mode, and the workflows that work today would start failing. The cookbooks can adopt the fields as examples once they
 exist, which does not change a default.
 
+## Measured on 2026-11-06
+
+Claude Code 2.1.319 on one Windows machine, five real calls to `claude -p --output-format stream-json --verbose` run from an empty
+folder, recording only the type of each event and when it arrived (no prompt text or answer was kept). An order of magnitude, not a
+benchmark: five calls, one machine, one model setting.
+
+| Call | Total | Longest gap | Where |
+| :--- | :--- | :--- | :--- |
+| a puzzle, default thinking | 19 s | 12.1 s | before the first event (`system/init`) |
+| the same, maximum thinking budget | 28 s | 11.2 s | before the first event |
+| the same, with `--include-partial-messages` | 21 s | 12.8 s | before the first event |
+| a harder puzzle, maximum thinking budget | 23 s | 12 s | before the first event; the longest gap after it was 4.5 s |
+| one shell command that runs 75 s, run by the agent | 94 s | 30 s | between two `tool_progress` events |
+
+What this says:
+
+- **Startup is silent for 11 to 13 seconds** before the first event. A silence timer that starts when the process starts, not at the
+  first event, would count it.
+- **Thinking is not silent.** `system/thinking_tokens` events arrived every 1 to 5 seconds, so "thinking counts as activity" (C-15)
+  holds for these calls. None of the puzzles made the model think for more than about 15 seconds, so a multi-minute think is still
+  unmeasured.
+- **A long tool call is nearly silent.** While the command ran, the stream carried `tool_progress` events 26.1 and 30.0 seconds apart,
+  and 16.1 seconds passed between the end of the command and the next event. A healthy call came within a second of the floor of
+  `after_seconds` (30, C-05). This was one command of one kind; a test run that prints nothing for minutes was not measured.
+- `--include-partial-messages` added content deltas while the model wrote its answer and nothing during a tool call. It does not
+  close the gap.
+
+What it suggests for the plan, to be decided there: a floor above 30 seconds (or guidance that `after_seconds` should be several
+times the longest tool call a step makes), a timer that starts at the first event, and no claim in the documentation that a quiet
+tool call is a stall.
+
 ## Not measured
 
 - Whether a call ever hangs for good. None did in the runs above; the stall retry rests on that being plausible.
-- How long a healthy `claude` call can be silent in the streaming mode between events. The thinking events were seen in a
-  three-line answer; a long reasoning step has not been measured. `after_seconds` has a floor of 30 and the author sets the
-  number; the plan should record a measurement before the cookbooks propose one.
+- How long a healthy `claude` call can be silent in the streaming mode **during a long reasoning step with many turns and
+  tools**. See "Measured on 2026-11-06": thinking alone and one long tool call were measured, a multi-minute agentic step was not.
 - Whether the other built-in runners' activity signals are reliable (spec AC-17 asks the plan to say, runner by runner).
