@@ -127,10 +127,12 @@ step that checks the answer and a retry on a different role.
 An agent is told to read a step's `input_artifacts` first. Naming only the files a step needs, and keeping a
 `goal` short and exact, means less is read. Whether it matters is, again, something to measure.
 
-### Put a limit on time
+### Put a limit on time, and on silence
 
-`timeout_seconds` on a step limits each call of its runner. It is a limit on time and a way to stop a step that
-has stalled, not a limit on money, but a call that never ends is one you may be paying for.
+`timeout_seconds` on a step limits each call of its runner. It is a limit on time, not on money, but a call that never
+ends is one you may be paying for. `stall` stops a call that has gone quiet and can run the step again; read
+[Stalls](workflow-format.md#stalls-stall) first, because only some runners can use it and a stalled attempt may already
+have cost something. Whether a retry saves anything is another thing to measure: it is a second attempt that is paid for.
 
 ## What to write down
 

@@ -153,10 +153,29 @@ export interface StepDefinition {
    * `--timeout`, then 900 (specs/step-stalls, AC-01).
    */
   readonly timeoutSeconds?: number;
+  /**
+   * Stop an attempt that shows no activity for `afterSeconds`, and run it again up to `retries` times (specs/step-stalls,
+   * AC-04 to AC-09). Absent means no silence limit, as before.
+   */
+  readonly stall?: StallPolicy;
 }
 
 /** The largest `timeout_seconds` a step may set: one day (specs/step-stalls, AC-01). */
 export const MAX_TIMEOUT_SECONDS = 86400;
+
+/** What a step's `stall` block means (specs/step-stalls, AC-04). `retries` is 0 when the file does not say. */
+export interface StallPolicy {
+  readonly afterSeconds: number;
+  readonly retries: number;
+}
+
+/**
+ * The shortest silence a step may ask for. A healthy 75 second tool call of the `claude-code` stream was measured sending
+ * events 30 seconds apart, so a lower limit would stop working calls (specs/step-stalls, C-05, research.md).
+ */
+export const MIN_STALL_SECONDS = 60;
+export const MAX_STALL_SECONDS = 3600;
+export const MAX_STALL_RETRIES = 3;
 
 export interface WorkflowDefinition {
   readonly version: string;

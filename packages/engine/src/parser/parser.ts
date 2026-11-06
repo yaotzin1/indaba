@@ -7,6 +7,7 @@ import type {
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
+  StallPolicy,
   StepBoard,
   StepDefinition,
   StepPermissions,
@@ -19,8 +20,11 @@ import {
   FailureAction,
   Isolation,
   isConsensusStep,
+  MAX_STALL_RETRIES,
+  MAX_STALL_SECONDS,
   MAX_TIMEOUT_SECONDS,
   McpPolicy,
+  MIN_STALL_SECONDS,
   PermissionLevel,
   PermissionMode,
   resolvePermissions,
@@ -36,6 +40,7 @@ import { isYamlMap, Node } from './node.js';
 import { WorkflowValidator } from './validator.js';
 
 const BOARD_KEYS = ['read', 'post', 'digest_chars'] as const;
+const STALL_KEYS = ['after_seconds', 'retries'] as const;
 const BOARD_READ_KEYS = ['steps', 'kinds'] as const;
 /** The digest bounds of spec C-08: design choices, not measurements. */
 const DEFAULT_DIGEST_CHARS = 4000;
@@ -299,6 +304,7 @@ export class WorkflowParser {
       }
     }
 
+    const consensusWith = node.stringList('consensus_with');
     const decisionName = node.string('decision_type', false);
     const decision: DecisionTypeValue | undefined =
       decisionName === undefined ? undefined : lookup(DecisionType, decisionName);
@@ -325,6 +331,12 @@ export class WorkflowParser {
     const board = this.parseBoard(node.map('board'), errors);
     const timeoutMessage = `step "${id}": timeout_seconds must be a whole number from 1 to ${MAX_TIMEOUT_SECONDS}`;
     const timeoutSeconds = node.boundedInt('timeout_seconds', 1, MAX_TIMEOUT_SECONDS, timeoutMessage);
+    const stall = this.parseStall(node, id, errors, {
+      shell: chain?.runner === SHELL_RUNNER,
+      agent: role !== undefined || (chain !== undefined && chain.runner !== SHELL_RUNNER),
+      debate: decision !== undefined || consensusWith.length > 0,
+      worktree: isolation === Isolation.GitWorktree,
+    });
 
     return {
       id,
@@ -343,14 +355,58 @@ export class WorkflowParser {
       guards,
       isolation,
       ...(onFailure !== undefined ? { onFailure } : {}),
-      consensusWith: node.stringList('consensus_with'),
+      consensusWith,
       ...(decision !== undefined ? { decisionType: decision } : {}),
       ...(arbiter !== undefined ? { arbiter } : {}),
       mcp: node.stringList('mcp'),
       ...(mcpPolicy !== undefined ? { mcpPolicy } : {}),
       ...(board !== undefined ? { board } : {}),
       ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
+      ...(stall !== undefined ? { stall } : {}),
     };
+  }
+
+  /**
+   * `stall: { after_seconds, retries }` (specs/step-stalls, AC-04, AC-11, AC-13). The messages are the contract's; they carry
+   * the step id and numbers, never anything from the file's text. Which runner can hold it is checked later, with the registry.
+   */
+  private parseStall(
+    node: Node,
+    id: string,
+    errors: ErrorBag,
+    where: {
+      readonly shell: boolean;
+      readonly agent: boolean;
+      readonly debate: boolean;
+      readonly worktree: boolean;
+    },
+  ): StallPolicy | undefined {
+    const kind = node.kind('stall');
+    if (kind === 'absent') {
+      return undefined;
+    }
+    const block = kind === 'mapping' ? node.map('stall') : undefined;
+    if (block === undefined || block.unknownKeys(STALL_KEYS).length > 0) {
+      errors.add(`step "${id}": stall takes after_seconds and retries only`);
+      return undefined;
+    }
+    const afterMessage = `step "${id}": stall.after_seconds must be a whole number from ${MIN_STALL_SECONDS} to ${MAX_STALL_SECONDS}`;
+    if (block.kind('after_seconds') === 'absent') {
+      errors.add(afterMessage);
+    }
+    const [least, most] = [MIN_STALL_SECONDS, MAX_STALL_SECONDS];
+    const afterSeconds = block.boundedInt('after_seconds', least, most, afterMessage);
+    const retriesMessage = `step "${id}": stall.retries must be a whole number from 0 to ${MAX_STALL_RETRIES}`;
+    const retries = block.boundedInt('retries', 0, MAX_STALL_RETRIES, retriesMessage) ?? 0;
+
+    if (where.shell || !where.agent) {
+      errors.add(`step "${id}": stall needs an agent step`);
+    } else if (where.debate) {
+      errors.add(`step "${id}": stall is not supported on a debate step in this version`);
+    } else if (retries > 0 && !where.worktree) {
+      errors.add(`step "${id}": stall.retries above 0 needs isolation: git_worktree`);
+    }
+    return afterSeconds === undefined ? undefined : { afterSeconds, retries };
   }
 
   /** `runner` is a name or a list; the first is the primary, the rest are fallbacks. */

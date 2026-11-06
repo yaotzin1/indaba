@@ -186,7 +186,7 @@ A runner is what a role's `runner:` (or a step's) names.
 | `shell` | A command line from the workflow file, through the platform shell | nothing |
 | `openrouter` | A streamed chat completion over HTTPS. The API choice for text work | `OPENROUTER_API_KEY`, and a `model` on the role |
 | `acp` | An agent over the Agent Client Protocol. The choice for agents that edit code | the agent program (see [ACP agents](#acp-agents)) |
-| `claude-code` | `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits` (plus `--model`, MCP config; with a `permissions.level`: `plan`, `acceptEdits` or `bypassPermissions`). It reports the tokens and the cost the CLI prints (see below). A last resort | the `claude` CLI, logged in |
+| `claude-code` | `claude -p <prompt> --output-format stream-json --verbose --permission-mode acceptEdits` (plus `--model`, MCP config; with a `permissions.level`: `plan`, `acceptEdits` or `bypassPermissions`). It reports the tokens and the cost the CLI prints (see below), and can report activity for a step's [`stall`](workflow-format.md#stalls-stall) while it reads that stream. A last resort | the `claude` CLI, logged in |
 | `codex` | `codex exec --sandbox workspace-write <prompt>` | the `codex` CLI, logged in (`codex login`) |
 | `antigravity` | `agy -p <prompt>` | the `agy` CLI |
 | `cursor` | `cursor-agent -p <prompt>` | the `cursor-agent` CLI |

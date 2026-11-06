@@ -12,6 +12,12 @@ export interface ProcessSpec {
   readonly env: Readonly<Record<string, string>>;
   readonly usePty: boolean;
   readonly timeoutSeconds: number;
+  /**
+   * Stop the child when neither stream has produced anything for this many seconds, and say so in the outcome. The clock
+   * starts with the process and is restarted by every chunk of either stream (specs/step-stalls, AC-05, C-16). Absent: no
+   * silence limit.
+   */
+  readonly stallSeconds?: number;
   /** Windows only: pass the arguments without quoting. Used by ShellRunner for `cmd.exe /s /c`. */
   readonly verbatimArguments?: boolean;
   readonly onData: (stream: 'stdout' | 'stderr', chunk: string) => void;
@@ -21,6 +27,8 @@ export interface ProcessOutcome {
   readonly exitCode: number;
   readonly timedOut: boolean;
   readonly aborted: boolean;
+  /** Present, and true, only when the child was stopped for silence. A spawner that predates `stallSeconds` never sets it. */
+  readonly stalled?: boolean;
   readonly mode: ProcessMode;
 }
 
@@ -35,6 +43,8 @@ export interface ProcessSpawner {
 
 export const TIMEOUT_EXIT_CODE = 124;
 export const ABORT_EXIT_CODE = 130;
+/** The exit code of an attempt stopped for silence, beside 124 for a timeout and 130 for an abort (specs/step-stalls, C-12). */
+export const STALL_EXIT_CODE = 125;
 
 export interface PtyProcess {
   readonly pid: number;
@@ -96,10 +106,18 @@ export function killTree(pid: number | undefined, force: boolean): void {
   }
 }
 
-type Trip = 'timeout' | 'abort';
+type Trip = 'timeout' | 'abort' | 'stall';
 
-/** Calls `onTrip` once, on timeout or abort, whichever comes first. */
-function supervise(timeoutSeconds: number, signal: AbortSignal | undefined, onTrip: (trip: Trip) => void) {
+/**
+ * Calls `onTrip` once, on timeout, abort or silence, whichever comes first. `activity` restarts the silence timer; without
+ * a `stallSeconds` there is no such timer and it does nothing.
+ */
+function supervise(
+  timeoutSeconds: number,
+  stallSeconds: number | undefined,
+  signal: AbortSignal | undefined,
+  onTrip: (trip: Trip) => void,
+) {
   let tripped: Trip | undefined;
   const trip = (reason: Trip): void => {
     if (tripped === undefined) {
@@ -108,12 +126,23 @@ function supervise(timeoutSeconds: number, signal: AbortSignal | undefined, onTr
     }
   };
   const timer = setTimeout(() => trip('timeout'), Math.max(0, timeoutSeconds * 1000));
+  let silence: NodeJS.Timeout | undefined;
+  const arm = (): void => {
+    if (stallSeconds === undefined || tripped !== undefined) {
+      return;
+    }
+    clearTimeout(silence);
+    silence = setTimeout(() => trip('stall'), Math.max(0, stallSeconds * 1000));
+  };
+  arm();
   const onAbort = (): void => trip('abort');
   signal?.addEventListener('abort', onAbort, { once: true });
   return {
     reason: (): Trip | undefined => tripped,
+    activity: arm,
     stop: (): void => {
       clearTimeout(timer);
+      clearTimeout(silence);
       signal?.removeEventListener('abort', onAbort);
     },
   };
@@ -125,6 +154,9 @@ function outcome(exitCode: number, trip: Trip | undefined, mode: ProcessMode): P
   }
   if (trip === 'abort') {
     return { exitCode: ABORT_EXIT_CODE, timedOut: false, aborted: true, mode };
+  }
+  if (trip === 'stall') {
+    return { exitCode: STALL_EXIT_CODE, timedOut: false, aborted: false, stalled: true, mode };
   }
   return { exitCode, timedOut: false, aborted: false, mode };
 }
@@ -193,7 +225,7 @@ function runPiped(spec: ProcessSpec, signal: AbortSignal | undefined): Promise<P
       child.stderr?.destroy();
       resolve(outcome(exitCode, watch.reason(), 'piped'));
     };
-    const watch = supervise(spec.timeoutSeconds, signal, () => {
+    const watch = supervise(spec.timeoutSeconds, spec.stallSeconds, signal, () => {
       killTree(child.pid, false);
       timers.push(setTimeout(() => killTree(child.pid, true), KILL_GRACE_MS));
       // A grandchild holding the pipes open must not hold the run open.
@@ -202,8 +234,14 @@ function runPiped(spec: ProcessSpec, signal: AbortSignal | undefined): Promise<P
 
     child.stdout?.setEncoding('utf8');
     child.stderr?.setEncoding('utf8');
-    child.stdout?.on('data', (chunk: string) => spec.onData('stdout', chunk));
-    child.stderr?.on('data', (chunk: string) => spec.onData('stderr', chunk));
+    child.stdout?.on('data', (chunk: string) => {
+      watch.activity();
+      spec.onData('stdout', chunk);
+    });
+    child.stderr?.on('data', (chunk: string) => {
+      watch.activity();
+      spec.onData('stderr', chunk);
+    });
     child.once('error', (error) => {
       if (child.pid === undefined && !settled) {
         settled = true;
@@ -262,12 +300,15 @@ function runPty(
       }
       resolve(outcome(exitCode, watch.reason(), 'pty'));
     };
-    const watch = supervise(spec.timeoutSeconds, signal, () => {
+    const watch = supervise(spec.timeoutSeconds, spec.stallSeconds, signal, () => {
       killTree(term.pid, false);
       timers.push(setTimeout(() => killTree(term.pid, true), KILL_GRACE_MS));
       timers.push(setTimeout(() => settle(1, false), CLOSE_WAIT_MS));
     });
-    term.onData((data) => spec.onData('stdout', data));
+    term.onData((data) => {
+      watch.activity();
+      spec.onData('stdout', data);
+    });
     term.onExit((event) => settle(event.exitCode, true));
   });
 }

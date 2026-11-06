@@ -127,6 +127,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | `guards` | no | Checks run after the step succeeds (see Guards) |
 | `isolation` | no | `none` (default) or `git_worktree` |
 | `timeout_seconds` | no | A whole number from 1 to 86400. The limit, in seconds, of **each call** of a runner and **each command** of a shell step; it replaces `indaba run --timeout` (default 900) for this step. It is not a limit on the step as a whole: a step that falls back to another runner, or a debate with several rounds, can take longer in total. On a debate step it limits each call of each participant (a debate without it is not bound by `--timeout`). It is not the `timeout_seconds` of a `permissions` block, which is still refused. A step that times out fails with `Timed out after N seconds.` and its `on_failure` applies |
+| `stall` | no | `{ after_seconds, retries }`: stop an attempt that shows no activity for `after_seconds` (60 to 3600) and run it again up to `retries` (0 to 3, default 0) times. Agent steps only, not a debate; `retries` above 0 needs `isolation: git_worktree` on the step; every runner of the step must be able to report activity (today `claude-code`). Independent of `timeout_seconds`. See [Stalls](#stalls-stall) |
 | `on_failure` | no | What to do when the step fails (see Retries) |
 | `consensus_with` | no | Roles that debate with this step's `role` |
 | `decision_type` | no | `consensus` (every participant agrees) or `majority` (more than half) |
@@ -441,6 +442,70 @@ When a step fails with `retry_step`, the target and every step after it are rese
 target's next prompt carries only the failure of the last attempt (trimmed to its last 4000 characters),
 never the history. After `max_retries` attempts the run ends `escalated`. `escalate` ends the run as
 `escalated` at once, and `fail` (or no `on_failure`) ends it as `failed`.
+
+### Stalls: `stall`
+
+`timeout_seconds` limits how long a call may take. `stall` is the other question: has the call **gone quiet**? An agent can stop
+making progress without failing, with the process alive and nothing printed, and a time limit only ends that after all of its
+minutes. A step with `stall` is stopped when its runner has seen no sign of life for `after_seconds`, and can then be run again.
+
+```yaml
+steps:
+  - id: implement
+    role: implementer
+    isolation: git_worktree        # needed for retries above 0
+    timeout_seconds: 1800          # still applies, independently
+    stall:
+      after_seconds: 300           # required, 60 to 3600
+      retries: 1                   # optional, 0 to 3, default 0
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `after_seconds` | Required. A whole number from 60 to 3600: the silence that stops an attempt. The clock starts when the process starts and every piece of output restarts it |
+| `retries` | Optional, a whole number from 0 to 3, default 0. How many times a stalled attempt is run again. Above 0 needs `isolation: git_worktree` **on the step itself** |
+
+Nothing is on by default: a step without `stall` behaves exactly as before.
+
+**What counts as activity** is the runner's own, and not every runner can say. `claude-code` reads its answer from a stream, and
+anything on that stream counts: the model thinking, its messages, the progress of a tool call. A runner that cannot report
+activity is refused in a step that sets `stall`, by name, by `validate`, `plan` and the start of a run:
+
+| Runner | Can report activity? |
+| :--- | :--- |
+| `claude-code` | Yes, while it reads its stream (the default). Not with `reportUsage: false` or your own `--output-format` in `extraArgs`: then nothing arrives before the end, and it says so |
+| `codex`, `antigravity`, `cursor`, `opencode`, `acp` | No. Their silence while healthy has not been measured, and a guess would stop working calls |
+| `openrouter` and other OpenAI-compatible runners | No. A time limit bounds them, and they change no files, so there is nothing to retry |
+| `shell` | No. A command is limited by `timeout_seconds` and nothing else |
+| a runner from a plugin | Only if it implements `StallCapable` (see [extending.md](extending.md)) |
+
+**Why 60 seconds at least.** A healthy `claude-code` call that ran a tool for 75 seconds sent its events up to 30 seconds
+apart (measured on one machine, [specs/step-stalls/research.md](../specs/step-stalls/research.md)), so a lower limit would stop
+work that was going well. Set `after_seconds` several times above the longest quiet stretch a step can have, for example a test
+run that prints nothing for minutes, and use `timeout_seconds` for the total.
+
+**What happens.** The runner stops the whole process tree and the attempt fails with `Stalled: no activity for N seconds.`, never
+`Timed out`. With `retries` left, the engine puts the step's worktree back as it was when the step began and runs the step again;
+the next prompt says only `Your previous attempt stalled: no activity for N seconds. Nothing it did was kept.` The step goes
+`RUNNING`, `FAILED` (the stall), `PENDING` (`Stalled: no activity for N seconds (retry k of n).`), `RUNNING` again. With none left,
+the step fails with the stall as its reason and its `on_failure` applies as for any failure.
+
+- **The two retry budgets are separate.** A stall retry uses none of `on_failure`'s `max_retries`, and an `on_failure` retry
+  gives the stall retries back. A step with `retries: 1` and `max_retries: 1` can make four attempts.
+- **What is put back** is the whole worktree as the step found it: its files, tracked or not (what earlier steps wrote and nobody
+  committed is kept), and `HEAD`, if the attempt committed. Files the attempt created are removed, files it changed or deleted
+  come back. Files git ignores (`node_modules`, build caches) and everything under `.indaba/` are **not** touched and not
+  restored: a stalled attempt that wrote under `.indaba/` leaves that file there.
+- **If the worktree cannot be restored** the step fails with `The worktree could not be restored after a stall.` and nothing is run
+  again.
+- **A debate step cannot use `stall`** in this version, and neither can a shell step.
+- **A stalled attempt may still have cost something.** Its tokens are counted like any attempt's; Indaba does not estimate them.
+
+The trace records it: the step span gets `indaba.stall.after_seconds` and `indaba.stall.retries`, and `indaba.stall.count` once an
+attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.stall.silent_seconds`; and the step span gets one
+`indaba.step.stalled` event per stalled attempt with `indaba.stall.attempt`, `indaba.stall.silent_seconds` and
+`indaba.stall.retry` (`restored`, `exhausted` or `restore_failed`). None of them holds a prompt or anything the agent printed.
+`indaba plan` shows `stall 300s` and `stall retries 1` beside the step.
 
 ### MCP servers
 

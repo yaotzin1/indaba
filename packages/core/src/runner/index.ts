@@ -7,6 +7,12 @@ export interface RunRequest {
   readonly model?: string;
   /** Defaults to 900 when absent; runners apply it. */
   readonly timeoutSeconds?: number;
+  /**
+   * Stop the attempt after this many seconds without activity and return a result with `stalled: true`. Only a runner that
+   * implements `StallCapable` honours it; the engine sets it only for a step with a `stall` block, so an absent value means
+   * no silence limit (specs/step-stalls, AC-05).
+   */
+  readonly stallSeconds?: number;
   readonly env?: Readonly<Record<string, string>>;
   /** Receives output as it streams. */
   readonly onOutput?: (chunk: string) => void;
@@ -44,6 +50,8 @@ export interface RunResultInit {
   readonly model?: string;
   /** USD cost the provider or agent itself reported. Never computed from anything else. */
   readonly reportedCostUsd?: number;
+  /** True when the runner stopped the attempt for silence (specs/step-stalls, AC-05). */
+  readonly stalled?: true;
 }
 
 export class RunResult {
@@ -54,6 +62,8 @@ export class RunResult {
   readonly durationMs: number;
   readonly model?: string;
   readonly reportedCostUsd?: number;
+  /** Present, and true, only when the attempt was stopped for silence. It is also a failed result (a non-zero exit code). */
+  readonly stalled?: true;
 
   constructor(init: RunResultInit) {
     this.exitCode = init.exitCode;
@@ -68,6 +78,9 @@ export class RunResult {
     }
     if (init.reportedCostUsd !== undefined) {
       this.reportedCostUsd = init.reportedCostUsd;
+    }
+    if (init.stalled === true) {
+      this.stalled = true;
     }
   }
 

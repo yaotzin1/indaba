@@ -1,7 +1,8 @@
 # Specification: Step stalls (a per-step time limit, a no-activity limit, and a bounded retry of the stalled attempt)
 
-> **Status**: Release 1 (`timeout_seconds`) implemented; release 2 (`stall` and its retry) specified, not implemented (section 11).
-> **Stage entry**: 8 for release 1; release 2 waits for the condition in section 11
+> **Status**: Both releases implemented: release 1 (`timeout_seconds`) and release 2 (`stall` and its retry). The condition of
+> section 11 for release 2 was met by a measurement on 2026-11-06, see [`research.md`](research.md).
+> **Stage entry**: 8 for release 1; 3 for release 2 (the floor of C-05 was amended, C-06 refined, and C-16 to C-18 added)
 > **Semver impact**: minor (optional step fields, one optional runner interface, optional members of `RunRequest` and
 > `RunResult`, new span attributes and one new span event; below 1.0). **Nothing changes for a workflow that uses none of
 > the new fields**: no default moves. Confirmed in [`api-surface.md`](api-surface.md).
@@ -72,53 +73,53 @@ walked away comes back to nothing.
 
 **The no-activity limit and its retry**
 
-- [ ] AC-04 (R2). A step accepts an optional `stall` block with `after_seconds` (a whole number from 30 to 3600, required) and
+- [x] AC-04 (R2). A step accepts an optional `stall` block with `after_seconds` (a whole number from 60 to 3600, required) and
       `retries` (a whole number from 0 to 3, default 0).
-- [ ] AC-05 (R2). While an attempt runs, the runner reports activity. When `after_seconds` pass without any, the runner
+- [x] AC-05 (R2). While an attempt runs, the runner reports activity. When `after_seconds` pass without any, the runner
       stops the attempt and returns a result marked `stalled`. What counts as activity is each runner's, stated in its
       documentation; a runner that cannot report it does not offer the capability (AC-12).
-- [ ] AC-06 (R2). A stalled attempt is a failed attempt with the reason `Stalled: no activity for N seconds.` It is never
+- [x] AC-06 (R2). A stalled attempt is a failed attempt with the reason `Stalled: no activity for N seconds.` It is never
       reported as a timeout, and never as a success.
-- [ ] AC-07 (R2). With `retries` left, the engine discards what the stalled attempt changed in the step's worktree (back to
-      the commit it had when the attempt began) and runs the same step again, up to `retries` times. The next prompt
+- [x] AC-07 (R2). With `retries` left, the engine discards what the stalled attempt changed in the step's worktree (back to
+      the state it had when the attempt began, see C-06) and runs the same step again, up to `retries` times. The next prompt
       carries the failure of the previous attempt only: `Your previous attempt stalled: no activity for N seconds. Nothing
       it did was kept.`
-- [ ] AC-08 (R2). With no `retries` left, the stalled step ends failed and its `on_failure` policy applies as it would for any
+- [x] AC-08 (R2). With no `retries` left, the stalled step ends failed and its `on_failure` policy applies as it would for any
       failure. A stall retry is not a retry in the sense of `on_failure: retry_step` and consumes none of its budget, and
       `on_failure` consumes none of the stall retries.
-- [ ] AC-09 (R2). The stall retries of a step are counted for each execution of the step. When an `on_failure: retry_step`
+- [x] AC-09 (R2). The stall retries of a step are counted for each execution of the step. When an `on_failure: retry_step`
       resets the step to pending, its stall retries are available again. The total number of attempts of a step in a run
       is therefore bounded by `(1 + stall.retries) * (1 + the retries of the steps that can reset it)`.
-- [ ] AC-10 (R2). A stall also ends an attempt on `timeout_seconds` if that elapses first, with the timeout's reason (AC-03).
+- [x] AC-10 (R2). A stall also ends an attempt on `timeout_seconds` if that elapses first, with the timeout's reason (AC-03).
       The two limits are independent and both may be set.
 
 **Validation**
 
-- [ ] AC-11 (R2). `stall` on a shell step, on a step that runs no agent, or on a debate step (`consensus_with` or
+- [x] AC-11 (R2). `stall` on a shell step, on a step that runs no agent, or on a debate step (`consensus_with` or
       `decision_type`) is an error from `validate`, `plan` and the start of a run, naming the step.
-- [ ] AC-12 (R2). `stall` on a step whose runner chain holds a runner that does not offer the capability is an error that
+- [x] AC-12 (R2). `stall` on a step whose runner chain holds a runner that does not offer the capability is an error that
       names the runner and the step, as an unsupported permission level is today.
-- [ ] AC-13 (R2). `stall.retries` above 0 on a step without `isolation: git_worktree` is an error: there is nothing to
+- [x] AC-13 (R2). `stall.retries` above 0 on a step without `isolation: git_worktree` is an error: there is nothing to
       restore. `stall` with `retries: 0` needs no isolation.
 - [x] AC-14 (R1). `timeout_seconds` is accepted on every kind of step. On a debate step it limits each call of each
       participant.
 
 **The built-in runners**
 
-- [ ] AC-15 (R2). The `claude-code` runner offers the capability. In a step that sets `stall` it asks `claude` for its
-      streaming output and treats each event it receives, including the ones sent while the model is thinking, as
-      activity. In a step that does not set `stall`, its command line and its result are exactly what they are today (after [`specs/claude-code-usage`](../claude-code-usage/spec.md), "today" already includes `--output-format stream-json --verbose` and the answer, tokens and cost read from its final event).
-- [ ] AC-16 (R2). The result a step produces with the streaming output is the same text, in the same `RunResult` fields, as the
+- [x] AC-15 (R2). The `claude-code` runner offers the capability while it reads its stream. It treats any data on the stream,
+      including the events sent while the model is thinking and the progress of a tool call, as activity, and adds nothing to
+      its command line (it already asks for `stream-json`). In plain mode it says it cannot. In a step that does not set `stall`, its command line and its result are exactly what they are today (after [`specs/claude-code-usage`](../claude-code-usage/spec.md), "today" already includes `--output-format stream-json --verbose` and the answer, tokens and cost read from its final event).
+- [x] AC-16 (R2). The result a step produces with the streaming output is the same text, in the same `RunResult` fields, as the
       plain output would have given, so a step's board lines, outputs and guards do not depend on whether `stall` is set.
-- [ ] AC-17 (R2). Each other built-in runner either offers the capability, with its activity signal named in `plan.md` and
+- [x] AC-17 (R2). Each other built-in runner either offers the capability, with its activity signal named in `plan.md` and
       its documentation, or is listed there with the reason it does not. None is left unmentioned.
 
 **Visibility**
 
-- [ ] AC-18 (R2). A stall is visible without reading code: the step's span carries the attributes and the event in
+- [x] AC-18 (R2). A stall is visible without reading code: the step's span carries the attributes and the event in
       [`events.md`](events.md), the step's status reason names the stall and the retry it triggers, and `indaba watch`,
       `indaba ui` and `indaba report` show the reason as they show any other.
-- [ ] AC-19 (R2). No secret, prompt or agent output is in the stall's attributes or event.
+- [x] AC-19 (R2). No secret, prompt or agent output is in the stall's attributes or event.
 
 Release tags: **R1** ships first, **R2** is the stall limit and its retry (section 11). AC-18 and AC-19 are R2 because they
 describe the stall; R1 adds only the `indaba.step.timeout_seconds` attribute (events.md).
@@ -127,7 +128,7 @@ describe the stall; R1 adds only the `indaba.step.timeout_seconds` attribute (ev
 
 - [x] AC-20 (R1+R2). A workflow with no `timeout_seconds` and no `stall` parses, plans, validates and runs exactly as before: the
       same command lines, results, events and attributes. A test pins it.
-- [ ] AC-21 (R2). A runner plugin that does not implement the capability keeps working; it is refused only in a step that
+- [x] AC-21 (R2). A runner plugin that does not implement the capability keeps working; it is refused only in a step that
       sets `stall`.
 
 ## 4. Non-goals
@@ -167,8 +168,8 @@ describe the stall; R1 adds only the `indaba.step.timeout_seconds` attribute (ev
   before anything runs. The reason strings contain numbers and fixed text, never agent output, a prompt or a path.
 - **The restore runs git on the engine's own worktree.** It uses the `Git` wrapper with an argument array, never a
   shell string, and confines every path to the worktree root (`specs/git-workspace`; the `workspace-git` skill). It
-  restores tracked files to the commit the attempt began from and removes untracked files the attempt created; it does
-  not remove ignored files (`node_modules`, `reports/`, a build cache), which are not the agent's to lose and not the
+  puts the worktree back to a tree it recorded when the first attempt began (C-06), which removes the files the attempt
+  created; it does not remove ignored files (`node_modules`, `reports/`, a build cache), which are not the agent's to lose and not the
   guard's to judge. It never touches the person's project directory.
 - **The streaming output of `claude` carries the model's messages.** The runner reads it as data: it parses each line as
   JSON inside a bounded buffer, extracts the final text, and treats any line that does not parse as activity and as
@@ -202,19 +203,26 @@ Every item is a decision this specification **recommends**; the maintainer confi
 - **C-04. Who detects silence.** The runner, not the engine. The runner knows what its signals are (output chunks, a
   protocol update, a stream event); the engine only passes `stallSeconds` and reads `stalled`. This keeps one detector
   per kind of runner and leaves the engine free of any knowledge of `claude`.
-- **C-05. The bounds.** `after_seconds` 30 to 3600: below 30 seconds a normal model call is mistaken for a stall.
+- **C-05. The bounds.** `after_seconds` 60 to 3600. **Amended 2026-11-06 from 30**: a measured, healthy 75 s tool call sent
+  events 26 s and 30 s apart ([`research.md`](research.md)), so 30 was within a second of stopping a working call; 60 is twice
+  the longest healthy gap seen and about five times the silence before the first event.
   `retries` 0 to 3: more than three attempts of a call that hangs is a configuration problem. `timeout_seconds` 1 to
   86400.
-- **C-06. What is restored.** Tracked files back to the commit the attempt began from, untracked files created by the
-  attempt removed, ignored files kept (section 6). The commit is the worktree's `HEAD` when the attempt began; the engine
-  records it. Checkpoint steps (the cookbooks' `checkpoint_*`) are what make that commit recent.
+- **C-06. What is restored.** *Amended while implementing release 2.* The state of the worktree when the first attempt began:
+  its files, tracked or not, including what earlier steps wrote and nobody committed, and `HEAD`. Whatever the stalled
+  attempt created is removed, whatever it changed or deleted is put back (an untracked file it changed too), and if it
+  committed, `HEAD` goes back. The first draft of this clause said "back to the commit", which would have deleted the
+  output of earlier steps: the engine stages the worktree after every isolated step (`git add -A`, for the patch), so
+  those files are in the index and not in the commit. Ignored files (`node_modules`, `reports/`, a build cache) and
+  `.indaba/` are not touched and not restored: an attempt that wrote a file under `.indaba/` leaves it there. The state is a
+  git tree object written at the start of the first attempt; no copy of the files is made.
 - **C-07. Debates.** `stall` is refused on a debate step in this version; `timeout_seconds` is accepted. A later
   specification may add it with a rule for what a discarded round is.
 - **C-08. The retry target that fails.** Not changed here. A follow-up decision: whether the failure of a step that was
   re-run for `retry_step` should count against the retrying step's budget instead of ending the run. It is a behaviour
   change for existing workflows and is classified separately.
 - **C-09. The streaming mode of `claude`.** The runner adds the streaming output format to its command line only in a
-  step that sets `stall`, and nowhere else (AC-15). Other steps keep the plain output, so this specification changes no
+  step that sets `stall`, and nowhere else (AC-15). *Superseded by C-18.* Other steps keep the plain output, so this specification changes no
   existing step. If a later `claude` release changes the format, the runner treats a line it cannot parse as activity
   and as text.
 - **C-10. Reason texts.** `Stalled: no activity for N seconds.` and `Timed out after N seconds.` are fixed strings; the
@@ -228,6 +236,13 @@ Every item is a decision this specification **recommends**; the maintainer confi
   thinking events counting as activity. They were the same model, so it is evidence and not independent review.
 - **C-14. `retries` defaults to 0** when `stall` is set (the debate's Q2): setting `stall` never retries by surprise.
 - **C-15. Thinking events count as activity** (the debate's Q3): a long think is not a stall.
+- **C-16. Where the clock starts (2026-11-06).** At process start, not at the first event. The 11 to 13 seconds of silence before
+  the first event are far under the floor, and starting at spawn means a call that hangs before it ever speaks is still caught.
+- **C-17. A runner may decline by configuration (2026-11-06).** `StallCapable.canReportActivity` is a boolean: `claude-code` in plain
+  mode prints nothing until the end, so it answers false and `validate` refuses `stall` on it.
+- **C-18. No change to the command line (2026-11-06).** `claude-code` has read `stream-json` by default since
+  `specs/claude-code-usage`, so C-09 and the first half of AC-15 no longer apply: the runner adds nothing for `stall`, and says it
+  cannot report activity only when it runs in plain mode.
 - **C-11. The counters.** Stall retries reset when the step is reset to pending (AC-09); they are not stored between
   runs.
 

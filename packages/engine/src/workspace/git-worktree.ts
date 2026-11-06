@@ -1,7 +1,7 @@
 import { rm } from 'node:fs/promises';
 import { WorkspaceError } from '@indaba/core';
 import type { Git } from './git.js';
-import type { Workspace } from './workspace.js';
+import type { RestorableWorkspace, WorkspaceCheckpoint } from './workspace.js';
 
 /** How teardown copes with a folder that something still holds open (common on Windows). */
 export interface TeardownOptions {
@@ -13,9 +13,12 @@ export interface TeardownOptions {
   readonly sleep?: (ms: number) => Promise<void>;
 }
 
+/** A full object id: 40 hexadecimal characters (SHA-1) or 64 (SHA-256), lower case. Nothing else reaches a git command. */
+const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
+
 const defaultSleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
-export class GitWorktree implements Workspace {
+export class GitWorktree implements RestorableWorkspace {
   private destroyed = false;
 
   constructor(
@@ -37,6 +40,46 @@ export class GitWorktree implements Workspace {
     // .indaba holds runtime state, never part of a change.
     await this.git.run(['add', '-A', '--', '.', ':(exclude).indaba'], this.worktreePath);
     return await this.git.run(['diff', '--cached', '--binary', 'HEAD'], this.worktreePath);
+  }
+
+  /**
+   * Records the commit and a tree object holding every file now in the worktree, tracked or not (ignored files and `.indaba`
+   * excluded), so a later `restore` can put back exactly this, including what earlier steps wrote and nobody committed.
+   * Staging is the worktree's own private index, as `diff()` already does.
+   */
+  async checkpoint(): Promise<WorkspaceCheckpoint> {
+    this.assertLive();
+    const head = (await this.git.run(['rev-parse', '--verify', 'HEAD'], this.worktreePath)).trim();
+    await this.stageAll();
+    const tree = (await this.git.run(['write-tree'], this.worktreePath)).trim();
+    return { head, tree };
+  }
+
+  /**
+   * HEAD goes back to where it was (an attempt may have committed), everything the attempt created, changed or deleted is
+   * staged so nothing is overlooked, and the index and the files become the checkpoint's tree. Both values are checked
+   * against the shape of an object id before they reach git, which then gets them as arguments, never as a shell string.
+   */
+  async restore(checkpoint: WorkspaceCheckpoint): Promise<void> {
+    this.assertLive();
+    const { head, tree } = checkpoint;
+    if (head === undefined || tree === undefined || !OBJECT_ID.test(head) || !OBJECT_ID.test(tree)) {
+      throw new WorkspaceError('The checkpoint is not one this workspace made.');
+    }
+    await this.git.run(['reset', '--soft', head, '--'], this.worktreePath);
+    await this.stageAll();
+    await this.git.run(['read-tree', '--reset', '-u', tree], this.worktreePath);
+  }
+
+  private assertLive(): void {
+    if (this.destroyed) {
+      throw new WorkspaceError('The workspace has been destroyed.');
+    }
+  }
+
+  /** .indaba holds runtime state, never part of a change or of a restore. */
+  private async stageAll(): Promise<void> {
+    await this.git.run(['add', '-A', '--', '.', ':(exclude).indaba'], this.worktreePath);
   }
 
   /**

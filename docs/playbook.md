@@ -262,6 +262,22 @@ elsewhere. Change one role, run the same task again with `indaba run -v`, and co
 A cost shown as absent is unknown, not zero, and Indaba has no spending ceiling yet. The ideas, and what to record
 when you compare, are in [Spending less: experiments](cost-experiments.md).
 
+## When a call goes quiet
+
+A model call can stop making progress without failing. `timeout_seconds` on a step limits how long a call may take; `stall` on
+a step stops it when it has shown no sign of life for a while, and can run the step again from where it began:
+
+```yaml
+- id: implement
+  isolation: git_worktree
+  stall: { after_seconds: 300, retries: 1 }
+```
+
+It is off unless you write it, `after_seconds` starts at 60, and only runners that can report activity may use it (today
+`claude-code`). Set it well above the longest quiet stretch of the step, such as a test run that prints nothing for minutes.
+A stalled attempt fails with `Stalled: no activity for N seconds.` as the step's reason, in `indaba watch` and the trace; it is not a timeout. The
+details, and what a retry puts back, are in [workflow-format.md](workflow-format.md#stalls-stall).
+
 ## Where to go next
 
 - [Workflow format](workflow-format.md) for every field

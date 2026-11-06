@@ -23,8 +23,14 @@ import {
   StepStatusChanged,
 } from '@indaba/core';
 import { describeStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from '../trace/structure.js';
-import type { Workspace, WorkspaceManager } from '../workspace/workspace.js';
-import { type StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
+import {
+  isRestorable,
+  type Workspace,
+  type WorkspaceCheckpoint,
+  type WorkspaceManager,
+} from '../workspace/workspace.js';
+import { StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
+import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
 
 export interface WorkflowEngineOptions {
@@ -107,6 +113,13 @@ export class WorkflowEngine {
               : `step "${f.stepId}" ${f.code}`,
           )
           .join('; ')}`,
+      );
+    }
+    // The same for a stall limit on a runner that cannot report activity (specs/step-stalls, AC-12, AC-21).
+    const stallRefused = this.executor.stallFindings(workflow);
+    if (stallRefused.length > 0) {
+      throw new IndabaError(
+        `The stall limits cannot be honoured: ${stallRefused.map(describeStallFinding).join('; ')}`,
       );
     }
     const full = findings.filter((finding) => finding.code === 'full');
@@ -196,6 +209,7 @@ export class WorkflowEngine {
           signal,
           board,
           attempt,
+          workspace: current,
         });
         feedback.delete(step.id);
 
@@ -314,16 +328,74 @@ export class WorkflowEngine {
       readonly signal: AbortSignal | undefined;
       readonly board: RunBoard;
       readonly attempt: number;
+      /** The step's worktree, when it has one: what a stall retry puts back. */
+      readonly workspace: Workspace | undefined;
     },
   ): Promise<StepOutcome> {
+    const policy = step.stall;
     const span = await this.tracer.startSpan(`step ${step.id}`, root, {
       'indaba.step.id': step.id,
       'indaba.step.attempt': state.attempts() + 1,
       ...(step.timeoutSeconds !== undefined ? { 'indaba.step.timeout_seconds': step.timeoutSeconds } : {}),
+      ...(policy !== undefined
+        ? { 'indaba.stall.after_seconds': policy.afterSeconds, 'indaba.stall.retries': policy.retries }
+        : {}),
     });
 
-    await this.move(state, taskId, StepStatus.Running);
-    let outcome = await this.executor.run(step, workflow, workdir, span, options);
+    // What a stalled attempt is put back to, taken once, before the first attempt (specs/step-stalls, C-06). A workspace that
+    // cannot be restored, or a checkpoint that cannot be taken, is found out only if an attempt stalls (restore_failed).
+    const workspace = options.workspace;
+    let checkpoint: WorkspaceCheckpoint | undefined;
+    if (policy !== undefined && policy.retries > 0 && workspace !== undefined && isRestorable(workspace)) {
+      try {
+        checkpoint = await workspace.checkpoint();
+      } catch {
+        checkpoint = undefined;
+      }
+    }
+
+    // Each pass is one attempt. The stall retries are counted here, so they begin again whenever the step is executed again,
+    // for instance after an `on_failure` retry reset it (AC-09), and they use none of that budget (AC-08).
+    let stalls = 0;
+    let feedback = options.feedback;
+    let outcome: StepOutcome;
+    for (;;) {
+      await this.move(state, taskId, StepStatus.Running);
+      outcome = await this.executor.run(step, workflow, workdir, span, { ...options, feedback });
+      const silent = outcome.stalledSeconds;
+      if (silent === undefined || policy === undefined) {
+        break;
+      }
+      stalls += 1;
+      span.setAttribute('indaba.stall.count', stalls);
+      if (stalls > policy.retries) {
+        span.addEvent('indaba.step.stalled', stallEvent(stalls, silent, 'exhausted'));
+        break;
+      }
+      let restored = false;
+      if (workspace !== undefined && checkpoint !== undefined && isRestorable(workspace)) {
+        try {
+          await workspace.restore(checkpoint);
+          restored = true;
+        } catch {
+          restored = false;
+        }
+      }
+      if (!restored) {
+        span.addEvent('indaba.step.stalled', stallEvent(stalls, silent, 'restore_failed'));
+        outcome = StepOutcome.failed('The worktree could not be restored after a stall.');
+        break;
+      }
+      span.addEvent('indaba.step.stalled', stallEvent(stalls, silent, 'restored'));
+      await this.move(state, taskId, StepStatus.Failed, outcome.feedback);
+      await this.move(
+        state,
+        taskId,
+        StepStatus.Pending,
+        `Stalled: no activity for ${silent} seconds (retry ${stalls} of ${policy.retries}).`,
+      );
+      feedback = `Your previous attempt stalled: no activity for ${silent} seconds. Nothing it did was kept.`;
+    }
 
     if (outcome.ok) {
       await this.move(state, taskId, StepStatus.Validating);
@@ -384,6 +456,19 @@ export class WorkflowEngine {
       // The patch is a convenience copy; the worktree diff itself is not lost by this failure.
     }
   }
+}
+
+/** The attributes of one `indaba.step.stalled` event: numbers and a fixed word, never anything the agent printed (AC-19). */
+function stallEvent(
+  attempt: number,
+  silentSeconds: number,
+  retry: 'restored' | 'exhausted' | 'restore_failed',
+) {
+  return {
+    'indaba.stall.attempt': attempt,
+    'indaba.stall.silent_seconds': silentSeconds,
+    'indaba.stall.retry': retry,
+  };
 }
 
 async function isFile(path: string): Promise<boolean> {

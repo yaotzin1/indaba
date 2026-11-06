@@ -89,6 +89,9 @@ step, that step's earlier notes are replaced.
 - Give a step that is slower or faster than the rest its own `timeout_seconds` (1 to 86400, per call) instead of raising `--timeout` for the whole run.
 - Set `permissions` to the lowest level the step needs (`read`, then `edit`; `full` only when nothing less works). A step with
   no level takes the runner's own default, which is usually more than you want.
+- Give a step that can go quiet (a long agent call) a `stall: { after_seconds: <n> }` of 60 seconds or more, well above the longest silent
+  stretch it can have, and `retries` only with `isolation: git_worktree`. Only a runner that can report activity may use it (`claude-code` today);
+  `validate` names the others. A stall is not a timeout: the reason reads `Stalled: no activity for N seconds.`
 - Bound retries with `on_failure: { action: retry_step, target: <id>, max_retries: <n> }`. The retry prompt carries only the last
   failure, so make the guard's message say what to fix.
 - For review, use `consensus_with` with a `decision_type` and an `arbiter`. Agreement means "I accept the other's findings", so say
@@ -106,6 +109,7 @@ step, that step's earlier notes are replaced.
 | `validate`: `board.post[N]` rejected | a kind only the engine may post (`decision`, `proposal`, `critique`, `agreement`, `tool_intent`) | use `note`, `question`, `result` or `fact` |
 | `run` exit 1, `Task ... finished: FAILED` | a step failed and retries ran out | `watch latest --plain`: read the failed step's reason; fix the goal or the guard |
 | `run` exit 2, ESCALATED | a debate stalled or retries ran out and a human is needed | do not retry blindly: report the open objections to the person, or add an `arbiter` |
+| `run` exit 1 or 2, reason `Stalled: no activity for N seconds.` | an attempt showed no activity for the step's `stall.after_seconds` and its stall retries are used up | do not raise the limit blindly: read the step's trace for `indaba.step.stalled`, and check whether the step legitimately goes quiet (then raise `after_seconds`) or hangs (then report it) |
 | `run` exit 130 | it was cancelled | start again only if the person asked |
 | `watch` exit 3 | the files end without a final state | the run is still going or died; wait, or `watch latest` again |
 | the next step did not get a note | the first step failed, the line did not match the grammar, or the step does not read it | `plan` must show `may post` on the first and `reads` on the second; check `indaba.board.ignored` on the first step's span |

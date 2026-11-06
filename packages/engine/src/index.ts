@@ -67,6 +67,8 @@ export {
   parseRunBound,
 } from './engine/permissions.js';
 export { PromptBuilder } from './engine/prompt-builder.js';
+export type { StallFinding, StallRunners } from './engine/stall.js';
+export { checkStalls, describeStallFinding } from './engine/stall.js';
 export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor.js';
 export { StepExecutor } from './engine/step-executor.js';
 export type { RunOptions, WorkflowEngineOptions } from './engine/workflow-engine.js';
@@ -120,4 +122,10 @@ export { Git } from './workspace/git.js';
 export { GitWorktree } from './workspace/git-worktree.js';
 export { GitWorktreeManager } from './workspace/git-worktree-manager.js';
 export { PatchService } from './workspace/patch-service.js';
-export type { Workspace, WorkspaceManager } from './workspace/workspace.js';
+export type {
+  RestorableWorkspace,
+  Workspace,
+  WorkspaceCheckpoint,
+  WorkspaceManager,
+} from './workspace/workspace.js';
+export { isRestorable } from './workspace/workspace.js';

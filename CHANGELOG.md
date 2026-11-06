@@ -17,6 +17,23 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **`stall` on a step** (minor; track `feature`; `specs/step-stalls`, release 2). A step may set `stall: { after_seconds, retries }`.
+  A runner that can report activity stops an attempt that is silent for `after_seconds` (60 to 3600) and returns a result marked
+  stalled; the attempt fails with `Stalled: no activity for N seconds.`, never as a timeout. With `retries` left (0 to 3, default 0,
+  above 0 needs `isolation: git_worktree` on the step) the engine puts the step's worktree back as it was when the step began and
+  runs it again, the next prompt carrying only the stall. The stall retries and `on_failure` are separate budgets. Nothing is on
+  by default and a step without `stall` behaves exactly as before. New: `StallPolicy`, `StepDefinition.stall`,
+  `MIN_STALL_SECONDS` (60), `MAX_STALL_SECONDS`, `MAX_STALL_RETRIES`, `RunRequest.stallSeconds`, `RunResult.stalled`,
+  `StallCapable` and `isStallCapable` in `@indaba/core`; `ProcessSpec.stallSeconds`, `ProcessOutcome.stalled` and
+  `STALL_EXIT_CODE` (125) in `@indaba/runners`; `RestorableWorkspace`, `WorkspaceCheckpoint`, `isRestorable`, `checkStalls` and
+  `describeStallFinding` in `@indaba/engine` (`GitWorktree` implements the restore as a snapshot, so what earlier steps wrote and
+  nobody committed survives). Only `claude-code` can report activity today, and only while it reads its stream; any other runner is
+  refused by name in a step that sets `stall`, by `validate`, `plan` and the start of a run. The step span gets
+  `indaba.stall.after_seconds`, `indaba.stall.retries` and `indaba.stall.count`, a stalled `invoke_agent` span gets
+  `indaba.stall.silent_seconds`, and each stalled attempt adds an `indaba.step.stalled` event. **The smallest `after_seconds` is 60,
+  not the 30 the first draft of the specification said:** a measured, healthy 75 second tool call of `claude-code` sent its
+  events 30 seconds apart (five calls, one machine; `specs/step-stalls/research.md`). `indaba plan` and `indaba schema` show the
+  field. Files git ignores and everything under `.indaba/` are not restored after a stall.
 - **`timeout_seconds` on a step** (minor; track `feature`; `specs/step-stalls`, release 1). A step may set its own limit, a
   whole number from 1 to 86400, for each call of a runner and each command of a shell step. It replaces `indaba run
   --timeout` (default 900) for that step; a step without it behaves exactly as before. On a debate step it limits each
@@ -24,7 +41,7 @@ port". The PHP prototype that preceded them was never published.
   `--timeout`. The step span gets `indaba.step.timeout_seconds` when set, and `indaba plan` and `indaba schema` show the
   field. New core exports: `MAX_TIMEOUT_SECONDS` and `StepDefinition.timeoutSeconds`. **Note:** the parser has never
   rejected unknown step keys, so a file that already carries a `timeout_seconds` on a step, ignored until now, will start
-  to apply. The `stall` block and its retry are not part of this release.
+  to apply. The `stall` block and its retry came in the next release (above).
 - **The model's reasoning, apart from its answer.** A runner whose transport streams reasoning (`acp`'s
   `agent_thought_chunk`, OpenRouter's `delta.reasoning` and `delta.reasoning_content`) hands it to the new optional
   `RunRequest.onThought`; a plugin runner uses the same callback. It never joins `RunResult.output`, so a model thinking

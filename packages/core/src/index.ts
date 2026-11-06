@@ -38,6 +38,8 @@ export {
   resolvePermissions,
   unsupportedBy,
 } from './extension/permissions.js';
+export type { StallCapable } from './extension/stall.js';
+export { isStallCapable } from './extension/stall.js';
 export type {
   FileSinkSettings,
   GelfSinkSettings,
@@ -225,6 +227,7 @@ export type {
   McpServerDefinition,
   OnFailure,
   RoleDefinition,
+  StallPolicy,
   StepBoard,
   StepDefinition,
   StepPermissions,
@@ -238,8 +241,11 @@ export {
   Isolation,
   isConsensusStep,
   isShellStep,
+  MAX_STALL_RETRIES,
+  MAX_STALL_SECONDS,
   MAX_TIMEOUT_SECONDS,
   McpPolicy,
+  MIN_STALL_SECONDS,
   PermissionLevel,
   PermissionMode,
   roleOf,

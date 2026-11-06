@@ -23,7 +23,7 @@ On the **attempt's `invoke_agent` span**, set only when that attempt stalled:
 
 | Attribute | Type | Meaning |
 | :--- | :--- | :--- |
-| `indaba.stall.silent_seconds` | int | seconds without activity when the attempt was stopped (at least `after_seconds`) |
+| `indaba.stall.silent_seconds` | int | the silence that stopped the attempt: the limit, `after_seconds`, since the runner reports that the limit elapsed and not a measured time |
 
 ## Span event
 
@@ -39,7 +39,9 @@ On the **attempt's `invoke_agent` span**, set only when that attempt stalled:
 
 The `step_status` event's `reason` (and so the dashboard, the web view and `indaba report`) carries the fixed strings:
 
-- `Stalled: no activity for N seconds (retry k of n).` on the move from running back to pending for the retry;
+- `Stalled: no activity for N seconds (retry k of n).` on the move back to pending for the retry. The state machine has no
+  running-to-pending move, so the step goes `RUNNING -> FAILED` with `Stalled: no activity for N seconds.` and then
+  `FAILED -> PENDING` with this reason, inside one step span;
 - `Stalled: no activity for N seconds.` when the step then fails;
 - `The worktree could not be restored after a stall.` when the restore fails.
 
