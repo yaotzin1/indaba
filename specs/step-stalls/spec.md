@@ -1,7 +1,7 @@
 # Specification: Step stalls (a per-step time limit, a no-activity limit, and a bounded retry of the stalled attempt)
 
-> **Status**: Release 1 (`timeout_seconds`) implemented; release 2 (`stall` and its retry) specified, not implemented (section 11).
-> **Stage entry**: 8 for release 1; release 2 waits for the condition in section 11
+> **Status**: Release 1 (`timeout_seconds`) implemented. Release 2 (`stall` and its retry) is in progress; its condition (section 11) was met by a measurement on 2026-11-06, see [`research.md`](research.md).
+> **Stage entry**: 8 for release 1; 3 for release 2 (the floor of C-05 was amended and C-16 and C-17 added)
 > **Semver impact**: minor (optional step fields, one optional runner interface, optional members of `RunRequest` and
 > `RunResult`, new span attributes and one new span event; below 1.0). **Nothing changes for a workflow that uses none of
 > the new fields**: no default moves. Confirmed in [`api-surface.md`](api-surface.md).
@@ -72,7 +72,7 @@ walked away comes back to nothing.
 
 **The no-activity limit and its retry**
 
-- [ ] AC-04 (R2). A step accepts an optional `stall` block with `after_seconds` (a whole number from 30 to 3600, required) and
+- [ ] AC-04 (R2). A step accepts an optional `stall` block with `after_seconds` (a whole number from 60 to 3600, required) and
       `retries` (a whole number from 0 to 3, default 0).
 - [ ] AC-05 (R2). While an attempt runs, the runner reports activity. When `after_seconds` pass without any, the runner
       stops the attempt and returns a result marked `stalled`. What counts as activity is each runner's, stated in its
@@ -202,7 +202,9 @@ Every item is a decision this specification **recommends**; the maintainer confi
 - **C-04. Who detects silence.** The runner, not the engine. The runner knows what its signals are (output chunks, a
   protocol update, a stream event); the engine only passes `stallSeconds` and reads `stalled`. This keeps one detector
   per kind of runner and leaves the engine free of any knowledge of `claude`.
-- **C-05. The bounds.** `after_seconds` 30 to 3600: below 30 seconds a normal model call is mistaken for a stall.
+- **C-05. The bounds.** `after_seconds` 60 to 3600. **Amended 2026-11-06 from 30**: a measured, healthy 75 s tool call sent
+  events 26 s and 30 s apart ([`research.md`](research.md)), so 30 was within a second of stopping a working call; 60 is twice
+  the longest healthy gap seen and about five times the silence before the first event.
   `retries` 0 to 3: more than three attempts of a call that hangs is a configuration problem. `timeout_seconds` 1 to
   86400.
 - **C-06. What is restored.** Tracked files back to the commit the attempt began from, untracked files created by the
@@ -228,6 +230,10 @@ Every item is a decision this specification **recommends**; the maintainer confi
   thinking events counting as activity. They were the same model, so it is evidence and not independent review.
 - **C-14. `retries` defaults to 0** when `stall` is set (the debate's Q2): setting `stall` never retries by surprise.
 - **C-15. Thinking events count as activity** (the debate's Q3): a long think is not a stall.
+- **C-16. Where the clock starts (2026-11-06).** At process start, not at the first event. The 11 to 13 seconds of silence before
+  the first event are far under the floor, and starting at spawn means a call that hangs before it ever speaks is still caught.
+- **C-17. A runner may decline by configuration (2026-11-06).** `StallCapable.canReportActivity` is a boolean: `claude-code` in plain
+  mode prints nothing until the end, so it answers false and `validate` refuses `stall` on it.
 - **C-11. The counters.** Stall retries reset when the step is reset to pending (AC-09); they are not stored between
   runs.
 
