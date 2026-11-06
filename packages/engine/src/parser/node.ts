@@ -27,6 +27,12 @@ export class Node {
     return [...this.data.keys()].map(String).filter((key) => !allowed.includes(key));
   }
 
+  /** How a key is set: `absent` (missing or null), `mapping`, or `other` (a scalar or a list). */
+  kind(key: string): 'absent' | 'mapping' | 'other' {
+    const value = this.present(key);
+    return value === undefined ? 'absent' : isYamlMap(value) ? 'mapping' : 'other';
+  }
+
   /** Absent or null counts as missing. */
   private present(key: string): unknown {
     return this.data.get(key) ?? undefined;

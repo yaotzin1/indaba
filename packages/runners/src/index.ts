@@ -34,7 +34,13 @@ export type {
   PtyModule,
   PtyProcess,
 } from './process.js';
-export { ABORT_EXIT_CODE, loadNodePty, NodeProcessSpawner, TIMEOUT_EXIT_CODE } from './process.js';
+export {
+  ABORT_EXIT_CODE,
+  loadNodePty,
+  NodeProcessSpawner,
+  STALL_EXIT_CODE,
+  TIMEOUT_EXIT_CODE,
+} from './process.js';
 export { ProcessRunResult, stripAnsi } from './process-runner.js';
 export type { DefaultRunnerOptions } from './registry.js';
 export { RunnerRegistry } from './registry.js';

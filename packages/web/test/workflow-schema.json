@@ -572,6 +572,40 @@
                   }
                 ]
               },
+              "stall": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "description": "Stop an attempt that shows no activity for after_seconds and run it again up to retries times. Agent steps only (not a debate); retries above 0 needs isolation: git_worktree; the runner must be able to report activity.",
+                    "additionalProperties": false,
+                    "required": ["after_seconds"],
+                    "properties": {
+                      "after_seconds": {
+                        "type": "integer",
+                        "minimum": 60,
+                        "maximum": 3600,
+                        "description": "Seconds without any activity that stop an attempt."
+                      },
+                      "retries": {
+                        "anyOf": [
+                          {
+                            "type": "integer",
+                            "minimum": 0,
+                            "maximum": 3,
+                            "description": "How many times a stalled attempt is run again (default 0)."
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
               "on_failure": {
                 "anyOf": [
                   {

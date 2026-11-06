@@ -80,7 +80,7 @@ walked away comes back to nothing.
 - [ ] AC-06 (R2). A stalled attempt is a failed attempt with the reason `Stalled: no activity for N seconds.` It is never
       reported as a timeout, and never as a success.
 - [ ] AC-07 (R2). With `retries` left, the engine discards what the stalled attempt changed in the step's worktree (back to
-      the commit it had when the attempt began) and runs the same step again, up to `retries` times. The next prompt
+      the state it had when the attempt began, see C-06) and runs the same step again, up to `retries` times. The next prompt
       carries the failure of the previous attempt only: `Your previous attempt stalled: no activity for N seconds. Nothing
       it did was kept.`
 - [ ] AC-08 (R2). With no `retries` left, the stalled step ends failed and its `on_failure` policy applies as it would for any
@@ -167,8 +167,8 @@ describe the stall; R1 adds only the `indaba.step.timeout_seconds` attribute (ev
   before anything runs. The reason strings contain numbers and fixed text, never agent output, a prompt or a path.
 - **The restore runs git on the engine's own worktree.** It uses the `Git` wrapper with an argument array, never a
   shell string, and confines every path to the worktree root (`specs/git-workspace`; the `workspace-git` skill). It
-  restores tracked files to the commit the attempt began from and removes untracked files the attempt created; it does
-  not remove ignored files (`node_modules`, `reports/`, a build cache), which are not the agent's to lose and not the
+  puts the worktree back to a tree it recorded when the first attempt began (C-06), which removes the files the attempt
+  created; it does not remove ignored files (`node_modules`, `reports/`, a build cache), which are not the agent's to lose and not the
   guard's to judge. It never touches the person's project directory.
 - **The streaming output of `claude` carries the model's messages.** The runner reads it as data: it parses each line as
   JSON inside a bounded buffer, extracts the final text, and treats any line that does not parse as activity and as
@@ -207,9 +207,14 @@ Every item is a decision this specification **recommends**; the maintainer confi
   the longest healthy gap seen and about five times the silence before the first event.
   `retries` 0 to 3: more than three attempts of a call that hangs is a configuration problem. `timeout_seconds` 1 to
   86400.
-- **C-06. What is restored.** Tracked files back to the commit the attempt began from, untracked files created by the
-  attempt removed, ignored files kept (section 6). The commit is the worktree's `HEAD` when the attempt began; the engine
-  records it. Checkpoint steps (the cookbooks' `checkpoint_*`) are what make that commit recent.
+- **C-06. What is restored.** *Amended while implementing release 2.* The state of the worktree when the first attempt began:
+  its files, tracked or not, including what earlier steps wrote and nobody committed, and `HEAD`. Whatever the stalled
+  attempt created is removed, whatever it changed or deleted is put back (an untracked file it changed too), and if it
+  committed, `HEAD` goes back. The first draft of this clause said "back to the commit", which would have deleted the
+  output of earlier steps: the engine stages the worktree after every isolated step (`git add -A`, for the patch), so
+  those files are in the index and not in the commit. Ignored files (`node_modules`, `reports/`, a build cache) and
+  `.indaba/` are not touched and not restored: an attempt that wrote a file under `.indaba/` leaves it there. The state is a
+  git tree object written at the start of the first attempt; no copy of the files is made.
 - **C-07. Debates.** `stall` is refused on a debate step in this version; `timeout_seconds` is accepted. A later
   specification may add it with a rule for what a discarded round is.
 - **C-08. The retry target that fails.** Not changed here. A follow-up decision: whether the failure of a step that was

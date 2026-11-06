@@ -50,6 +50,7 @@ export async function executeProcess(options: ExecuteOptions): Promise<ProcessRu
       env: request.env ?? {},
       usePty: options.usePty,
       timeoutSeconds,
+      ...(request.stallSeconds !== undefined ? { stallSeconds: request.stallSeconds } : {}),
       ...(options.verbatimArguments === true ? { verbatimArguments: true } : {}),
       onData: (stream, chunk) => {
         if (stream === 'stderr') {
@@ -76,6 +77,9 @@ export async function executeProcess(options: ExecuteOptions): Promise<ProcessRu
 
   if (outcome.timedOut) {
     stderr += `\nTimed out after ${timeoutSeconds} seconds.`;
+  } else if (outcome.stalled === true) {
+    // Fixed text and a number from the workflow: never anything the agent printed (specs/step-stalls, AC-19).
+    stderr += `\nStalled: no activity for ${request.stallSeconds ?? 0} seconds.`;
   } else if (outcome.aborted) {
     stderr += '\nAborted.';
   }
@@ -87,6 +91,7 @@ export async function executeProcess(options: ExecuteOptions): Promise<ProcessRu
       errorOutput: clean(stderr),
       durationMs: performance.now() - started,
       ...(request.model !== undefined ? { model: request.model } : {}),
+      ...(outcome.stalled === true ? { stalled: true as const } : {}),
     },
     outcome.mode,
   );

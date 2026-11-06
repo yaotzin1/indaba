@@ -59,6 +59,7 @@ import { McpPlanner } from './mcp.js';
 import { StepOutcome } from './outcome.js';
 import { checkPermissions, type PermissionFinding } from './permissions.js';
 import { PromptBuilder } from './prompt-builder.js';
+import { checkStalls, type StallFinding } from './stall.js';
 
 export interface StepExecutorOptions {
   /** When given, each chunk a runner streams is also dispatched as a `StepOutput` event. */
@@ -181,7 +182,8 @@ export class StepExecutor {
    * span or the stream.
    */
   private redacted(outcome: StepOutcome): StepOutcome {
-    if (outcome.ok || outcome.cancelled || outcome.feedback === '') {
+    // A stalled attempt's reason is fixed text and a number, and the engine reads its flag: keep it as it is.
+    if (outcome.ok || outcome.cancelled || outcome.feedback === '' || outcome.stalledSeconds !== undefined) {
       return outcome;
     }
     const feedback = this.redact(outcome.feedback);
@@ -313,6 +315,7 @@ export class StepExecutor {
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
+      ...(step.stall !== undefined ? { stallSeconds: step.stall.afterSeconds } : {}),
       ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
       // At `full` the runner is sent no fs or terminal limits (specs/agent-permissions, AC-04); a block with no level is sent as before.
       ...(step.permissions !== undefined && step.permissions.level !== PermissionLevel.Full
@@ -322,6 +325,12 @@ export class StepExecutor {
       ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
     };
     const result = await chain.run(request, options.signal);
+
+    // A runner that stopped the attempt for silence (specs/step-stalls, AC-05, AC-06). A stall the step did not ask for is the
+    // runner's fault, not the workflow's, and stays an ordinary failure with its exit code (section 5).
+    if (result.stalled === true && step.stall !== undefined) {
+      return StepOutcome.stalledFor(step.stall.afterSeconds);
+    }
 
     if (
       result.succeeded() &&
@@ -484,6 +493,21 @@ ${this.prompts.tail(result.failureText())}`,
    */
   permissionFindings(workflow: WorkflowDefinition): PermissionFinding[] {
     return checkPermissions(workflow, {
+      has: (name) => {
+        try {
+          this.runners.get(name);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      get: (name) => this.runners.get(name),
+    });
+  }
+
+  /** AC-12: the runners of a stall step that cannot report activity. The engine refuses to start on any. */
+  stallFindings(workflow: WorkflowDefinition): StallFinding[] {
+    return checkStalls(workflow, {
       has: (name) => {
         try {
           this.runners.get(name);
@@ -874,6 +898,10 @@ ${digest}`,
       span.setAttribute(Tracer.ATTR_COST_USD, result.reportedCostUsd);
     }
     span.setAttribute('indaba.exit_code', result.exitCode);
+    if (result.stalled === true && request.stallSeconds !== undefined) {
+      // The limit that elapsed: a number from the workflow, never anything the agent printed (AC-19).
+      span.setAttribute('indaba.stall.silent_seconds', request.stallSeconds);
+    }
     markThought();
     await this.tracer.endSpan(span, result.succeeded() ? SpanStatus.Ok : SpanStatus.Error);
     return result;

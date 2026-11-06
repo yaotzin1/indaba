@@ -23,7 +23,7 @@ On the **attempt's `invoke_agent` span**, set only when that attempt stalled:
 
 | Attribute | Type | Meaning |
 | :--- | :--- | :--- |
-| `indaba.stall.silent_seconds` | int | seconds without activity when the attempt was stopped (at least `after_seconds`) |
+| `indaba.stall.silent_seconds` | int | the silence that stopped the attempt: the limit, `after_seconds`, since the runner reports that the limit elapsed and not a measured time |
 
 ## Span event
 

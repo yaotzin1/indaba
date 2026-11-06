@@ -1,5 +1,11 @@
 import type { RunRequest } from '@indaba/core';
-import { McpCapability, type McpCapable, type PermissionCapability, PermissionLevel } from '@indaba/core';
+import {
+  McpCapability,
+  type McpCapable,
+  type PermissionCapability,
+  PermissionLevel,
+  type StallCapable,
+} from '@indaba/core';
 import { AbstractCliRunner, type CliRunnerOptions, PreparedCommand } from './abstract-cli-runner.js';
 import { parseClaudeStream } from './claude-stream.js';
 import { McpConfigWriter } from './mcp.js';
@@ -29,10 +35,14 @@ function choosesOutputFormat(args: readonly string[]): boolean {
  * the result then reports. That path runs on pipes (a terminal could wrap a long JSON line) and hands the answer to
  * `onOutput` once, when it is known.
  *
+ * Stall detection (specs/step-stalls): while it reads the stream, any data on it is activity (the events include the model's
+ * thinking and the progress of a tool call), so a step may set `stall`. In plain mode nothing arrives before the end and the
+ * runner says it cannot report activity.
+ *
  * MCP servers are injected: written to a private temporary file passed with `--mcp-config`, with
  * `--strict-mcp-config` so the agent sees exactly the servers the workflow declared.
  */
-export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
+export class ClaudeRunner extends AbstractCliRunner implements McpCapable, StallCapable {
   readonly name = 'claude-code';
   readonly description =
     'The Claude Code command line, one run per step; reads its answer, tokens and cost from the stream-json output.';
@@ -45,6 +55,11 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
     this.binary = options.binary ?? 'claude';
     this.extraArgs = options.extraArgs;
     this.reportsUsage = options.reportUsage !== false && !choosesOutputFormat(options.extraArgs ?? []);
+  }
+
+  /** True while the call is read from the stream; false in plain mode, where every healthy call is silent until its end. */
+  get canReportActivity(): boolean {
+    return this.reportsUsage;
   }
 
   override async run(request: RunRequest, signal?: AbortSignal): Promise<ProcessRunResult> {
@@ -79,6 +94,7 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable {
           ...(parsed.usage !== undefined ? { usage: parsed.usage } : {}),
           ...(parsed.costUsd !== undefined ? { reportedCostUsd: parsed.costUsd } : {}),
           ...(model !== undefined ? { model } : {}),
+          ...(raw.stalled === true ? { stalled: true as const } : {}),
         },
         raw.mode,
       );

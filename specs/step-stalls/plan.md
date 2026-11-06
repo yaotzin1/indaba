@@ -71,7 +71,7 @@ Everything marked R2: `stall`, the retry and restore, `StallCapable`, `RunReques
 | `packages/engine/src/engine/step-executor.ts` | `runAgent` sends `stallSeconds` and turns `result.stalled` into a failed outcome carrying `stalled`; `invoke` sets `indaba.stall.silent_seconds` on that attempt's span; `stallFindings(workflow)`. |
 | `packages/engine/src/engine/outcome.ts` | `StepOutcome.stalled?: { silentSeconds: number }` set by `StepOutcome.stalledFor(seconds)`; it is a failure for every consumer that ignores it. |
 | `packages/engine/src/engine/workflow-engine.ts` | `run` refuses AC-12 findings beside the permission findings; `execute` loops over stall attempts inside the step span (see below). |
-| `packages/engine/src/workspace/workspace.ts`, `git-worktree.ts` | `RestorableWorkspace`, `WorkspaceCheckpoint`, `isRestorable`; `GitWorktree.checkpoint` and `restore`. |
+| `packages/engine/src/workspace/workspace.ts`, `git-worktree.ts` | `RestorableWorkspace`, `WorkspaceCheckpoint`, `isRestorable`; `GitWorktree.checkpoint` and `restore` (a snapshot of the worktree, see "The restore"). |
 | `packages/engine/src/editor/schema.ts` | `stall` in the step schema. |
 | `packages/cli/src/main.ts` | `validate`, `plan` and the run gate report AC-12 findings; `plan` prints `stall Ns` and `stall retries k`. A finding formatter in `stall-report.ts`, beside `permission-report.ts`. |
 | `docs/workflow-format.md`, `docs/playbook.md`, `docs/ai-playbook.md`, `docs/cost-experiments.md`, `CHANGELOG.md`, `specs/DEPENDENCY_MAP.md` | documentation moves with the change. |
@@ -86,8 +86,7 @@ several `invoke_agent` spans. For a step with `stall`:
 1. Before each attempt: if `retries > 0`, take `checkpoint()` of the step's workspace.
 2. Run the executor. If the outcome is not a stall, behave as today.
 3. On a stall with retries left: end the attempt (the `invoke_agent` span is already an error with `silent_seconds`); `restore(checkpoint)`;
-   re-stage the step's input artifacts (a restore removes untracked files the attempt did not find, and they are copied in
-   again); add the `indaba.step.stalled` event with `retry: "restored"`; move `RUNNING -> FAILED` (`Stalled: no activity for N seconds.`)
+   add the `indaba.step.stalled` event with `retry: "restored"`; move `RUNNING -> FAILED` (`Stalled: no activity for N seconds.`)
    then `FAILED -> PENDING` (`... (retry k of n).`) then `PENDING -> RUNNING`; the next prompt's feedback is
    `Your previous attempt stalled: no activity for N seconds. Nothing it did was kept.`
 4. On a stall with none left: event `retry: "exhausted"`, the step fails with `Stalled: no activity for N seconds.`, and `on_failure`
@@ -100,13 +99,17 @@ checked before every attempt; a restore in progress is not interrupted, and the 
 
 ### The restore
 
-`GitWorktree.checkpoint()` records `HEAD` and the list of untracked, non-ignored files (`git rev-parse HEAD`;
-`git ls-files -z --others --exclude-standard`), refusing with a `WorkspaceError` above 10 000 untracked files (bounded).
-`restore()` runs `git reset --hard <head>` and `git clean -f -d -- <the untracked files that are not in the checkpoint>`, in chunks.
-Both use the `Git` wrapper (argument arrays, `shell: false`). The hash is checked against `^[0-9a-f]{40,64}$` and the paths come
-from git's own list, so nothing from a workflow or a model reaches the command. Ignored files are never touched (spec section 6).
-What this cannot undo, and the docs say: an untracked file that existed before the attempt and was **changed** by it (git has no
-copy of it). The cookbooks' checkpoint steps, which commit, are what keep that set small.
+*Changed while implementing: the first draft restored to `HEAD`, which would have deleted the output of earlier steps (the engine
+stages the worktree after each isolated step, so those files are in the index and not in the commit). It is now a snapshot.*
+
+`GitWorktree.checkpoint()` stages everything in the worktree's own private index (`git add -A -- . :(exclude).indaba`, as
+`diff()` already does) and records `HEAD` and the tree object `git write-tree` returns. `restore()` moves `HEAD` back
+(`git reset --soft <head> --`), stages again so nothing the attempt did is overlooked, and makes the index and the files the
+recorded tree (`git read-tree --reset -u <tree>`). That removes files the attempt created, puts back files it changed or deleted,
+untracked ones included, and undoes a commit it made. Both values are checked against `^(?:[0-9a-f]{40}|[0-9a-f]{64})$` before
+they reach git, which gets them as arguments through the `Git` wrapper (`shell: false`); nothing from a workflow or a model is in
+a command. Nothing is listed or counted, so there is no file-count limit to hit. Ignored files and `.indaba/` are never touched
+(spec section 6), and so are not restored: an attempt that wrote under `.indaba/` leaves that file behind, which the docs say.
 
 ### Where silence is measured
 
@@ -143,6 +146,6 @@ A plugin's runner is refused unless it implements `StallCapable` (AC-21).
 | A new runtime dependency? | No. |
 | Untrusted data reaching a shell, a path, a URL or a log? | The numbers are validated whole numbers within bounds before anything runs. Reasons contain numbers and fixed text. The restore passes a validated hash and git's own file list as arguments, never a shell string. No prompt or output is copied to a span or event (AC-19). |
 | A wall clock, randomness or environment read in decision logic? | The silence timer uses `setTimeout` in the process layer, as the timeout already does. The engine decides on a flag in the outcome, not on a clock. |
-| An unbounded loop, retry or buffer? | Attempts are at most `1 + retries` (3 retries at most) per execution; the untracked-file snapshot is capped at 10 000 entries; the restore runs in chunks. |
+| An unbounded loop, retry or buffer? | Attempts are at most `1 + retries` (3 retries at most) per execution; the restore lists and counts nothing: it records and restores one tree object. |
 | Does a failure surface a sentence a person can act on? | Yes: the three fixed reasons, and the validation messages name the step and the runner. |
 | Can a healthy call be stopped? | Only if it is silent for the whole `after_seconds`, at least 60. The measurement found 30 s as the longest healthy gap; the docs tell authors to set it several times above the longest tool call a step makes. |

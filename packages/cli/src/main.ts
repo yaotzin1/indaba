@@ -23,6 +23,8 @@ import {
   applyRunBounds,
   catalogOf,
   checkPermissions,
+  checkStalls,
+  describeStallFinding,
   effectiveGuards,
   FileWorkflowRegistry,
   fullAccessSteps,
@@ -839,10 +841,14 @@ async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<
   }
   const findings = checkPermissions(workflow, runners);
   const refused = findings.filter((f) => f.severity === 'error');
-  if (refused.length > 0) {
+  const stalls = checkStalls(workflow, runners);
+  if (refused.length > 0 || stalls.length > 0) {
     io.stdout.write(`${parsed.file} is invalid:\n`);
     for (const finding of refused) {
       io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
+    }
+    for (const finding of stalls) {
+      io.stdout.write(` - ${describeStallFinding(finding)}\n`);
     }
     return EXIT_FAILURE;
   }
@@ -884,6 +890,12 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     if (step.timeoutSeconds !== undefined) {
       extra.push(`timeout ${step.timeoutSeconds}s`);
     }
+    if (step.stall !== undefined) {
+      extra.push(`stall ${step.stall.afterSeconds}s`);
+      if (step.stall.retries > 0) {
+        extra.push(`stall retries ${step.stall.retries}`);
+      }
+    }
     if (!isShellStep(step) && !isConsensusStep(step)) {
       const names = planForStep(step, workflow).names;
       if (names.length > 1) {
@@ -908,6 +920,10 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     io.stdout.write(
       `${finding.severity === 'error' ? 'permissions error: ' : 'permissions: '}${describePermissionFinding(finding)}\n`,
     );
+  }
+  for (const finding of checkStalls(workflow, runners)) {
+    failed = true;
+    io.stdout.write(`stall error: ${describeStallFinding(finding)}\n`);
   }
   for (const issue of planner.preflight(workflow)) {
     failed ||= issue.isError;
@@ -989,10 +1005,14 @@ async function permissionGate(
   const workflow = bounded.workflow;
   const findings = [...checkPermissions(workflow, runners), ...bounded.findings];
   const refused = findings.filter((f) => f.severity === 'error');
-  if (refused.length > 0) {
+  const stalls = checkStalls(workflow, runners);
+  if (refused.length > 0 || stalls.length > 0) {
     io.stdout.write(`${parsed.file} is invalid:\n`);
     for (const finding of refused) {
       io.stdout.write(` - ${describePermissionFinding(finding)}\n`);
+    }
+    for (const finding of stalls) {
+      io.stdout.write(` - ${describeStallFinding(finding)}\n`);
     }
     return EXIT_FAILURE;
   }

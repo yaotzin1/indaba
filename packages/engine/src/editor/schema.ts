@@ -4,7 +4,10 @@ import {
   DecisionType,
   FailureAction,
   Isolation,
+  MAX_STALL_RETRIES,
+  MAX_STALL_SECONDS,
   McpPolicy,
+  MIN_STALL_SECONDS,
   PermissionLevel,
   PermissionMode,
 } from '@indaba/core';
@@ -234,6 +237,28 @@ const STEP: Schema = {
       maximum: 86400,
       description:
         'Limit in seconds for each call of a runner and each command of this step; replaces indaba run --timeout (default 900) for this step.',
+    }),
+    stall: orNull({
+      type: 'object',
+      description:
+        'Stop an attempt that shows no activity for after_seconds and run it again up to retries times. Agent steps only (not a debate); retries above 0 needs isolation: git_worktree; the runner must be able to report activity.',
+      additionalProperties: false,
+      required: ['after_seconds'],
+      properties: {
+        // Not `orNull`: the parser reads a null after_seconds as missing, which is an error.
+        after_seconds: {
+          type: 'integer',
+          minimum: MIN_STALL_SECONDS,
+          maximum: MAX_STALL_SECONDS,
+          description: 'Seconds without any activity that stop an attempt.',
+        },
+        retries: orNull({
+          type: 'integer',
+          minimum: 0,
+          maximum: MAX_STALL_RETRIES,
+          description: 'How many times a stalled attempt is run again (default 0).',
+        }),
+      },
     }),
     on_failure: orNull(ON_FAILURE),
     consensus_with: orNull({ ...STRING_LIST, description: 'Roles that debate with this step’s role.' }),
