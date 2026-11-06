@@ -8,20 +8,20 @@
 The limit exists but no workflow sees a difference unless it asks for more than 1, and worktree steps still share the
 run worktree. Ships the scheduling and the configuration.
 
-- [ ] T-01. `@indaba/core`: `maxParallel`, `maxWaits`, `touches` on the model. Tests: literals without them compile.
-- [ ] T-02. `@indaba/core`: `schedule.ts` (`admit`, `runsInProject`, `parallelGroups`). Tests: limit 1 reproduces
+- [x] T-01. `@indaba/core`: `maxParallel`, `maxWaits`, `touches` on the model. Tests: literals without them compile.
+- [x] T-02. `@indaba/core`: `schedule.ts` (`admit`, `runsInProject`, `parallelGroups`). Tests: limit 1 reproduces
   today's order on every example workflow; project-directory steps alone; halted admits nothing.
-- [ ] T-03. `@indaba/engine`: parse and validate `max_parallel`, `max_waits`, `touches` (shell steps only); schema and
+- [x] T-03. `@indaba/engine`: parse and validate `max_parallel`, `max_waits`, `touches` (shell steps only); schema and
   catalog descriptions. Tests: every validation message names the field.
-- [ ] T-04. `@indaba/engine`: `parallel:` in `indaba.config`, `ResolvedParallel`. Tests: defaults, problems naming the key.
-- [ ] T-05. `@indaba/engine`: `StepPool` and the run loop over it; `maxParallelSteps`, `maxWaits`, `onStepOutput`.
+- [x] T-04. `@indaba/engine`: `parallel:` in `indaba.config`, `ResolvedParallel`. Tests: defaults, problems naming the key.
+- [x] T-05 (done 2026-11-07; `StepPool` in `engine/step-pool.ts`, the run loop over `admit`, the cap is `PARALLEL_STEP_CAP`; the golden trace differs by the two root attributes and nothing else). `@indaba/engine`: `StepPool` and the run loop over it; `maxParallelSteps`, `maxWaits`, `onStepOutput`.
   Without forks (slice 2), worktree steps still share the run worktree and project-directory steps run alone, so the
   pool keeps worktree steps to one at a time (a constant cap, removed in T-08). Slice 1 is the plumbing; it changes no
   run. Tests: the trace-file byte-for-byte test at limit 1 and at limit 3; retries, halting and cancellation through the
   pool with fake runners.
-- [ ] T-06. `indaba`: `--parallel`, `INDABA_PARALLEL`, resolution order and source, the root span attributes,
+- [x] T-06 (done 2026-11-07 for `indaba run` and `indaba plan`; **open: `indaba ui --parallel` and the limit in the Settings screens (AC-01, AC-04)**, which need the run control and the Settings screens and are left for the next change of slice 1; a request above the cap prints a notice instead of the consequences text, see the amendment of `api-surface.md`). `indaba`: `--parallel`, `INDABA_PARALLEL`, resolution order and source, the root span attributes,
   `PARALLEL_CONSEQUENCES` printed when the limit is above 1, plan groups. Tests: resolution order and errors.
-- [ ] T-07. Docs: `docs/workflow-format.md` (fields, the consequences text), `docs/logging.md`'s neighbour section for
+- [x] T-07 (done 2026-11-07; `docs/workflow-format.md` holds the consequences text word for word, a test pins it). Docs: `docs/workflow-format.md` (fields, the consequences text), `docs/logging.md`'s neighbour section for
   `parallel:` in `indaba.config`, CHANGELOG under Unreleased (minor).
 
 ## Slice 2: forks and landing

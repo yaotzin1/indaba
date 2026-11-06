@@ -18,7 +18,61 @@ import { Document, isMap, isScalar, parseAllDocuments, parseDocument } from 'yam
 export const PROJECT_CONFIG_FILE = 'indaba.config';
 
 /** The top-level sections the file may hold. */
-export const PROJECT_CONFIG_SECTIONS: readonly string[] = ['logging'];
+export const PROJECT_CONFIG_SECTIONS: readonly string[] = ['logging', 'parallel'];
+
+/** How many steps may run at once when nothing says otherwise (specs/parallel-steps, C-01). */
+export const DEFAULT_MAX_PARALLEL_STEPS = 1;
+/** How many times a step is put back to wait for another before it is admitted alone (specs/parallel-steps, C-08). */
+export const DEFAULT_MAX_WAITS = 3;
+
+/** The `parallel:` section with every default filled (specs/parallel-steps, AC-01, AC-13). */
+export interface ResolvedParallel {
+  readonly maxSteps: number;
+  readonly maxWaits: number;
+}
+
+const PARALLEL_KEYS = ['max_steps', 'max_waits'] as const;
+
+function wholeAtLeastOne(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1;
+}
+
+/** Reads the `parallel:` section. A value that is not a whole number of at least 1 is a problem naming its key, and takes its default. */
+export function resolveParallel(section: unknown): {
+  readonly parallel: ResolvedParallel;
+  readonly problems: readonly string[];
+} {
+  const problems: string[] = [];
+  let maxSteps = DEFAULT_MAX_PARALLEL_STEPS;
+  let maxWaits = DEFAULT_MAX_WAITS;
+  if (section !== undefined && section !== null) {
+    if (typeof section !== 'object' || Array.isArray(section)) {
+      problems.push('parallel must be a mapping (max_steps, max_waits)');
+    } else {
+      const entries = section as Record<string, unknown>;
+      for (const key of Object.keys(entries)) {
+        if (!(PARALLEL_KEYS as readonly string[]).includes(key)) {
+          problems.push(`parallel.${key} is not a key of parallel (allowed: ${PARALLEL_KEYS.join(', ')})`);
+        }
+      }
+      if (entries.max_steps !== undefined && entries.max_steps !== null) {
+        if (wholeAtLeastOne(entries.max_steps)) {
+          maxSteps = entries.max_steps;
+        } else {
+          problems.push('parallel.max_steps must be a whole number of at least 1');
+        }
+      }
+      if (entries.max_waits !== undefined && entries.max_waits !== null) {
+        if (wholeAtLeastOne(entries.max_waits)) {
+          maxWaits = entries.max_waits;
+        } else {
+          problems.push('parallel.max_waits must be a whole number of at least 1');
+        }
+      }
+    }
+  }
+  return { parallel: { maxSteps, maxWaits }, problems };
+}
 
 export interface ProjectConfig {
   /** The file read, or would be written. */
@@ -26,6 +80,8 @@ export interface ProjectConfig {
   /** False when the project has no `indaba.config`; everything is then its default. */
   readonly present: boolean;
   readonly logging: ResolvedLogging;
+  /** The `parallel:` section, always present with its defaults filled. */
+  readonly parallel: ResolvedParallel;
   /** Every problem of the file, each naming the key (`logging.sinks[1].address`). Empty when it is valid. */
   readonly problems: readonly string[];
 }
@@ -110,9 +166,16 @@ export function parseProjectConfig(source: string, path = PROJECT_CONFIG_FILE): 
   const { value, problem } = decode(source);
   const problems: string[] = [];
   if (problem !== undefined) {
-    return { path, present: true, logging: resolveLoggingSettings(undefined), problems: [problem] };
+    return {
+      path,
+      present: true,
+      logging: resolveLoggingSettings(undefined),
+      parallel: resolveParallel(undefined).parallel,
+      problems: [problem],
+    };
   }
   let section: unknown;
+  let parallelSection: unknown;
   if (value !== undefined && value !== null) {
     if (typeof value !== 'object' || Array.isArray(value)) {
       problems.push(
@@ -127,11 +190,14 @@ export function parseProjectConfig(source: string, path = PROJECT_CONFIG_FILE): 
         }
       }
       section = (value as Record<string, unknown>).logging;
+      parallelSection = (value as Record<string, unknown>).parallel;
     }
   }
   const logging = resolveLoggingSettings(section);
   problems.push(...logging.problems.map((p) => `logging.${p}`));
-  return { path, present: true, logging, problems };
+  const resolved = resolveParallel(parallelSection);
+  problems.push(...resolved.problems);
+  return { path, present: true, logging, parallel: resolved.parallel, problems };
 }
 
 /** Reads `indaba.config` of `root`. A missing file is not a problem: everything takes its default. */
@@ -142,7 +208,13 @@ export async function readProjectConfig(root: string): Promise<ProjectConfig> {
     source = await readFile(path, 'utf8');
   } catch (error) {
     if (isMissing(error)) {
-      return { path, present: false, logging: resolveLoggingSettings(undefined), problems: [] };
+      return {
+        path,
+        present: false,
+        logging: resolveLoggingSettings(undefined),
+        parallel: resolveParallel(undefined).parallel,
+        problems: [],
+      };
     }
     throw new IndabaError(`${PROJECT_CONFIG_FILE} cannot be read.`, { cause: error });
   }

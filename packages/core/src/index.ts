@@ -252,6 +252,8 @@ export {
   SHELL_RUNNER,
   stepOf,
 } from './workflow/model.js';
+export type { Admission, AdmitInput } from './workflow/schedule.js';
+export { admit, parallelGroups, runsInProject } from './workflow/schedule.js';
 export {
   canTransition,
   isTerminalStatus,

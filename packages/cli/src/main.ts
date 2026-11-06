@@ -28,6 +28,7 @@ import {
   effectiveGuards,
   FileWorkflowRegistry,
   fullAccessSteps,
+  PARALLEL_STEP_CAP,
   type PermissionFinding,
   type PermissionRunners,
   PROJECT_CONFIG_FILE,
@@ -65,6 +66,7 @@ import {
   testSink,
 } from './log.js';
 import type { BrowserOpener } from './open-browser.js';
+import { parallelNotice, parseParallelFlag, planGroupLines, resolveLimit } from './parallel.js';
 import { describePermissionFinding } from './permission-report.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
@@ -185,6 +187,7 @@ Options:
   -w, --workdir <dir>     Project directory the workflow runs against (default: .)
       --task-id <id>      Task id (names the worktree and trace)
       --timeout <secs>    Per-step timeout in seconds (default: 900)
+      --parallel <n>      How many steps may run at once (default: 1; INDABA_PARALLEL or parallel.max_steps in indaba.config set it too)
       --plugin <spec>     Load a plugin; repeatable
       --discussion-dir <dir>
                           Where the messages of each debate are kept for the web view (default: .indaba/discussions)
@@ -206,6 +209,7 @@ const RUN_ONLY_OPTIONS = [
   'workdir',
   'task-id',
   'timeout',
+  'parallel',
   'verbose',
   'tui',
   'discussion-dir',
@@ -308,6 +312,7 @@ interface Parsed {
   readonly workdir: string;
   readonly taskId: string | undefined;
   readonly timeout: number | undefined;
+  readonly parallel: number | undefined;
   readonly verbosity: number;
   readonly tui: boolean;
   readonly discussionDir: string | undefined;
@@ -355,12 +360,20 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
     }
   }
 
+  let parallel: number | undefined;
+  try {
+    parallel = parseParallelFlag(values.parallel);
+  } catch (error) {
+    throw new UsageError(error instanceof Error ? error.message : String(error));
+  }
+
   return {
     file: positionals[0] ?? DEFAULT_FILE,
     plugins: values.plugin ?? [],
     workdir: values.workdir ?? '.',
     taskId: values['task-id'],
     timeout,
+    parallel,
     verbosity: values.verbose?.length ?? 0,
     tui: values.tui === true,
     discussionDir: values['discussion-dir'],
@@ -381,6 +394,7 @@ function parseWith(args: readonly string[]) {
       workdir: { type: 'string', short: 'w' },
       'task-id': { type: 'string' },
       timeout: { type: 'string' },
+      parallel: { type: 'string' },
       verbose: { type: 'boolean', short: 'v', multiple: true },
       tui: { type: 'boolean' },
       'discussion-dir': { type: 'string' },
@@ -914,6 +928,23 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     }
   });
 
+  // The groups for the limit that would run: variable, file, then the workflow, never above the cap (specs/parallel-steps, AC-32).
+  const configured = await readProjectConfig(io.cwd);
+  const asked = resolveLimit({
+    flag: undefined,
+    variable: io.env.INDABA_PARALLEL,
+    configured: configured.parallel.maxSteps,
+  });
+  const wanted =
+    workflow.maxParallel === undefined ? asked.limit : Math.min(asked.limit, workflow.maxParallel);
+  const notice = parallelNotice(wanted);
+  if (notice !== undefined) {
+    io.stdout.write(`${notice}\n`);
+  }
+  for (const line of planGroupLines(order, Math.min(wanted, PARALLEL_STEP_CAP))) {
+    io.stdout.write(`${line}\n`);
+  }
+
   let failed = false;
   for (const finding of checkPermissions(workflow, runners)) {
     failed ||= finding.severity === 'error';
@@ -1096,7 +1127,20 @@ async function runInDashboard(
 
 async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
+  // The limit of steps that run at once: flag, variable, file, default (specs/parallel-steps, AC-01).
+  const configured = await readProjectConfig(projectDir);
+  const limit = resolveLimit({
+    flag: parsed.parallel,
+    variable: io.env.INDABA_PARALLEL,
+    configured: configured.parallel.maxSteps,
+  });
+  for (const warning of limit.warnings) {
+    io.stderr.write(`${warning}\n`);
+  }
   const { engine, parser, events, runners } = await createEngine({
+    maxParallelSteps: limit.limit,
+    maxParallelSource: limit.source,
+    maxWaits: configured.parallel.maxWaits,
     projectDir,
     logger,
     logSinks: logger,
@@ -1122,6 +1166,10 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   const { workflow, findings, acknowledged } = gate;
 
   const screen = screenOf(io);
+  const notice = parallelNotice(limit.limit);
+  if (notice !== undefined) {
+    screen.line(`${notice}\n`);
+  }
   events.addListener(StepStatusChanged, (e) => {
     const reason = e.reason === undefined ? '' : ` (${e.reason.split('\n')[0] ?? ''})`;
     screen.line(`  ${e.stepId.padEnd(14)} ${e.from} -> ${e.to}${reason}\n`);

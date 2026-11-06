@@ -158,6 +158,11 @@ export interface StepDefinition {
    * AC-04 to AC-09). Absent means no silence limit, as before.
    */
   readonly stall?: StallPolicy;
+  /**
+   * The paths or globs a shell step touches, in place of the intent an agent step declares (specs/parallel-steps, AC-10).
+   * Only a shell step may set it.
+   */
+  readonly touches?: readonly string[];
 }
 
 /** The largest `timeout_seconds` a step may set: one day (specs/step-stalls, AC-01). */
@@ -187,6 +192,13 @@ export interface WorkflowDefinition {
   readonly defaultMcpPolicy: McpPolicy;
   /** `defaults.permissions`: used by an agent step whose step and role have no block (AC-01). */
   readonly defaultPermissions?: StepPermissions;
+  /**
+   * `max_parallel`: the most steps this workflow lets run at once. It can lower the run's limit, never raise it
+   * (specs/parallel-steps, AC-03).
+   */
+  readonly maxParallel?: number;
+  /** `max_waits`: how often a step may be put back before it is admitted alone; lowers the configured value (AC-03). */
+  readonly maxWaits?: number;
 }
 
 /** Fills every collection and scalar default so callers only state what differs. */

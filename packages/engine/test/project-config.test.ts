@@ -53,7 +53,7 @@ describe('readProjectConfig', () => {
       'sandbox: {}\nlogging:\n  level: loud\n  sinks:\n    - type: gelf\n      address: ftp://x\n      colour: red\n',
     );
     expect(config.problems).toEqual([
-      'sandbox is not a section of indaba.config (allowed: logging)',
+      'sandbox is not a section of indaba.config (allowed: logging, parallel)',
       'logging.level must be one of error, warn, info, debug',
       'logging.sinks[0].colour is not a logging setting (allowed: type, level, address, secretEnv, queueLength, timeoutSeconds, retries)',
       'logging.sinks[0].address must be an address starting with http:// or https:// or tcp:// or udp://',
@@ -66,7 +66,7 @@ describe('readProjectConfig', () => {
       'invalid YAML: the file holds exactly one document',
     ]);
     expect(parseProjectConfig('- one\n').problems).toEqual([
-      'indaba.config must be a mapping of sections (logging)',
+      'indaba.config must be a mapping of sections (logging, parallel)',
     ]);
     expect(parseProjectConfig('').problems).toEqual([]);
     expect(parseProjectConfig('logging: 3\n').problems).toEqual(['logging.logging must be a mapping']);

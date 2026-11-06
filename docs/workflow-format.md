@@ -82,6 +82,8 @@ This is `examples/task-pipeline.workflow.ai.yml`; `examples/mcp.workflow.ai.yml`
 | `roles` | no | Map of role name to a role (see below). Needed by any step that uses `role` |
 | `steps` | yes | A list with at least one step |
 | `mcp_servers` | no | Map of server name to a Model Context Protocol server |
+| `max_parallel` | no | A whole number of at least 1. The most steps this workflow lets run at once; it lowers the limit of the run and never raises it. See [Steps at the same time](#steps-at-the-same-time-max_parallel). **This version still runs one step at a time** |
+| `max_waits` | no | A whole number of at least 1. How many times a step may be put back to wait for another before it is admitted alone; it lowers the configured value and never raises it |
 | `defaults` | no | `defaults.mcp_policy` (`required`, the default, or `optional`) and `defaults.permissions` (see [Permissions](#permissions)). Nothing else under `defaults` is read |
 
 ### `artifacts` and interpolation
@@ -128,6 +130,7 @@ order they are written in. A cycle or a dependency on an unknown step is a valid
 | `isolation` | no | `none` (default) or `git_worktree` |
 | `timeout_seconds` | no | A whole number from 1 to 86400. The limit, in seconds, of **each call** of a runner and **each command** of a shell step; it replaces `indaba run --timeout` (default 900) for this step. It is not a limit on the step as a whole: a step that falls back to another runner, or a debate with several rounds, can take longer in total. On a debate step it limits each call of each participant (a debate without it is not bound by `--timeout`). It is not the `timeout_seconds` of a `permissions` block, which is still refused. A step that times out fails with `Timed out after N seconds.` and its `on_failure` applies |
 | `stall` | no | `{ after_seconds, retries }`: stop an attempt that shows no activity for `after_seconds` (60 to 3600) and run it again up to `retries` (0 to 3, default 0) times. Agent steps only, not a debate; `retries` above 0 needs `isolation: git_worktree` on the step; every runner of the step must be able to report activity (today `claude-code`). Independent of `timeout_seconds`. See [Stalls](#stalls-stall) |
+| `touches` | no | A list of paths or globs. Only a `runner: "shell"` step may have it: what the step touches, which stands in for the intent an agent step declares when steps run at the same time. Without it a shell step intends nothing |
 | `on_failure` | no | What to do when the step fails (see Retries) |
 | `consensus_with` | no | Roles that debate with this step's `role` |
 | `decision_type` | no | `consensus` (every participant agrees) or `majority` (more than half) |
@@ -506,6 +509,22 @@ attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.sta
 `indaba.step.stalled` event per stalled attempt with `indaba.stall.attempt`, `indaba.stall.silent_seconds` and
 `indaba.stall.retry` (`restored`, `exhausted` or `restore_failed`). None of them holds a prompt or anything the agent printed.
 `indaba plan` shows `stall 300s` and `stall retries 1` beside the step.
+
+### Steps at the same time: `max_parallel`
+
+The limit of steps that may run at once is decided, strongest first, by `indaba run --parallel <n>`, the variable `INDABA_PARALLEL`, `parallel.max_steps` in `indaba.config`, and then the default, 1. Each is a whole number of at least 1: a bad flag is a usage error, a bad variable is ignored with a warning, a bad value in the file is a configuration error that names the key. A workflow can lower the limit of its own run with `max_parallel` and `max_waits`, never raise it. `indaba.config` also sets `parallel.max_waits` (default 3).
+
+**This version still runs one step at a time.** The limit is accepted, resolved and recorded on the run (`indaba.workflow.max_parallel` and `indaba.workflow.max_parallel.source` on the root span, where the source is `flag`, `env`, `config`, `workflow` or `default`), and a request for more than one says so. Steps start working at the same time in a later release, when each step has a worktree of its own and the steps can agree before they collide (`specs/parallel-steps`). Wherever the limit is set above 1 and at the start of such a run, Indaba will state what it costs:
+
+```text
+Steps run at the same time. What that costs:
+- each agent step makes an extra call first, to say what it intends to change;
+- steps whose intentions meet hold a negotiation and may resolve conflicts, which means more calls and more spend;
+- each running step works in a worktree of its own on disk;
+- a negotiation or a conflict nobody can settle comes to the decider.
+```
+
+A shell step declares what it will change with `touches`; an agent step says it in a call of its own before it works.
 
 ### MCP servers
 

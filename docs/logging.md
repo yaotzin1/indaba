@@ -43,7 +43,8 @@ send it.
 
 ## Configuring it: `indaba.config`
 
-Put a YAML file named `indaba.config` in the project root to change the defaults. It holds one section, `logging:`,
+Put a YAML file named `indaba.config` in the project root to change the defaults. It holds two sections, `logging:` (this page) and `parallel:` (`max_steps`, `max_waits`; see
+[Steps at the same time](workflow-format.md#steps-at-the-same-time-max_parallel)),
 and you can commit it with the workflow; it never holds a secret.
 
 ```yaml

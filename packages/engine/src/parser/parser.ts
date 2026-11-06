@@ -184,6 +184,10 @@ export class WorkflowParser {
         : (this.parsePolicy(defaults, errors) ?? McpPolicy.Required);
 
     const defaultPermissions = defaults === undefined ? undefined : this.parsePermissions(defaults, errors);
+    const parallelMessage = 'max_parallel must be a whole number of at least 1';
+    const maxParallel = root.boundedInt('max_parallel', 1, Number.MAX_SAFE_INTEGER, parallelMessage);
+    const waitsMessage = 'max_waits must be a whole number of at least 1';
+    const maxWaits = root.boundedInt('max_waits', 1, Number.MAX_SAFE_INTEGER, waitsMessage);
     const roles = record(roleEntries);
     for (const step of steps) {
       const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
@@ -194,6 +198,11 @@ export class WorkflowParser {
       ) {
         errors.add(
           `step "${step.id}".permissions.level is not allowed: its role "${role.name}" runs shell commands the author wrote`,
+        );
+      }
+      if (step.touches !== undefined && (step.runner ?? role?.runner) !== SHELL_RUNNER) {
+        errors.add(
+          `step "${step.id}": touches is only for a shell step; an agent step declares its intent when it runs`,
         );
       }
     }
@@ -207,6 +216,8 @@ export class WorkflowParser {
       mcpServers: record(serverEntries),
       defaultMcpPolicy,
       ...(defaultPermissions !== undefined ? { defaultPermissions } : {}),
+      ...(maxParallel !== undefined ? { maxParallel } : {}),
+      ...(maxWaits !== undefined ? { maxWaits } : {}),
     };
 
     const problems = errors.isEmpty() ? this.validator.validate(workflow) : errors.all();
@@ -331,6 +342,7 @@ export class WorkflowParser {
     const board = this.parseBoard(node.map('board'), errors);
     const timeoutMessage = `step "${id}": timeout_seconds must be a whole number from 1 to ${MAX_TIMEOUT_SECONDS}`;
     const timeoutSeconds = node.boundedInt('timeout_seconds', 1, MAX_TIMEOUT_SECONDS, timeoutMessage);
+    const touches = node.has('touches') ? node.stringList('touches') : undefined;
     const stall = this.parseStall(node, id, errors, {
       shell: chain?.runner === SHELL_RUNNER,
       agent: role !== undefined || (chain !== undefined && chain.runner !== SHELL_RUNNER),
@@ -363,6 +375,7 @@ export class WorkflowParser {
       ...(board !== undefined ? { board } : {}),
       ...(timeoutSeconds !== undefined ? { timeoutSeconds } : {}),
       ...(stall !== undefined ? { stall } : {}),
+      ...(touches !== undefined ? { touches } : {}),
     };
   }
 
