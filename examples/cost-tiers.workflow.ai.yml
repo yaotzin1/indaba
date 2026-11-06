@@ -1,0 +1,70 @@
+# An experiment, not a recommendation: three roles on three tiers of model, so you can compare runs.
+# The model names are placeholders. Replace them with models you can use, then read what each step
+# cost with `indaba run -v` and in the trace. See docs/cost-experiments.md.
+#
+# The `local` runner exists only when you set, in the environment and never in this file:
+#   INDABA_OPENAI_COMPAT_LOCAL_BASE_URL=http://localhost:11434/v1
+#   INDABA_OPENAI_COMPAT_LOCAL_MODEL=<a model your server has>
+version: "1.0"
+name: "cost-tiers"
+
+artifacts:
+  plan: ".indaba/artifacts/plan.md"
+  draft: ".indaba/artifacts/draft.md"
+  notes: ".indaba/artifacts/notes.md"
+
+roles:
+  planner:
+    runner: "openrouter"
+    model: "your-strongest-model"
+  drafter:
+    runner: "openrouter"
+    model: "your-cheaper-model"
+  reviewer:
+    runner: "local"
+    model: "your-local-model"
+  critic:
+    runner: "local"
+    model: "your-local-model"
+
+steps:
+  # The step where a mistake costs the most: the plan every later step follows.
+  - id: "plan"
+    role: "planner"
+    goal: "Write a short plan for a command line tool that counts words in a file, in ${{ artifacts.plan }}"
+    outputs: ["${{ artifacts.plan }}"]
+
+  # The bulk of the text, on the cheaper tier.
+  - id: "draft"
+    depends_on: ["plan"]
+    role: "drafter"
+    input_artifacts: ["${{ artifacts.plan }}"]
+    goal: "Follow the plan and write the README of the tool in ${{ artifacts.draft }}"
+    outputs: ["${{ artifacts.draft }}"]
+
+  # A check no model is needed for. It uses no tokens, and a retry carries only its last failure.
+  # `npm run lint` stands for your own command: tests, a linter, a link checker.
+  - id: "check"
+    depends_on: ["draft"]
+    runner: "shell"
+    commands:
+      - "npm run lint"
+    on_failure:
+      action: "retry_step"
+      target: "draft"
+      max_retries: 2
+
+  # Two local reviewers settle a list of findings; a person rules only if they cannot.
+  - id: "review"
+    depends_on: ["check"]
+    role: "reviewer"
+    consensus_with: ["critic"]
+    decision_type: "consensus"
+    arbiter: "human"
+    input_artifacts: ["${{ artifacts.draft }}"]
+    timeout_seconds: 300
+    goal: >-
+      Review ${{ artifacts.draft }} for anything unclear or missing. Do not modify any file. Keep your
+      reply under 150 words. AGREEMENT: means you accept the other reviewer's findings as the review's
+      result. CRITIQUE: means a finding is missing, wrong or badly worded, and you say which. In your
+      first reply list your own findings (at most four) and begin with CRITIQUE:.

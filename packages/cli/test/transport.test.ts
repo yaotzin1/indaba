@@ -36,6 +36,23 @@ describe('the shipped examples', () => {
     },
   );
 
+  it('validates and plans the cost-tiers example once a local endpoint is configured', async () => {
+    const env = {
+      INDABA_OPENAI_COMPAT_LOCAL_BASE_URL: 'http://localhost:11434/v1',
+      INDABA_OPENAI_COMPAT_LOCAL_MODEL: 'any-model',
+    };
+    const validated = await run(['validate', example('cost-tiers.workflow.ai.yml')], undefined, env);
+    expect(validated.code, validated.out).toBe(0);
+    const planned = await run(['plan', example('cost-tiers.workflow.ai.yml')], undefined, env);
+    expect(planned.code, planned.out).toBe(0);
+  });
+
+  it('names the local runner as unknown when the cost-tiers example runs without the environment', async () => {
+    const r = await run(['validate', example('cost-tiers.workflow.ai.yml')]);
+    expect(r.code).toBe(1);
+    expect(r.out).toContain('roles.reviewer.runner "local" is not a known runner');
+  });
+
   it('shows the runner chain and the scope in the plan of the fallback example', async () => {
     const { out } = await run(['plan', example('transport-fallback.workflow.ai.yml')]);
     expect(out).toContain('runners acp -> claude-code');

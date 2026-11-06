@@ -255,8 +255,16 @@ Everything is arguments and exit statuses: 0 completed, 1 failed, 2 escalated, 1
 (`OPENROUTER_API_KEY` and the like) and never in the workflow file. `indaba schema` prints the JSON Schema of the file for
 an editor, and `indaba catalog` lists the runners, guard types and arbiters this installation offers.
 
+## Spend differently
+
+Each role has its own model, so a run can use a stronger one where a mistake is costly and a smaller or local one
+elsewhere. Change one role, run the same task again with `indaba run -v`, and compare both the cost and the result.
+A cost shown as absent is unknown, not zero, and Indaba has no spending ceiling yet. The ideas, and what to record
+when you compare, are in [Spending less: experiments](cost-experiments.md).
+
 ## Where to go next
 
 - [Workflow format](workflow-format.md) for every field
+- [Spending less: experiments](cost-experiments.md) for ideas to try with models, local servers and shell steps
 - [Extending](extending.md) to add a runner, a guard or a listener
 - [Logging](logging.md) when something needs finding

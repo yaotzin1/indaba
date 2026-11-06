@@ -94,6 +94,7 @@ step, that step's earlier notes are replaced.
 - For review, use `consensus_with` with a `decision_type` and an `arbiter`. Agreement means "I accept the other's findings", so say
   that in the goal. The messages and the outcome appear on the board for later steps.
 - Keep keys in the environment (`OPENROUTER_API_KEY` and the like). Never write one into a workflow, a prompt or a note.
+- When asked to cut the cost of a workflow, change one role or step at a time and compare runs (see [cost-experiments.md](cost-experiments.md)). Report what the run used and what it produced. A cost shown as absent is unknown, not zero; Indaba has no spending ceiling, and you must not say a variant is cheaper from one run or from a model's list price.
 
 ## Failures and what to do
 

@@ -41,6 +41,7 @@ export const PAGES = [
             { file: 'cookbook-tutorial.md', label: 'Tutorial: get the best result', blurb: 'A guided tutorial for new users: what to write in the idea, rules, specs and skills, how to check them, and how to fix a bad result' },
             { file: 'ai-playbook.md', label: 'Playbook for AI agents', blurb: 'For an agent that uses Indaba: the loop, exit codes, files, the board grammar' },
             { file: 'using-the-alpha.md', label: 'Using the alpha', blurb: 'API, ACP or CLI: which transport, when' },
+            { file: 'cost-experiments.md', label: 'Spending less: experiments', blurb: 'Ideas to try on your own setup: a model per role, shell steps, local models, a leaner debate; how to compare runs' },
             { file: 'positioning.md', label: 'What Indaba is', blurb: 'Who it is for, and what it is not' },
         ],
     },
