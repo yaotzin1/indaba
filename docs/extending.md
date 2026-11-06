@@ -269,3 +269,13 @@ under `mcp_policy: required`. `PermissionCapable` has `permissionCapabilities()`
 `full` a `mode` (`native`, `acp`, `after`, `none`, `unsupported`), a `scope` (`acp`, `guard`, `none`) and a `note` id,
 plus `permissionDenied(output)` and `canRecogniseDenial`. A runner without it supports no level. `indaba catalog`
 lists each runner's levels, and `indaba plan` prints the MCP findings.
+
+`StallCapable` has one member, `canReportActivity: boolean`. A runner that sets it to `true` promises: when
+`RunRequest.stallSeconds` is set, it stops the attempt after that many seconds without activity (the whole process tree,
+if it started one) and returns a result with `stalled: true` and a non-zero exit code; `STALL_EXIT_CODE` (125) from
+`@indaba/runners` is the one the built-ins use. What counts as activity is yours to define and to document: output on a
+stream, a protocol update, a progress event. It must not be something that stays quiet while the agent is working, or a
+healthy call will be stopped. Say `false` when your runner is configured so that it cannot tell (the built-in
+`claude-code` does in its plain-output mode). A runner without the interface, or saying `false`, is refused by
+`validate`, `plan` and the start of a run, by name, in any step that sets `stall`; it keeps working in every other step.
+See [Stalls](workflow-format.md#stalls-stall).
