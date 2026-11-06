@@ -15,7 +15,7 @@ One command on any OS: `npx indaba` on Windows, macOS and Linux, with nothing to
 
 ## 2. Tech stack & engineering standards
 - TypeScript in strict mode (`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`), with no escape hatch: no `any`, no non-null assertion, no suppression comment.
-- ESM packages in a pnpm workspace: `@indaba/core`, `@indaba/engine`, `@indaba/runners`, the `indaba` CLI, and the optional `@indaba/tui` and `@indaba/server` (the web view of `indaba ui`).
+- ESM packages in a pnpm workspace: `@indaba/core`, `@indaba/engine`, `@indaba/runners`, the `indaba` CLI with its `@indaba/tui` dashboard, and the optional `@indaba/server` (the web view of `indaba ui`).
 - Core domain strictly framework- and platform-agnostic: `@indaba/core` has no dependencies and imports no `node:` module, enforced by architecture tests.
 - Infrastructure on Node itself: `child_process` with argument arrays (never a shell string), `fetch` for HTTP and Server-Sent Events, a YAML parser, and a plugin host for runners, guards and listeners.
 - Biome for lint and format, Vitest with at least 85% coverage, StrykerJS mutation testing, contract-first and TDD.

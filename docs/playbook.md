@@ -122,7 +122,7 @@ indaba watch latest --replay    # play a finished run back with its original tim
 indaba watch latest --plain     # lines, not the dashboard
 ```
 
-**The dashboard** opens on a terminal when `@indaba/tui` is installed (`npm install @indaba/tui`). The steps are on the
+**The dashboard** (`@indaba/tui`, installed with `indaba`) opens on a terminal. The steps are on the
 left and the output of the selected one on the right; below 80 columns they stack.
 
 ![The dashboard: the steps, the output of the selected step and the key line](assets/board-dashboard.svg)

@@ -115,7 +115,7 @@ describe('indaba settings', () => {
       terminal: true,
       loadTui: async () => ({ missing: 'not installed' }),
     });
-    expect(missing.err).toContain('The Settings screen needs @indaba/tui');
+    expect(missing.err).toContain('The Settings screen (@indaba/tui) is not available (not installed)');
     expect(missing.out).toContain('Logging settings');
   });
 

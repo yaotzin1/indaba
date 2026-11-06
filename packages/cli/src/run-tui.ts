@@ -10,7 +10,7 @@ export const RUN_TUI_USAGE_NEEDS_TERMINAL =
   '--tui draws a dashboard and needs a terminal. Run "indaba run" and follow it with "indaba watch --plain".\n';
 
 export const RUN_TUI_INSTALL =
-  '--tui needs @indaba/tui (npm install @indaba/tui). Nothing was started. "indaba run" works without it.\n';
+  '--tui needs the dashboard (@indaba/tui), which could not be loaded. Nothing was started. "indaba run" works without it.\n';
 
 export interface RunTuiOptions {
   /** The variables the run starts with, and whose secrets are redacted from what is printed. Decided by the caller. */

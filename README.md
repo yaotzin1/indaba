@@ -78,11 +78,11 @@ that makes the outcome trustworthy and inspectable:
 
 | Package | Holds | Dependencies |
 | :--- | :--- | :--- |
-| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`, `schema`, `catalog`, `workflows`), plugin loading, the composition root | the three below; optional `@indaba/tui` and `@indaba/server` |
+| `indaba` | The command line (`validate`, `plan`, `run`, `watch`, `ui`, `report`, `settings`, `schema`, `catalog`, `workflows`), plugin loading, the composition root | the three below and `@indaba/tui`; optional `@indaba/server` |
 | `@indaba/core` | The pure domain: workflow model, DAG, step state, mesh, `Runner`, `Guard`, `Plugin` and `PluginHost` contracts, tracer. Imports no `node:` module | none |
 | `@indaba/engine` | Workflow parser and validator with positioned problems, the workflow file's JSON Schema, `WorkflowDocument` (edits a file and keeps its comments), guards, `WorkflowEngine`, git worktrees, JSONL span exporter | `@indaba/core`, `yaml` |
 | `@indaba/runners` | `ShellRunner`, `OpenAiCompatibleRunner` and `OpenRouterRunner`, `AcpRunner`, the agent CLI runners, `RunnerRegistry` | `@indaba/core`; optional `node-pty` |
-| `@indaba/tui` | Optional terminal dashboard for a run (`indaba watch`, `indaba run --tui`), built on Ink | `@indaba/engine`, `ink`, `react` |
+| `@indaba/tui` | Terminal dashboard for a run, installed with `indaba` (`indaba watch`, `indaba run --tui`), the rich view of Indaba; built on Ink | `@indaba/engine`, `ink`, `react` |
 | `@indaba/server` | Optional local server of the web view (`indaba ui`): the runs over HTTP and Server-Sent Events, behind a token, and starting and stopping runs through what the CLI supplies (it spawns and writes nothing itself). Its package carries the built page | `@indaba/core`, `@indaba/engine` |
 | `@indaba/web` | The web view's page, built into static files that ship inside `@indaba/server`. Private: never published on its own; its libraries are bundled, with their licences in `page/THIRD-PARTY-LICENSES.txt` | none at run time |
 

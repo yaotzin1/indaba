@@ -17,6 +17,11 @@ port". The PHP prototype that preceded them was never published.
 
 ### Added
 
+- **The terminal dashboard comes with `indaba`** (minor; track `feature`; `specs/tui-default`). `@indaba/tui` moves from an optional peer
+  dependency to a dependency of `indaba`, so `npx indaba@next watch` and `run --tui` open the dashboard without a second install, and
+  `ink` and `react` enter every consumer's tree. `@indaba/server` (the web view) stays optional: install it next to `indaba`, or
+  `npx -p indaba@next -p @indaba/server@next indaba ui`. When the dashboard cannot be loaded, `watch`, `settings` and `run --tui` now
+  say so and give the reason instead of telling the user to install the package.
 - **`stall` on a step** (minor; track `feature`; `specs/step-stalls`, release 2). A step may set `stall: { after_seconds, retries }`.
   A runner that can report activity stops an attempt that is silent for `after_seconds` (60 to 3600) and returns a result marked
   stalled; the attempt fails with `Stalled: no activity for N seconds.`, never as a timeout. With `retries` left (0 to 3, default 0,

@@ -1,7 +1,7 @@
 {
   "name": "@indaba/tui",
   "version": "0.1.0-alpha.5",
-  "description": "A terminal dashboard for Indaba runs, built on Ink: follow a run live, or replay one. Optional.",
+  "description": "A terminal dashboard for Indaba runs, built on Ink: follow a run live, or replay one. Installed with indaba.",
   "license": "MIT",
   "repository": {
     "type": "git",

@@ -37,9 +37,9 @@ Options:
       --stale <secs>    Give up on a run that writes nothing for this long (default: 120)
       --color           Colour the states (never the only sign of one); NO_COLOR turns it off
 
-On a terminal, with @indaba/tui installed, a run opens as a dashboard (q quits, ? lists the keys); anywhere else,
+On a terminal, a run opens as a dashboard (q quits, ? lists the keys); anywhere else,
 and with --plain or --output, it prints lines, ending with the board: the facts and the newest 50 notes between
-steps. Install the dashboard with: npm install @indaba/tui
+steps.
 
 Exit status mirrors the run: 0 completed, 1 failed, 2 escalated, 130 cancelled, 3 when the files end without a
 final state or the run goes quiet.
@@ -294,7 +294,7 @@ async function showScreen(
   const loaded = await options.loadTui();
   if ('missing' in loaded) {
     io.stderr.write(
-      'The dashboard needs @indaba/tui (npm install @indaba/tui); showing plain output. --plain hides this.\n',
+      `The dashboard (@indaba/tui) could not be loaded (${loaded.missing}); showing plain output. --plain hides this.\n`,
     );
     return undefined;
   }

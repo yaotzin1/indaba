@@ -26,7 +26,7 @@ pnpm smoke
 
 `scripts/smoke-pack.mjs` packs every published package under `packages/`, audits each tarball's
 files, and installs the tarballs twice into empty temporary projects. With `indaba` alone, the
-optional `@indaba/tui` and `@indaba/server` must be absent, and `indaba --version`, `indaba validate`
+`@indaba/tui` dashboard must be installed where `indaba` finds it, the optional `@indaba/server` must be absent, and `indaba --version`, `indaba validate`
 on an example and `indaba ui` (which must say what to install) must behave. With everything, the
 installed `@indaba/server` must find the page in its own package. It must be started through
 pnpm so `npm_execpath` names pnpm's own script: Node refuses to start a `.cmd` shim without a shell,
