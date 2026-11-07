@@ -31,12 +31,15 @@ export {
 export { DISCUSSION_DIRECTORY, DiscussionStore, discussionOf } from './arbiter/discussions.js';
 export type { DecisionLedgerOptions, LedgerEntry, MemoKey } from './arbiter/ledger.js';
 export { DecisionLedger, LEDGER_DIRECTORY } from './arbiter/ledger.js';
-export type { ProjectConfig } from './config/project-config.js';
+export type { ProjectConfig, ResolvedParallel } from './config/project-config.js';
 export {
+  DEFAULT_MAX_PARALLEL_STEPS,
+  DEFAULT_MAX_WAITS,
   PROJECT_CONFIG_FILE,
   PROJECT_CONFIG_SECTIONS,
   parseProjectConfig,
   readProjectConfig,
+  resolveParallel,
   writeLoggingConfig,
 } from './config/project-config.js';
 export type { Catalog, CatalogSources, DescribedEntry, Describes } from './editor/catalog.js';
@@ -71,8 +74,8 @@ export type { StallFinding, StallRunners } from './engine/stall.js';
 export { checkStalls, describeStallFinding } from './engine/stall.js';
 export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor.js';
 export { StepExecutor } from './engine/step-executor.js';
-export type { RunOptions, WorkflowEngineOptions } from './engine/workflow-engine.js';
-export { WorkflowEngine } from './engine/workflow-engine.js';
+export type { ParallelSource, RunOptions, WorkflowEngineOptions } from './engine/workflow-engine.js';
+export { PARALLEL_STEP_CAP, WorkflowEngine } from './engine/workflow-engine.js';
 export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';

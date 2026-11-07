@@ -82,6 +82,10 @@ export interface CreateEngineOptions {
   readonly discussionDirectory?: string;
   /** Per-step timeout in seconds. */
   readonly stepTimeoutSeconds?: number;
+  /** How many steps may run at once, where that came from, and how often a step waits (specs/parallel-steps). */
+  readonly maxParallelSteps?: number;
+  readonly maxParallelSource?: 'flag' | 'env' | 'config' | 'default';
+  readonly maxWaits?: number;
   /** Receives what a failing event listener threw; by default it is dropped. */
   readonly onListenerError?: (error: unknown) => void;
   /**
@@ -231,6 +235,9 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     projectDir: options.projectDir,
     ids,
     board: { redact: (text) => redact(text, secrets) },
+    ...(options.maxParallelSteps === undefined ? {} : { maxParallelSteps: options.maxParallelSteps }),
+    ...(options.maxParallelSource === undefined ? {} : { maxParallelSource: options.maxParallelSource }),
+    ...(options.maxWaits === undefined ? {} : { maxWaits: options.maxWaits }),
   });
 
   return {

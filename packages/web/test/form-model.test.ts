@@ -83,6 +83,8 @@ describe('the fields of the form, from the schema (AC-06, AC-07)', () => {
     expect(fields.map((f) => [f.key, f.kind.kind])).toEqual([
       ['version', 'fixed'],
       ['name', 'text'],
+      ['max_parallel', 'integer'],
+      ['max_waits', 'integer'],
       ['artifacts', 'source'],
       ['mcp_servers', 'source'],
       ['defaults', 'group'],

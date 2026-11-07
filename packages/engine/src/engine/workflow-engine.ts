@@ -10,13 +10,14 @@ import type {
   WorkflowDefinition,
 } from '@indaba/core';
 import {
+  admit,
   BoardRecorded,
   DagBuilder,
   FailureAction,
   IndabaError,
-  Isolation,
   McpUnavailableError,
   RunBoard,
+  runsInProject,
   SpanStatus,
   StepState,
   StepStatus,
@@ -32,6 +33,17 @@ import {
 import { StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
 import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
+import { StepPool } from './step-pool.js';
+
+/**
+ * The most steps that run at once until forks (specs/parallel-steps, T-08) and the release (T-15) land. A limit above it is
+ * accepted, recorded as asked, and the run still takes one step at a time, so a person who asks for more is told so by the
+ * command line instead of being promised a parallelism that does not happen. It goes with the cap.
+ */
+export const PARALLEL_STEP_CAP = 1;
+
+/** Where the resolved limit of steps came from, written on the root span (specs/parallel-steps, AC-31). */
+export type ParallelSource = 'flag' | 'env' | 'config' | 'workflow' | 'default';
 
 export interface WorkflowEngineOptions {
   readonly executor: StepExecutor;
@@ -43,6 +55,12 @@ export interface WorkflowEngineOptions {
   /** Names the task when `run` is not given a `taskId`. */
   readonly ids: IdGenerator;
   readonly dag?: DagBuilder;
+  /** How many steps may run at once (specs/parallel-steps, AC-02). A workflow's `max_parallel` can lower it. Default 1. */
+  readonly maxParallelSteps?: number;
+  /** Where `maxParallelSteps` came from, for the root span. Absent means the default. */
+  readonly maxParallelSource?: Exclude<ParallelSource, 'workflow'>;
+  /** How often a step is put back to wait before it is admitted alone (AC-13). A workflow's `max_waits` can lower it. Default 3. */
+  readonly maxWaits?: number;
   /** How the run's board limits and redacts the notes steps post (specs/run-blackboard). */
   readonly board?: {
     readonly limits?: Partial<BoardLimits>;
@@ -53,8 +71,10 @@ export interface WorkflowEngineOptions {
 export interface RunOptions {
   readonly signal?: AbortSignal;
   readonly taskId?: string;
-  /** Live output of the running step. */
+  /** Live output of the running step; of every running step, interleaved, when several run. */
   readonly onOutput?: (chunk: string) => void;
+  /** Live output of every running step, told apart (specs/parallel-steps). */
+  readonly onStepOutput?: (stepId: string, chunk: string) => void;
   /** How the person acknowledged the steps at the level `full`, recorded on the task span (specs/agent-permissions, AC-05). */
   readonly fullAccessAcknowledged?: 'terminal' | 'run_option' | 'page';
 }
@@ -75,6 +95,9 @@ export class WorkflowEngine {
   private readonly ids: IdGenerator;
   private readonly dag: DagBuilder;
   private readonly boardOptions: NonNullable<WorkflowEngineOptions['board']>;
+  private readonly maxParallelSteps: number;
+  private readonly maxParallelSource: ParallelSource;
+  private readonly maxWaits: number;
 
   constructor(options: WorkflowEngineOptions) {
     this.executor = options.executor;
@@ -85,10 +108,13 @@ export class WorkflowEngine {
     this.ids = options.ids;
     this.dag = options.dag ?? new DagBuilder();
     this.boardOptions = options.board ?? {};
+    this.maxParallelSteps = options.maxParallelSteps ?? 1;
+    this.maxParallelSource = options.maxParallelSource ?? 'default';
+    this.maxWaits = options.maxWaits ?? 3;
   }
 
   async run(workflow: WorkflowDefinition, options: RunOptions = {}): Promise<WorkflowResult> {
-    const { signal, onOutput } = options;
+    const { signal, onOutput, onStepOutput } = options;
     const taskId = options.taskId ?? `task-${this.ids.next(8)}`;
     const projectDir = this.projectDir;
 
@@ -130,16 +156,24 @@ export class WorkflowEngine {
     }
 
     const order = this.dag.build(workflow);
-    const position = new Map<string, number>();
     const states = new Map<string, StepState>();
-    order.forEach((step, i) => {
-      position.set(step.id, i);
+    order.forEach((step) => {
       states.set(step.id, new StepState(step.id));
     });
+
+    // The limit is the smaller of the run's and the workflow's, never raised by the workflow (AC-03), and never above the cap.
+    const asked = this.maxParallelSteps;
+    const wanted =
+      workflow.maxParallel !== undefined && workflow.maxParallel < asked ? workflow.maxParallel : asked;
+    const limit = Math.min(wanted, PARALLEL_STEP_CAP);
+    const limitSource: ParallelSource = wanted !== asked ? 'workflow' : this.maxParallelSource;
+    const maxWaits = Math.min(this.maxWaits, workflow.maxWaits ?? this.maxWaits);
 
     const root = await this.tracer.startTrace(`indaba.task ${workflow.name}`, {
       'indaba.task.id': taskId,
       'indaba.workflow.name': workflow.name,
+      'indaba.workflow.max_parallel': limit,
+      'indaba.workflow.max_parallel.source': limitSource,
       [WORKFLOW_STRUCTURE_ATTRIBUTE]: describeStructure(order),
       ...(options.fullAccessAcknowledged !== undefined
         ? { 'indaba.permissions.full_acknowledged': options.fullAccessAcknowledged }
@@ -168,49 +202,97 @@ export class WorkflowEngine {
     let reason: string | undefined;
     let failure: { readonly error: unknown } | undefined;
 
-    try {
-      let i = 0;
-      while (i < order.length) {
-        const step = order[i];
-        const state = step === undefined ? undefined : states.get(step.id);
-        if (step === undefined || state === undefined) {
-          break;
-        }
-        if (signal?.aborted === true) {
-          status = WorkflowStatus.Cancelled;
-          reason = 'The run was cancelled.';
-          break;
-        }
-        // A retry moves the loop back to its target, past steps that do not depend on it. Those are COMPLETED and
-        // were not reset, and they must not run again.
-        if (state.status() === StepStatus.Completed) {
-          i += 1;
-          continue;
-        }
+    interface Finished {
+      readonly outcome: StepOutcome;
+      readonly attempt: number;
+      /** The step's worktree, when it had one. */
+      readonly workspace: Workspace | undefined;
+    }
+    const pool = new StepPool<Finished>(signal);
+    const byId = new Map(order.map((step) => [step.id, step]));
+    /** No new step is admitted once a run is cancelled or a step failed for good; the steps running finish (AC-27). */
+    let halted = false;
+    const halt = (next: WorkflowStatus, why: string): void => {
+      if (!halted) {
+        halted = true;
+        status = next;
+        reason = why;
+      }
+    };
+    const output = (id: string): ((chunk: string) => void) | undefined =>
+      onOutput === undefined && onStepOutput === undefined
+        ? undefined
+        : (chunk) => {
+            onOutput?.(chunk);
+            onStepOutput?.(id, chunk);
+          };
 
-        const useWorktree =
-          step.isolation === Isolation.GitWorktree || step.dependsOn.some((d) => isolated.has(d));
+    /** Starts one step in the pool: its workspace, its staged artifacts, then the attempt. */
+    const startStep = (step: StepDefinition, state: StepState): void => {
+      pool.start(step.id, async (stepSignal) => {
         let current: Workspace | undefined;
-        if (useWorktree) {
+        if (!runsInProject(step, isolated)) {
           workspace ??= await this.workspaces.create(taskId);
           isolated.add(step.id);
           current = workspace;
         }
         const workdir = current === undefined ? projectDir : current.path();
-
         if (workdir !== projectDir) {
           await this.stageArtifacts(step, projectDir, workdir);
         }
-
         const attempt = state.attempts() + 1;
         const outcome = await this.execute(step, workflow, state, taskId, root, workdir, {
           feedback: feedback.get(step.id),
-          onOutput,
-          signal,
+          onOutput: output(step.id),
+          signal: stepSignal,
           board,
           attempt,
           workspace: current,
         });
+        return { outcome, attempt, workspace: current };
+      });
+    };
+
+    try {
+      for (;;) {
+        const unfinished = order.some((step) => states.get(step.id)?.status() !== StepStatus.Completed);
+        if (!halted && signal?.aborted === true && unfinished) {
+          halt(WorkflowStatus.Cancelled, 'The run was cancelled.');
+        }
+        if (!halted) {
+          const admitted = admit({
+            order,
+            states: new Map([...states].map(([id, state]) => [id, state.status()])),
+            running: new Set(pool.ids()),
+            waiting: new Map(),
+            limit,
+            maxWaits,
+            ownerQueue: [],
+            runsInProject: (step) => runsInProject(step, isolated),
+            halted,
+          });
+          for (const admission of admitted) {
+            const step = admission.kind === 'step' ? byId.get(admission.stepId) : undefined;
+            const state = step === undefined ? undefined : states.get(step.id);
+            if (step !== undefined && state !== undefined) {
+              startStep(step, state);
+            }
+          }
+        }
+        if (pool.size === 0) {
+          break;
+        }
+
+        const settled = await pool.next();
+        if (!settled.result.ok) {
+          throw settled.result.error;
+        }
+        const step = byId.get(settled.id);
+        const state = states.get(settled.id);
+        if (step === undefined || state === undefined) {
+          continue;
+        }
+        const { outcome, attempt, workspace: current } = settled.result.value;
         feedback.delete(step.id);
 
         // A cancelled attempt settles nothing: its notes stay pending. Otherwise the step's own result decides.
@@ -219,16 +301,14 @@ export class WorkflowEngine {
         }
 
         if (outcome.cancelled) {
-          status = WorkflowStatus.Cancelled;
-          reason = `Step "${step.id}": ${outcome.feedback}`;
-          break;
+          halt(WorkflowStatus.Cancelled, `Step "${step.id}": ${outcome.feedback}`);
+          continue;
         }
 
         if (outcome.ok) {
           if (current !== undefined) {
             await this.exportPatch(workflow, current, projectDir);
           }
-          i += 1;
           continue;
         }
 
@@ -246,6 +326,9 @@ export class WorkflowEngine {
           retries.set(step.id, used + 1);
           feedback.set(target, outcome.feedback);
 
+          // The target and its descendants go back to PENDING and are admitted again in order. Steps that do not depend on
+          // the target are COMPLETED and are not touched. A descendant that is still running is aborted from slice 2 on
+          // (specs/parallel-steps, AC-28); with the cap at one step nothing else is running here.
           const reset = [target, ...this.dag.descendantsOf(workflow, target)];
           board.supersede(reset);
           for (const id of reset) {
@@ -254,7 +337,6 @@ export class WorkflowEngine {
               await this.move(other, taskId, StepStatus.Pending, `retry of ${step.id}`);
             }
           }
-          i = position.get(target) ?? i;
           continue;
         }
 
@@ -265,13 +347,18 @@ export class WorkflowEngine {
         if (escalate && state.status() === StepStatus.Failed) {
           await this.move(state, taskId, StepStatus.Escalated, outcome.feedback);
         }
-        status = escalate ? WorkflowStatus.Escalated : WorkflowStatus.Failed;
-        reason = `Step "${step.id}": ${outcome.feedback}`;
-        break;
+        halt(
+          escalate ? WorkflowStatus.Escalated : WorkflowStatus.Failed,
+          `Step "${step.id}": ${outcome.feedback}`,
+        );
       }
     } catch (error) {
       failure = { error };
       status = status === WorkflowStatus.Completed ? WorkflowStatus.Failed : status;
+      pool.abortAll();
+      while (pool.size > 0) {
+        await pool.next();
+      }
     }
 
     // Teardown is never cancelled: the abort signal is deliberately not passed down here.

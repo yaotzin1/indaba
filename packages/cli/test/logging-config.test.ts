@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { createServer, type IncomingMessage } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -254,13 +255,14 @@ describe('the early exit (a second Ctrl+C)', () => {
     const dir = await makeTempDir();
     const exit = new EarlyExit();
     const captured = captureIo(dir, {});
+    const ready = join(dir, 'plugin.ready');
     const workflow = await writeWorkflow(dir, 'flow.workflow.ai.yml', FIXTURE_WORKFLOW);
     const plugin = await writePlugin(
       dir,
       'slow.mjs',
       fakePluginSource(join(dir, 'plugin.log')).replace(
         'register(host) {',
-        "async register(host) {\n    host.logger.info('plugin.demo', 'waiting');\n    await new Promise((r) => setTimeout(r, 300));",
+        `async register(host) {\n    host.logger.info('plugin.demo', 'waiting');\n    (await import('node:fs')).writeFileSync(${JSON.stringify(ready)}, 'x');\n    await new Promise((r) => setTimeout(r, 300));`,
       ),
     );
     const running = main(['validate', workflow, '--plugin', plugin], {
@@ -269,7 +271,11 @@ describe('the early exit (a second Ctrl+C)', () => {
       pid: 1,
       exitHooks: exit,
     });
-    await new Promise((resolve) => setTimeout(resolve, 100));
+    // The plugin has logged once its marker exists; a fixed wait raced against the load of a full test run.
+    for (let waited = 0; !existsSync(ready) && waited < 10_000; waited += 20) {
+      await new Promise((resolve) => setTimeout(resolve, 20));
+    }
+    expect(existsSync(ready)).toBe(true);
     await exit.run();
     const written = await records(join(dir, '.indaba', 'logs'));
     expect(written.map((r) => r.message)).toEqual(['process.start', 'waiting', 'process.end']);

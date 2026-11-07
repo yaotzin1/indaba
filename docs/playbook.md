@@ -105,7 +105,8 @@ Task demo finished: COMPLETED (trace 9ad25c8a0001ea4000c2056f6acd2bf7)
 The exit status is 0 when it completed, 1 when it failed, 2 when a human is needed (a debate no one could settle) and 130
 when it was cancelled. Useful options: `-w <dir>` runs it against another project, `--timeout <secs>` limits a step (a step's own `timeout_seconds` wins over it),
 `-v` prints what each span cost and `-vv` also streams the agents' output, `--permissions read` lowers what agents may do
-for this run only.
+for this run only, and `--parallel <n>` sets how many steps may run at once (accepted and recorded; this version still runs one at a time,
+see [Steps at the same time](workflow-format.md#steps-at-the-same-time-max_parallel)).
 
 What a run leaves behind is under `.indaba/` in the project: `traces/<id>.jsonl` (the spans), `traces/<id>.events.jsonl`
 (what `watch` reads), `traces/<id>.board.jsonl` (the board), `logs/` and, for debates, `discussions/`.

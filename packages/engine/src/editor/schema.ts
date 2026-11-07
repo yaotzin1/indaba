@@ -231,6 +231,11 @@ const STEP: Schema = {
     }),
     guards: orNull({ type: 'array', items: GUARD, description: 'Checks run after the step succeeds.' }),
     isolation: orNull({ enum: values(Isolation), description: 'none (default) or git_worktree.' }),
+    touches: orNull({
+      ...STRING_LIST,
+      description:
+        'Shell step only: the paths or globs this step touches. When steps run in parallel this is its intent; without it the step intends nothing.',
+    }),
     timeout_seconds: orNull({
       type: 'integer',
       minimum: 1,
@@ -312,6 +317,18 @@ export function workflowJsonSchema(): Readonly<Record<string, unknown>> {
         description: `Must be "${WorkflowParser.SUPPORTED_VERSION}".`,
       },
       name: { ...NON_EMPTY, description: 'Non-empty string; names the trace (indaba.task <name>).' },
+      max_parallel: orNull({
+        type: 'integer',
+        minimum: 1,
+        description:
+          'The most steps this workflow lets run at once. It lowers the limit of the run (indaba run --parallel, INDABA_PARALLEL, parallel.max_steps), never raises it.',
+      }),
+      max_waits: orNull({
+        type: 'integer',
+        minimum: 1,
+        description:
+          'How many times a step may be put back to wait for another before it is admitted alone. It lowers the configured value, never raises it.',
+      }),
       artifacts: orNull({
         ...STRING_MAP,
         description: 'Map of name to a path string. Names a path once so steps can refer to it.',

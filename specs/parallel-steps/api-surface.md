@@ -4,6 +4,14 @@
 > this wrong stops and returns to stage 3; it does not edit this file. Confirmed at stage 3 on 2026-10-27 against the
 > code on `main` (`WorkflowEngine`, `GitWorktree`, `GitWorktreeManager`, `PluginHost`, `ProjectConfig`).
 
+> **Amended during slice 1 (2026-11-07), at T-05, before any pool code; T-01 to T-04 do not touch it.** Two additive changes found while writing the pool, both
+> optional and both minor: (1) `WorkflowEngineOptions.maxParallelSource?` so the engine can write
+> `indaba.workflow.max_parallel.source` on the root span (AC-31): only the composition root knows whether the value came from the
+> flag, the variable or the file, and the engine itself adds `workflow` when `max_parallel` lowered it; (2) the exported constant
+> `PARALLEL_STEP_CAP` (1), the release cap of the plan ("slices 2 to 4 merge behind the slice-1 cap"), so the command line can
+> say, when a person asks for more than the cap allows, that steps still run one at a time instead of printing the consequences
+> of a parallelism that does not happen (AC-04a). The cap is removed with T-08 (forks) and T-15 (release); the constant goes with it.
+
 ## Semver classification
 
 **minor** (below 1.0).
@@ -40,6 +48,8 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/engine` (`config/project-config.ts`) | field | `ProjectConfig.parallel: ResolvedParallel`, always present, defaults filled |
 | `@indaba/engine` (`config/project-config.ts`) | interface | `ResolvedParallel { readonly maxSteps: number; readonly maxWaits: number }` (from `parallel.max_steps`, `parallel.max_waits`; defaults 1 and 3) |
 | `@indaba/engine` (`config/project-config.ts`) | constant change | `PROJECT_CONFIG_SECTIONS` gains `'parallel'` |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSource?: 'flag' \| 'env' \| 'config' \| 'default'` (amended 2026-11-07): where the resolved limit came from; the engine adds `'workflow'` itself |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | constant | `PARALLEL_STEP_CAP: 1` (amended 2026-11-07): the most steps that run at once until forks (T-08) and the release (T-15) land |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSteps?: number` (default 1) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxWaits?: number` (default 3) |
 | `@indaba/core` (`extension/index.ts`) | method | `PluginHost.registerNegotiationDecider(decider: NegotiationDecider): void`; the last registration wins; with none, nobody answers and the steps run one after another |

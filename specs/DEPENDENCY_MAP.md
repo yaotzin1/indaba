@@ -89,6 +89,7 @@ gantt
     watch-workflow-name    :done, 2026-10-14, 1d
     logging                :done, 2026-10-20, 2026-10-21
     tui-default dashboard comes with indaba :done, 2026-11-06, 1d
+    step-stalls            :done, 2026-11-05, 2026-11-06
     section Specified, not started
     web-app                :active, 2026-10-04, 2026-10-16
     web-app-actions        :done, 2026-10-22, 1d
@@ -112,7 +113,7 @@ gantt
     single-step-run        :active, 2026-10-12, 2026-10-16
     agent-sandbox          :active, 2026-10-12, 2026-10-16
     agent-conversation     :active, 2026-10-22, 2026-10-23
-    parallel-steps         :active, 2026-10-27, 1d
+    parallel-steps (slice 1 under way) :active, 2026-10-27, 2026-11-07
     path-ownership         :active, 2026-10-27, 1d
     step-fanout            :active, 2026-10-27, 1d
     tui-epic the full terminal application :active, 2026-11-06, 1d
@@ -210,6 +211,7 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `step-variants` | Specification moved to a private repository (see `specs/PRIVATE.md`); not started | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-verdicts` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `step-budgets` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba` |
+| `step-stalls` | Implemented: release 1 `timeout_seconds` (#119) and release 2 `stall` with a bounded retry (#122) | `@indaba/core` (`StallPolicy`, `StallCapable`, limits), `@indaba/runners` (`stallSeconds`, `STALL_EXIT_CODE`), `@indaba/engine` (restore of a worktree, `checkStalls`), `indaba` |
 | `workflow-editor` | Implemented: part 1 (`diagnose`, #61), part 2 (`WorkflowDocument`, the schema, `indaba schema`, #62), part 3 (descriptions, `indaba catalog`, #63). Voters and prompts in the catalog wait for their specs | `@indaba/core` (descriptions, part 3), `@indaba/engine` (`diagnose`, `editor/`), `indaba` (`schema`, `catalog`). Dev dependency: `ajv` (test only) |
 | `workspace-without-git` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `run-blackboard` | Implemented | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
@@ -228,7 +230,7 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `agent-permissions` | Implemented in `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server` and `@indaba/web` (the catalog map, the `full` confirmation of the page, the editor presets; web contract 1.5.0) (specified; draft; the level `ask` is reserved for a later spec; removing the runners' hard-coded defaults is a later labelled minor) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web` |
 | `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
-| `parallel-steps` | Not started (specified; plan and tasks written, decisions C-01 to C-11 confirmed; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
+| `parallel-steps` | In progress: slice 1 (the pool, the fields, the configuration; changes no run) on `feat/parallel-steps-pool`; slices 2 to 4 not started. Specified; plan and tasks written, decisions C-01 to C-11 confirmed; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
 | `path-ownership` | Not started (specified; decisions C-01 to C-04 confirmed; builds on `parallel-steps` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `step-fanout` | Not started (specified; draft; builds on `parallel-steps` and `run-blackboard`; replaces the `workflow-engine` non-goal "dynamic graphs") | `@indaba/core` (`for_each`, `GraphExpander`, `PluginHost.registerGraphExpander`), `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `desktop-app` | Dropped | kept for history |

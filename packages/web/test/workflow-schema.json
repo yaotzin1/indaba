@@ -15,6 +15,30 @@
       "pattern": "\\S",
       "description": "Non-empty string; names the trace (indaba.task <name>)."
     },
+    "max_parallel": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "description": "The most steps this workflow lets run at once. It lowers the limit of the run (indaba run --parallel, INDABA_PARALLEL, parallel.max_steps), never raises it."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "max_waits": {
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1,
+          "description": "How many times a step may be put back to wait for another before it is admitted alone. It lowers the configured value, never raises it."
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
     "artifacts": {
       "anyOf": [
         {
@@ -553,6 +577,20 @@
                   {
                     "enum": ["none", "git_worktree"],
                     "description": "none (default) or git_worktree."
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "touches": {
+                "anyOf": [
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    },
+                    "description": "Shell step only: the paths or globs this step touches. When steps run in parallel this is its intent; without it the step intends nothing."
                   },
                   {
                     "type": "null"

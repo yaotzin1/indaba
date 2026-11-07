@@ -1,6 +1,6 @@
 # Specification: Parallel steps (independent steps of a run work at the same time, and talk before they collide)
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
+> **Status**: Slice 1 implemented (the pool, the fields, the limit and its configuration; steps still run one at a time because of the cap). Slices 2 to 4 not started. See `tasks.md`.
 > **Stage entry**: stages 1 to 5 done (plan, tasks and analysis written); next is stage 6. The maintainer confirmed C-01
 > to C-11 on 2026-10-27 and asked for the coordination, the review before landing and the conflict conversation.
 > **Semver impact**: minor (optional workflow fields, a new engine option, a new section of `indaba.config`, a new CLI
