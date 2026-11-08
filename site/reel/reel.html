@@ -4,6 +4,9 @@
   site/reel/render.mjs films it frame by frame into docs/assets/indaba-reel.mp4. Nothing here reads the clock or
   Math.random(), so the same source always gives the same film.
 
+  The look is flat on purpose: solid fields, ink and paper from the site's two themes, hard irises and wipes between
+  acts. No glow, particles, grain or interface chrome.
+
   Acts: 0.0 ignite · 1.5 the council gathers · 4.0 the debate · 7.0 consensus · 8.4 the run (a gate fails, the
   retry carries only the last failure, the gate passes) · 12.2 the trace · 13.6 the mark.
 -->
@@ -30,12 +33,15 @@ const scratch = document.createElement('canvas');
 scratch.width = W; scratch.height = H;
 const sctx = scratch.getContext('2d');
 
-// Colours from site/site.css (dark theme) and the brand mark.
-const C = {
-  bg0: '#24180f', bg1: '#0b0704', ink: '#f0e6d6', muted: '#b4a38e', line: '#3a2d23', lineStrong: '#5a4636',
-  ochre: '#eab36a', ochreDeep: '#c2732b', ochreSoft: '#4a3520', ember: '#ff9a4d', sage: '#7cc9a0',
-  sageSoft: '#1d3a2a', fail: '#ff8f82', failSoft: '#42201c', sheet: '#1b140f',
+// Colours from site/site.css: the light theme (paper and ink) and the dark theme (cave earth), plus a sage field
+// for the moment of consensus. C is the current theme; render() points it at one per act. Flat colour only.
+const THEMES = {
+  paper: { bg: '#f2ebdf', ink: '#221c16', muted: '#65584a', line: '#d9ccb6', lineStrong: '#a8957a', ochre: '#94480f', ochreDeep: '#94480f', ochreSoft: '#e9cfa8', ember: '#c2410c', sage: '#24694a', sageSoft: '#cfe5d6', fail: '#b3261e', failSoft: '#f4d3cd', disc: '#221c16', figure: '#f2ebdf' },
+  sage: { bg: '#24694a', ink: '#f2ebdf', muted: '#cfe5d6', line: '#3f8564', lineStrong: '#8fc4a8', ochre: '#f1c27a', ochreDeep: '#f1c27a', ochreSoft: '#2f7a57', ember: '#f1c27a', sage: '#f2ebdf', sageSoft: '#2f7a57', fail: '#ff8f82', failSoft: '#42201c', disc: '#f2ebdf', figure: '#24694a' },
+  dark: { bg: '#1a130e', ink: '#f0e6d6', muted: '#b4a38e', line: '#3a2d23', lineStrong: '#6a5442', ochre: '#eab36a', ochreDeep: '#c2732b', ochreSoft: '#4a3520', ember: '#ff9a4d', sage: '#7cc9a0', sageSoft: '#1d3a2a', fail: '#ff8f82', failSoft: '#42201c', disc: '#f0e6d6', figure: '#1a130e' },
 };
+const C = { ...THEMES.paper };
+const theme = (name) => Object.assign(C, THEMES[name]);
 const SANS = "'Next', system-ui, sans-serif";
 const MONO = "'Mono', ui-monospace, monospace";
 
@@ -74,20 +80,6 @@ const quad = (p0, p1, p2, u) => ({
 // ---------- prebuilt assets ----------
 const FLAME = new Path2D('M400 316 C366 316 356 288 372 268 C374 282 384 284 386 276 C380 252 396 238 404 220 C410 242 432 256 430 282 C440 276 440 266 438 258 C456 280 440 316 400 316 Z');
 const FLAME_IN = new Path2D('M400 314 C384 314 380 298 390 288 C392 296 398 296 399 290 C397 280 404 274 408 266 C412 278 420 284 418 296 C422 300 418 314 400 314 Z');
-const grains = [];
-{
-  const r = rng(7);
-  for (let g = 0; g < 4; g++) {
-    const n = document.createElement('canvas'); n.width = 384; n.height = 384;
-    const nc = n.getContext('2d'); const img = nc.createImageData(384, 384);
-    for (let i = 0; i < img.data.length; i += 4) {
-      const v = Math.floor(r() * 255);
-      img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
-    }
-    nc.putImageData(img, 0, 0); grains.push(n);
-  }
-}
-const EMBERS = (() => { const r = rng(42); return Array.from({ length: 90 }, () => ({ x: r() * W, s: 40 + r() * 120, p: r(), f: 0.5 + r() * 1.5, ph: r() * TAU, z: 0.4 + r() * 1.4 })); })();
 
 // ---------- drawing helpers ----------
 function text(str, x, y, { size = 32, weight = 400, font = SANS, color = C.ink, align = 'left', base = 'alphabetic', alpha = 1, spacing = 0 } = {}) {
@@ -112,43 +104,30 @@ function riseLine(words, x, y, size, t0, t, { weight = 800, gap = 0.07, dur = 0.
     ctx.save();
     ctx.beginPath(); ctx.rect(cx - 10, y - size * 1.05, wd + 20, size * 1.38); ctx.clip();
     ctx.fillStyle = color;
-    ctx.fillText(w, cx, y + (1 - k) * size * 1.2 - ko * size * 1.25);
+    ctx.fillText(w, cx, y + (1 - k) * size * 1.2 - ko * size * 1.6);
     ctx.restore();
     cx += wd + size * 0.26;
   });
   ctx.restore();
 }
-function typeOn(str, x, y, t0, t, cps, opts) {
-  const n = Math.floor(clamp((t - t0) * cps, 0, str.length));
-  if (n <= 0) return;
-  const caret = n < str.length || Math.floor(t * 2.5) % 2 === 0 ? '▍' : '';
-  text(str.slice(0, n) + (t - t0 < str.length / cps + 0.9 ? caret : ''), x, y, opts);
-}
-function glow(x, y, r, color, a) {
-  const g = ctx.createRadialGradient(x, y, 0, x, y, r);
-  g.addColorStop(0, rgba(color, a)); g.addColorStop(1, rgba(color, 0));
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+function typeOn(str, x, y, t0, t, _cps, opts = {}) {
+  const k = E.outCubic(seg(t, t0, t0 + 0.4));
+  if (k <= 0) return;
+  text(str, x, y + (1 - k) * 14, { ...opts, alpha: (opts.alpha ?? 1) * k });
 }
 function roundRect(x, y, w, h, r) { ctx.beginPath(); ctx.roundRect(x, y, w, h, Math.max(0, Math.min(r, w / 2, h / 2))); }
 
-function fire(x, y, s, t, intensity = 1) {
+function fire(x, y, s, t) {
   if (s <= 0.001) return;
-  ctx.save();
-  ctx.globalCompositeOperation = 'lighter';
-  glow(x, y - 20 * s, 210 * s * intensity, '#ff8a2a', 0.42 * clamp(intensity, 0, 1.4));
-  glow(x, y - 30 * s, 90 * s * intensity, '#ffc46b', 0.35 * clamp(intensity, 0, 1.4));
-  ctx.restore();
-  const fl = 1 + 0.07 * Math.sin(t * 13.1) + 0.04 * Math.sin(t * 23.7 + 1.3);
-  const sk = 0.06 * Math.sin(t * 7.3) + 0.03 * Math.sin(t * 17.9);
+  const fl = 1 + 0.06 * Math.sin(t * 11.1) + 0.03 * Math.sin(t * 19.7 + 1.3);
+  const sk = 0.05 * Math.sin(t * 6.3) + 0.025 * Math.sin(t * 15.9);
   ctx.save();
   ctx.translate(x, y + 26 * s);
   ctx.scale(s * 1.05, s * fl);
   ctx.transform(1, 0, sk, 1, 0, 0);
   ctx.translate(-400, -316);
-  const g = ctx.createLinearGradient(0, 316, 0, 220);
-  g.addColorStop(0, '#d9480f'); g.addColorStop(0.6, '#ffa94d'); g.addColorStop(1, '#ffe066');
-  ctx.fillStyle = g; ctx.fill(FLAME);
-  ctx.globalAlpha = 0.92; ctx.fillStyle = '#fff3bf'; ctx.fill(FLAME_IN);
+  ctx.fillStyle = '#d4450c'; ctx.fill(FLAME);
+  ctx.fillStyle = '#f6b54a'; ctx.fill(FLAME_IN);
   ctx.restore();
 }
 function person(x, y, s, fill) {
@@ -158,11 +137,6 @@ function person(x, y, s, fill) {
   ctx.beginPath(); ctx.moveTo(-15, 19); ctx.quadraticCurveTo(-15, 1, 0, 1); ctx.quadraticCurveTo(15, 1, 15, 19); ctx.closePath(); ctx.fill();
   ctx.restore();
 }
-function ochreFill(x, y, r) {
-  const g = ctx.createLinearGradient(x - r, y - r, x + r, y + r);
-  g.addColorStop(0, '#f1c27a'); g.addColorStop(1, '#c2732b'); return g;
-}
-
 // ---------- the council (world space, centre 960,540) ----------
 const CX = W / 2, CY = SHORT ? 1080 : 540, R = SHORT ? 290 : 250;
 const ROLES = ['architect', 'coder', 'reviewer', 'tester', 'security', 'scribe'];
@@ -179,132 +153,88 @@ function agentPos(i, t) {
 const CONSENSUS = 7.05, FLASH = 7.38;
 
 function drawCouncil(t) {
-  const fade = 1 - seg(t, 7.95, 8.3);
-  if (fade <= 0) return;
-  ctx.save(); ctx.globalAlpha = fade;
-  const sage = E.inOutCubic(seg(t, FLASH - 0.05, FLASH + 0.35));
+  // consensus: a sage field opens from the fire, flat, under everything
+  const iris = E.outExpo(seg(t, FLASH, FLASH + 0.22));
+  if (iris > 0) { ctx.fillStyle = THEMES.sage.bg; ctx.beginPath(); ctx.arc(CX, CY, iris * 2600, 0, TAU); ctx.fill(); }
 
-  // Shockwaves from the spark landing, and from consensus.
-  for (const [t0, col, n] of [[0.62, C.ochre, 2], [FLASH, C.sage, 3]]) {
-    for (let j = 0; j < n; j++) {
-      const k = seg(t, t0 + j * 0.09, t0 + j * 0.09 + 1.1);
-      if (k <= 0 || k >= 1) continue;
-      ctx.strokeStyle = rgba(col, (1 - k) * 0.7); ctx.lineWidth = 3 * (1 - k) + 0.5;
-      ctx.beginPath(); ctx.arc(CX, CY, 20 + E.outExpo(k) * (700 + j * 160), 0, TAU); ctx.stroke();
-    }
-  }
-
-  // Rings drawing on.
+  // rings drawing on
   const ringK = E.inOutCubic(seg(t, 0.7, 1.6));
-  const ringCol = mix(C.ochreDeep, C.sage, sage);
-  ctx.lineWidth = 2; ctx.strokeStyle = rgba('#c2732b', 0.55);
-  ctx.strokeStyle = ringCol; ctx.globalAlpha = fade * 0.65;
+  ctx.save();
+  ctx.strokeStyle = C.lineStrong; ctx.lineWidth = 2;
   ctx.beginPath(); ctx.arc(CX, CY, R, -Math.PI / 2, -Math.PI / 2 + TAU * ringK); ctx.stroke();
-  ctx.globalAlpha = fade * 0.4;
   ctx.beginPath(); ctx.arc(CX, CY, R * 0.42, Math.PI / 2, Math.PI / 2 - TAU * ringK, true); ctx.stroke();
-  ctx.globalAlpha = fade * 0.7 * ringK;
-  ctx.setLineDash([2, 14]); ctx.lineCap = 'round'; ctx.lineWidth = 3;
-  ctx.lineDashOffset = -t * 40;
+  ctx.setLineDash([2, 14]); ctx.lineCap = 'round'; ctx.lineWidth = 3; ctx.lineDashOffset = -t * 30;
+  ctx.globalAlpha = ringK;
   ctx.beginPath(); ctx.arc(CX, CY, R + 42, 0, TAU); ctx.stroke();
-  ctx.setLineDash([]); ctx.lineDashOffset = 0;
-  // Tick marks around the outer ring, a compass of the debate.
-  for (let i = 0; i < 72; i++) {
-    const k = seg(t, 0.9 + i * 0.008, 1.2 + i * 0.008);
-    if (k <= 0) continue;
-    const a = i * TAU / 72 - ringRot(t) * 0.5;
-    const r0 = R + 64, r1 = r0 + (i % 6 === 0 ? 16 : 7);
-    ctx.globalAlpha = fade * 0.45 * k; ctx.lineWidth = i % 6 === 0 ? 2 : 1;
-    ctx.beginPath(); ctx.moveTo(CX + Math.cos(a) * r0, CY + Math.sin(a) * r0); ctx.lineTo(CX + Math.cos(a) * r1, CY + Math.sin(a) * r1); ctx.stroke();
-  }
-  ctx.globalAlpha = fade;
+  ctx.restore();
 
-  // The mesh: a chord for every exchange that has landed.
+  // the mesh: a chord for every exchange that has landed
   MSGS.forEach(([a, b], m) => {
     const end = MSG_T0 + m * MSG_STEP + MSG_DUR;
-    const k = seg(t, end - 0.05, end + 0.3);
+    const k = seg(t, end - 0.05, end + 0.2);
     if (k <= 0) return;
     const p = agentPos(a, t), q = agentPos(b, t);
-    ctx.strokeStyle = mix(C.ochreDeep, C.sage, sage);
-    ctx.globalAlpha = fade * k * lerp(0.22, 0.5, sage); ctx.lineWidth = lerp(1.2, 2, sage);
+    ctx.strokeStyle = C.ink; ctx.globalAlpha = k * (t > FLASH ? 0.55 : 0.28); ctx.lineWidth = t > FLASH ? 2 : 1.5;
     ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
   });
-  ctx.globalAlpha = fade;
+  ctx.globalAlpha = 1;
 
-  // Consensus rays from every agent to the fire.
+  // consensus: a line from every agent to the fire
   for (let i = 0; i < 6; i++) {
-    const k = E.outExpo(seg(t, CONSENSUS + i * 0.035, CONSENSUS + 0.32 + i * 0.035));
+    const k = E.outExpo(seg(t, CONSENSUS + i * 0.035, CONSENSUS + 0.3 + i * 0.035));
     if (k <= 0) continue;
     const p = agentPos(i, t);
-    const ex = lerp(p.x, CX, k * 0.86), ey = lerp(p.y, CY, k * 0.86);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    ctx.strokeStyle = rgba(C.sage, 0.9 * (1 - seg(t, 7.7, 8.1))); ctx.lineWidth = 4; ctx.lineCap = 'round';
-    ctx.shadowColor = C.sage; ctx.shadowBlur = 24;
-    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(ex, ey); ctx.stroke();
-    ctx.restore();
+    ctx.strokeStyle = t > FLASH ? C.ink : C.sage; ctx.lineWidth = 5; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(lerp(p.x, CX, k * 0.8), lerp(p.y, CY, k * 0.8)); ctx.stroke();
   }
 
-  // Messages: comets between agents.
+  // messages: a solid dot with a short solid tail along a curve
   MSGS.forEach(([a, b], m) => {
     const t0 = MSG_T0 + m * MSG_STEP, k = seg(t, t0, t0 + MSG_DUR);
-    if (k <= 0 || k >= 1 + 0.4) return;
+    if (k <= 0 || k >= 1) return;
     const p = agentPos(a, t), q = agentPos(b, t);
     const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
     const dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
     const bend = (m % 2 ? 1 : -1) * 0.22 * len;
     const ctl = { x: mx - (dy / len) * bend, y: my + (dx / len) * bend };
-    const col = m % 3 === 0 ? C.ember : m >= 10 ? C.sage : C.ochre;
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.lineCap = 'round';
-    const head = E.inOutCubic(k);
-    for (let j = 0; j < 22; j++) {
-      const u = head - j * 0.022;
-      if (u < 0 || u > 1) continue;
-      const u2 = Math.max(0, u - 0.022);
-      const s0 = quad(p, ctl, q, u2), s1 = quad(p, ctl, q, u);
-      ctx.strokeStyle = rgba(col, (1 - j / 22) * 0.85 * (1 - seg(k, 0.98, 1)));
-      ctx.lineWidth = 7 * (1 - j / 22) + 0.5;
-      ctx.beginPath(); ctx.moveTo(s0.x, s0.y); ctx.lineTo(s1.x, s1.y); ctx.stroke();
-    }
-    if (k < 1) { const h = quad(p, ctl, q, head); glow(h.x, h.y, 26, col, 0.9); ctx.fillStyle = '#fff6e0'; ctx.beginPath(); ctx.arc(h.x, h.y, 4, 0, TAU); ctx.fill(); }
+    const col = m >= 10 ? C.sage : m % 3 === 0 ? C.ember : C.ochre;
+    const head = E.inOutCubic(k), tail = Math.max(0, head - 0.28);
+    ctx.save(); ctx.strokeStyle = col; ctx.lineWidth = 4; ctx.lineCap = 'round';
+    ctx.beginPath();
+    for (let j = 0; j <= 16; j++) { const pt = quad(p, ctl, q, lerp(tail, head, j / 16)); j ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y); }
+    ctx.stroke();
+    const h = quad(p, ctl, q, head); ctx.fillStyle = col; ctx.beginPath(); ctx.arc(h.x, h.y, 8, 0, TAU); ctx.fill();
     ctx.restore();
   });
 
-  // Agents.
+  // agents: an ink disc with a paper figure
   for (let i = 0; i < 6; i++) {
     const ap = agentAppear(i, t);
     if (ap <= 0.001) continue;
     const p = agentPos(i, t);
-    let pulse = 0;
-    MSGS.forEach(([, b], m) => { if (b === i) { const e = MSG_T0 + m * MSG_STEP + MSG_DUR; pulse = Math.max(pulse, 1 - seg(t, e, e + 0.5) * (t >= e ? 1 : 0) - (t < e ? 1 : 0)); } });
-    const flashK = 1 - seg(t, FLASH, FLASH + 0.8);
-    const sageI = E.inOutCubic(seg(t, CONSENSUS + i * 0.035, CONSENSUS + 0.3 + i * 0.035));
     ctx.save();
     ctx.translate(p.x, p.y); ctx.scale(clamp(ap, 0, 1.4), clamp(ap, 0, 1.4));
-    // pulse ring
     MSGS.forEach(([, b], m) => {
       if (b !== i) return;
-      const e = MSG_T0 + m * MSG_STEP + MSG_DUR, k = seg(t, e, e + 0.55);
+      const e = MSG_T0 + m * MSG_STEP + MSG_DUR, k = seg(t, e, e + 0.4);
       if (k <= 0 || k >= 1) return;
-      ctx.strokeStyle = rgba(m >= 10 ? C.sage : C.ember, 1 - k); ctx.lineWidth = 2.5;
-      ctx.beginPath(); ctx.arc(0, 0, 38 + E.outExpo(k) * 40, 0, TAU); ctx.stroke();
+      ctx.strokeStyle = m >= 10 ? C.sage : C.ember; ctx.globalAlpha = 1 - k; ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(0, 0, 40 + E.outCubic(k) * 26, 0, TAU); ctx.stroke(); ctx.globalAlpha = 1;
     });
-    glow(0, 0, 70, sageI > 0 ? C.sage : C.ember, 0.18 + 0.25 * sageI * flashK);
-    ctx.fillStyle = '#1d140e'; ctx.beginPath(); ctx.arc(0, 0, 38, 0, TAU); ctx.fill();
-    ctx.strokeStyle = mix(C.ochre, C.sage, sageI); ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(0, 0, 38, 0, TAU); ctx.stroke();
-    person(0, 2, 1.25, ochreFill(0, 0, 20));
+    ctx.fillStyle = C.disc; ctx.beginPath(); ctx.arc(0, 0, 38, 0, TAU); ctx.fill();
+    person(0, 2, 1.25, C.figure);
     ctx.restore();
-    // label, radially outwards
     const lk = E.outExpo(seg(t, 2.0 + i * 0.07, 2.6 + i * 0.07)) * (1 - seg(t, 4.05, 4.3));
     if (lk > 0) {
       const lx = CX + Math.cos(p.a) * (R + 120), ly = CY + Math.sin(p.a) * (R + 120) + 8;
-      text(ROLES[i], lx, ly, { size: 22, font: MONO, color: mix(C.muted, C.sage, sageI), align: 'center', alpha: lk, spacing: 1 });
+      text(ROLES[i], lx, ly, { size: 22, font: MONO, color: C.muted, align: 'center', alpha: lk, spacing: 1 });
     }
   }
 
-  // Word chips where messages land.
+  // word chips where messages land: solid pills
   MSGS.forEach(([, b], m) => {
     const e = MSG_T0 + m * MSG_STEP + MSG_DUR;
-    const k = seg(t, e - 0.02, e + 0.28), ko = seg(t, e + 0.55, e + 0.8);
+    const k = seg(t, e - 0.02, e + 0.2), ko = seg(t, e + 0.55, e + 0.7);
     if (k <= 0 || ko >= 1 || t > CONSENSUS + 0.25) return;
     const p = agentPos(b, t);
     const out = 96, side = (m % 2 ? 1 : -1) * 14;
@@ -314,32 +244,26 @@ function drawCouncil(t) {
     ctx.save(); ctx.translate(x, y); ctx.scale(s, s);
     ctx.font = `700 21px ${MONO}`;
     const w = ctx.measureText(word).width + 30;
-    const col = m >= 10 ? C.sage : m % 3 === 0 ? C.ember : C.ochre;
-    roundRect(-w / 2, -20, w, 40, 20); ctx.fillStyle = 'rgba(24,17,12,0.94)'; ctx.fill();
-    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
-    text(word, 0, 1, { size: 21, weight: 700, font: MONO, color: col, align: 'center', base: 'middle' });
+    roundRect(-w / 2, -20, w, 40, 20); ctx.fillStyle = m >= 10 ? C.sage : m % 3 === 0 ? C.ember : C.ink; ctx.fill();
+    text(word, 0, 1, { size: 21, weight: 700, font: MONO, color: C.bg, align: 'center', base: 'middle' });
     ctx.restore();
   });
 
-  // The fire at the centre.
-  const fireS = E.outBack(seg(t, 0.58, 1.25)) * (1 + 0.55 * Math.exp(-Math.max(0, t - FLASH) * 4) * (t > FLASH ? 1 : 0));
-  fire(CX, CY, fireS * 1.35, t, 1 + 0.6 * (t > FLASH ? Math.exp(-(t - FLASH) * 2.5) : 0));
-  ctx.restore();
-
-  // The spark that lights it.
-  const sk = seg(t, 0.0, 0.62);
+  // the fire at the centre, and the spark that lights it
+  const fireS = E.outBack(seg(t, 0.58, 1.1)) * (1 + 0.35 * (t > FLASH ? Math.exp(-(t - FLASH) * 5) : 0));
+  fire(CX, CY, fireS * 1.35, t);
+  const sk = seg(t, 0.0, 0.6);
   if (sk > 0 && sk < 1) {
-    const e = E.inCubic(sk);
-    const y = lerp(1250, CY, e), x = CX + Math.sin(sk * 9) * 30 * (1 - sk);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (let j = 0; j < 18; j++) {
-      const u = Math.max(0, sk - j * 0.018), ee = E.inCubic(u);
-      glow(CX + Math.sin(u * 9) * 30 * (1 - u), lerp(1250, CY, ee), 18 - j * 0.8, C.ember, 0.5 * (1 - j / 18));
-    }
-    glow(x, y, 60, '#ffc46b', 0.8);
-    ctx.fillStyle = '#fff6e0'; ctx.beginPath(); ctx.arc(x, y, 5, 0, TAU); ctx.fill();
-    ctx.restore();
+    const y = lerp(CY + 700, CY, E.inCubic(sk));
+    ctx.strokeStyle = C.ember; ctx.lineWidth = 6; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(CX, y + 30 + 80 * sk); ctx.lineTo(CX, y); ctx.stroke();
+    ctx.fillStyle = C.ember; ctx.beginPath(); ctx.arc(CX, y, 9, 0, TAU); ctx.fill();
   }
+
+  // into the run: an ember iris from the fire, then the dark one
+  const e1 = E.inOutCubic(seg(t, 7.72, 8.05)), e2 = E.inOutCubic(seg(t, 7.98, 8.36));
+  if (e1 > 0) { ctx.fillStyle = '#d4450c'; ctx.beginPath(); ctx.arc(CX, CY, e1 * 2600, 0, TAU); ctx.fill(); }
+  if (e2 > 0) { ctx.fillStyle = THEMES.dark.bg; ctx.beginPath(); ctx.arc(CX, CY, e2 * 2600, 0, TAU); ctx.fill(); }
 }
 
 // ---------- the run (world space of its own) ----------
@@ -382,14 +306,14 @@ function nodeIcon(n, t, col) {
 
 // The trace rows the nodes turn into (screen space once the camera settles).
 const ROWS = [
-  { label: 'run', a: 0, b: 1, col: C.ochre },
-  { label: 'spec', a: 0, b: 0.11, col: C.ochre },
-  { label: 'plan', a: 0.12, b: 0.24, col: C.ochre },
-  { label: 'code', a: 0.25, b: 0.41, col: C.ochre },
-  { label: 'gate  ✕', a: 0.42, b: 0.47, col: C.fail },
-  { label: 'code  · retry', a: 0.49, b: 0.66, col: C.ember },
-  { label: 'gate  ✓', a: 0.67, b: 0.72, col: C.sage },
-  { label: 'review', a: 0.73, b: 0.93, col: C.ochre },
+  { label: 'run', a: 0, b: 1, col: 'ochre' },
+  { label: 'spec', a: 0, b: 0.11, col: 'ochre' },
+  { label: 'plan', a: 0.12, b: 0.24, col: 'ochre' },
+  { label: 'code', a: 0.25, b: 0.41, col: 'ochre' },
+  { label: 'gate  ✕', a: 0.42, b: 0.47, col: 'fail' },
+  { label: 'code  · retry', a: 0.49, b: 0.66, col: 'ember' },
+  { label: 'gate  ✓', a: 0.67, b: 0.72, col: 'sage' },
+  { label: 'review', a: 0.73, b: 0.93, col: 'ochre' },
 ];
 const BAR_X = SHORT ? 300 : 560, BAR_W = SHORT ? 640 : 1100, ROW_Y = SHORT ? 640 : 352, ROW_STEP = SHORT ? 74 : 56, ROW_H = SHORT ? 34 : 28;
 const NODE_ROW = [1, 2, 3, 4, 7, 0];
@@ -400,7 +324,7 @@ function drawRun(t) {
   if (t < RUN0 - 0.01 || t > 13.95) return;
   const morph = E.inOutCubic(seg(t, MORPH0, MORPH1));
   const collapse = E.inExpo(seg(t, COLLAPSE, 13.9));
-  const graphA = 1 - seg(t, MORPH0, MORPH0 + 0.3);
+  const graphA = 1 - seg(t, MORPH0, MORPH0 + 0.25);
 
   // edges
   for (let i = 0; i < NODES.length - 1; i++) {
@@ -409,85 +333,65 @@ function drawRun(t) {
     const a = NODES[i], b = NODES[i + 1];
     const ux = Math.sign(b.x - a.x), uy = Math.sign(b.y - a.y);
     const x0 = a.x + 50 * ux, y0 = a.y + 50 * uy, x1 = lerp(x0, b.x - 50 * ux, k), y1 = lerp(y0, b.y - 50 * uy, k);
-    ctx.save(); ctx.globalAlpha = graphA;
-    ctx.strokeStyle = C.lineStrong; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
-    // travelled: flowing dashes
+    ctx.save(); ctx.globalAlpha = graphA; ctx.lineWidth = 3;
     const lit = nodeLit(i + 1, t);
-    if (lit > 0) {
-      ctx.strokeStyle = i === 2 && t > FAIL && t < PASS ? C.ember : i >= 2 && t > PASS ? C.sage : C.ochre;
-      if (i === 3 && t > PASS) ctx.strokeStyle = C.sage;
-      ctx.setLineDash([14, 12]); ctx.lineDashOffset = -t * 90; ctx.globalAlpha = graphA * lit;
-      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
-    }
+    ctx.strokeStyle = lit > 0 ? (i >= 2 && t > PASS ? C.sage : C.ochre) : C.lineStrong;
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     ctx.restore();
   }
   // retry arc
-  const arcK = seg(t, FAIL + 0.15, FAIL + 0.55);
+  const arcK = seg(t, FAIL + 0.15, FAIL + 0.5);
   if (arcK > 0 && graphA > 0) {
-    ctx.save(); ctx.globalAlpha = graphA * (1 - seg(t, 11.6, 12.0) * 0.6);
-    ctx.strokeStyle = C.ember; ctx.lineWidth = 3; ctx.setLineDash([10, 10]); ctx.lineDashOffset = t * 70;
+    ctx.save(); ctx.globalAlpha = graphA;
+    ctx.strokeStyle = C.ember; ctx.lineWidth = 3; ctx.setLineDash([10, 9]);
     ctx.beginPath();
     const steps = 40, p = NODES[3], q = NODES[2];
-    for (let s = 0; s <= steps * E.outExpo(arcK); s++) { const pt = quad(p, { x: ARC_CTL.x, y: ARC_CTL.y }, q, s / steps); s ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y); }
+    for (let st = 0; st <= steps * E.outExpo(arcK); st++) { const pt = quad(p, ARC_CTL, q, st / steps); st ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y); }
     ctx.stroke(); ctx.setLineDash([]);
     text('retry · isolated', SHORT ? 150 : ARC_CTL.x, SHORT ? ARC_CTL.y + 70 : RY - 252, { size: 22, font: MONO, color: C.ember, align: 'center', alpha: E.outExpo(seg(t, FAIL + 0.35, FAIL + 0.7)) });
     ctx.restore();
   }
 
-  // nodes, which become trace bars
+  // nodes: outlined until reached, then filled; they become the trace bars
   NODES.forEach((n, i) => {
-    const ap = E.outBack(seg(t, RUN0 + 0.05 + i * 0.08, RUN0 + 0.55 + i * 0.08));
+    const ap = E.outBack(seg(t, RUN0 + 0.05 + i * 0.08, RUN0 + 0.5 + i * 0.08));
     if (ap <= 0.001) return;
     const lit = nodeLit(i, t);
-    let stroke = mix(C.lineStrong, C.ochre, lit), fill = mix(C.sheet, C.ochreSoft, lit), icon = mix(C.muted, C.ink, lit);
+    let solid = C.ochre;
     let shakeX = 0;
     if (n.gate) {
-      const f = E.outExpo(seg(t, FAIL, FAIL + 0.15)) * (1 - seg(t, PASS - 0.05, PASS + 0.1));
-      const p = E.outExpo(seg(t, PASS, PASS + 0.2));
-      stroke = p > 0 ? mix(C.fail, C.sage, p) : mix(stroke, C.fail, f);
-      fill = p > 0 ? mix(C.failSoft, C.sageSoft, p) : mix(fill, C.failSoft, f);
-      if (t > FAIL && t < FAIL + 0.4) shakeX = Math.sin(t * 90) * 10 * (1 - seg(t, FAIL, FAIL + 0.4));
+      if (t >= FAIL && t < PASS) solid = C.fail;
+      if (t >= PASS) solid = C.sage;
+      if (t > FAIL && t < FAIL + 0.35) shakeX = Math.sin(t * 90) * 10 * (1 - seg(t, FAIL, FAIL + 0.35));
     }
-    if (n.id === 'done') { const d = nodeLit(5, t); stroke = mix(stroke, C.sage, d); fill = mix(fill, C.sageSoft, d); }
-    if (n.id === 'code' && t > FAIL + 0.85 && t < 11.0) stroke = C.ember;
+    if (n.id === 'done' && t >= 12.05) solid = C.sage;
+    if (n.id === 'code' && t > FAIL + 0.85 && t < 11.25) solid = C.ember;
+    let fill = mix(C.bg, solid, lit), stroke = mix(C.lineStrong, solid, lit), icon = mix(C.muted, C.bg, lit);
 
-    // morph target
     const r = rowRect(NODE_ROW[i]);
-    const tcx = r.x + r.w / 2, tcy = r.y + r.h / 2;
-    let cx = lerp(n.x + shakeX, tcx, morph), cy = lerp(n.y, tcy, morph);
+    const rowCol = C[ROWS[NODE_ROW[i]].col];
+    let cx = lerp(n.x + shakeX, r.x + r.w / 2, morph), cy = lerp(n.y, r.y + r.h / 2, morph);
     let w = lerp(96, r.w, morph), h = lerp(96, r.h, morph);
-    const rowCol = ROWS[NODE_ROW[i]].col;
-    if (morph > 0) stroke = mix(stroke, rowCol, morph);
-    // collapse to the centre for the mark
+    if (morph > 0) { fill = mix(fill, rowCol, morph); stroke = mix(stroke, rowCol, morph); }
     if (collapse > 0) { cx = lerp(cx, W / 2, collapse); cy = lerp(cy, H / 2, collapse); w = lerp(w, 6, collapse); h = lerp(h, 6, collapse); }
-    const s = clamp(ap, 0, 1.4);
+    const sc = clamp(ap, 0, 1.4);
     ctx.save(); ctx.globalAlpha = 1 - seg(t, 13.75, 13.9);
-    ctx.translate(cx, cy); ctx.scale(s, s);
-    if (lit > 0 && morph < 1) glow(0, 0, 120, n.gate && t > FAIL && t < PASS ? C.fail : (n.gate || n.id === 'done') && t > PASS ? C.sage : C.ember, 0.22 * lit * (1 - morph));
+    ctx.translate(cx, cy); ctx.scale(sc, sc);
     if (n.gate) ctx.rotate((Math.PI / 4) * (1 - morph));
-    const rad = n.gate ? lerp(14, 6, morph) : lerp(48, 6, morph);
+    const rad = n.gate ? lerp(10, 4, morph) : lerp(48, 4, morph);
     const gw = n.gate ? lerp(76, w, morph) : w, gh = n.gate ? lerp(76, h, morph) : h;
     roundRect(-gw / 2, -gh / 2, gw, gh, rad);
-    if (morph > 0) {
-      const g = ctx.createLinearGradient(-gw / 2, 0, gw / 2, 0);
-      g.addColorStop(0, mix(fill, rowCol, morph * 0.85)); g.addColorStop(1, mix(fill, rowCol, morph * 0.55));
-      ctx.fillStyle = g;
-    } else ctx.fillStyle = fill;
-    ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke();
+    ctx.fillStyle = fill; ctx.fill(); ctx.strokeStyle = stroke; ctx.lineWidth = 3; ctx.stroke();
     if (n.gate) ctx.rotate(-(Math.PI / 4) * (1 - morph));
     ctx.globalAlpha *= 1 - seg(morph, 0, 0.3);
     if (n.gate) {
-      const fk = E.outExpo(seg(t, FAIL + 0.02, FAIL + 0.25)) * (1 - seg(t, PASS - 0.1, PASS));
-      const pk = E.outExpo(seg(t, PASS, PASS + 0.3));
-      ctx.lineCap = 'round'; ctx.lineWidth = 5;
-      if (fk > 0) { ctx.strokeStyle = C.fail; const d = 13 * fk; ctx.beginPath(); ctx.moveTo(-d, -d); ctx.lineTo(d, d); ctx.moveTo(d, -d); ctx.lineTo(-d, d); ctx.stroke(); }
-      if (pk > 0) { ctx.strokeStyle = C.sage; ctx.beginPath(); ctx.moveTo(-14, 1); const m = Math.min(1, pk * 2); ctx.lineTo(lerp(-14, -4, m), lerp(1, 11, m)); if (pk > 0.5) ctx.lineTo(lerp(-4, 15, (pk - 0.5) * 2), lerp(11, -10, (pk - 0.5) * 2)); ctx.stroke(); }
-      if (fk <= 0 && pk <= 0) { ctx.fillStyle = icon; ctx.beginPath(); ctx.arc(0, 0, 6, 0, TAU); ctx.fill(); }
+      ctx.lineCap = 'round'; ctx.lineWidth = 5; ctx.strokeStyle = icon; ctx.fillStyle = icon;
+      if (t >= FAIL && t < PASS) { const d = 13 * E.outExpo(seg(t, FAIL, FAIL + 0.15)); ctx.beginPath(); ctx.moveTo(-d, -d); ctx.lineTo(d, d); ctx.moveTo(d, -d); ctx.lineTo(-d, d); ctx.stroke(); }
+      else if (t >= PASS) { const pk = E.outExpo(seg(t, PASS, PASS + 0.25)), m = Math.min(1, pk * 2); ctx.beginPath(); ctx.moveTo(-14, 1); ctx.lineTo(lerp(-14, -4, m), lerp(1, 11, m)); if (pk > 0.5) ctx.lineTo(lerp(-4, 15, (pk - 0.5) * 2), lerp(11, -10, (pk - 0.5) * 2)); ctx.stroke(); }
+      else { ctx.beginPath(); ctx.arc(0, 0, 6, 0, TAU); ctx.fill(); }
     } else nodeIcon(n, t, icon);
     ctx.restore();
 
-    // labels under the node
     if (graphA > 0) {
       const lk = E.outExpo(seg(t, RUN0 + 0.3 + i * 0.08, RUN0 + 0.8 + i * 0.08));
       const lx = SHORT ? n.x + 82 : n.x, ly = SHORT ? n.y - 2 : RY + 92;
@@ -498,64 +402,41 @@ function drawRun(t) {
       if (n.id === 'code' && t > FAIL + 0.85) pill = ['retry 1', C.ember, FAIL + 0.85];
       if (n.id === 'done' && t > 12.05) pill = ['finished', C.sage, 12.05];
       if (pill) {
-        const pk = E.outBack(seg(t, pill[2], pill[2] + 0.3));
+        const pk = E.outBack(seg(t, pill[2], pill[2] + 0.25));
         ctx.font = `700 20px ${MONO}`; const pw = ctx.measureText(pill[0]).width + 28;
         ctx.save(); ctx.globalAlpha = graphA; ctx.translate(SHORT ? n.x + 82 + pw / 2 : n.x, SHORT ? n.y + 38 : RY + 136); ctx.scale(pk, pk);
-        roundRect(-pw / 2, -18, pw, 36, 18); ctx.fillStyle = rgba(pill[1], 0.16); ctx.fill(); ctx.strokeStyle = pill[1]; ctx.lineWidth = 2; ctx.stroke();
-        text(pill[0], 0, 1, { size: 20, weight: 700, font: MONO, color: pill[1], align: 'center', base: 'middle' });
+        roundRect(-pw / 2, -18, pw, 36, 18); ctx.fillStyle = pill[1]; ctx.fill();
+        text(pill[0], 0, 1, { size: 20, weight: 700, font: MONO, color: C.bg, align: 'center', base: 'middle' });
         ctx.restore();
       }
     }
   });
 
-  // ripples on fail, pass and finish
-  for (const [t0, nd, col] of [[FAIL, NODES[3], C.fail], [PASS, NODES[3], C.sage], [12.05, NODES[5], C.sage]]) {
-    for (let j = 0; j < 2; j++) {
-      const k = seg(t, t0 + j * 0.1, t0 + 0.8 + j * 0.1);
-      if (k <= 0 || k >= 1 || graphA <= 0) continue;
-      ctx.strokeStyle = rgba(col, (1 - k) * 0.8 * graphA); ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(nd.x, nd.y, 50 + E.outExpo(k) * 160, 0, TAU); ctx.stroke();
-    }
-  }
-  // sparks bursting from the finished node
-  if (t > 12.05 && graphA > 0) {
-    const r = rng(9);
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    for (let j = 0; j < 26; j++) {
-      const a = r() * TAU, sp = 120 + r() * 260, k = seg(t, 12.05, 12.05 + 0.6 + r() * 0.4);
-      if (k >= 1) continue;
-      const d = E.outExpo(k) * sp;
-      glow(NODES[5].x + Math.cos(a) * d, NODES[5].y + Math.sin(a) * d, 10 * (1 - k) + 2, j % 2 ? C.sage : C.ochre, (1 - k) * graphA);
-    }
-    ctx.restore();
-  }
-
-  // the token, and the packet on the retry arc
+  // the token
   const tok = tokenAt(t);
   if (graphA > 0 && t < 12.1) {
-    const col = tok.arc ? C.ember : t > PASS ? C.sage : '#ffc46b';
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = graphA;
-    if (tok.moving) for (let j = 1; j < 12; j++) { const tt = tokenAt(t - j * 0.012); glow(tt.x, tt.y, 22 - j * 1.4, col, 0.35 * (1 - j / 12)); }
-    glow(tok.x, tok.y, 46, col, 0.85); ctx.fillStyle = '#fff6e0'; ctx.beginPath(); ctx.arc(tok.x, tok.y, 7, 0, TAU); ctx.fill();
+    const col = tok.arc ? C.ember : t > PASS ? C.sage : C.ink;
+    ctx.save(); ctx.globalAlpha = graphA;
+    ctx.fillStyle = col; ctx.beginPath(); ctx.arc(tok.x, tok.y, 10, 0, TAU); ctx.fill();
     ctx.restore();
     if (tok.arc) {
-      const ck = E.outBack(seg(t, 10.25, 10.45)) * (1 - seg(t, 10.75, 10.85));
+      const ck = E.outBack(seg(t, 10.25, 10.42)) * (1 - seg(t, 10.75, 10.85));
       ctx.save(); ctx.translate(tok.x, tok.y - 46); ctx.scale(ck, ck);
       ctx.font = `700 21px ${MONO}`; const w = ctx.measureText('only the last failure').width + 30;
-      roundRect(-w / 2, -20, w, 40, 20); ctx.fillStyle = 'rgba(24,17,12,0.95)'; ctx.fill(); ctx.strokeStyle = C.ember; ctx.lineWidth = 2; ctx.stroke();
-      text('only the last failure', 0, 1, { size: 21, weight: 700, font: MONO, color: C.ember, align: 'center', base: 'middle' });
+      roundRect(-w / 2, -20, w, 40, 20); ctx.fillStyle = C.ember; ctx.fill();
+      text('only the last failure', 0, 1, { size: 21, weight: 700, font: MONO, color: C.bg, align: 'center', base: 'middle' });
       ctx.restore();
     }
   }
 
-  // the bars that only the trace has
+  // the bars only the trace has
   for (const r of [5, 6]) {
-    const k = E.outExpo(seg(t, MORPH1 - 0.15 + (r - 5) * 0.08, MORPH1 + 0.35 + (r - 5) * 0.08));
+    const k = E.outExpo(seg(t, MORPH1 - 0.15 + (r - 5) * 0.08, MORPH1 + 0.3 + (r - 5) * 0.08));
     if (k <= 0) continue;
-    const rr = rowRect(r); let { x, y, w, h } = rr; w *= k;
+    let { x, y, w, h } = rowRect(r); w *= k;
     if (collapse > 0) { x = lerp(x, W / 2, collapse); y = lerp(y, H / 2, collapse); w = lerp(w, 4, collapse); h = lerp(h, 4, collapse); }
     ctx.save(); ctx.globalAlpha = 1 - seg(t, 13.75, 13.9);
-    roundRect(x, y, w, h, 6); ctx.fillStyle = rgba(ROWS[r].col, 0.75); ctx.fill(); ctx.strokeStyle = ROWS[r].col; ctx.lineWidth = 3; ctx.stroke();
+    roundRect(x, y, w, h, 4); ctx.fillStyle = C[ROWS[r].col]; ctx.fill();
     ctx.restore();
   }
 }
@@ -578,16 +459,6 @@ function drawTraceText(t) {
   ctx.strokeStyle = C.lineStrong; ctx.lineWidth = 1.5;
   ctx.beginPath(); ctx.moveTo(BAR_X, ROW_Y - 22); ctx.lineTo(BAR_X + BAR_W * ak, ROW_Y - 22); ctx.stroke();
   for (let i = 0; i <= 10; i++) { if (i / 10 > ak) break; ctx.beginPath(); ctx.moveTo(BAR_X + BAR_W * i / 10, ROW_Y - 28); ctx.lineTo(BAR_X + BAR_W * i / 10, ROW_Y - 16); ctx.stroke(); }
-  // a light sweep across the bars
-  const sw = seg(t, 12.85, 13.35);
-  if (sw > 0 && sw < 1) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const x = BAR_X - 200 + (BAR_W + 400) * E.inOutCubic(sw);
-    const g = ctx.createLinearGradient(x - 120, 0, x + 120, 0);
-    g.addColorStop(0, 'rgba(255,220,160,0)'); g.addColorStop(0.5, 'rgba(255,220,160,0.28)'); g.addColorStop(1, 'rgba(255,220,160,0)');
-    ctx.fillStyle = g; ctx.fillRect(BAR_X - 10, ROW_Y - 6, BAR_W + 20, ROWS.length * ROW_STEP);
-    ctx.restore();
-  }
   if (SHORT) {
     const y0 = ROW_Y + ROWS.length * ROW_STEP + 50;
     ['gen_ai.usage.input_tokens', 'gen_ai.usage.output_tokens', 'cost: from the provider, or unknown'].forEach((l, i) =>
@@ -604,7 +475,6 @@ function drawMark(t) {
   const s0 = MARK.r / 96;
   const k = E.outBack(seg(t, t0, t0 + 0.5));
   ctx.save(); ctx.translate(MARK.x, MARK.y); ctx.scale(s0 * k, s0 * k);
-  glow(0, 0, 190, '#ff8a2a', 0.18);
   const disk = ctx.createRadialGradient(0, 16, 0, 0, 16, 125);
   disk.addColorStop(0, '#5a3320'); disk.addColorStop(1, '#150b07');
   ctx.fillStyle = disk; ctx.beginPath(); ctx.arc(0, 0, 96, 0, TAU); ctx.fill();
@@ -627,7 +497,7 @@ function drawMark(t) {
   }
   // persons in the SVG sit at y 155-176 of 200, i.e. about 66 from the centre, facing in: flip the drawing
   ctx.restore();
-  fire(MARK.x, MARK.y + 4 * s0, 0.44 * s0 * E.outBack(seg(t, t0 + 0.2, t0 + 0.6)), t, 0.55);
+  fire(MARK.x, MARK.y + 4 * s0, 0.44 * s0 * E.outBack(seg(t, t0 + 0.2, t0 + 0.6)), t);
 
   // wordmark and lines
   const wx = SHORT ? 540 - 300 : MARK.x + MARK.r + 64, wy = SHORT ? 1060 : MARK.y + 58;
@@ -646,16 +516,6 @@ function drawMark(t) {
     riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink], ['argue.', C.ink], ['Ship', C.ochre], ['what', C.ochre], ['they', C.ochre], ['agree', C.ochre], ['on.', C.ochre]], 330, 760, 52, t0 + 0.35, t, { weight: 700, gap: 0.035, dur: 0.5 });
     typeOn('$ npx indaba@next run workflow.ai.yml', 332, 838, t0 + 0.55, t, 110, { size: 28, font: MONO, color: C.muted });
   }
-  // a sheen across the wordmark
-  const sw = seg(t, 14.55, 14.95);
-  if (sw > 0 && sw < 1) {
-    ctx.save(); ctx.globalCompositeOperation = 'lighter';
-    const x = wx - 200 + 900 * E.inOutCubic(sw);
-    const g = ctx.createLinearGradient(x - 90, 0, x + 90, 0);
-    g.addColorStop(0, 'rgba(255,214,150,0)'); g.addColorStop(0.5, 'rgba(255,214,150,0.22)'); g.addColorStop(1, 'rgba(255,214,150,0)');
-    ctx.fillStyle = g; ctx.fillRect(wx - 20, wy - 158, 700, 210);
-    ctx.restore();
-  }
 }
 
 // ---------- camera ----------
@@ -666,12 +526,8 @@ function camera(t) {
     const side = E.inOutCubic(seg(t, 1.75, 2.55)) * (1 - E.inOutCubic(seg(t, 3.9, 4.55)));
     if (SHORT) { cy = lerp(CY, 770, side); z = lerp(z, 0.9, side); } else { cx = lerp(CX, 560, side); z = lerp(z, 0.84, side); }
     z *= lerp(1, 1.13, E.inOutCubic(seg(t, 4.4, 7.2)));
-    rot = 0.035 * Math.sin(seg(t, 4.4, 7.2) * Math.PI) ;
     const punch = t > FLASH ? Math.exp(-(t - FLASH) * 6) * Math.sin((t - FLASH) * 30) * 0.03 : 0;
     z *= 1 + punch + (t > FLASH ? 0.04 * E.outExpo(seg(t, FLASH, FLASH + 0.4)) : 0);
-    // dive into the fire
-    const dive = E.inExpo(seg(t, 7.72, RUN0));
-    z *= Math.pow(30, dive); cy = lerp(CY, CY - 10, dive);
   } else {
     // pull out of the first node, follow the token, settle on the whole graph
     const pull = E.outExpo(seg(t, RUN0, RUN0 + 0.8));
@@ -692,65 +548,13 @@ function camera(t) {
 
 // ---------- frame ----------
 function background(t) {
-  const sageT = t > FLASH ? Math.exp(-(t - FLASH) * 2) * 0.35 : 0;
-  const g = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.48, BIG * 0.75);
-  g.addColorStop(0, mix(C.bg0, '#1d3a2a', sageT)); g.addColorStop(1, C.bg1);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // faint dot grid, drifting
-  ctx.save(); ctx.fillStyle = 'rgba(240,230,214,0.045)';
-  const off = (t * 14) % 48;
-  for (let y = -48; y < H + 48; y += 48) for (let x = -48; x < W + 48; x += 48) { ctx.beginPath(); ctx.arc(x + off, y + off * 0.4, 1.4, 0, TAU); ctx.fill(); }
-  ctx.restore();
-}
-function embers(t) {
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  const boost = 1 + (t > FLASH ? 2.5 * Math.exp(-(t - FLASH) * 1.5) : 0);
-  for (const e of EMBERS) {
-    const span = H + 120;
-    const y = H + 60 - ((t * e.s * boost + e.p * span) % span);
-    const x = e.x + Math.sin(t * e.f + e.ph) * 26;
-    const tw = 0.5 + 0.5 * Math.sin(t * 5 * e.f + e.ph);
-    glow(x, y, 7 * e.z, e.p > 0.8 ? C.sage : C.ember, 0.14 + 0.18 * tw);
-  }
-  ctx.restore();
-}
-function hud(t, f) {
-  const act = t < 1.5 ? null : t < RUN0 ? '01 · the council' : t < MORPH0 ? '02 · the run' : t < COLLAPSE ? '03 · the trace' : null;
-  const actT0 = t < RUN0 ? 1.6 : t < MORPH0 ? RUN0 + 0.3 : MORPH0 + 0.2;
-  if (act) {
-    ctx.save(); ctx.strokeStyle = rgba(C.ochre, 0.8); ctx.lineWidth = 2;
-    const k = E.outExpo(seg(t, actT0, actT0 + 0.5));
-    ctx.beginPath(); ctx.moveTo(72, 78); ctx.lineTo(72 + 40 * k, 78); ctx.stroke(); ctx.restore();
-    typeOn(act, 126, 86, actT0, t, 40, { size: 22, font: MONO, color: C.ochre, spacing: 1 });
-  }
-  if (t > 4.0 && t < FLASH) {
-    const ok = false;
-    const label = ok ? 'consensus' : 'debating';
-    const a = seg(t, 4.0, 4.3) * (1 - seg(t, 7.7, 7.95));
-    const dot = ok ? C.sage : C.ember;
-    ctx.save(); ctx.globalAlpha = a;
-    ctx.font = `700 22px ${MONO}`; const w = ctx.measureText(label).width + 56;
-    const s = ok ? E.outBack(seg(t, FLASH, FLASH + 0.35)) : 1;
-    ctx.translate(W / 2, 78); ctx.scale(s, s);
-    roundRect(-w / 2, -21, w, 42, 21); ctx.fillStyle = rgba(dot, 0.14); ctx.fill(); ctx.strokeStyle = rgba(dot, 0.8); ctx.lineWidth = 1.5; ctx.stroke();
-    ctx.fillStyle = dot; ctx.globalAlpha = a * (ok ? 1 : 0.5 + 0.5 * Math.sin(t * 10)); ctx.beginPath(); ctx.arc(-w / 2 + 22, 0, 6, 0, TAU); ctx.fill();
-    ctx.globalAlpha = a;
-    text(label, -w / 2 + 38, 1, { size: 22, weight: 700, font: MONO, color: dot, base: 'middle' });
-    ctx.restore();
-    // rounds
-    const rounds = Math.min(3, 1 + Math.floor(seg(t, MSG_T0, 6.9) * 3));
-    text(`round ${rounds}/3`, W - 72, 86, { size: 22, font: MONO, color: C.muted, align: 'right', alpha: a });
-  }
-  // timecode
-  if (t > 0.3 && t < 13.7) {
-    const s = Math.floor(f / FPS), fr = f % FPS;
-    text(`IND · ${String(s).padStart(2, '0')}:${String(fr).padStart(2, '0')}`, W - 72, H - 64, { size: 18, font: MONO, color: C.muted, align: 'right', alpha: 0.7 * seg(t, 0.3, 0.8) * (1 - seg(t, 13.4, 13.7)), spacing: 2 });
-    // frame corners
-    ctx.save(); ctx.strokeStyle = rgba(C.ochre, 0.35 * seg(t, 0.3, 0.9) * (1 - seg(t, 13.4, 13.7))); ctx.lineWidth = 2;
-    const m = 40, L = 34;
-    for (const [x, y, dx, dy] of [[m, m, 1, 1], [W - m, m, -1, 1], [m, H - m, 1, -1], [W - m, H - m, -1, -1]]) { ctx.beginPath(); ctx.moveTo(x, y + dy * L); ctx.lineTo(x, y); ctx.lineTo(x + dx * L, y); ctx.stroke(); }
-    ctx.restore();
-  }
+  // paper until the run, dark for the run, paper rising from the bottom for the trace; the failed gate turns the
+  // field red for three frames
+  ctx.fillStyle = t < 8.4 ? THEMES.paper.bg : THEMES.dark.bg;
+  if (t >= FAIL && t < FAIL + 0.1) ctx.fillStyle = THEMES.paper.fail;
+  ctx.fillRect(0, 0, W, H);
+  const up = E.inOutCubic(seg(t, MORPH0, MORPH0 + 0.4));
+  if (up > 0) { ctx.fillStyle = THEMES.paper.bg; ctx.fillRect(0, H * (1 - up), W, H * up); }
 }
 function headline(t) {
   // act one: beside the council
@@ -763,87 +567,30 @@ function headline(t) {
     riseLine([['A', C.ink], ['graph', C.ink]], 80, 230, 92, 9.1, t, { out: 11.95 });
     riseLine([['with', C.ink], ['gates.', C.ember]], 80, 330, 92, 9.2, t, { out: 12.0 });
   } else riseLine([['A', C.ink], ['graph', C.ink], ['with', C.ink], ['gates.', C.ember]], 132, 900, 80, 9.1, t, { out: 11.95 });
-  if (t > FLASH - 0.05 && t < 8.0) {
+  if (t > FLASH && t < 7.8) {
     const k = E.outExpo(seg(t, FLASH, FLASH + 0.5));
-    const a = 1 - seg(t, 7.72, 7.95);
-    ctx.save(); ctx.globalAlpha = a; ctx.font = `800 ${132}px ${SANS}`;
+    const a = 1 - seg(t, 7.7, 7.8);
+    ctx.save(); ctx.globalAlpha = a; ctx.font = `800 ${132}px ${SANS}`; ctx.shadowBlur = 0;
     ctx.letterSpacing = `${lerp(60, 14, k)}px`; ctx.textAlign = 'center';
-    ctx.fillStyle = rgba(C.sage, 0.95 * k);
-    ctx.shadowColor = C.sage; ctx.shadowBlur = 40 * (1 - k) + 10;
+    ctx.fillStyle = C.ink;
     ctx.fillText('AGREED', W / 2, SHORT ? 330 : 190);
     ctx.restore();
   }
 }
-function giantType(t) {
-  // the opening: INDABA, huge and hollow, spreading as the fire takes
-  const k = seg(t, 0.15, 1.9);
-  if (k <= 0 || k >= 1) return;
-  ctx.save();
-  ctx.globalAlpha = Math.sin(k * Math.PI) * 0.22;
-  ctx.font = `800 ${SHORT ? 190 : 300}px ${SANS}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.letterSpacing = `${lerp(6, SHORT ? 22 : 46, E.outCubic(k))}px`;
-  ctx.strokeStyle = C.ochre; ctx.lineWidth = 2;
-  ctx.strokeText('INDABA', W / 2, H / 2 + 10);
-  ctx.restore();
-}
-function post(t, f) {
-  // flash on consensus, the dive into the fire, the cut, the mark
-  const flashes = [[0.62, 0.35, '#ffcf8a', 0.35], [FLASH, 0.5, '#d8ffe8', 0.45], [13.84, 0.4, '#ffd9a0', 0.5]];
-  ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (const [t0, d, col, a] of flashes) { const k = seg(t, t0, t0 + d); if (k > 0 && k < 1) { ctx.fillStyle = rgba(col, a * (1 - E.outCubic(k))); ctx.fillRect(0, 0, W, H); } }
-  ctx.restore();
-  // the fire fills the frame on the dive, then opens on the run
-  const fill = E.inCubic(seg(t, 7.95, RUN0)) * (1 - E.outCubic(seg(t, RUN0, RUN0 + 0.45)));
-  if (fill > 0) {
-    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, BIG * 0.7);
-    g.addColorStop(0, rgba('#ffe7b0', fill)); g.addColorStop(0.5, rgba('#ff9a4d', fill)); g.addColorStop(1, rgba('#7a2a08', fill));
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  }
-  // glitch on the failed gate
-  if (t >= FAIL && t < FAIL + 0.24) {
-    sctx.clearRect(0, 0, W, H); sctx.drawImage(cv, 0, 0);
-    const r = rng(1000 + f);
-    for (let i = 0; i < 14; i++) {
-      const y = Math.floor(r() * H), h = 8 + Math.floor(r() * 60), dx = (r() - 0.5) * 120;
-      ctx.drawImage(scratch, 0, y, W, h, dx, y, W, h);
-    }
-    ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.globalAlpha = 0.35;
-    ctx.drawImage(scratch, 8, 0); ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = rgba(C.fail, 0.12 * (1 - seg(t, FAIL, FAIL + 0.24))); ctx.fillRect(0, 0, W, H);
-    ctx.restore();
-  }
-  // vignette
-  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, BIG * 0.72);
-  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.62)');
-  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
-  // film grain
-  ctx.save(); ctx.globalAlpha = 0.07; ctx.globalCompositeOperation = 'overlay';
-  const gr = grains[f % 4]; const r = rng(f + 3); const ox = -Math.floor(r() * 384), oy = -Math.floor(r() * 384);
-  for (let y = oy; y < H; y += 384) for (let x = ox; x < W; x += 384) ctx.drawImage(gr, x, y);
-  ctx.restore();
-  // fade in from black and a hair of black at the end of the first beat
-  const fin = 1 - seg(t, 0, 0.25);
-  if (fin > 0) { ctx.fillStyle = `rgba(0,0,0,${fin})`; ctx.fillRect(0, 0, W, H); }
-}
-
 function render(t) {
-  const f = Math.round(t * FPS);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
+  theme(t < FLASH ? 'paper' : t < 8.05 ? 'sage' : t < MORPH0 + 0.2 ? 'dark' : 'paper');
   background(t);
-  embers(t);
-  giantType(t);
   const cam = camera(t);
   ctx.save();
-  ctx.translate(W / 2, H / 2); ctx.rotate(cam.rot); ctx.scale(cam.z, cam.z); ctx.translate(-cam.cx, -cam.cy);
-  drawCouncil(t);
+  ctx.translate(W / 2, H / 2); ctx.scale(cam.z, cam.z); ctx.translate(-cam.cx, -cam.cy);
+  if (t < 8.4) drawCouncil(t);
   drawRun(t);
   ctx.restore();
   drawTraceText(t);
   drawMark(t);
   headline(t);
-  hud(t, f);
-  post(t, f);
 }
 window.render = render;
 window.REEL = { W, H, FPS, DURATION };

@@ -446,8 +446,8 @@ a:hover {
   }
 }
 
-/* the reel: a film drawn by site/reel/reel.html. Its frame is the dark cave in both themes, so it sits on a
-   sheet of the film's own background rather than on the page's paper. */
+/* the reel: a film drawn by site/reel/reel.html, in flat paper, ink, sage and earth. It opens and closes on paper,
+   so in both themes it sits in a frame of that paper. */
 .reel {
   max-width: 1200px;
   margin: 0 auto;
@@ -476,9 +476,8 @@ a:hover {
   padding: 0;
   border-radius: 14px;
   overflow: hidden;
-  background: #0b0704;
+  background: #f2ebdf;
   border: 1px solid var(--line-strong);
-  box-shadow: 0 30px 80px -40px rgb(60 25 5 / 0.55), 0 0 0 6px color-mix(in srgb, var(--ochre) 8%, transparent);
 }
 .reel-frame video {
   display: block;
