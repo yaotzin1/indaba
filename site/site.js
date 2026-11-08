@@ -32,6 +32,14 @@
       });
     }
 
+    // The reel autoplays muted; with reduced motion it stays on its poster (the mark) until someone presses play.
+    const reel = document.querySelector('[data-reel]');
+    if (reel && window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      reel.removeAttribute('autoplay');
+      reel.pause();
+      reel.currentTime = 0;
+    }
+
     const art = document.querySelector('.hero-art');
     const pause = document.querySelector('[data-hero-pause]');
     if (!art || !pause || typeof art.pauseAnimations !== 'function') return;
