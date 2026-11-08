@@ -19,8 +19,12 @@
 <body>
 <canvas id="c" width="1920" height="1080"></canvas>
 <script>
-const W = 1920, H = 1080, FPS = 30, DURATION = 15;
+// ?short draws the vertical cut (1080x1920) for YouTube Shorts; the default is the landscape film of the site.
+const SHORT = new URLSearchParams(location.search).has('short');
+const W = SHORT ? 1080 : 1920, H = SHORT ? 1920 : 1080, FPS = 30, DURATION = 15;
+const BIG = Math.max(W, H);
 const cv = document.getElementById('c');
+cv.width = W; cv.height = H; cv.style.width = `${W}px`; cv.style.height = `${H}px`;
 const ctx = cv.getContext('2d');
 const scratch = document.createElement('canvas');
 scratch.width = W; scratch.height = H;
@@ -96,10 +100,11 @@ function text(str, x, y, { size = 32, weight = 400, font = SANS, color = C.ink, 
   ctx.restore();
 }
 // A line of type that rises out of a mask, word by word.
-function riseLine(words, x, y, size, t0, t, { weight = 800, gap = 0.07, dur = 0.55, out = 1e9, outDur = 0.35 } = {}) {
+function riseLine(words, x, y, size, t0, t, { weight = 800, gap = 0.07, dur = 0.55, out = 1e9, outDur = 0.35, center = false } = {}) {
   ctx.save();
   ctx.font = `${weight} ${size}px ${SANS}`;
   let cx = x;
+  if (center) cx = x - (words.reduce((a, [w]) => a + ctx.measureText(w).width, 0) + size * 0.26 * (words.length - 1)) / 2;
   words.forEach(([w, color], i) => {
     const k = E.outExpo(seg(t, t0 + i * gap, t0 + i * gap + dur));
     const ko = E.inCubic(seg(t, out + i * gap * 0.5, out + i * gap * 0.5 + outDur));
@@ -159,7 +164,7 @@ function ochreFill(x, y, r) {
 }
 
 // ---------- the council (world space, centre 960,540) ----------
-const CX = 960, CY = 540, R = 250;
+const CX = W / 2, CY = SHORT ? 1080 : 540, R = SHORT ? 290 : 250;
 const ROLES = ['architect', 'coder', 'reviewer', 'tester', 'security', 'scribe'];
 const MSGS = [[0, 3], [3, 0], [1, 4], [2, 5], [4, 1], [5, 2], [0, 2], [3, 5], [1, 3], [4, 0], [2, 4], [5, 1], [0, 4], [3, 1], [2, 0], [5, 3]];
 const WORDS = ['objection', 'evidence?', 'counter', 'cite the line', 'edge case', 'not yet', 'show the diff', 're-check', 'fair point', 'conceded', '+1', 'agreed', 'agreed', 'agreed', 'agreed', 'agreed'];
@@ -338,27 +343,28 @@ function drawCouncil(t) {
 }
 
 // ---------- the run (world space of its own) ----------
-const NODES = [
-  { id: 'spec', x: 300 }, { id: 'plan', x: 630 }, { id: 'code', x: 960 },
-  { id: 'gate', x: 1290, gate: true }, { id: 'review', x: 1620 }, { id: 'done', x: 1950 },
-];
+// Landscape: the graph runs left to right. Short: top to bottom, labels to the right of the nodes.
 const RY = 540, RUN0 = 8.4;
+const NODES = ['spec', 'plan', 'code', 'gate', 'review', 'done'].map((id, i) => ({
+  id, gate: id === 'gate', x: SHORT ? 440 : 300 + i * 330, y: SHORT ? 400 + i * 236 : RY,
+}));
+const RUN_MID = SHORT ? { x: 440, y: (NODES[0].y + NODES[5].y) / 2 } : { x: 1125, y: RY };
 const FAIL = 10.0, PASS = 11.25;
 // The token's journey: [t0, t1, from, to] by node index, or the retry arc.
 const LEGS = [[8.85, 9.2, 0, 1], [9.25, 9.6, 1, 2], [9.65, 10.0, 2, 3], [10.25, 10.85, 3, 2, 'arc'], [10.9, 11.25, 2, 3], [11.3, 11.65, 3, 4], [11.7, 12.05, 4, 5]];
-const ARC_CTL = { x: 1125, y: RY - 300 };
+const ARC_CTL = SHORT ? { x: 440 - 300, y: (NODES[2].y + NODES[3].y) / 2 } : { x: 1125, y: RY - 300 };
 function tokenAt(t) {
-  if (t < LEGS[0][0]) return { x: NODES[0].x, y: RY, moving: false };
+  if (t < LEGS[0][0]) return { x: NODES[0].x, y: NODES[0].y, moving: false };
   for (const [a, b, f, to, arc] of LEGS) {
     if (t >= a && t <= b) {
       const u = E.inOutCubic(seg(t, a, b));
-      const p = { x: NODES[f].x, y: RY }, q = { x: NODES[to].x, y: RY };
+      const p = NODES[f], q = NODES[to];
       if (arc) return { ...quad(p, ARC_CTL, q, u), moving: true, arc: true, u };
-      return { x: lerp(p.x, q.x, u), y: RY, moving: true, u };
+      return { x: lerp(p.x, q.x, u), y: lerp(p.y, q.y, u), moving: true, u };
     }
   }
-  for (let i = LEGS.length - 1; i >= 0; i--) if (t > LEGS[i][1]) return { x: NODES[LEGS[i][3]].x, y: RY, moving: false };
-  return { x: NODES[0].x, y: RY, moving: false };
+  for (let i = LEGS.length - 1; i >= 0; i--) if (t > LEGS[i][1]) return { x: NODES[LEGS[i][3]].x, y: NODES[LEGS[i][3]].y, moving: false };
+  return { x: NODES[0].x, y: NODES[0].y, moving: false };
 }
 function nodeLit(i, t) {
   const arrive = [8.5, 9.2, 9.6, 10.0, 11.65, 12.05][i];
@@ -385,9 +391,9 @@ const ROWS = [
   { label: 'gate  ✓', a: 0.67, b: 0.72, col: C.sage },
   { label: 'review', a: 0.73, b: 0.93, col: C.ochre },
 ];
-const BAR_X = 560, BAR_W = 1100, ROW_Y = 352, ROW_STEP = 56;
+const BAR_X = SHORT ? 300 : 560, BAR_W = SHORT ? 640 : 1100, ROW_Y = SHORT ? 640 : 352, ROW_STEP = SHORT ? 74 : 56, ROW_H = SHORT ? 34 : 28;
 const NODE_ROW = [1, 2, 3, 4, 7, 0];
-function rowRect(r) { const row = ROWS[r]; return { x: BAR_X + row.a * BAR_W, y: ROW_Y + r * ROW_STEP, w: (row.b - row.a) * BAR_W, h: 28 }; }
+function rowRect(r) { const row = ROWS[r]; return { x: BAR_X + row.a * BAR_W, y: ROW_Y + r * ROW_STEP, w: (row.b - row.a) * BAR_W, h: ROW_H }; }
 const MORPH0 = 12.2, MORPH1 = 12.8, COLLAPSE = 13.5;
 
 function drawRun(t) {
@@ -401,17 +407,18 @@ function drawRun(t) {
     const k = E.outExpo(seg(t, RUN0 + 0.15 + i * 0.09, RUN0 + 0.6 + i * 0.09));
     if (k <= 0 || graphA <= 0) continue;
     const a = NODES[i], b = NODES[i + 1];
-    const x0 = a.x + 50, x1 = lerp(x0, b.x - 50, k);
+    const ux = Math.sign(b.x - a.x), uy = Math.sign(b.y - a.y);
+    const x0 = a.x + 50 * ux, y0 = a.y + 50 * uy, x1 = lerp(x0, b.x - 50 * ux, k), y1 = lerp(y0, b.y - 50 * uy, k);
     ctx.save(); ctx.globalAlpha = graphA;
     ctx.strokeStyle = C.lineStrong; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.moveTo(x0, RY); ctx.lineTo(x1, RY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke();
     // travelled: flowing dashes
     const lit = nodeLit(i + 1, t);
     if (lit > 0) {
       ctx.strokeStyle = i === 2 && t > FAIL && t < PASS ? C.ember : i >= 2 && t > PASS ? C.sage : C.ochre;
       if (i === 3 && t > PASS) ctx.strokeStyle = C.sage;
       ctx.setLineDash([14, 12]); ctx.lineDashOffset = -t * 90; ctx.globalAlpha = graphA * lit;
-      ctx.beginPath(); ctx.moveTo(x0, RY); ctx.lineTo(x1, RY); ctx.stroke(); ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x0, y0); ctx.lineTo(x1, y1); ctx.stroke(); ctx.setLineDash([]);
     }
     ctx.restore();
   }
@@ -421,10 +428,10 @@ function drawRun(t) {
     ctx.save(); ctx.globalAlpha = graphA * (1 - seg(t, 11.6, 12.0) * 0.6);
     ctx.strokeStyle = C.ember; ctx.lineWidth = 3; ctx.setLineDash([10, 10]); ctx.lineDashOffset = t * 70;
     ctx.beginPath();
-    const steps = 40, p = { x: NODES[3].x, y: RY }, q = { x: NODES[2].x, y: RY };
+    const steps = 40, p = NODES[3], q = NODES[2];
     for (let s = 0; s <= steps * E.outExpo(arcK); s++) { const pt = quad(p, { x: ARC_CTL.x, y: ARC_CTL.y }, q, s / steps); s ? ctx.lineTo(pt.x, pt.y) : ctx.moveTo(pt.x, pt.y); }
     ctx.stroke(); ctx.setLineDash([]);
-    text('retry · isolated', ARC_CTL.x, RY - 252, { size: 22, font: MONO, color: C.ember, align: 'center', alpha: E.outExpo(seg(t, FAIL + 0.35, FAIL + 0.7)) });
+    text('retry · isolated', SHORT ? 150 : ARC_CTL.x, SHORT ? ARC_CTL.y + 70 : RY - 252, { size: 22, font: MONO, color: C.ember, align: 'center', alpha: E.outExpo(seg(t, FAIL + 0.35, FAIL + 0.7)) });
     ctx.restore();
   }
 
@@ -448,12 +455,12 @@ function drawRun(t) {
     // morph target
     const r = rowRect(NODE_ROW[i]);
     const tcx = r.x + r.w / 2, tcy = r.y + r.h / 2;
-    let cx = lerp(n.x + shakeX, tcx, morph), cy = lerp(RY, tcy, morph);
+    let cx = lerp(n.x + shakeX, tcx, morph), cy = lerp(n.y, tcy, morph);
     let w = lerp(96, r.w, morph), h = lerp(96, r.h, morph);
     const rowCol = ROWS[NODE_ROW[i]].col;
     if (morph > 0) stroke = mix(stroke, rowCol, morph);
     // collapse to the centre for the mark
-    if (collapse > 0) { cx = lerp(cx, 960, collapse); cy = lerp(cy, 540, collapse); w = lerp(w, 6, collapse); h = lerp(h, 6, collapse); }
+    if (collapse > 0) { cx = lerp(cx, W / 2, collapse); cy = lerp(cy, H / 2, collapse); w = lerp(w, 6, collapse); h = lerp(h, 6, collapse); }
     const s = clamp(ap, 0, 1.4);
     ctx.save(); ctx.globalAlpha = 1 - seg(t, 13.75, 13.9);
     ctx.translate(cx, cy); ctx.scale(s, s);
@@ -483,7 +490,8 @@ function drawRun(t) {
     // labels under the node
     if (graphA > 0) {
       const lk = E.outExpo(seg(t, RUN0 + 0.3 + i * 0.08, RUN0 + 0.8 + i * 0.08));
-      text(n.id, n.x, RY + 92, { size: 26, font: MONO, weight: 700, color: mix(C.muted, C.ink, lit), align: 'center', alpha: lk * graphA, spacing: 1 });
+      const lx = SHORT ? n.x + 82 : n.x, ly = SHORT ? n.y - 2 : RY + 92;
+      text(n.id, lx, ly, { size: SHORT ? 34 : 26, font: MONO, weight: 700, color: mix(C.muted, C.ink, lit), align: SHORT ? 'left' : 'center', alpha: lk * graphA, spacing: 1 });
       let pill = null;
       if (n.gate && t > FAIL && t < PASS) pill = ['exit 1', C.fail, FAIL];
       if (n.gate && t >= PASS) pill = ['passed', C.sage, PASS];
@@ -491,8 +499,8 @@ function drawRun(t) {
       if (n.id === 'done' && t > 12.05) pill = ['finished', C.sage, 12.05];
       if (pill) {
         const pk = E.outBack(seg(t, pill[2], pill[2] + 0.3));
-        ctx.save(); ctx.globalAlpha = graphA; ctx.translate(n.x, RY + 136); ctx.scale(pk, pk);
         ctx.font = `700 20px ${MONO}`; const pw = ctx.measureText(pill[0]).width + 28;
+        ctx.save(); ctx.globalAlpha = graphA; ctx.translate(SHORT ? n.x + 82 + pw / 2 : n.x, SHORT ? n.y + 38 : RY + 136); ctx.scale(pk, pk);
         roundRect(-pw / 2, -18, pw, 36, 18); ctx.fillStyle = rgba(pill[1], 0.16); ctx.fill(); ctx.strokeStyle = pill[1]; ctx.lineWidth = 2; ctx.stroke();
         text(pill[0], 0, 1, { size: 20, weight: 700, font: MONO, color: pill[1], align: 'center', base: 'middle' });
         ctx.restore();
@@ -501,12 +509,12 @@ function drawRun(t) {
   });
 
   // ripples on fail, pass and finish
-  for (const [t0, x, col] of [[FAIL, NODES[3].x, C.fail], [PASS, NODES[3].x, C.sage], [12.05, NODES[5].x, C.sage]]) {
+  for (const [t0, nd, col] of [[FAIL, NODES[3], C.fail], [PASS, NODES[3], C.sage], [12.05, NODES[5], C.sage]]) {
     for (let j = 0; j < 2; j++) {
       const k = seg(t, t0 + j * 0.1, t0 + 0.8 + j * 0.1);
       if (k <= 0 || k >= 1 || graphA <= 0) continue;
       ctx.strokeStyle = rgba(col, (1 - k) * 0.8 * graphA); ctx.lineWidth = 3;
-      ctx.beginPath(); ctx.arc(x, RY, 50 + E.outExpo(k) * 160, 0, TAU); ctx.stroke();
+      ctx.beginPath(); ctx.arc(nd.x, nd.y, 50 + E.outExpo(k) * 160, 0, TAU); ctx.stroke();
     }
   }
   // sparks bursting from the finished node
@@ -517,7 +525,7 @@ function drawRun(t) {
       const a = r() * TAU, sp = 120 + r() * 260, k = seg(t, 12.05, 12.05 + 0.6 + r() * 0.4);
       if (k >= 1) continue;
       const d = E.outExpo(k) * sp;
-      glow(NODES[5].x + Math.cos(a) * d, RY + Math.sin(a) * d, 10 * (1 - k) + 2, j % 2 ? C.sage : C.ochre, (1 - k) * graphA);
+      glow(NODES[5].x + Math.cos(a) * d, NODES[5].y + Math.sin(a) * d, 10 * (1 - k) + 2, j % 2 ? C.sage : C.ochre, (1 - k) * graphA);
     }
     ctx.restore();
   }
@@ -545,7 +553,7 @@ function drawRun(t) {
     const k = E.outExpo(seg(t, MORPH1 - 0.15 + (r - 5) * 0.08, MORPH1 + 0.35 + (r - 5) * 0.08));
     if (k <= 0) continue;
     const rr = rowRect(r); let { x, y, w, h } = rr; w *= k;
-    if (collapse > 0) { x = lerp(x, 960, collapse); y = lerp(y, 540, collapse); w = lerp(w, 4, collapse); h = lerp(h, 4, collapse); }
+    if (collapse > 0) { x = lerp(x, W / 2, collapse); y = lerp(y, H / 2, collapse); w = lerp(w, 4, collapse); h = lerp(h, 4, collapse); }
     ctx.save(); ctx.globalAlpha = 1 - seg(t, 13.75, 13.9);
     roundRect(x, y, w, h, 6); ctx.fillStyle = rgba(ROWS[r].col, 0.75); ctx.fill(); ctx.strokeStyle = ROWS[r].col; ctx.lineWidth = 3; ctx.stroke();
     ctx.restore();
@@ -557,10 +565,13 @@ function drawTraceText(t) {
   const a = (1 - seg(t, COLLAPSE - 0.1, COLLAPSE + 0.15));
   if (t < MORPH0 + 0.2 || a <= 0) return;
   ctx.save(); ctx.globalAlpha = a;
-  riseLine([['Every', C.ink], ['token', C.ink], ['counted.', C.ochre]], 140, 240, 84, MORPH0 + 0.3, t, { out: COLLAPSE - 0.15 });
+  if (SHORT) {
+    riseLine([['Every', C.ink], ['token', C.ink]], 80, 380, 108, MORPH0 + 0.3, t, { out: COLLAPSE - 0.15 });
+    riseLine([['counted.', C.ochre]], 80, 500, 108, MORPH0 + 0.42, t, { out: COLLAPSE - 0.1 });
+  } else riseLine([['Every', C.ink], ['token', C.ink], ['counted.', C.ochre]], 140, 240, 84, MORPH0 + 0.3, t, { out: COLLAPSE - 0.15 });
   ROWS.forEach((row, r) => {
     const k = E.outExpo(seg(t, MORPH0 + 0.35 + r * 0.05, MORPH0 + 0.8 + r * 0.05));
-    text(row.label, BAR_X - 30 - (1 - k) * 30, ROW_Y + r * ROW_STEP + 22, { size: 22, font: MONO, color: r === 0 ? C.ink : C.muted, align: 'right', alpha: k });
+    text(row.label, BAR_X - 24 - (1 - k) * 30, ROW_Y + r * ROW_STEP + ROW_H * 0.8, { size: SHORT ? 24 : 22, font: MONO, color: r === 0 ? C.ink : C.muted, align: 'right', alpha: k });
   });
   // time axis
   const ak = E.inOutCubic(seg(t, MORPH0 + 0.5, MORPH0 + 1.0));
@@ -577,12 +588,16 @@ function drawTraceText(t) {
     ctx.fillStyle = g; ctx.fillRect(BAR_X - 10, ROW_Y - 6, BAR_W + 20, ROWS.length * ROW_STEP);
     ctx.restore();
   }
-  typeOn('gen_ai.usage.input_tokens · gen_ai.usage.output_tokens · cost: from the provider, or unknown', 140, ROW_Y + ROWS.length * ROW_STEP + 52, MORPH0 + 0.6, t, 120, { size: 22, font: MONO, color: C.muted });
+  if (SHORT) {
+    const y0 = ROW_Y + ROWS.length * ROW_STEP + 50;
+    ['gen_ai.usage.input_tokens', 'gen_ai.usage.output_tokens', 'cost: from the provider, or unknown'].forEach((l, i) =>
+      typeOn(l, 80, y0 + i * 44, MORPH0 + 0.6 + i * 0.25, t, 90, { size: 26, font: MONO, color: C.muted }));
+  } else typeOn('gen_ai.usage.input_tokens · gen_ai.usage.output_tokens · cost: from the provider, or unknown', 140, ROW_Y + ROWS.length * ROW_STEP + 52, MORPH0 + 0.6, t, 120, { size: 22, font: MONO, color: C.muted });
   ctx.restore();
 }
 
 // ---------- the mark ----------
-const MARK = { x: 650, y: 470, r: 128 };
+const MARK = SHORT ? { x: 540, y: 640, r: 175 } : { x: 650, y: 470, r: 128 };
 function drawMark(t) {
   const t0 = 13.85;
   if (t < t0) return;
@@ -615,13 +630,22 @@ function drawMark(t) {
   fire(MARK.x, MARK.y + 4 * s0, 0.44 * s0 * E.outBack(seg(t, t0 + 0.2, t0 + 0.6)), t, 0.55);
 
   // wordmark and lines
-  const wx = MARK.x + MARK.r + 64;
-  riseLine([['Indaba', C.ink]], wx, MARK.y + 58, 176, t0 + 0.15, t, { weight: 800, dur: 0.7 });
+  const wx = SHORT ? 540 - 300 : MARK.x + MARK.r + 64, wy = SHORT ? 1060 : MARK.y + 58;
+  if (SHORT) riseLine([['Indaba', C.ink]], 540, wy, 200, t0 + 0.15, t, { weight: 800, dur: 0.7, center: true });
+  else riseLine([['Indaba', C.ink]], wx, wy, 176, t0 + 0.15, t, { weight: 800, dur: 0.7 });
   const lk = E.outExpo(seg(t, t0 + 0.4, t0 + 0.9));
+  const ulx = SHORT ? 540 - 300 * lk : wx + 6, ulw = SHORT ? 600 * lk : 560 * lk, uly = SHORT ? wy + 46 : MARK.y + 96;
   ctx.save(); ctx.globalAlpha = lk; ctx.strokeStyle = C.ochreDeep; ctx.lineWidth = 2;
-  ctx.beginPath(); ctx.moveTo(wx + 6, MARK.y + 96); ctx.lineTo(wx + 6 + 560 * lk, MARK.y + 96); ctx.stroke(); ctx.restore();
-  riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink], ['argue.', C.ink], ['Ship', C.ochre], ['what', C.ochre], ['they', C.ochre], ['agree', C.ochre], ['on.', C.ochre]], 330, 760, 52, t0 + 0.35, t, { weight: 700, gap: 0.035, dur: 0.5 });
-  typeOn('$ npx indaba@next run workflow.ai.yml', 332, 838, t0 + 0.55, t, 110, { size: 28, font: MONO, color: C.muted });
+  ctx.beginPath(); ctx.moveTo(ulx, uly); ctx.lineTo(ulx + ulw, uly); ctx.stroke(); ctx.restore();
+  if (SHORT) {
+    riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink], ['argue.', C.ink]], 540, 1230, 62, t0 + 0.35, t, { weight: 700, gap: 0.04, dur: 0.5, center: true });
+    riseLine([['Ship', C.ochre], ['what', C.ochre], ['they', C.ochre], ['agree', C.ochre], ['on.', C.ochre]], 540, 1314, 62, t0 + 0.45, t, { weight: 700, gap: 0.04, dur: 0.5, center: true });
+    ctx.save(); ctx.font = `400 30px ${MONO}`; const cw = ctx.measureText('github.com/yaotzin1/indaba').width; ctx.restore();
+    typeOn('github.com/yaotzin1/indaba', 540 - cw / 2, 1420, t0 + 0.6, t, 70, { size: 30, font: MONO, color: C.ochre });
+  } else {
+    riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink], ['argue.', C.ink], ['Ship', C.ochre], ['what', C.ochre], ['they', C.ochre], ['agree', C.ochre], ['on.', C.ochre]], 330, 760, 52, t0 + 0.35, t, { weight: 700, gap: 0.035, dur: 0.5 });
+    typeOn('$ npx indaba@next run workflow.ai.yml', 332, 838, t0 + 0.55, t, 110, { size: 28, font: MONO, color: C.muted });
+  }
   // a sheen across the wordmark
   const sw = seg(t, 14.55, 14.95);
   if (sw > 0 && sw < 1) {
@@ -629,7 +653,7 @@ function drawMark(t) {
     const x = wx - 200 + 900 * E.inOutCubic(sw);
     const g = ctx.createLinearGradient(x - 90, 0, x + 90, 0);
     g.addColorStop(0, 'rgba(255,214,150,0)'); g.addColorStop(0.5, 'rgba(255,214,150,0.22)'); g.addColorStop(1, 'rgba(255,214,150,0)');
-    ctx.fillStyle = g; ctx.fillRect(wx - 20, MARK.y - 100, 700, 210);
+    ctx.fillStyle = g; ctx.fillRect(wx - 20, wy - 158, 700, 210);
     ctx.restore();
   }
 }
@@ -640,7 +664,7 @@ function camera(t) {
   if (t < RUN0) {
     z = lerp(1.45, 1.0, E.outExpo(seg(t, 0.55, 1.7)));
     const side = E.inOutCubic(seg(t, 1.75, 2.55)) * (1 - E.inOutCubic(seg(t, 3.9, 4.55)));
-    cx = lerp(CX, 560, side); z = lerp(z, 0.84, side);
+    if (SHORT) { cy = lerp(CY, 770, side); z = lerp(z, 0.9, side); } else { cx = lerp(CX, 560, side); z = lerp(z, 0.84, side); }
     z *= lerp(1, 1.13, E.inOutCubic(seg(t, 4.4, 7.2)));
     rot = 0.035 * Math.sin(seg(t, 4.4, 7.2) * Math.PI) ;
     const punch = t > FLASH ? Math.exp(-(t - FLASH) * 6) * Math.sin((t - FLASH) * 30) * 0.03 : 0;
@@ -653,14 +677,15 @@ function camera(t) {
     const pull = E.outExpo(seg(t, RUN0, RUN0 + 0.8));
     const follow = E.inOutCubic(seg(t, 9.0, 10.1));
     const tok = tokenAt(t);
-    cx = lerp(tok.x, 1125, follow);
-    z = lerp(6, lerp(1.55, 0.94, follow), pull);
+    cx = lerp(tok.x, RUN_MID.x, follow);
+    const cyRun = lerp(tok.y, RUN_MID.y, follow);
+    z = lerp(6, lerp(SHORT ? 1.25 : 1.55, SHORT ? 0.88 : 0.94, follow), pull);
     z *= lerp(1, 1.04, seg(t, 10.1, MORPH0));
-    cy = RY;
+    cy = cyRun;
     if (t > FAIL && t < FAIL + 0.45) { const d = 1 - seg(t, FAIL, FAIL + 0.45); cx += Math.sin(t * 97) * 16 * d; cy += Math.cos(t * 83) * 11 * d; }
     // settle to identity for the trace
     const m = E.inOutCubic(seg(t, MORPH0, MORPH1));
-    cx = lerp(cx, 960, m); cy = lerp(cy, 540, m); z = lerp(z, 1, m);
+    cx = lerp(cx, W / 2, m); cy = lerp(cy, H / 2, m); z = lerp(z, 1, m);
   }
   return { cx, cy, z, rot };
 }
@@ -668,7 +693,7 @@ function camera(t) {
 // ---------- frame ----------
 function background(t) {
   const sageT = t > FLASH ? Math.exp(-(t - FLASH) * 2) * 0.35 : 0;
-  const g = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.48, W * 0.75);
+  const g = ctx.createRadialGradient(W / 2, H * 0.48, 0, W / 2, H * 0.48, BIG * 0.75);
   g.addColorStop(0, mix(C.bg0, '#1d3a2a', sageT)); g.addColorStop(1, C.bg1);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   // faint dot grid, drifting
@@ -729,11 +754,15 @@ function hud(t, f) {
 }
 function headline(t) {
   // act one: beside the council
-  riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink]], 132, 470, 96, 2.25, t, { out: 3.85 });
-  riseLine([['argue.', C.ember]], 132, 640, 176, 2.5, t, { out: 3.9, dur: 0.7 });
-  typeOn('six roles · one council · cross-examined', 138, 730, 2.9, t, 55, { size: 24, font: MONO, color: C.muted, alpha: 1 - seg(t, 3.8, 4.0) });
-  // act two: under the graph
-  riseLine([['A', C.ink], ['graph', C.ink], ['with', C.ink], ['gates.', C.ember]], 132, 900, 80, 9.1, t, { out: 11.95 });
+  const hx = SHORT ? 80 : 132, hy = SHORT ? 330 : 470;
+  riseLine([['Let', C.ink], ['your', C.ink], ['agents', C.ink]], hx, hy, SHORT ? 104 : 96, 2.25, t, { out: 3.85 });
+  riseLine([['argue.', C.ember]], hx, hy + (SHORT ? 190 : 170), SHORT ? 200 : 176, 2.5, t, { out: 3.9, dur: 0.7 });
+  typeOn(SHORT ? 'six roles · one council' : 'six roles · one council · cross-examined', hx + 6, hy + (SHORT ? 280 : 260), 2.9, t, 55, { size: SHORT ? 30 : 24, font: MONO, color: C.muted, alpha: 1 - seg(t, 3.8, 4.0) });
+  // act two: with the graph
+  if (SHORT) {
+    riseLine([['A', C.ink], ['graph', C.ink]], 80, 230, 92, 9.1, t, { out: 11.95 });
+    riseLine([['with', C.ink], ['gates.', C.ember]], 80, 330, 92, 9.2, t, { out: 12.0 });
+  } else riseLine([['A', C.ink], ['graph', C.ink], ['with', C.ink], ['gates.', C.ember]], 132, 900, 80, 9.1, t, { out: 11.95 });
   if (t > FLASH - 0.05 && t < 8.0) {
     const k = E.outExpo(seg(t, FLASH, FLASH + 0.5));
     const a = 1 - seg(t, 7.72, 7.95);
@@ -741,7 +770,7 @@ function headline(t) {
     ctx.letterSpacing = `${lerp(60, 14, k)}px`; ctx.textAlign = 'center';
     ctx.fillStyle = rgba(C.sage, 0.95 * k);
     ctx.shadowColor = C.sage; ctx.shadowBlur = 40 * (1 - k) + 10;
-    ctx.fillText('AGREED', W / 2, 190);
+    ctx.fillText('AGREED', W / 2, SHORT ? 330 : 190);
     ctx.restore();
   }
 }
@@ -751,8 +780,8 @@ function giantType(t) {
   if (k <= 0 || k >= 1) return;
   ctx.save();
   ctx.globalAlpha = Math.sin(k * Math.PI) * 0.22;
-  ctx.font = `800 300px ${SANS}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-  ctx.letterSpacing = `${lerp(6, 46, E.outCubic(k))}px`;
+  ctx.font = `800 ${SHORT ? 190 : 300}px ${SANS}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.letterSpacing = `${lerp(6, SHORT ? 22 : 46, E.outCubic(k))}px`;
   ctx.strokeStyle = C.ochre; ctx.lineWidth = 2;
   ctx.strokeText('INDABA', W / 2, H / 2 + 10);
   ctx.restore();
@@ -766,7 +795,7 @@ function post(t, f) {
   // the fire fills the frame on the dive, then opens on the run
   const fill = E.inCubic(seg(t, 7.95, RUN0)) * (1 - E.outCubic(seg(t, RUN0, RUN0 + 0.45)));
   if (fill > 0) {
-    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, W * 0.7);
+    const g = ctx.createRadialGradient(W / 2, H / 2, 0, W / 2, H / 2, BIG * 0.7);
     g.addColorStop(0, rgba('#ffe7b0', fill)); g.addColorStop(0.5, rgba('#ff9a4d', fill)); g.addColorStop(1, rgba('#7a2a08', fill));
     ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
@@ -784,7 +813,7 @@ function post(t, f) {
     ctx.restore();
   }
   // vignette
-  const v = ctx.createRadialGradient(W / 2, H / 2, H * 0.35, W / 2, H / 2, W * 0.72);
+  const v = ctx.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, BIG * 0.72);
   v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,0.62)');
   ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
   // film grain
