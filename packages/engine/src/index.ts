@@ -126,9 +126,12 @@ export { GitWorktree } from './workspace/git-worktree.js';
 export { GitWorktreeManager } from './workspace/git-worktree-manager.js';
 export { PatchService } from './workspace/patch-service.js';
 export type {
+  ConflictHunk,
+  ForkableWorkspace,
+  LandResult,
   RestorableWorkspace,
   Workspace,
   WorkspaceCheckpoint,
   WorkspaceManager,
 } from './workspace/workspace.js';
-export { isRestorable } from './workspace/workspace.js';
+export { isForkable, isRestorable } from './workspace/workspace.js';
