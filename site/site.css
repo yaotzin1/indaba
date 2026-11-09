@@ -446,52 +446,6 @@ a:hover {
   }
 }
 
-/* the reel: a film drawn by site/reel/reel.html, in flat paper, ink, sage and earth. It opens and closes on paper,
-   so in both themes it sits in a frame of that paper. */
-.reel {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 3rem clamp(1rem, 3vw, 2rem);
-  border-top: 1px solid var(--line);
-}
-.reel-head {
-  display: grid;
-  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
-  gap: clamp(1.5rem, 4vw, 3.5rem);
-  align-items: end;
-  margin-bottom: 1.6rem;
-}
-.reel-head h2 {
-  font-size: clamp(1.6rem, 3vw, 2.2rem);
-  letter-spacing: -0.025em;
-  line-height: 1.1;
-  margin: 0;
-}
-.reel-head p {
-  margin: 0;
-  color: var(--muted);
-}
-.reel-frame {
-  margin: 0;
-  padding: 0;
-  border-radius: 14px;
-  overflow: hidden;
-  background: #f2ebdf;
-  border: 1px solid var(--line-strong);
-}
-.reel-frame video {
-  display: block;
-  width: 100%;
-  height: auto;
-  aspect-ratio: 16 / 9;
-}
-@media (max-width: 760px) {
-  .reel-head {
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-}
-
 /* the four ideas */
 .ideas {
   max-width: 1200px;
