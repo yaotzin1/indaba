@@ -26,7 +26,7 @@ run worktree. Ships the scheduling and the configuration.
 
 ## Slice 2: forks and landing
 
-- [ ] T-08. `@indaba/engine`: `Workspace.fork`, `Workspace.land`, `ConflictHunk`, in `GitWorktree`. Tests against
+- [x] T-08 (done 2026-11-09; `fork` and `land` on `GitWorktree` behind the optional `ForkableWorkspace` and `isForkable`, see the amendment of `api-surface.md`; **the slice-1 cap stays until T-09**, because without `runOne` forking, worktree steps would still share the run worktree). `@indaba/engine`: `Workspace.fork`, `Workspace.land`, `ConflictHunk`, in `GitWorktree`. Tests against
   temporary repositories: clean land, conflict with hunks, binary, new and deleted files, confinement, guards in a fork
   see only the fork's change. Remove the slice-1 cap.
 - [ ] T-09. `@indaba/engine`: `runOne` forks, lands under the landing lock, writes `patch` after each landing; a

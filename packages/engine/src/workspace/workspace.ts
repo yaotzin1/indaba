@@ -36,3 +36,40 @@ export function isRestorable(workspace: Workspace): workspace is RestorableWorks
 export interface WorkspaceManager {
   create(taskId: string, variant?: string): Promise<Workspace>;
 }
+
+/** One place where a landing found both sides changed the same lines. Paths are project-relative and confined. */
+export interface ConflictHunk {
+  readonly path: string;
+  /** The run workspace's side, bounded and cleaned of control characters. */
+  readonly ours: string;
+  /** The landing step's side, bounded and cleaned of control characters. */
+  readonly theirs: string;
+}
+
+/**
+ * The result of landing a fork. On a conflict the run workspace is unchanged and `workspace` holds both sides with the
+ * conflict markers; the caller destroys it.
+ */
+export type LandResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly conflicts: readonly ConflictHunk[]; readonly workspace: Workspace };
+
+/**
+ * A workspace that parallel steps can fork and land (specs/parallel-steps, T-08). Optional on purpose, like
+ * `RestorableWorkspace`: a `Workspace` written before it existed keeps working and stays a single-step workspace.
+ */
+export interface ForkableWorkspace extends Workspace {
+  /** A worktree whose `HEAD` is a commit of this workspace's current state, so its `diff()` is its own change only. */
+  fork(name: string): Promise<Workspace>;
+  /** Three-way applies the child's change; on a conflict this workspace is left as it was. */
+  land(child: Workspace): Promise<LandResult>;
+}
+
+export function isForkable(workspace: Workspace): workspace is ForkableWorkspace {
+  return (
+    'fork' in workspace &&
+    typeof workspace.fork === 'function' &&
+    'land' in workspace &&
+    typeof workspace.land === 'function'
+  );
+}
