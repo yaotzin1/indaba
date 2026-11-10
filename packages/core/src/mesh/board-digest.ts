@@ -50,10 +50,13 @@ function omittedLine(count: number): string {
  */
 export function buildDigest(board: RunBoard, selection: DigestSelection): Digest {
   const view = { steps: selection.steps, excludeStep: selection.forStep };
-  const withFacts = selection.kinds.includes(BoardKind.Fact);
+  // Intents and contracts are the engine's: the engine hands each to the prompt that needs it, and `board.read` cannot ask for
+  // them (specs/parallel-steps, AC-11a).
+  const kinds = selection.kinds.filter((k) => k !== BoardKind.Intent && k !== BoardKind.Contract);
+  const withFacts = kinds.includes(BoardKind.Fact);
   const facts = withFacts ? latestFacts(board.entries({ ...view, kinds: [BoardKind.Fact] })) : [];
   const rest = board
-    .entries({ ...view, kinds: selection.kinds.filter((k) => k !== BoardKind.Fact) })
+    .entries({ ...view, kinds: kinds.filter((k) => k !== BoardKind.Fact) })
     .slice()
     .reverse();
   const total = facts.length + rest.length;

@@ -38,6 +38,8 @@ export const KIND_MARKS: Readonly<Record<BoardEntryKind, Mark>> = {
   critique: { glyph: '✖', ascii: 'x', word: 'Critique' },
   agreement: { glyph: '✔', ascii: '+', word: 'Agreement' },
   tool_intent: { glyph: '⚙', ascii: '$', word: 'Tool request' },
+  intent: { glyph: '➤', ascii: '~', word: 'Intent' },
+  contract: { glyph: '§', ascii: '@', word: 'Contract' },
 };
 
 const STATE_WORD: Readonly<Record<BoardEntryState, string>> = {

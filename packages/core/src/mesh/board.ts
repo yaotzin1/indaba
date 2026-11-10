@@ -11,6 +11,10 @@ export const BoardKind = {
   Agreement: 'agreement',
   ToolIntent: 'tool_intent',
   Decision: 'decision',
+  /** What a step declares it will change; written by the engine only (specs/parallel-steps, AC-11). */
+  Intent: 'intent',
+  /** What the steps of a negotiation agreed; written by the engine only (specs/parallel-steps, AC-15). */
+  Contract: 'contract',
 } as const;
 export type BoardKind = (typeof BoardKind)[keyof typeof BoardKind];
 

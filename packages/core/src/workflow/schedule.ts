@@ -1,3 +1,4 @@
+import { type Intent, pathsMeet } from '../mesh/intent.js';
 import { Isolation, type StepDefinition } from './model.js';
 import { StepStatus } from './state.js';
 
@@ -98,6 +99,26 @@ function isReady(step: StepDefinition, input: AdmitInput): boolean {
     !input.running.has(step.id) &&
     step.dependsOn.every((id) => input.states.get(id) === StepStatus.Completed)
   );
+}
+
+/**
+ * Whether two intents meet (AC-12): a path of one matches a path of the other (a glob against a glob by the literal prefix
+ * before the first wildcard, C-07, so it errs towards "they meet"), or one needs a name the other provides.
+ */
+export function meets(a: Intent, b: Intent): boolean {
+  return (
+    pathsMeet(a.paths, b.paths) ||
+    a.needs.some((name) => b.provides.some((p) => p.name === name)) ||
+    b.needs.some((name) => a.provides.some((p) => p.name === name))
+  );
+}
+
+/**
+ * The id of the first working step, in the order given, whose intent this one meets (AC-13), or `undefined` when it may
+ * start. A step's own intent is never compared with itself.
+ */
+export function mustWait(intent: Intent, working: readonly Intent[]): string | undefined {
+  return working.find((other) => other.stepId !== intent.stepId && meets(intent, other))?.stepId;
 }
 
 /**

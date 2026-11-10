@@ -783,7 +783,9 @@
                                         "critique",
                                         "agreement",
                                         "tool_intent",
-                                        "decision"
+                                        "decision",
+                                        "intent",
+                                        "contract"
                                       ]
                                     },
                                     "description": "Default: note, question, result, fact and decision."
