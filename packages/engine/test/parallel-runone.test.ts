@@ -86,6 +86,10 @@ async function build(handler: Handler, setup: Setup = {}) {
   let maxInFlight = 0;
   const workdirs = new Map<string, string>();
   const work = new FakeRunner('work', async (request, call, signal) => {
+    // The intent call of a step (specs/parallel-steps, slice 3): these tests are about forks and landing, so no step intends anything.
+    if (request.prompt.includes('Before you start')) {
+      return ok();
+    }
     inFlight += 1;
     maxInFlight = Math.max(maxInFlight, inFlight);
     workdirs.set(idOf(request.prompt), request.workdir);

@@ -21,6 +21,16 @@
 > the steps running or validating, in the run's order. The plain header, and so the dashboard's, gains " | N running" only when N is above 1.
 > The web view gains one line, "Running at the same time: ...", under the same condition. Minor, additive; a run with one step at a time reads as before.
 
+> **Amended during slice 3 (2026-11-11), at T-12.** Additive, all optional; minor. (1) `StepExecutor.intent(step, workflow, workdir, span, options)`
+> is public because `StepExecutor` is: it makes the intent call (spec AC-09) and returns `{ ok: true, intent, ignored }` or `{ ok: false, outcome }`; a shell
+> step's answer is its `touches`. (2) `StepRunOptions.contract?: string` (the prompt section of an agreed contract) and `StepRunOptions.debate?: DebateObserver`
+> (`{ result?, ruling? }`, filled by a debate step so the negotiation can read the transcript). (3) `PromptBuilder.build` takes an optional fourth argument, the contract section.
+> **Deviations from the spec text, recorded here and in `review.md`:** the intent call and the negotiation are spans under the *root* span
+> (`indaba.step.intent`, `indaba.negotiation`, and `indaba.step.negotiation` for each step involved, all with `indaba.step.id`), not children of the step, because
+> a step has no span of its own while it is `PENDING` and a put-back step would leave a dangling one; there is no workflow-level default arbiter in
+> the model, so the arbiter is the first step's `arbiter`, else the decider; a debate that reaches consensus without a valid proposal goes straight to the
+> decider, not to the arbiter; the structured log records of spec AC-33 are not written yet (the engine has no logger).
+
 ## Semver classification
 
 **minor** (below 1.0).

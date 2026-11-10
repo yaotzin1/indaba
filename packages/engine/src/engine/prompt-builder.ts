@@ -8,7 +8,7 @@ export class PromptBuilder {
   static readonly FEEDBACK_LIMIT = 4000;
 
   /** `digest` is the board's notes from earlier steps (specs/run-blackboard); absent, the prompt is as it always was. */
-  build(step: StepDefinition, feedback?: string, digest?: string): string {
+  build(step: StepDefinition, feedback?: string, digest?: string, contract?: string): string {
     const parts = [`# Role: ${step.role ?? 'agent'}`, `## Goal\n${step.goal}`];
 
     if (step.inputArtifacts.length > 0) {
@@ -17,6 +17,10 @@ export class PromptBuilder {
     if (digest !== undefined) {
       parts.push(`## The board: notes from earlier steps
 ${digest}`);
+    }
+    if (contract !== undefined) {
+      parts.push(`## The split agreed with the steps that run beside yours
+${contract}`);
     }
     if (step.outputs.length > 0) {
       parts.push(`## Required outputs (create these files)\n${this.bullets(step.outputs)}`);
