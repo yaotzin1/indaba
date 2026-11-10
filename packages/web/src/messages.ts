@@ -534,6 +534,8 @@ export const messages = {
     meta: (started: string, elapsed: string, id: string): string =>
       `Started ${started}, ${elapsed}, run ${id}`,
     runningFor: (duration: string): string => `running for ${duration}`,
+    /** Said only when several steps run at once: which ones. */
+    runningTogether: (names: string): string => `Running at the same time: ${names}`,
     tookTotal: (duration: string): string => `took ${duration}`,
     graphTitle: 'Steps',
     graphHint: 'select one for details',

@@ -274,3 +274,22 @@ describe('reasoning in the detail pane', () => {
     expect(text(buildScreen(state, ui(), computeLayout(100, 24), opts).detail)).not.toContain('reasoning');
   });
 });
+
+describe('steps that run at the same time (specs/parallel-steps, AC-30)', () => {
+  const state = run(...sampleRecords());
+
+  it('marks every running step in the list and says how many run in the header', () => {
+    const s = buildScreen(state, ui(), computeLayout(100, 24), opts);
+    expect(s.list.filter((row) => row.text.includes('running'))).toHaveLength(2);
+    expect(s.header.text).toContain('2 running');
+  });
+
+  it('keeps the output of each running step apart, whichever is selected', () => {
+    const first = buildScreen(state, ui({ selected: 0 }), computeLayout(100, 24), opts);
+    const second = buildScreen(state, ui({ selected: 1 }), computeLayout(100, 24), opts);
+    expect(text(first.detail)).toContain('line one');
+    expect(text(first.detail)).not.toContain('compiling');
+    expect(text(second.detail)).toContain('compiling');
+    expect(text(second.detail)).not.toContain('line one');
+  });
+});

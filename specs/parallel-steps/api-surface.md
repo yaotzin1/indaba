@@ -17,6 +17,10 @@
 > addition is the optional `WorkflowEngineOptions.maxParallelCap?: number` (default `PARALLEL_STEP_CAP`), used by the engine's own tests
 > and never passed by the composition root. Minor, additive. It goes with the constant at T-15.
 
+> **Amended during slice 2 (2026-11-10), at T-10.** One additive export in `@indaba/engine` (`trace/view.ts`): `activeSteps(state: RunState): readonly StepView[]`,
+> the steps running or validating, in the run's order. The plain header, and so the dashboard's, gains " | N running" only when N is above 1.
+> The web view gains one line, "Running at the same time: ...", under the same condition. Minor, additive; a run with one step at a time reads as before.
+
 ## Semver classification
 
 **minor** (below 1.0).
