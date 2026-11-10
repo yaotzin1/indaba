@@ -5,6 +5,7 @@ import type {
   Logger,
   LogSink,
   LogSinkRegistry,
+  NegotiationDecider,
   PluginHost,
   Runner,
   SimpleEventDispatcher,
@@ -20,6 +21,8 @@ import type { RunnerRegistry } from '@indaba/runners';
 export class RegistryPluginHost implements PluginHost {
   /** The workflow registry a plugin registered, the last one (specs/workflow-registry, AC-13). */
   private workflowRegistry: WorkflowRegistry | undefined;
+  /** The decider a plugin registered, the last one (specs/parallel-steps, AC-16). */
+  private negotiationDecider: NegotiationDecider | undefined;
 
   constructor(
     private readonly runners: RunnerRegistry,
@@ -46,6 +49,15 @@ export class RegistryPluginHost implements PluginHost {
   /** The registry a plugin registered, or undefined for the built-in one. */
   registeredRegistry(): WorkflowRegistry | undefined {
     return this.workflowRegistry;
+  }
+
+  registerNegotiationDecider(decider: NegotiationDecider): void {
+    this.negotiationDecider = decider;
+  }
+
+  /** The decider a plugin registered, or undefined: nobody answers and steps that could not agree run one after another. */
+  registeredNegotiationDecider(): NegotiationDecider | undefined {
+    return this.negotiationDecider;
   }
 
   registerRunner(runner: Runner): void {

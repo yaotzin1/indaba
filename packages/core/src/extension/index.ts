@@ -1,5 +1,6 @@
 import type { Logger, LogSink } from '../logging/logger.js';
 import type { Adjudicator } from '../mesh/adjudicator.js';
+import type { NegotiationDecider } from '../mesh/intent.js';
 import type { WorkflowRegistry } from '../registry/index.js';
 import type { Runner } from '../runner/index.js';
 import type { GuardDefinition } from '../workflow/model.js';
@@ -38,6 +39,12 @@ export interface PluginHost {
   registerGuard(guard: Guard): void;
   /** Make `name` usable as a step's `arbiter`. */
   registerAdjudicator(name: string, adjudicator: Adjudicator): void;
+  /**
+   * Who decides what happens after steps that run side by side could not agree on a split and the arbiter did not settle it
+   * (specs/parallel-steps, AC-16): run them one after another, in an order, or stop. The last registration wins; with none,
+   * nobody answers and the steps run one after another.
+   */
+  registerNegotiationDecider(decider: NegotiationDecider): void;
   /** Listen to an engine event class (`StepStatusChanged`, `SpanStarted`, `SpanEnded`, ...). */
   addListener<E extends object>(
     type: abstract new (...args: never[]) => E,

@@ -114,6 +114,16 @@ export type { Digest, DigestSelection, ParsedPost, ParsedPosts } from './mesh/bo
 export { buildDigest, DIGEST_PREAMBLE, parseBoardLines } from './mesh/board-digest.js';
 export type { ConsensusArbiterOptions, Participant } from './mesh/consensus.js';
 export { ConsensusArbiter, ConsensusOutcome, ConsensusResult, PingPongDetector } from './mesh/consensus.js';
+export type { Contract, Intent, NegotiationDecider } from './mesh/intent.js';
+export {
+  contractSection,
+  INTENT_INSTRUCTION,
+  MAX_INTENT_CHARS,
+  MAX_INTENT_LINES,
+  NEGOTIATION_INSTRUCTION,
+  parseContract,
+  parseIntent,
+} from './mesh/intent.js';
 export { AgentMessage, MessageType } from './mesh/message.js';
 export type { RunnerParticipantOptions } from './mesh/runner-participant.js';
 export { RunnerParticipant } from './mesh/runner-participant.js';
@@ -253,7 +263,7 @@ export {
   stepOf,
 } from './workflow/model.js';
 export type { Admission, AdmitInput } from './workflow/schedule.js';
-export { admit, parallelGroups, runsInProject } from './workflow/schedule.js';
+export { admit, meets, mustWait, parallelGroups, runsInProject } from './workflow/schedule.js';
 export {
   canTransition,
   isTerminalStatus,

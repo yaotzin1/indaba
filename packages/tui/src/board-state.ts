@@ -23,6 +23,8 @@ export const BOARD_KINDS: readonly BoardEntryKind[] = [
   'critique',
   'agreement',
   'tool_intent',
+  'intent',
+  'contract',
 ];
 
 export interface BoardItem {

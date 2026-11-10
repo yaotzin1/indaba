@@ -23,6 +23,7 @@ interface PluginHost {
   registerRunner(runner: Runner): void;
   registerGuard(guard: Guard): void;
   registerAdjudicator(name: string, adjudicator: Adjudicator): void; // what a step's `arbiter:` names
+  registerNegotiationDecider(decider: NegotiationDecider): void; // who decides when steps running side by side cannot agree on a split (the last one wins; none means one after another)
   addListener<E extends object>(
     type: abstract new (...args: never[]) => E,
     listener: (event: E) => unknown,
