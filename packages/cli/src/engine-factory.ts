@@ -227,6 +227,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     redact: (text) => redact(text, secrets),
     ...(options.stepTimeoutSeconds === undefined ? {} : { timeoutSeconds: options.stepTimeoutSeconds }),
   });
+  const negotiationDecider = host.registeredNegotiationDecider();
   const engine = new WorkflowEngine({
     executor,
     tracer,
@@ -235,6 +236,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     projectDir: options.projectDir,
     ids,
     board: { redact: (text) => redact(text, secrets) },
+    ...(negotiationDecider === undefined ? {} : { negotiationDecider }),
     ...(options.maxParallelSteps === undefined ? {} : { maxParallelSteps: options.maxParallelSteps }),
     ...(options.maxParallelSource === undefined ? {} : { maxParallelSource: options.maxParallelSource }),
     ...(options.maxWaits === undefined ? {} : { maxWaits: options.maxWaits }),

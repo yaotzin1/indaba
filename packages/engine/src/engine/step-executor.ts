@@ -3,7 +3,9 @@ import { isAbsolute, relative, resolve } from 'node:path';
 import type {
   AdjudicatorRegistry,
   Clock,
+  ConsensusResult,
   EventDispatcher,
+  Intent,
   RulingRequest,
   RunBoard,
   Runner,
@@ -25,6 +27,7 @@ import {
   EnforcementMode,
   EnforcementScope,
   GuardType,
+  INTENT_INSTRUCTION,
   IndabaError,
   isConsensusStep,
   isPermissionCapable,
@@ -33,6 +36,7 @@ import {
   MessageType,
   PermissionLevel,
   parseBoardLines,
+  parseIntent,
   permissionCapabilitiesOf,
   Ruling,
   RulingSource,
@@ -82,6 +86,15 @@ export interface StepExecutorOptions {
   readonly discussions?: DiscussionStore;
 }
 
+/**
+ * What a debate produced, filled by the executor for a caller that needs more than the outcome (the negotiation of steps that
+ * run side by side, specs/parallel-steps): the transcript, and the ruling when the arbiter settled it.
+ */
+export interface DebateObserver {
+  result?: ConsensusResult;
+  ruling?: Ruling;
+}
+
 export interface StepRunOptions {
   /** The run's board and this attempt's number (1 for the first). Absent: no digest, no scan, no entries. */
   readonly board?: RunBoard | undefined;
@@ -89,6 +102,10 @@ export interface StepRunOptions {
   readonly feedback?: string | undefined;
   readonly onOutput?: ((chunk: string) => void) | undefined;
   readonly signal?: AbortSignal | undefined;
+  /** The contract the step's negotiation agreed, as the prompt section it carries (specs/parallel-steps, AC-15). */
+  readonly contract?: string | undefined;
+  /** Receives the transcript and ruling of a debate step. */
+  readonly debate?: DebateObserver | undefined;
 }
 
 const BOARD_KIND_OF: Record<MessageType, BoardKind> = {
@@ -289,6 +306,86 @@ export class StepExecutor {
     return digest.text;
   }
 
+  /**
+   * What the step says it will change (specs/parallel-steps, AC-09, AC-10). An agent step is asked in one short call, to its
+   * own runner chain with its own role, model and permissions: the goal, the board's notes and the fixed instruction, which
+   * forbids doing the work. A shell step intends the paths its author declared; a debate step intends nothing. A call that
+   * fails, or an answer with no usable line, is not an error of the workflow: the first fails the step like any call, the
+   * second intends nothing.
+   */
+  async intent(
+    step: StepDefinition,
+    workflow: WorkflowDefinition,
+    workdir: string,
+    span: Span,
+    options: StepRunOptions = {},
+  ): Promise<
+    | { readonly ok: true; readonly intent: Intent; readonly ignored: number }
+    | { readonly ok: false; readonly outcome: StepOutcome }
+  > {
+    if (isShellStep(step)) {
+      return {
+        ok: true,
+        ...parseIntent(step.id, (step.touches ?? []).map((path) => `INTENT ${path}`).join('\n')),
+      };
+    }
+    if (isConsensusStep(step)) {
+      return { ok: true, ...parseIntent(step.id, '') };
+    }
+    try {
+      const plan = planForStep(step, workflow);
+      const chain = this.chainRunner(
+        plan,
+        workflow,
+        step,
+        step.role,
+        span,
+        plan.names[0] ?? '',
+        options.signal,
+      );
+      const digest = this.digestFor(step, workflow, span, options);
+      const prompt = [
+        `# Role: ${step.role ?? 'agent'}`,
+        `## Goal\n${step.goal}`,
+        ...(digest === undefined ? [] : [`## The board: notes from earlier steps\n${digest}`]),
+        `## Before you start\n${INTENT_INSTRUCTION}`,
+      ].join('\n\n');
+      const request: RunRequest = {
+        prompt,
+        workdir,
+        ...(plan.model !== undefined ? { model: plan.model } : {}),
+        timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
+        ...(step.permissions !== undefined && step.permissions.level !== PermissionLevel.Full
+          ? { permissions: step.permissions }
+          : {}),
+        ...(step.permissions?.level !== undefined ? { permissionLevel: step.permissions.level } : {}),
+        ...(plan.agent !== undefined ? { agent: plan.agent } : {}),
+      };
+      const result = await chain.run(request, options.signal);
+      if (options.signal?.aborted === true) {
+        return { ok: false, outcome: StepOutcome.cancelled() };
+      }
+      if (!result.succeeded()) {
+        return {
+          ok: false,
+          outcome: this.redacted(
+            StepOutcome.failed(`The intent call of runner ${chain.name} exited with code ${result.exitCode}.
+${this.prompts.tail(result.failureText())}`),
+          ),
+        };
+      }
+      return { ok: true, ...parseIntent(step.id, result.output) };
+    } catch (error) {
+      if (options.signal?.aborted === true) {
+        return { ok: false, outcome: StepOutcome.cancelled() };
+      }
+      if (error instanceof IndabaError) {
+        return { ok: false, outcome: StepOutcome.failed(this.redact(error.message)) };
+      }
+      throw error;
+    }
+  }
+
   private async runAgent(
     step: StepDefinition,
     workflow: WorkflowDefinition,
@@ -311,7 +408,12 @@ export class StepExecutor {
       },
     );
     const request: RunRequest = {
-      prompt: this.prompts.build(step, options.feedback, this.digestFor(step, workflow, span, options)),
+      prompt: this.prompts.build(
+        step,
+        options.feedback,
+        this.digestFor(step, workflow, span, options),
+        options.contract,
+      ),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
       timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
@@ -666,6 +768,9 @@ ${digest}`,
       step.id,
       `${result.outcome} after ${result.rounds} round(s)${result.reached() ? '' : `. Open objections: ${result.openObjections()}`}`,
     );
+    if (options.debate !== undefined) {
+      options.debate.result = result;
+    }
     span.setAttribute('indaba.consensus.outcome', result.outcome);
     span.setAttribute('indaba.consensus.rounds', result.rounds);
     await writeDebateArtifact(
@@ -725,6 +830,9 @@ ${digest}`,
 
     const note = this.redact(sanitize(ruling.note));
     const ruled = new Ruling(ruling.verdict, note, RulingSource.Asked);
+    if (options.debate !== undefined) {
+      options.debate.ruling = ruled;
+    }
     this.engineNote(step, options, BoardKind.Decision, step.id, rulingLine(ruled));
     span.setAttribute('indaba.arbiter.source', RulingSource.Asked);
     span.setAttribute('indaba.arbiter.verdict', ruled.verdict);

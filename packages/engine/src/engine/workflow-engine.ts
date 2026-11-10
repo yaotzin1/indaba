@@ -4,6 +4,8 @@ import type {
   BoardLimits,
   EventDispatcher,
   IdGenerator,
+  Intent,
+  NegotiationDecider,
   Span,
   StepDefinition,
   Tracer,
@@ -12,6 +14,7 @@ import type {
 import {
   admit,
   BoardRecorded,
+  contractSection,
   DagBuilder,
   FailureAction,
   IndabaError,
@@ -33,6 +36,7 @@ import {
   type WorkspaceCheckpoint,
   type WorkspaceManager,
 } from '../workspace/workspace.js';
+import { Coordination, type Decision } from './coordination.js';
 import { StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
 import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
@@ -71,6 +75,11 @@ export interface WorkflowEngineOptions {
   readonly maxParallelCap?: number;
   /** How often a step is put back to wait before it is admitted alone (AC-13). A workflow's `max_waits` can lower it. Default 3. */
   readonly maxWaits?: number;
+  /**
+   * Who decides when steps that run side by side could not agree on a split and the arbiter did not settle it (specs/parallel-steps,
+   * AC-16). The composition root passes what a plugin registered; with none, those steps run one after another.
+   */
+  readonly negotiationDecider?: NegotiationDecider;
   /** How the run's board limits and redacts the notes steps post (specs/run-blackboard). */
   readonly board?: {
     readonly limits?: Partial<BoardLimits>;
@@ -109,6 +118,7 @@ export class WorkflowEngine {
   private readonly maxParallelSource: ParallelSource;
   private readonly maxWaits: number;
   private readonly parallelCap: number;
+  private readonly negotiationDecider: NegotiationDecider | undefined;
 
   constructor(options: WorkflowEngineOptions) {
     this.executor = options.executor;
@@ -123,6 +133,7 @@ export class WorkflowEngine {
     this.maxParallelSource = options.maxParallelSource ?? 'default';
     this.maxWaits = options.maxWaits ?? 3;
     this.parallelCap = options.maxParallelCap ?? PARALLEL_STEP_CAP;
+    this.negotiationDecider = options.negotiationDecider;
   }
 
   async run(workflow: WorkflowDefinition, options: RunOptions = {}): Promise<WorkflowResult> {
@@ -219,6 +230,8 @@ export class WorkflowEngine {
       readonly attempt: number;
       /** The step's worktree, when it had one. */
       readonly workspace: Workspace | undefined;
+      /** Set when the step was put back to wait for this step instead of running (AC-13, AC-16); `outcome` is then not read. */
+      readonly putBack?: string;
     }
     const pool = new StepPool<Finished>(signal);
     const byId = new Map(order.map((step) => [step.id, step]));
@@ -275,10 +288,43 @@ export class WorkflowEngine {
     };
     /** Steps aborted because a retry reset them (AC-28): they go back to PENDING and nothing halts. */
     const retryAborted = new Map<string, string>();
+    /** How often each step was put back to wait (AC-13), and the step it waits for until that one is COMPLETED. */
+    const waits = new Map<string, number>();
+    const blockedBy = new Map<string, string>();
+    const isBlocked = (id: string): boolean => {
+      const blocker = blockedBy.get(id);
+      if (blocker !== undefined && states.get(blocker)?.status() === StepStatus.Completed) {
+        blockedBy.delete(id);
+        return false;
+      }
+      return blocker !== undefined;
+    };
+    /** The intents of the steps that passed the check and are not COMPLETED yet. */
+    const working = new Map<string, Intent>();
+    /** With the limit above 1 the steps that work in a worktree say what they will change before they start (AC-09). */
+    const coordination =
+      limit > 1
+        ? new Coordination({
+            executor: this.executor,
+            tracer: this.tracer,
+            board,
+            root,
+            workflow,
+            signal,
+            decider: this.negotiationDecider,
+            workdir: async () => (await runWorkspace()).path(),
+            working,
+            attemptOf: (id) => (states.get(id)?.attempts() ?? 0) + 1,
+          })
+        : undefined;
 
     /** Starts one step in the pool: its workspace, its staged artifacts, then the attempt. */
-    const startStep = (step: StepDefinition, state: StepState): void => {
-      pool.start(step.id, async (stepSignal) => {
+    const startStep = (
+      step: StepDefinition,
+      state: StepState,
+      decision?: Promise<Decision | undefined>,
+    ): void => {
+      const work = async (stepSignal: AbortSignal, contract: string | undefined): Promise<Finished> => {
         let current: Workspace | undefined;
         /** The run worktree and the step's fork of it: set only when the step runs in a worktree of its own (limit above 1). */
         let parent: ForkableWorkspace | undefined;
@@ -315,6 +361,7 @@ export class WorkflowEngine {
             board,
             attempt,
             workspace: current,
+            contract,
             land:
               forked !== undefined && forkedFrom !== undefined
                 ? () =>
@@ -330,6 +377,36 @@ export class WorkflowEngine {
             await remove(forked);
           }
         }
+      };
+      pool.start(step.id, async (stepSignal) => {
+        let contract: string | undefined;
+        if (decision !== undefined) {
+          const decided = await decision;
+          if (stepSignal.aborted) {
+            working.delete(step.id);
+            return { outcome: StepOutcome.cancelled(), attempt: state.attempts() + 1, workspace: undefined };
+          }
+          if (decided?.kind === 'wait') {
+            return {
+              outcome: StepOutcome.ok(),
+              attempt: state.attempts() + 1,
+              workspace: undefined,
+              putBack: decided.blocker,
+            };
+          }
+          if (decided?.kind === 'end') {
+            await this.move(state, taskId, StepStatus.Running);
+            await this.move(state, taskId, StepStatus.Failed, decided.outcome.feedback);
+            return { outcome: decided.outcome, attempt: state.attempts(), workspace: undefined };
+          }
+          waits.delete(step.id);
+          contract = decided?.contract === undefined ? undefined : contractSection(decided.contract);
+        }
+        try {
+          return await work(stepSignal, contract);
+        } finally {
+          working.delete(step.id);
+        }
       });
     };
 
@@ -341,22 +418,42 @@ export class WorkflowEngine {
         }
         if (!halted) {
           const admitted = admit({
-            order,
+            // A step put back to wait is not offered until the step it waits for is COMPLETED (AC-13); it keeps its place.
+            order: order.filter((step) => !isBlocked(step.id)),
             states: new Map([...states].map(([id, state]) => [id, state.status()])),
             running: new Set(pool.ids()),
-            waiting: new Map(),
+            waiting: waits,
             limit,
             maxWaits,
             ownerQueue: [],
             runsInProject: (step) => runsInProject(step, isolated),
             halted,
           });
+          const picked: { readonly step: StepDefinition; readonly state: StepState }[] = [];
           for (const admission of admitted) {
             const step = admission.kind === 'step' ? byId.get(admission.stepId) : undefined;
             const state = step === undefined ? undefined : states.get(step.id);
             if (step !== undefined && state !== undefined) {
-              startStep(step, state);
+              picked.push({ step, state });
             }
+          }
+          // The steps admitted together that work in a worktree say what they will change, and the engine decides what each does
+          // next (AC-09 to AC-16). With the limit at 1 there is no one to meet and nothing is asked.
+          const coordinated = picked
+            .filter(({ step }) => !runsInProject(step, isolated))
+            .map(({ step }) => step);
+          const decisions =
+            coordination !== undefined && coordinated.length > 0
+              ? coordination.coordinate(coordinated)
+              : undefined;
+          for (const { step, state } of picked) {
+            startStep(
+              step,
+              state,
+              decisions !== undefined && coordinated.includes(step)
+                ? decisions.then((all) => all.get(step.id))
+                : undefined,
+            );
           }
         }
         if (pool.size === 0) {
@@ -372,18 +469,26 @@ export class WorkflowEngine {
         if (step === undefined || state === undefined) {
           continue;
         }
-        const { outcome, attempt, workspace: current } = settled.result.value;
-        feedback.delete(step.id);
+        const { outcome, attempt, workspace: current, putBack } = settled.result.value;
 
         const abortedFor = retryAborted.get(step.id);
         if (abortedFor !== undefined) {
           // A retry reset it while it ran (AC-28): whatever it ended as, it goes back to PENDING and settles nothing.
           retryAborted.delete(step.id);
+          feedback.delete(step.id);
           if (state.status() !== StepStatus.Pending) {
             await this.move(state, taskId, StepStatus.Pending, abortedFor);
           }
           continue;
         }
+        if (putBack !== undefined) {
+          // Put back before it began (AC-13, AC-16): still PENDING, its slot is free, and it waits for the step it met. The
+          // feedback of a retry stays for the attempt that finally runs.
+          waits.set(step.id, (waits.get(step.id) ?? 0) + 1);
+          blockedBy.set(step.id, putBack);
+          continue;
+        }
+        feedback.delete(step.id);
 
         // A cancelled attempt settles nothing: its notes stay pending. Otherwise the step's own result decides.
         if (!outcome.cancelled) {
@@ -422,6 +527,14 @@ export class WorkflowEngine {
           const reset = [target, ...this.dag.descendantsOf(workflow, target)];
           board.supersede(reset);
           for (const id of reset) {
+            // Its waiting is over with its reset: a new attempt starts with no waits and no one to wait for (AC-28).
+            waits.delete(id);
+            blockedBy.delete(id);
+            for (const [waiter, blocker] of blockedBy) {
+              if (blocker === id) {
+                blockedBy.delete(waiter);
+              }
+            }
             const other = states.get(id);
             if (pool.has(id)) {
               retryAborted.set(id, `retry of ${step.id}`);
@@ -510,6 +623,8 @@ export class WorkflowEngine {
       readonly attempt: number;
       /** The step's worktree, when it has one: what a stall retry puts back. */
       readonly workspace: Workspace | undefined;
+      /** The split the step's negotiation agreed, as the prompt section its work carries (AC-15). */
+      readonly contract: string | undefined;
       /** Lands the step's change while it is VALIDATING; an outcome it returns ends the step. Only forked steps have one. */
       readonly land: (() => Promise<StepOutcome | undefined>) | undefined;
     },

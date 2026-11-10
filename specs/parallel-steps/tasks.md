@@ -44,7 +44,7 @@ a setting, removed in T-15).
 - [x] T-11 (done 2026-11-11; `mesh/intent.ts` with `parseContract`, `NEGOTIATION_INSTRUCTION` and the shared path comparison, `meets` and `mustWait` in `schedule.ts`, the board kinds kept out of every digest, the host method and `RegistryPluginHost.registeredNegotiationDecider()`; the TUI board pane marks the two new kinds; nothing runs yet, the engine side is T-12). `@indaba/core`: `intent.ts` (`Intent`, `Contract`, `parseIntent`, `INTENT_INSTRUCTION`, `contractSection`,
   `NegotiationDecider`, `PluginHost.registerNegotiationDecider` and `RegistryPluginHost`), `meets`, the two board
   kinds; changelog entries naming the `PluginHost` addition and the union members (`api-surface.md`). Tests: parsing forms and bounds; meeting rules.
-- [ ] T-12. `@indaba/engine`: the intent call, posting the intent, putting back with `maxWaits`, the negotiation through
+- [x] T-12 (done 2026-11-11; `engine/coordination.ts`, `StepExecutor.intent`, `StepRunOptions.contract` and `debate`, the engine's `negotiationDecider` option passed by the CLI from `RegistryPluginHost`; deviations and gaps in the amendment of `api-surface.md` and in `review.md`; **the cap stays**). `@indaba/engine`: the intent call, posting the intent, putting back with `maxWaits`, the negotiation through
   a synthetic debate, posting the contract, the decider seam with its default. Tests with fake participants.
 - [ ] T-13. Views: waiting steps, intents and contracts.
 

@@ -61,6 +61,15 @@ pnpm build && pnpm smoke: 6 packages packed and audited; indaba 0.1.0-alpha.5 ca
 waited a fixed 100 ms for a plugin to log, a race against machine load. It now waits for a marker file the plugin writes after logging
 (a change outside this feature, made because the gate must be green); it passed three runs alone and the full gate after.
 
+### Known gaps (slice 3, T-12)
+
+- The spans of the intent call and the negotiation hang from the root span, not from the step (see the amendment of `api-surface.md`); the landing has no span of its own yet (`indaba.land.sequence`, AC-22, AC-31).
+- The structured log records of AC-33 (admission, intent, put back, negotiation outcome, landing) are not written: the engine has no logger.
+- A negotiation that reaches consensus without a valid proposal goes to the decider, not to the arbiter (AC-14 reads it as "not reached").
+- Steps in one batch that meet are grouped by chains of `meets`, so two steps that do not meet each other but both meet a third negotiate together.
+- A step admitted while another batch is still declaring is not compared with it (it is not yet "working"): landing and resolution catch what the check missed (C-10).
+- Steps put back to wait are shown as `PENDING`; showing them as waiting is T-13.
+
 ### Known gaps (slice 1)
 
 - `indaba ui --parallel` and the limit in the Settings screens of the terminal and the web view (AC-01, AC-04) are not done; they need
