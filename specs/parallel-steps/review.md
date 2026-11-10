@@ -66,7 +66,7 @@ waited a fixed 100 ms for a plugin to log, a race against machine load. It now w
 - `indaba ui --parallel` and the limit in the Settings screens of the terminal and the web view (AC-01, AC-04) are not done; they need
   the run control and the Settings screens and are the next change of slice 1.
 - `meets`, `mustWait`, intents and negotiation (slice 3), forks and landing (slice 2), resolution and review before landing (slice 4).
-- The cap (`PARALLEL_STEP_CAP`) goes with T-08 and T-15.
+- The cap (`PARALLEL_STEP_CAP`) stays through slice 2 (forks work behind `maxParallelCap`) and goes with T-15.
 
 ## Slices 2 to 4
 

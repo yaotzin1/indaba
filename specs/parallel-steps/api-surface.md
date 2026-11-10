@@ -12,6 +12,11 @@
 > say, when a person asks for more than the cap allows, that steps still run one at a time instead of printing the consequences
 > of a parallelism that does not happen (AC-04a). The cap is removed with T-08 (forks) and T-15 (release); the constant goes with it.
 
+> **Amended during slice 2 (2026-11-10), at T-09.** The cap is not removed with T-08 or T-09: slices 2 to 4 merge behind it (tasks.md,
+> end of slice 2), because agents in parallel steps always talk (C-11). So forks run only when something lifts the cap, and the one
+> addition is the optional `WorkflowEngineOptions.maxParallelCap?: number` (default `PARALLEL_STEP_CAP`), used by the engine's own tests
+> and never passed by the composition root. Minor, additive. It goes with the constant at T-15.
+
 ## Semver classification
 
 **minor** (below 1.0).
@@ -49,7 +54,8 @@ release raises the default, which ships as a labelled change (spec C-01).
 | `@indaba/engine` (`config/project-config.ts`) | interface | `ResolvedParallel { readonly maxSteps: number; readonly maxWaits: number }` (from `parallel.max_steps`, `parallel.max_waits`; defaults 1 and 3) |
 | `@indaba/engine` (`config/project-config.ts`) | constant change | `PROJECT_CONFIG_SECTIONS` gains `'parallel'` |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSource?: 'flag' \| 'env' \| 'config' \| 'default'` (amended 2026-11-07): where the resolved limit came from; the engine adds `'workflow'` itself |
-| `@indaba/engine` (`engine/workflow-engine.ts`) | constant | `PARALLEL_STEP_CAP: 1` (amended 2026-11-07): the most steps that run at once until forks (T-08) and the release (T-15) land |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | constant | `PARALLEL_STEP_CAP: 1` (amended 2026-11-07, 2026-11-10): the most steps that run at once in a release, until slices 3 and 4 and the release (T-15) land |
+| `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelCap?: number` (amended 2026-11-10): lifts `PARALLEL_STEP_CAP` for the engine's tests; default the cap |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxParallelSteps?: number` (default 1) |
 | `@indaba/engine` (`engine/workflow-engine.ts`) | field | `WorkflowEngineOptions.maxWaits?: number` (default 3) |
 | `@indaba/core` (`extension/index.ts`) | method | `PluginHost.registerNegotiationDecider(decider: NegotiationDecider): void`; the last registration wins; with none, nobody answers and the steps run one after another |

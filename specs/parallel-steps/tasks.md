@@ -29,7 +29,7 @@ run worktree. Ships the scheduling and the configuration.
 - [x] T-08 (done 2026-11-09; `fork` and `land` on `GitWorktree` behind the optional `ForkableWorkspace` and `isForkable`, see the amendment of `api-surface.md`; **the slice-1 cap stays until T-09**, because without `runOne` forking, worktree steps would still share the run worktree). `@indaba/engine`: `Workspace.fork`, `Workspace.land`, `ConflictHunk`, in `GitWorktree`. Tests against
   temporary repositories: clean land, conflict with hunks, binary, new and deleted files, confinement, guards in a fork
   see only the fork's change. Remove the slice-1 cap.
-- [ ] T-09. `@indaba/engine`: `runOne` forks, lands under the landing lock, writes `patch` after each landing; a
+- [x] T-09 (done 2026-11-10; the step's fork, the landing and the fork itself under one workspace lock, `land` hook in `execute`, retry aborts of running descendants; **the release cap stays**, lifted for tests by `WorkflowEngineOptions.maxParallelCap`, see the amendment of `api-surface.md`). `@indaba/engine`: `runOne` forks, lands under the landing lock, writes `patch` after each landing; a
   conflicting landing fails the step with the files named (the resolution of slice 4 is not there yet). Tests: every
   row of spec section 9 that does not involve the board.
 - [ ] T-10. Views: several running steps in the run view model, the TUI and the web run view (spec AC-30).
