@@ -25,7 +25,10 @@ import {
 } from '@indaba/core';
 import { describeStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from '../trace/structure.js';
 import {
+  type ForkableWorkspace,
+  isForkable,
   isRestorable,
+  type LandResult,
   type Workspace,
   type WorkspaceCheckpoint,
   type WorkspaceManager,
@@ -36,9 +39,11 @@ import type { StepExecutor } from './step-executor.js';
 import { StepPool } from './step-pool.js';
 
 /**
- * The most steps that run at once until forks (specs/parallel-steps, T-08) and the release (T-15) land. A limit above it is
- * accepted, recorded as asked, and the run still takes one step at a time, so a person who asks for more is told so by the
- * command line instead of being promised a parallelism that does not happen. It goes with the cap.
+ * The most steps that run at once in a release, until negotiation and resolution (slices 3 and 4) and the release (T-15) land.
+ * Forks and landing exist (T-08, T-09), but agents in parallel steps always talk (C-11), so a release without slices 3 and 4
+ * would break that promise. A limit above it is accepted, recorded as asked, and the run still takes one step at a time, so a
+ * person who asks for more is told so by the command line instead of being promised a parallelism that does not happen.
+ * `WorkflowEngineOptions.maxParallelCap` lifts it for the engine's own tests. It goes with T-15.
  */
 export const PARALLEL_STEP_CAP = 1;
 
@@ -59,6 +64,11 @@ export interface WorkflowEngineOptions {
   readonly maxParallelSteps?: number;
   /** Where `maxParallelSteps` came from, for the root span. Absent means the default. */
   readonly maxParallelSource?: Exclude<ParallelSource, 'workflow'>;
+  /**
+   * The most steps that run at once whatever the limit says. Default `PARALLEL_STEP_CAP`; only the engine's tests raise it,
+   * until the release cap goes (T-15). The composition root never passes it.
+   */
+  readonly maxParallelCap?: number;
   /** How often a step is put back to wait before it is admitted alone (AC-13). A workflow's `max_waits` can lower it. Default 3. */
   readonly maxWaits?: number;
   /** How the run's board limits and redacts the notes steps post (specs/run-blackboard). */
@@ -98,6 +108,7 @@ export class WorkflowEngine {
   private readonly maxParallelSteps: number;
   private readonly maxParallelSource: ParallelSource;
   private readonly maxWaits: number;
+  private readonly parallelCap: number;
 
   constructor(options: WorkflowEngineOptions) {
     this.executor = options.executor;
@@ -111,6 +122,7 @@ export class WorkflowEngine {
     this.maxParallelSteps = options.maxParallelSteps ?? 1;
     this.maxParallelSource = options.maxParallelSource ?? 'default';
     this.maxWaits = options.maxWaits ?? 3;
+    this.parallelCap = options.maxParallelCap ?? PARALLEL_STEP_CAP;
   }
 
   async run(workflow: WorkflowDefinition, options: RunOptions = {}): Promise<WorkflowResult> {
@@ -165,7 +177,7 @@ export class WorkflowEngine {
     const asked = this.maxParallelSteps;
     const wanted =
       workflow.maxParallel !== undefined && workflow.maxParallel < asked ? workflow.maxParallel : asked;
-    const limit = Math.min(wanted, PARALLEL_STEP_CAP);
+    const limit = Math.min(wanted, this.parallelCap);
     const limitSource: ParallelSource = wanted !== asked ? 'workflow' : this.maxParallelSource;
     const maxWaits = Math.min(this.maxWaits, workflow.maxWaits ?? this.maxWaits);
 
@@ -227,29 +239,97 @@ export class WorkflowEngine {
             onStepOutput?.(id, chunk);
           };
 
+    /** The run worktree, created by whichever step needs it first; steps starting together share the one creation. */
+    let creating: Promise<Workspace> | undefined;
+    const runWorkspace = (): Promise<Workspace> => {
+      creating ??= this.workspaces.create(taskId).then(
+        (created) => {
+          workspace = created;
+          return created;
+        },
+        (error: unknown) => {
+          creating = undefined;
+          throw error;
+        },
+      );
+      return creating;
+    };
+    /**
+     * Landings and forks take turns on the run worktree: a landing is one apply nobody may see half done, a fork stages the
+     * run worktree's index, and landings go in the order steps ask for the lock, which is the order they finished (AC-22).
+     */
+    let landings: Promise<unknown> = Promise.resolve();
+    const underWorkspaceLock = <T>(job: () => Promise<T>): Promise<T> => {
+      const result = landings.then(job, job);
+      landings = result.catch(() => undefined);
+      return result;
+    };
+    /** A worktree that could not be removed: the run goes on and ends FAILED once everything has settled. */
+    let removeFailed = false;
+    const remove = async (target: Workspace): Promise<void> => {
+      try {
+        await target.destroy();
+      } catch {
+        removeFailed = true;
+      }
+    };
+    /** Steps aborted because a retry reset them (AC-28): they go back to PENDING and nothing halts. */
+    const retryAborted = new Map<string, string>();
+
     /** Starts one step in the pool: its workspace, its staged artifacts, then the attempt. */
     const startStep = (step: StepDefinition, state: StepState): void => {
       pool.start(step.id, async (stepSignal) => {
         let current: Workspace | undefined;
-        if (!runsInProject(step, isolated)) {
-          workspace ??= await this.workspaces.create(taskId);
-          isolated.add(step.id);
-          current = workspace;
-        }
-        const workdir = current === undefined ? projectDir : current.path();
-        if (workdir !== projectDir) {
-          await this.stageArtifacts(step, projectDir, workdir);
-        }
+        /** The run worktree and the step's fork of it: set only when the step runs in a worktree of its own (limit above 1). */
+        let parent: ForkableWorkspace | undefined;
+        let own: Workspace | undefined;
         const attempt = state.attempts() + 1;
-        const outcome = await this.execute(step, workflow, state, taskId, root, workdir, {
-          feedback: feedback.get(step.id),
-          onOutput: output(step.id),
-          signal: stepSignal,
-          board,
-          attempt,
-          workspace: current,
-        });
-        return { outcome, attempt, workspace: current };
+        if (!runsInProject(step, isolated)) {
+          const run = await runWorkspace();
+          isolated.add(step.id);
+          current = run;
+          if (limit > 1 && isForkable(run)) {
+            try {
+              own = await underWorkspaceLock(() => run.fork(step.id));
+              parent = run;
+              current = own;
+            } catch (error) {
+              const why = error instanceof IndabaError ? error.message : 'The worktree could not be created.';
+              await this.move(state, taskId, StepStatus.Running);
+              await this.move(state, taskId, StepStatus.Failed, why);
+              return { outcome: StepOutcome.failed(why), attempt, workspace: undefined };
+            }
+          }
+        }
+        const forked = own;
+        const forkedFrom = parent;
+        try {
+          const workdir = current === undefined ? projectDir : current.path();
+          if (workdir !== projectDir) {
+            await this.stageArtifacts(step, projectDir, workdir);
+          }
+          const outcome = await this.execute(step, workflow, state, taskId, root, workdir, {
+            feedback: feedback.get(step.id),
+            onOutput: output(step.id),
+            signal: stepSignal,
+            board,
+            attempt,
+            workspace: current,
+            land:
+              forked !== undefined && forkedFrom !== undefined
+                ? () =>
+                    this.land(step, forkedFrom, forked, stepSignal, underWorkspaceLock, remove, () =>
+                      this.exportPatch(workflow, forkedFrom, projectDir),
+                    )
+                : undefined,
+          });
+          // A fork's change is in the run worktree and its patch is written by the landing: nothing is left to export.
+          return { outcome, attempt, workspace: forked === undefined ? current : undefined };
+        } finally {
+          if (forked !== undefined) {
+            await remove(forked);
+          }
+        }
       });
     };
 
@@ -295,6 +375,16 @@ export class WorkflowEngine {
         const { outcome, attempt, workspace: current } = settled.result.value;
         feedback.delete(step.id);
 
+        const abortedFor = retryAborted.get(step.id);
+        if (abortedFor !== undefined) {
+          // A retry reset it while it ran (AC-28): whatever it ended as, it goes back to PENDING and settles nothing.
+          retryAborted.delete(step.id);
+          if (state.status() !== StepStatus.Pending) {
+            await this.move(state, taskId, StepStatus.Pending, abortedFor);
+          }
+          continue;
+        }
+
         // A cancelled attempt settles nothing: its notes stay pending. Otherwise the step's own result decides.
         if (!outcome.cancelled) {
           board.settle({ stepId: step.id, attempt, outcome: outcome.ok ? 'accepted' : 'discarded' });
@@ -327,13 +417,16 @@ export class WorkflowEngine {
           feedback.set(target, outcome.feedback);
 
           // The target and its descendants go back to PENDING and are admitted again in order. Steps that do not depend on
-          // the target are COMPLETED and are not touched. A descendant that is still running is aborted from slice 2 on
-          // (specs/parallel-steps, AC-28); with the cap at one step nothing else is running here.
+          // the target are not touched. A descendant that is still running is aborted and goes back to PENDING when it
+          // settles (specs/parallel-steps, AC-28); it is not admitted again before, because the pool still holds it.
           const reset = [target, ...this.dag.descendantsOf(workflow, target)];
           board.supersede(reset);
           for (const id of reset) {
             const other = states.get(id);
-            if (other !== undefined && other.status() !== StepStatus.Pending) {
+            if (pool.has(id)) {
+              retryAborted.set(id, `retry of ${step.id}`);
+              pool.abort(id);
+            } else if (other !== undefined && other.status() !== StepStatus.Pending) {
               await this.move(other, taskId, StepStatus.Pending, `retry of ${step.id}`);
             }
           }
@@ -368,7 +461,7 @@ export class WorkflowEngine {
     } catch (error) {
       teardown = { error };
     }
-    if (teardown !== undefined && failure === undefined) {
+    if ((teardown !== undefined || removeFailed) && failure === undefined) {
       status = WorkflowStatus.Failed;
       reason = 'The workspace could not be removed.';
     }
@@ -417,6 +510,8 @@ export class WorkflowEngine {
       readonly attempt: number;
       /** The step's worktree, when it has one: what a stall retry puts back. */
       readonly workspace: Workspace | undefined;
+      /** Lands the step's change while it is VALIDATING; an outcome it returns ends the step. Only forked steps have one. */
+      readonly land: (() => Promise<StepOutcome | undefined>) | undefined;
     },
   ): Promise<StepOutcome> {
     const policy = step.stall;
@@ -489,6 +584,10 @@ export class WorkflowEngine {
       outcome = await this.executor.validate(step, workdir);
     }
 
+    if (outcome.ok && options.land !== undefined) {
+      outcome = (await options.land()) ?? outcome;
+    }
+
     if (outcome.ok) {
       await this.move(state, taskId, StepStatus.Completed);
       await this.tracer.endSpan(span, SpanStatus.Ok);
@@ -498,6 +597,44 @@ export class WorkflowEngine {
     await this.move(state, taskId, StepStatus.Failed, outcome.feedback);
     await this.tracer.endSpan(span, SpanStatus.Error, outcome.feedback);
     return outcome;
+  }
+
+  /**
+   * Applies a forked step's change to the run worktree, one landing at a time (AC-22, AC-23). A conflict changes nothing and
+   * fails the step with the files named; the resolution of slice 4 is not there yet. A landing is one apply: a step aborted
+   * before it gets the lock does not land, one aborted during it lands whole.
+   */
+  private async land(
+    step: StepDefinition,
+    parent: ForkableWorkspace,
+    child: Workspace,
+    signal: AbortSignal,
+    underLock: <T>(job: () => Promise<T>) => Promise<T>,
+    remove: (target: Workspace) => Promise<void>,
+    landed: () => Promise<void>,
+  ): Promise<StepOutcome | undefined> {
+    return await underLock(async () => {
+      if (signal.aborted) {
+        return StepOutcome.cancelled();
+      }
+      let result: LandResult;
+      try {
+        result = await parent.land(child);
+      } catch {
+        return StepOutcome.failed(`The change of step "${step.id}" could not be landed.`);
+      }
+      if (result.ok) {
+        await landed();
+        return undefined;
+      }
+      await remove(result.workspace);
+      const files = [...new Set(result.conflicts.map((hunk) => hunk.path))];
+      return StepOutcome.failed(
+        `The change of step "${step.id}" conflicts with changes that landed before it${
+          files.length === 0 ? '.' : `: ${files.join(', ')}.`
+        } Nothing of it was applied.`,
+      );
+    });
   }
 
   private async move(state: StepState, taskId: string, to: StepStatus, reason?: string): Promise<void> {
