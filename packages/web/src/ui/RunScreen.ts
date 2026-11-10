@@ -286,6 +286,10 @@ export function RunScreen(props: RunScreenProps): ReactElement {
         ? messages.run.runningFor(formatDuration(ms))
         : messages.run.tookTotal(formatDuration(ms));
   const node = graph.nodes.find((n) => n.id === selected);
+  // Every step under way, in the run's order (AC-30): with the limit above 1 there can be several.
+  const activeNames = graph.nodes
+    .filter((n) => n.step !== undefined && isActive(n.step.status))
+    .map((n) => n.id);
   const stale = stream === 'reconnecting' || stream === 'unavailable';
   // A run that has ended cannot be stopped, whatever was known when the screen opened.
   const stoppable = canStop && run.status === 'running';
@@ -308,6 +312,13 @@ export function RunScreen(props: RunScreenProps): ReactElement {
       { className: 'muted' },
       messages.run.meta(formatWhen(run.startedAt, clock), elapsed, shortId(runId)),
     ),
+    activeNames.length > 1
+      ? h(
+          'p',
+          { className: 'muted', id: 'running-together' },
+          messages.run.runningTogether(activeNames.join(', ')),
+        )
+      : null,
     stream === 'reconnecting' ? h('p', { className: 'banner', role: 'status' }, messages.reconnecting) : null,
     h(
       'section',

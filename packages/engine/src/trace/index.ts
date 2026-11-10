@@ -51,6 +51,7 @@ export type {
   StepView,
 } from './view.js';
 export {
+  activeSteps,
   emptyRun,
   MAX_ATTEMPTS_KEPT,
   MAX_LINE_CHARS,

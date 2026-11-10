@@ -32,7 +32,7 @@ run worktree. Ships the scheduling and the configuration.
 - [x] T-09 (done 2026-11-10; the step's fork, the landing and the fork itself under one workspace lock, `land` hook in `execute`, retry aborts of running descendants; **the release cap stays**, lifted for tests by `WorkflowEngineOptions.maxParallelCap`, see the amendment of `api-surface.md`). `@indaba/engine`: `runOne` forks, lands under the landing lock, writes `patch` after each landing; a
   conflicting landing fails the step with the files named (the resolution of slice 4 is not there yet). Tests: every
   row of spec section 9 that does not involve the board.
-- [ ] T-10. Views: several running steps in the run view model, the TUI and the web run view (spec AC-30).
+- [x] T-10 (done 2026-11-10; the view model, `watch --plain`, the dashboard and the web run screen were already per step, so the change is the shared `activeSteps`, the header's "N running" and the web line "Running at the same time", with tests of two running steps in each view; **the waiting half of AC-30 is T-13**, it needs the board's intents). Views: several running steps in the run view model, the TUI and the web run view (spec AC-30).
 
 At the end of slice 2 parallel runs work without coordination. **Slice 2 is not released on its own**: the maintainer
 decided that agents in parallel steps always talk (C-11), so a release with slice 2 and without slice 3 would break that

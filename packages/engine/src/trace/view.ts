@@ -381,6 +381,14 @@ export function reduceRun(state: RunState, record: RunRecord): RunState {
   }
 }
 
+/**
+ * The steps under way now, in the run's order: running, or validating their guards. With the limit at 1 there is at most one;
+ * with several (specs/parallel-steps, AC-30) every view shows each of them, and none of them may assume the one it first finds.
+ */
+export function activeSteps(state: RunState): readonly StepView[] {
+  return state.steps.filter((step) => step.status === 'RUNNING' || step.status === 'VALIDATING');
+}
+
 /** The state after a whole list of records. */
 export function reduceAll(records: readonly RunRecord[]): RunState {
   return records.reduce(reduceRun, emptyRun());

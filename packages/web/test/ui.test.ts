@@ -391,6 +391,24 @@ describe('the Run screen', () => {
     ]);
   });
 
+  it('says which steps run at the same time, and says nothing when one runs (AC-30)', async () => {
+    const together = liveRun({
+      steps: [step('debate', { status: 'RUNNING' }), step('review', { status: 'RUNNING' })],
+      structure: undefined,
+    });
+    const first = render(h(App, appProps(fakeClient({ run: together }), '/runs/r1')));
+    expect(await screen.findByText('Running at the same time: debate, review')).toBeTruthy();
+    first.unmount();
+
+    const alone = liveRun({
+      steps: [step('debate', { status: 'RUNNING' }), step('review', { status: 'PENDING' })],
+      structure: undefined,
+    });
+    render(h(App, appProps(fakeClient({ run: alone }), '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(screen.queryByText(/Running at the same time/)).toBeNull();
+  });
+
   it('says when no step has called a model', async () => {
     const run = liveRun({
       steps: [step('lint', { status: 'COMPLETED' })],

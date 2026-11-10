@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  activeSteps,
   emptyRun,
   formatCost,
   formatDuration,
   formatEvent,
+  formatHeader,
   formatPlain,
   type RunRecord,
   type RunState,
   reduceAll,
+  reduceRun,
   watchExitCode,
 } from '../src/index.js';
 
@@ -696,5 +699,47 @@ describe('formatEvent: reasoning', () => {
   it('prints nothing for reasoning of a span it does not know', () => {
     const ghost: RunRecord = { ...thought, spanId: 'ghost' };
     expect(formatEvent(reduceAll([root()]), ghost, { thoughts: true })).toEqual([]);
+  });
+});
+
+describe('steps that run at the same time (specs/parallel-steps, AC-30)', () => {
+  const together: RunRecord[] = [
+    root(),
+    stepStart('a'),
+    stepStart('b'),
+    change('a', 'RUNNING', undefined, T(2)),
+    change('b', 'RUNNING', undefined, T(3)),
+    change('a', 'VALIDATING', undefined, T(4)),
+  ];
+
+  it('lists the steps under way, running or validating, in the run order', () => {
+    expect(activeSteps(reduceAll(together)).map((s) => s.id)).toEqual(['a', 'b']);
+    expect(
+      activeSteps(reduceAll([...together, change('a', 'COMPLETED', undefined, T(5))])).map((s) => s.id),
+    ).toEqual(['b']);
+  });
+
+  it('says how many run in the header, and only when it is more than one', () => {
+    expect(formatHeader(reduceAll(together))).toContain('2 steps | 2 running |');
+    expect(formatHeader(reduceAll(together.slice(0, 5)))).toContain('2 running');
+    expect(formatHeader(reduceAll(together.slice(0, 4)))).not.toMatch(/\d+ running/);
+  });
+
+  it('shows every running step as running in the snapshot', () => {
+    const lines = formatPlain(reduceAll(together.slice(0, 5))).split('\n');
+    expect(lines.filter((line) => line.includes('running') && /^\s+▶/.test(line))).toHaveLength(2);
+  });
+
+  it('names the step on every line of the stream, so interleaved events stay apart', () => {
+    let state = reduceAll(together.slice(0, 5));
+    const lines: string[] = [];
+    for (const record of [
+      change('b', 'COMPLETED', undefined, T(6)),
+      change('a', 'COMPLETED', undefined, T(7)),
+    ]) {
+      state = reduceRun(state, record);
+      lines.push(...formatEvent(state, record));
+    }
+    expect(lines.map((l) => l.replace(/^\S+ /, ''))).toEqual(['b: X -> COMPLETED', 'a: X -> COMPLETED']);
   });
 });

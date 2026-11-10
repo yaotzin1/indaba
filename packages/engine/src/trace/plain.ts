@@ -2,6 +2,7 @@ import type { RunRecord } from './records.js';
 import { sanitize } from './sanitize.js';
 import type { RunStatus } from './trace-reader.js';
 import type { RunnerView, RunState, StepView } from './view.js';
+import { activeSteps } from './view.js';
 
 export interface PlainOptions {
   /** Wrap states in ANSI colour. Colour is never the only carrier of a state: every one also has a glyph and a word. */
@@ -238,10 +239,13 @@ function stepLines(step: StepView, options: PlainOptions, idWidth: number): stri
 export function formatHeader(state: RunState, options: PlainOptions = {}): string {
   const { glyph, word } = mark(RUN_LOOK[state.status], options);
   const name = state.workflow === undefined ? 'run' : oneLine(state.workflow);
+  // Said only when steps run at the same time, so a run that takes one step at a time reads as it always did (AC-30).
+  const running = activeSteps(state).length;
   return [
     `indaba ${name}`,
     `${glyph} ${word}`,
     `${state.steps.length} step${state.steps.length === 1 ? '' : 's'}`,
+    ...(running > 1 ? [`${running} running`] : []),
     `elapsed ${formatDuration(elapsed(state))}`,
     `cost ${formatCost(state.cost)}`,
   ].join(' | ');
