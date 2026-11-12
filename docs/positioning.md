@@ -66,7 +66,7 @@ agent; who makes each decision is still the person's choice.
 | Isolation in a git worktree, traces with cost, a live event stream, `watch`, and a terminal dashboard | Works (alpha) |
 | Logs of every command, `indaba settings` and `indaba report` | Works (alpha) |
 | Permission levels for an agent (`read`, `edit`, `full`) mapped to each runner, lowered for one run with `--permissions` | Works (alpha) |
-| Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Specified: `parallel-steps` |
+| Independent steps running at the same time, each in its own worktree, agreeing what they will change before they start and settling collisions between themselves | Works (alpha); not yet reviewed before landing (`step-verdicts`), and not run against a real agent in this repository |
 | A role that owns part of the project (a core, a shared model); other agents ask it for changes instead of making them | Specified: `path-ownership` |
 | One step template run once per item the plan produces (one agent per module); plugins that add steps to a run | Specified: `step-fanout` |
 | Budgets and currencies, resume after a stop | Specified: `step-budgets` |

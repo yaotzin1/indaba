@@ -32,7 +32,7 @@ Phases 1 to 5 are specified and not built.
 levels for agents (`specs/agent-permissions`); a debate arbiter and the decision ledger (`specs/debate-arbiter`); the
 OpenCode runner (`specs/opencode`).
 
-**Specified, not built**: `parallel-steps`, `step-fanout`, `review-gate`, `question-contract`, `debate-findings`,
+**Specified, not built**: `step-fanout`, `review-gate`, `question-contract`, `debate-findings`,
 `path-ownership`, `mcp-support`, `workflow-assistant`.
 
 Later and only if asked for: the debate prompt library, the asset helper for downloading skills and prompts, and downloading agents (`specs/acp-agent-install`).

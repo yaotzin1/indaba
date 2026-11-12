@@ -82,7 +82,7 @@ This is `examples/task-pipeline.workflow.ai.yml`; `examples/mcp.workflow.ai.yml`
 | `roles` | no | Map of role name to a role (see below). Needed by any step that uses `role` |
 | `steps` | yes | A list with at least one step |
 | `mcp_servers` | no | Map of server name to a Model Context Protocol server |
-| `max_parallel` | no | A whole number of at least 1. The most steps this workflow lets run at once; it lowers the limit of the run and never raises it. See [Steps at the same time](#steps-at-the-same-time-max_parallel). **This version still runs one step at a time** |
+| `max_parallel` | no | A whole number of at least 1. The most steps this workflow lets run at once; it lowers the limit of the run and never raises it. See [Steps at the same time](#steps-at-the-same-time-max_parallel). **Steps that work in a worktree then run in forks of the run's worktree** |
 | `max_waits` | no | A whole number of at least 1. How many times a step may be put back to wait for another before it is admitted alone; it lowers the configured value and never raises it |
 | `defaults` | no | `defaults.mcp_policy` (`required`, the default, or `optional`) and `defaults.permissions` (see [Permissions](#permissions)). Nothing else under `defaults` is read |
 
@@ -514,7 +514,7 @@ attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.sta
 
 The limit of steps that may run at once is decided, strongest first, by `indaba run --parallel <n>`, the variable `INDABA_PARALLEL`, `parallel.max_steps` in `indaba.config`, and then the default, 1. Each is a whole number of at least 1: a bad flag is a usage error, a bad variable is ignored with a warning, a bad value in the file is a configuration error that names the key. A workflow can lower the limit of its own run with `max_parallel` and `max_waits`, never raise it. `indaba.config` also sets `parallel.max_waits` (default 3).
 
-**This version still runs one step at a time.** The limit is accepted, resolved and recorded on the run (`indaba.workflow.max_parallel` and `indaba.workflow.max_parallel.source` on the root span, where the source is `flag`, `env`, `config`, `workflow` or `default`), and a request for more than one says so. Steps start working at the same time in a later release, when each step has a worktree of its own and the steps can agree before they collide (`specs/parallel-steps`). Wherever the limit is set above 1 and at the start of such a run, Indaba will state what it costs:
+**Above 1, steps that work in a worktree run at the same time, each in a fork of the run's worktree; a step that works in the project directory runs alone.** The limit is resolved and recorded on the run (`indaba.workflow.max_parallel` and `indaba.workflow.max_parallel.source` on the root span, where the source is `flag`, `env`, `config`, `workflow` or `default`). Each agent step first says what it intends to change; steps whose intentions meet wait or negotiate a contract, their changes land one at a time, and a landing that collides is resolved by the agents, which the dashboard and `watch` show as waiting steps. There is no review before a step lands yet (`step-verdicts`). Wherever the limit is set above 1 and at the start of such a run, Indaba states what it costs (`specs/parallel-steps`):
 
 ```text
 Steps run at the same time. What that costs:

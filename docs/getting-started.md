@@ -122,7 +122,7 @@ from are in [`examples/`](../examples/), from `hello.workflow.ai.yml` (shell onl
 | `-w, --workdir <dir>` | The project directory the workflow runs against (default: the current directory) |
 | `--task-id <id>` | Names the task, its worktree and its trace; a random id otherwise |
 | `--timeout <secs>` | Per-step timeout in seconds (default 900); applies to every runner |
-| `--parallel <n>` | How many steps may run at once (default 1); `INDABA_PARALLEL` and `parallel.max_steps` in `indaba.config` set it too. This version accepts and records it and still runs one step at a time. See [Steps at the same time](workflow-format.md#steps-at-the-same-time-max_parallel) |
+| `--parallel <n>` | How many steps may run at once (default 1); `INDABA_PARALLEL` and `parallel.max_steps` in `indaba.config` set it too. Steps that work in a worktree run in forks and land one at a time; there is no review before landing yet. See [Steps at the same time](workflow-format.md#steps-at-the-same-time-max_parallel) |
 | `--plugin <spec>` | Load a plugin (repeatable); also accepted by `validate` and `plan`. See [extending.md](extending.md) |
 | `-v` | Print the cost of each span that has one; `-vv` also streams the agent's output live |
 | `--tui` | Run in a process of its own and show it as a dashboard (needs a terminal and `@indaba/tui`). See [Starting a run and watching it at once](#starting-a-run-and-watching-it-at-once) |

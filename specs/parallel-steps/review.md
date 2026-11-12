@@ -1,8 +1,7 @@
 # Self-review: Parallel steps
 
-> **Status**: **slice 1 reviewed** (2026-11-07, by the author of the change, the same model that wrote it; no independent review has been
-> run). Slices 2 to 4 are not implemented, so their parts of this review are pending and are written when they are. Slice 1 is the pool,
-> the fields, the limit and its configuration: it changes no run.
+> **Status**: **all slices reviewed** (slice 1 on 2026-11-07, slices 2 to 4 on 2026-11-12), by the author of the change, the same model that wrote it; no independent review has been
+> run. One acceptance criterion is open: review before landing (AC-21) waits for `step-verdicts`. Slices 2 to 4 are reviewed after the known gaps.
 
 ## Slice 1 (T-01 to T-07)
 
@@ -97,15 +96,40 @@ waited a fixed 100 ms for a plugin to log, a race against machine load. It now w
 - `land_failed` and `conflicts_again` (the resolved change cannot be applied after all) are not exercised: with the landing lock held nothing can change the run worktree, so they are defensive.
 - The resolution's calls are not counted separately in the step budgets (`step-budgets` is not implemented).
 
-### Known gaps (slice 4, T-14)
+## Slices 2 to 4 (T-08 to T-16)
 
-- The board notes of the step whose change was met are not in the resolution prompt, only its goal, intent and contract: the resolution call runs without the board so that it leaves no entries pending. AC-24 asks for the notes too.
-- The step it met is the last step that landed a change to one of the conflicting paths, from the paths of each landed diff. A conflict with a change that was not landed by a step of this run (an earlier sequential step) has no step to ask: the guards are then the only check, as for a shell step.
-- A step with no role, or a met step with no role or a shell step, has no debate (the guards are enough, AC-24 last line). A step that is itself a shell or debate step cannot be resolved and fails as before, with the reason.
-- With no terminal, a debate that the examiner does not settle ends without an accept, so the step fails (AC-25); there is no question to the person here.
-- `land_failed` and `conflicts_again` (the resolved change cannot be applied after all) are not exercised: with the landing lock held nothing can change the run worktree, so they are defensive.
-- The resolution's calls are not counted separately in the step budgets (`step-budgets` is not implemented).
+### 1. Boundary and layering
 
-## Slices 2 to 4
+Intents, contracts, `meets`, `mustWait` and the negotiation decider contract are pure and live in `@indaba/core`; the forks, the landing lock, the intent call, the negotiation and the resolution are in `@indaba/engine` (`engine/coordination.ts`, `engine/resolution.ts`, `workflow-engine.ts`). The views read spans through the reducer (`view.ts`); the TUI and web render what the contract carries (`StepView.waitingFor`). A plugin supplies the decider through `PluginHost`, with no privileged path for the built-in one. `architecture.test.ts` and the three `layers.test.ts` files pass inside `pnpm qa`.
 
-Pending. Answer all seven dimensions when each is implemented. See [`.agents/rules/review.md`](../../.agents/rules/review.md).
+### 2. Determinism and failure isolation
+
+The decisions (`admit`, `meets`, `mustWait`, the default decider) are pure and tested with fixed inputs. What is not reproducible is which step finishes first; landings follow the order the pool observes (C-04) and the tests use fake runners whose order they control. A step's failure aborts and awaits the others before teardown (AC-27); a retry aborts the running descendants it resets (AC-28); a cancel aborts every step (AC-29): each has a test with two steps running. The resolution keeps the retry budget isolated: it does not use `max_retries`, and its prompt carries only the conflict and the two steps' goals, intents and contracts.
+
+### 3. Public surface and semver
+
+Minor, as classified in `api-surface.md` and its amendments. Additive: `Intent`, `Contract`, `NegotiationDecider`, `PluginHost.registerNegotiationDecider`, `StepExecutor.intent`, `StepView.waitingFor`, the span owner kind `wait`. **Breaking, labelled in the changelog:** `PluginHost` gains a method (hosts written elsewhere must add it) and `BoardKind` gains two members. New spans: `indaba.step.wait`, `indaba.resolution`. The default limit is 1, so a run without the option takes the same path as before, with one more pair of root attributes. `PARALLEL_STEP_CAP` and `maxParallelCap` were added and removed within the unreleased series.
+
+### 4. Security
+
+Agent text that becomes data is bounded, cleaned and confined to relative paths before use (`parseIntent`, `parseContract`); the landing applies a diff with an argument array under the workspace lock; the resolution prompt marks every foreign line with `| ` as untrusted data and the paths read from a diff skip quoted and `..` forms. No shell string, no process built from agent text. `node scripts/security-audit.mjs --source`: no findings (it did stop one commit, over a `RegExp.exec` read as process execution; the call was replaced).
+
+### 5. Observability and honest numbers
+
+Admission, wait, resolution and landing leave spans (`indaba.step.wait`, `indaba.resolution` with its outcome), and the root span carries the limit and where it came from. The views show running and waiting steps. Gaps, not hidden: the structured log records of AC-33 are not written (the engine has no logger), the landing has no span of its own, and the intent and negotiation spans hang from the root, not the step. Cost of the extra calls is counted in the usual span usage; the resolution's calls are not separate in budgets (`step-budgets` does not exist).
+
+### 6. Dependencies and packaging
+
+No dependency added in slices 2 to 4. `pnpm build` and `pnpm smoke`: 6 packages packed and audited; `indaba 0.1.0-alpha.5` carries `@indaba/tui`, boots without `@indaba/server`, and the installed server finds its page.
+
+### 7. Verification
+
+```
+pnpm qa: exit 0. Biome: Checked 429 files, no fixes. Vitest: 175 files passed, 3158 tests passed, 2 skipped.
+         Coverage: statements 96.78, branches 92.05, functions 96.56, lines 97.02
+node scripts/check-workflow.mjs, security-audit --source, validate-skills, sync-claude-skills --check, sync-agent-docs --check, build-site --check: all exit 0
+pnpm build, pnpm smoke: exit 0 (see section 6)
+pnpm e2e: 13 files passed, 1 skipped; 37 tests passed, 1 skipped
+```
+
+**Not verified.** No live run with a real agent CLI and steps that collide: every test of forks, negotiation and resolution uses a real temporary git repository and fake runners, so the prompts have never been answered by a model here. The effect of a real agent's habits (long intents, ignoring the line format) is unknown. AC-21 (review before landing) is not implemented. The web view has no run board. `indaba ui --parallel` and the Settings screens (AC-01, AC-04) are not done.
