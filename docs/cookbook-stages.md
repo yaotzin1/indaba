@@ -232,9 +232,9 @@ measured above the gate took 2.5 of 19 minutes, and about 12 of 28 when it sent 
 in parallel is run **separate** workflows at once, each in its own project folder: they share nothing, and each has its own
 `indaba watch latest`. That is how this page was checked: two different applications built side by side.
 
-Planned, not built: the `parallel-steps` specification (independent steps of one run working at the same time, and
-talking before they collide) is a draft in `specs/parallel-steps`, and the [roadmap](roadmap.md) lists it as specified,
-not built. Two rough edges found while writing the cookbooks are also open: the scope guard of a step looks at every
+Parallel steps (independent steps of one run working at the same time, and talking before they collide) are built and
+described in [the workflow format](workflow-format.md#steps-at-the-same-time-max_parallel); these cookbooks do not use them.
+Two rough edges found while writing the cookbooks are also open: the scope guard of a step looks at every
 change since the worktree's last commit (which is why the workflows commit between stages), and `indaba validate`
 warns about missing isolation on steps that inherit it from an earlier step.
 

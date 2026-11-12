@@ -54,5 +54,5 @@ a setting, removed in T-15).
   per landing; does not count against `max_retries`. Tests with fake participants and real git.
 - [x] T-15 (done 2026-11-12; the cap is removed: `PARALLEL_STEP_CAP`, `maxParallelCap`, the "one at a time in this version" notice; **review before landing (AC-21) is pending** because `step-verdicts` is not implemented, noted in `review.md`). Review before landing (spec AC-21) wired to whatever review `step-verdicts` provides at that time, or noted
   as pending in `review.md` if it has not shipped. Remove the release cap.
-- [ ] T-16. `review.md` against the seven dimensions with the gates' actual output; DEPENDENCY_MAP status; positioning
+- [x] T-16 (done 2026-11-12; review against the seven dimensions with the gates' output, status in the map, positioning row and docs).  `review.md` against the seven dimensions with the gates' actual output; DEPENDENCY_MAP status; positioning
   page row moves to "Works".

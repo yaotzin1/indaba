@@ -87,7 +87,7 @@ step, that step's earlier notes are replaced.
 - Give every step that edits files `isolation: git_worktree` and a `guards` entry that checks the result. A step without a guard
   is a step whose failure nobody notices.
 - Give a step that is slower or faster than the rest its own `timeout_seconds` (1 to 86400, per call) instead of raising `--timeout` for the whole run.
-- Do not rely on steps running at the same time yet: `max_parallel`, `--parallel` and `INDABA_PARALLEL` are accepted and recorded, and this version still runs one step at a time (`touches` on a shell step is read and kept for when it does).
+- Steps run at the same time only when the limit is above 1 (`max_parallel`, `--parallel`, `INDABA_PARALLEL`, default 1), and only those that work in a worktree; each gets a fork, tells what it intends to change, may negotiate and resolve a conflict, and lands one at a time. There is no review before landing yet (`step-verdicts`). Declare `touches` on a shell step so the others know what it changes.
 - Set `permissions` to the lowest level the step needs (`read`, then `edit`; `full` only when nothing less works). A step with
   no level takes the runner's own default, which is usually more than you want.
 - Give a step that can go quiet (a long agent call) a `stall: { after_seconds: <n> }` of 60 seconds or more, well above the longest silent
