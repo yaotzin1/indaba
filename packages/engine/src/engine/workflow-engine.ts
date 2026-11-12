@@ -38,6 +38,7 @@ import {
 } from '../workspace/workspace.js';
 import { Coordination, type Decision } from './coordination.js';
 import { StepOutcome, WorkflowResult, WorkflowStatus } from './outcome.js';
+import { Resolver } from './resolution.js';
 import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
 import { StepPool } from './step-pool.js';
@@ -346,6 +347,8 @@ export class WorkflowEngine {
             attemptOf: (id) => (states.get(id)?.attempts() ?? 0) + 1,
           })
         : undefined;
+    /** Settles a landing that conflicts (specs/parallel-steps, AC-24) and remembers what each step said and what landed. */
+    const resolver = new Resolver({ executor: this.executor, tracer: this.tracer, board, root, workflow });
 
     /** Starts one step in the pool: its workspace, its staged artifacts, then the attempt. */
     const startStep = (
@@ -394,8 +397,15 @@ export class WorkflowEngine {
             land:
               forked !== undefined && forkedFrom !== undefined
                 ? () =>
-                    this.land(step, forkedFrom, forked, stepSignal, underWorkspaceLock, remove, () =>
-                      this.exportPatch(workflow, forkedFrom, projectDir),
+                    this.land(
+                      step,
+                      forkedFrom,
+                      forked,
+                      stepSignal,
+                      underWorkspaceLock,
+                      remove,
+                      resolver,
+                      () => this.exportPatch(workflow, forkedFrom, projectDir),
                     )
                 : undefined,
           });
@@ -433,6 +443,9 @@ export class WorkflowEngine {
           }
           waits.delete(step.id);
           contract = decided?.contract === undefined ? undefined : contractSection(decided.contract);
+          if (decided?.kind === 'go') {
+            resolver.declare(step.id, decided.intent, contract);
+          }
         }
         try {
           return await work(stepSignal, contract);
@@ -753,9 +766,9 @@ export class WorkflowEngine {
   }
 
   /**
-   * Applies a forked step's change to the run worktree, one landing at a time (AC-22, AC-23). A conflict changes nothing and
-   * fails the step with the files named; the resolution of slice 4 is not there yet. A landing is one apply: a step aborted
-   * before it gets the lock does not land, one aborted during it lands whole.
+   * Applies a forked step's change to the run worktree, one landing at a time (AC-22, AC-23). A conflict changes nothing and goes
+   * to the resolver (AC-24), still under the lock: the run worktree must not change while a resolution works, so what it lands
+   * applies cleanly. A landing is one apply: a step aborted before it gets the lock does not land, one aborted during it lands whole.
    */
   private async land(
     step: StepDefinition,
@@ -764,6 +777,7 @@ export class WorkflowEngine {
     signal: AbortSignal,
     underLock: <T>(job: () => Promise<T>) => Promise<T>,
     remove: (target: Workspace) => Promise<void>,
+    resolver: Resolver,
     landed: () => Promise<void>,
   ): Promise<StepOutcome | undefined> {
     return await underLock(async () => {
@@ -771,22 +785,23 @@ export class WorkflowEngine {
         return StepOutcome.cancelled();
       }
       let result: LandResult;
+      let change: string;
       try {
+        change = await child.diff();
         result = await parent.land(child);
       } catch {
         return StepOutcome.failed(`The change of step "${step.id}" could not be landed.`);
       }
       if (result.ok) {
+        resolver.recordLanded(step.id, change);
         await landed();
         return undefined;
       }
-      await remove(result.workspace);
-      const files = [...new Set(result.conflicts.map((hunk) => hunk.path))];
-      return StepOutcome.failed(
-        `The change of step "${step.id}" conflicts with changes that landed before it${
-          files.length === 0 ? '.' : `: ${files.join(', ')}.`
-        } Nothing of it was applied.`,
-      );
+      try {
+        return await resolver.resolve({ step, parent, conflict: result, signal, landed, remove });
+      } finally {
+        await remove(result.workspace);
+      }
     });
   }
 

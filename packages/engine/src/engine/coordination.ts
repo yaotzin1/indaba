@@ -57,7 +57,7 @@ interface Declared {
 }
 
 /** The text of an intent on the board and in a negotiation: one line, and only what `parseIntent` kept. */
-function describe(intent: Intent): string {
+export function describe(intent: Intent): string {
   const parts = [
     intent.paths.length > 0 ? `paths ${intent.paths.join(', ')}` : undefined,
     intent.provides.length > 0
