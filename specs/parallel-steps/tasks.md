@@ -50,7 +50,7 @@ a setting, removed in T-15).
 
 ## Slice 4: resolution and review before landing
 
-- [ ] T-14. `@indaba/engine`: resolution in the landing workspace (agent, guards, debate of the two roles, arbiter); one
+- [x] T-14 (done 2026-11-12; `engine/resolution.ts`: a conflicting landing is settled under the landing lock by the step's agent in the landing worktree, a check that no marker is left, the step's guards, and a debate of the two roles with the agent of the step it met; the **cap stays**, lifted for tests by `maxParallelCap`; gaps in `review.md`). `@indaba/engine`: resolution in the landing workspace (agent, guards, debate of the two roles, arbiter); one
   per landing; does not count against `max_retries`. Tests with fake participants and real git.
 - [ ] T-15. Review before landing (spec AC-21) wired to whatever review `step-verdicts` provides at that time, or noted
   as pending in `review.md` if it has not shipped. Remove the release cap.

@@ -122,6 +122,8 @@ None.
 | board | entries of kind `intent` and `contract` | added |
 | span attributes | `indaba.workflow.max_parallel`, `indaba.workflow.max_parallel.source` on the root span; `indaba.land.sequence` on each landing span (spec AC-22) | added |
 | spans | child spans of a step for the intent call, the negotiation, the landing and the resolution | added (names fixed at stage 3 under the GenAI conventions) |
+| span (T-14) | `indaba.resolution`, a child of the root span like the intent and negotiation spans, with `indaba.step.id`, `indaba.resolution.files`, `indaba.resolution.met_step` (the step whose landed change it met, when known) and `indaba.resolution.outcome` (`resolved`, `agent_failed`, `markers_left`, `guard_failed`, `rejected`, `conflicts_again`, `land_failed`, `cancelled`) | added (spec AC-24, AC-31) |
+| public symbols (T-14) | none: `Resolver`, `pathsOfDiff`, `metStep`, `hasConflictMarkers` and `resolutionGoal` are internal to `@indaba/engine` and not exported from its index; `describe` of `coordination.ts` is exported from the module only | no change to the public surface |
 | span (T-13) | `indaba.step.wait`, a child of the root span, with `indaba.step.id`, `indaba.wait.blocker` (the step waited for) and `indaba.wait.count` (times put back so far); open from the first put back until the step is admitted, reset or the run ends | added (spec AC-13, AC-30) |
 | `@indaba/core` web contract (T-13) | `StepView.waitingFor?: string | undefined` (the step waited for, while waiting); `SpanOwner.kind` gains `"wait"` | added; optional member and a union member of a type the reducer owns: minor |
 | events | none | unchanged classes; events of different steps interleave (spec AC-30) |
