@@ -81,7 +81,21 @@ waited a fixed 100 ms for a plugin to log, a race against machine load. It now w
 - `indaba ui --parallel` and the limit in the Settings screens of the terminal and the web view (AC-01, AC-04) are not done; they need
   the run control and the Settings screens and are the next change of slice 1.
 - `meets`, `mustWait`, intents and negotiation (slice 3), forks and landing (slice 2), resolution and review before landing (slice 4).
-- The cap (`PARALLEL_STEP_CAP`) stays through slice 2 (forks work behind `maxParallelCap`) and goes with T-15.
+- The cap (`PARALLEL_STEP_CAP`) is removed at T-15.
+
+### Release (slice 4, T-15)
+
+- **The cap is removed.** A limit above 1 now runs steps at the same time; the notice at the start of a run and in `indaba plan` shows the consequences (AC-04a) instead of "steps run one at a time in this version".
+- **Review before landing (AC-21) is pending, not done.** `step-verdicts` and `review-gate` are specified and not implemented, so there is no review to wire. A step lands after its guards and, when it conflicts, after the resolution of T-14. When either spec ships, its review runs between the guards and the landing, on the step's own diff; the seam is `land` in `workflow-engine.ts`. Until then a person who sets a limit above 1 gets guards and resolution only.
+
+### Known gaps (slice 4, T-14)
+
+- The board notes of the step whose change was met are not in the resolution prompt, only its goal, intent and contract: the resolution call runs without the board so that it leaves no entries pending. AC-24 asks for the notes too.
+- The step it met is the last step that landed a change to one of the conflicting paths, from the paths of each landed diff. A conflict with a change that was not landed by a step of this run (an earlier sequential step) has no step to ask: the guards are then the only check, as for a shell step.
+- A step with no role, or a met step with no role or a shell step, has no debate (the guards are enough, AC-24 last line). A step that is itself a shell or debate step cannot be resolved and fails as before, with the reason.
+- With no terminal, a debate that the examiner does not settle ends without an accept, so the step fails (AC-25); there is no question to the person here.
+- `land_failed` and `conflicts_again` (the resolved change cannot be applied after all) are not exercised: with the landing lock held nothing can change the run worktree, so they are defensive.
+- The resolution's calls are not counted separately in the step budgets (`step-budgets` is not implemented).
 
 ### Known gaps (slice 4, T-14)
 

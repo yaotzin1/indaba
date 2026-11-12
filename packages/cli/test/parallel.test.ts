@@ -74,14 +74,9 @@ describe('parallelNotice (AC-04a)', () => {
     expect(parallelNotice(1)).toBeUndefined();
   });
 
-  it('above the cap says that steps still run one at a time, and names both numbers', () => {
-    expect(parallelNotice(3, 1)).toBe(
-      'Steps run one at a time in this version: a limit of 3 is recorded, and the limit that runs is 1.',
-    );
-  });
-
-  it('shows the consequences when the limit asked is allowed to run', () => {
-    expect(parallelNotice(3, 5)).toBe(PARALLEL_CONSEQUENCES);
+  it('shows the consequences at any limit above 1', () => {
+    expect(parallelNotice(2)).toBe(PARALLEL_CONSEQUENCES);
+    expect(parallelNotice(8)).toBe(PARALLEL_CONSEQUENCES);
   });
 
   it('states the costs: extra calls, negotiation, a worktree each, the decider', () => {

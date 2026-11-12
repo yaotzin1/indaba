@@ -60,19 +60,19 @@ describe('indaba run and the limit of steps', () => {
     expect(r.out).not.toContain('one at a time');
   });
 
-  it('takes --parallel first, records the flag, and says that steps still run one at a time', async () => {
+  it('takes --parallel first, records the flag, and shows what steps at the same time cost', async () => {
     const r = await run(['--parallel', '3'], { INDABA_PARALLEL: '2' });
     expect(r.code).toBe(0);
     const attributes = await rootAttributes(r.dir);
     expect(attributes['indaba.workflow.max_parallel.source']).toBe('flag');
-    expect(attributes['indaba.workflow.max_parallel']).toBe(1);
-    expect(r.out).toContain('Steps run one at a time in this version: a limit of 3 is recorded');
+    expect(attributes['indaba.workflow.max_parallel']).toBe(3);
+    expect(r.out).toContain('Steps run at the same time. What that costs:');
   });
 
   it('takes INDABA_PARALLEL when there is no flag', async () => {
     const r = await run([], { INDABA_PARALLEL: '2' });
     expect((await rootAttributes(r.dir))['indaba.workflow.max_parallel.source']).toBe('env');
-    expect(r.out).toContain('a limit of 2 is recorded');
+    expect(r.out).toContain('Steps run at the same time. What that costs:');
   });
 
   it('ignores a bad INDABA_PARALLEL with a warning and uses the next source', async () => {
@@ -85,7 +85,7 @@ describe('indaba run and the limit of steps', () => {
   it('takes parallel.max_steps of indaba.config when nothing else says', async () => {
     const r = await run([], {}, 'parallel:\n  max_steps: 4\n');
     expect((await rootAttributes(r.dir))['indaba.workflow.max_parallel.source']).toBe('config');
-    expect(r.out).toContain('a limit of 4 is recorded');
+    expect(r.out).toContain('Steps run at the same time. What that costs:');
   });
 
   it.each(['0', '-1', '1.5', 'many'])('refuses --parallel %s as a usage error', async (value) => {
@@ -124,10 +124,10 @@ describe('indaba plan and the limit', () => {
     expect(r.out).not.toContain('one at a time');
   });
 
-  it('says that steps run one at a time when the variable asks for more', async () => {
+  it('shows the cost and the groups when the variable asks for more', async () => {
     const r = await plan({ INDABA_PARALLEL: '3' });
-    expect(r.out).toContain('Steps run one at a time in this version: a limit of 3 is recorded');
-    expect(r.out).not.toContain('Parallel groups');
+    expect(r.out).toContain('Steps run at the same time. What that costs:');
+    expect(r.out).toContain('Parallel groups (limit 3):');
   });
 
   it('lets a workflow lower the limit it would say, never raise it', async () => {

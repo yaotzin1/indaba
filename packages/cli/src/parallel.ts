@@ -1,5 +1,5 @@
 import { parallelGroups, runsInProject, type StepDefinition } from '@indaba/core';
-import { DEFAULT_MAX_PARALLEL_STEPS, PARALLEL_STEP_CAP, type ParallelSource } from '@indaba/engine';
+import { DEFAULT_MAX_PARALLEL_STEPS, type ParallelSource } from '@indaba/engine';
 
 /**
  * What a person agrees to when steps run at the same time (specs/parallel-steps, AC-04a). One text, shown wherever the limit
@@ -74,15 +74,11 @@ export function parseParallelFlag(text: string | undefined): number | undefined 
 }
 
 /**
- * What to say at the start of a run for the limit that was asked. Above the cap the steps still run one at a time, and a
- * person who asked for more is told so instead of being promised a parallelism that does not happen. Absent at 1.
+ * What to say at the start of a run for the limit that runs: what steps at the same time cost (AC-04a). Absent at 1.
  */
-export function parallelNotice(asked: number, cap: number = PARALLEL_STEP_CAP): string | undefined {
+export function parallelNotice(asked: number): string | undefined {
   if (asked <= 1) {
     return undefined;
-  }
-  if (asked > cap) {
-    return `Steps run one at a time in this version: a limit of ${asked} is recorded, and the limit that runs is ${cap}.`;
   }
   return PARALLEL_CONSEQUENCES;
 }

@@ -75,7 +75,7 @@ export { checkStalls, describeStallFinding } from './engine/stall.js';
 export type { StepExecutorOptions, StepRunOptions } from './engine/step-executor.js';
 export { StepExecutor } from './engine/step-executor.js';
 export type { ParallelSource, RunOptions, WorkflowEngineOptions } from './engine/workflow-engine.js';
-export { PARALLEL_STEP_CAP, WorkflowEngine } from './engine/workflow-engine.js';
+export { WorkflowEngine } from './engine/workflow-engine.js';
 export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';

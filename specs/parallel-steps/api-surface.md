@@ -12,6 +12,8 @@
 > say, when a person asks for more than the cap allows, that steps still run one at a time instead of printing the consequences
 > of a parallelism that does not happen (AC-04a). The cap is removed with T-08 (forks) and T-15 (release); the constant goes with it.
 
+> **Amended at T-15 (2026-11-12): the cap is gone.** `PARALLEL_STEP_CAP` and `WorkflowEngineOptions.maxParallelCap` are removed, and `parallelNotice` takes only the limit. Both were added in this same unreleased series and never shipped in a version, so nothing a consumer has installed loses a symbol. The limit that runs is the limit asked (lowered by the workflow, AC-03).
+
 > **Amended during slice 2 (2026-11-10), at T-09.** The cap is not removed with T-08 or T-09: slices 2 to 4 merge behind it (tasks.md,
 > end of slice 2), because agents in parallel steps always talk (C-11). So forks run only when something lifts the cap, and the one
 > addition is the optional `WorkflowEngineOptions.maxParallelCap?: number` (default `PARALLEL_STEP_CAP`), used by the engine's own tests

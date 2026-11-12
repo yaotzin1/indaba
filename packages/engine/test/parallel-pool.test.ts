@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
   GitWorktreeManager,
   GuardRegistry,
-  PARALLEL_STEP_CAP,
   type ParallelSource,
   parseWorkflow,
   StepExecutor,
@@ -86,10 +85,9 @@ describe('the limit on the root span (AC-31)', () => {
     }
   });
 
-  it('records the limit that runs: a limit above the cap is recorded as the cap', async () => {
+  it('records the limit that runs: the limit asked, with no cap', async () => {
     const { root } = await run(THREE, { maxParallelSteps: 3, maxParallelSource: 'flag' });
-    expect(PARALLEL_STEP_CAP).toBe(1);
-    expect(root?.attributes['indaba.workflow.max_parallel']).toBe(PARALLEL_STEP_CAP);
+    expect(root?.attributes['indaba.workflow.max_parallel']).toBe(3);
     expect(root?.attributes['indaba.workflow.max_parallel.source']).toBe('flag');
   });
 

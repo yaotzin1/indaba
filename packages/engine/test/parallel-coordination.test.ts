@@ -166,7 +166,6 @@ async function build(setup: Setup = {}) {
     projectDir: repo,
     ids,
     maxParallelSteps: 3,
-    maxParallelCap: 8,
     ...(setup.maxWaits !== undefined ? { maxWaits: setup.maxWaits } : {}),
     ...(setup.decider !== undefined ? { negotiationDecider: setup.decider } : {}),
   });
