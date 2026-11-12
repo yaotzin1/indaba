@@ -725,6 +725,58 @@ describe('steps that run at the same time (specs/parallel-steps, AC-30)', () => 
     expect(formatHeader(reduceAll(together.slice(0, 4)))).not.toMatch(/\d+ running/);
   });
 
+  const waitStart = (
+    id: string,
+    blocker: string,
+    at = T(3),
+    attributes: Record<string, string | number> = {
+      'indaba.step.id': id,
+      'indaba.wait.blocker': blocker,
+      'indaba.wait.count': 1,
+    },
+  ): RunRecord => ({
+    type: 'span_started',
+    at,
+    traceId: TRACE,
+    spanId: `w-${id}`,
+    parentSpanId: ROOT,
+    name: 'indaba.step.wait',
+    attributes,
+  });
+  const waitEnd = (id: string, at = T(6)): RunRecord => ({
+    type: 'span_ended',
+    at,
+    traceId: TRACE,
+    spanId: `w-${id}`,
+    status: 'ok',
+    statusMessage: undefined,
+    attributes: {},
+    events: [],
+  });
+
+  it('shows a step that waits for another, and for which one, until the wait ends (AC-13, AC-30)', () => {
+    const waiting = reduceAll([
+      root(),
+      stepStart('a'),
+      stepStart('b'),
+      change('a', 'RUNNING'),
+      waitStart('b', 'a'),
+    ]);
+    expect(waiting.steps.find((s) => s.id === 'b')?.waitingFor).toBe('a');
+    expect(waiting.steps.find((s) => s.id === 'a')?.waitingFor).toBeUndefined();
+    expect(formatPlain(waiting)).toMatch(/b\s+pending\s+waiting for a/);
+
+    const after = reduceRun(waiting, waitEnd('b'));
+    expect(after.steps.find((s) => s.id === 'b')?.waitingFor).toBeUndefined();
+    expect(formatPlain(after)).not.toContain('waiting for');
+  });
+
+  it('ignores a wait span that names no step or no blocker', () => {
+    const odd = waitStart('b', 'a', T(3), { 'indaba.step.id': 'b' });
+    const state = reduceAll([root(), stepStart('b'), odd]);
+    expect(state.steps.find((s) => s.id === 'b')?.waitingFor).toBeUndefined();
+  });
+
   it('shows every running step as running in the snapshot', () => {
     const lines = formatPlain(reduceAll(together.slice(0, 5))).split('\n');
     expect(lines.filter((line) => line.includes('running') && /^\s+▶/.test(line))).toHaveLength(2);

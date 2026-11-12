@@ -290,6 +290,9 @@ export function RunScreen(props: RunScreenProps): ReactElement {
   const activeNames = graph.nodes
     .filter((n) => n.step !== undefined && isActive(n.step.status))
     .map((n) => n.id);
+  const waitingPairs = graph.nodes.flatMap((n) =>
+    n.step?.waitingFor === undefined ? [] : [`${n.id} (${n.step.waitingFor})`],
+  );
   const stale = stream === 'reconnecting' || stream === 'unavailable';
   // A run that has ended cannot be stopped, whatever was known when the screen opened.
   const stoppable = canStop && run.status === 'running';
@@ -317,6 +320,13 @@ export function RunScreen(props: RunScreenProps): ReactElement {
           'p',
           { className: 'muted', id: 'running-together' },
           messages.run.runningTogether(activeNames.join(', ')),
+        )
+      : null,
+    waitingPairs.length > 0
+      ? h(
+          'p',
+          { className: 'muted', id: 'waiting-together' },
+          messages.run.waitingTogether(waitingPairs.join(', ')),
         )
       : null,
     stream === 'reconnecting' ? h('p', { className: 'banner', role: 'status' }, messages.reconnecting) : null,

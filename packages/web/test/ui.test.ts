@@ -409,6 +409,24 @@ describe('the Run screen', () => {
     expect(screen.queryByText(/Running at the same time/)).toBeNull();
   });
 
+  it('says which step waits for which, and says nothing when none waits (AC-13, AC-30)', async () => {
+    const waiting = liveRun({
+      steps: [step('a', { status: 'RUNNING' }), step('b', { status: 'PENDING', waitingFor: 'a' })],
+      structure: undefined,
+    });
+    const first = render(h(App, appProps(fakeClient({ run: waiting }), '/runs/r1')));
+    expect(await screen.findByText('Waiting for another step: b (a)')).toBeTruthy();
+    first.unmount();
+
+    const none = liveRun({
+      steps: [step('a', { status: 'RUNNING' }), step('b', { status: 'PENDING' })],
+      structure: undefined,
+    });
+    render(h(App, appProps(fakeClient({ run: none }), '/runs/r1')));
+    await screen.findByRole('heading', { level: 2, name: /task-pipeline/ });
+    expect(screen.queryByText(/Waiting for another step/)).toBeNull();
+  });
+
   it('says when no step has called a model', async () => {
     const run = liveRun({
       steps: [step('lint', { status: 'COMPLETED' })],

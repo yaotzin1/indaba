@@ -94,6 +94,12 @@ export interface StepView {
   readonly thoughts: readonly string[];
   /** The reasoning line being written, with no newline yet. */
   readonly partialThought: string;
+  /**
+   * The step this one was put back to wait for, while it waits (specs/parallel-steps, AC-13 and AC-30). Set when the wait begins
+   * and cleared when the step is admitted, reset or the run ends. Absent or undefined: not waiting. If the step is put back again
+   * for another blocker, the first one stays until the wait ends.
+   */
+  readonly waitingFor?: string | undefined;
 }
 
 /** Where a step's failure leads, as the workflow declared it (`on_failure`). */
@@ -119,7 +125,7 @@ export interface StepStructure {
 
 /** What a span id belongs to; internal to the reducer that builds {@link RunState}. */
 export interface SpanOwner {
-  readonly kind: 'root' | 'step' | 'runner' | 'other';
+  readonly kind: 'root' | 'step' | 'runner' | 'wait' | 'other';
   readonly stepId: string | undefined;
 }
 

@@ -284,6 +284,25 @@ describe('steps that run at the same time (specs/parallel-steps, AC-30)', () => 
     expect(s.header.text).toContain('2 running');
   });
 
+  it('marks a step that waits for another in the list and in the detail, with the one it waits for', () => {
+    const waiting: RunRecord = {
+      type: 'span_started',
+      at: T(3),
+      traceId: TRACE,
+      spanId: 'w-b',
+      parentSpanId: undefined,
+      name: 'indaba.step.wait',
+      attributes: { 'indaba.step.id': 'b', 'indaba.wait.blocker': 'a', 'indaba.wait.count': 1 },
+    };
+    const records = [...sampleRecords(), { ...waiting, parentSpanId: 'r'.repeat(16) }];
+    const state = run(...records);
+    const selected = state.steps.findIndex((step) => step.id === 'b');
+    expect(selected).toBeGreaterThanOrEqual(0);
+    const s = buildScreen(state, ui({ selected }), computeLayout(100, 24), opts);
+    expect(s.list.some((row) => row.text.includes('waiting for a'))).toBe(true);
+    expect(text(s.detail)).toContain('waiting for a');
+  });
+
   it('keeps the output of each running step apart, whichever is selected', () => {
     const first = buildScreen(state, ui({ selected: 0 }), computeLayout(100, 24), opts);
     const second = buildScreen(state, ui({ selected: 1 }), computeLayout(100, 24), opts);

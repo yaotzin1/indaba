@@ -5,6 +5,7 @@ import {
   type NegotiationDecider,
   RunResult,
   SimpleEventDispatcher,
+  SpanEnded,
   StepStatus,
   StepStatusChanged,
   Tracer,
@@ -89,6 +90,18 @@ async function build(setup: Setup = {}) {
       posts.push({ kind: record.kind, stepId: record.stepId, text: record.text });
     }
   });
+  /** The `indaba.step.wait` spans that ended, with what they said (AC-30): the step, the step it waited for, how often. */
+  const waitSpans: { readonly step: unknown; readonly blocker: unknown; readonly count: unknown }[] = [];
+  events.addListener(SpanEnded, (event) => {
+    if (event.span.name === 'indaba.step.wait') {
+      const a = event.span.attributes;
+      waitSpans.push({
+        step: a['indaba.step.id'],
+        blocker: a['indaba.wait.blocker'],
+        count: a['indaba.wait.count'],
+      });
+    }
+  });
   const completed: string[] = [];
   const started: string[] = [];
   events.addListener(StepStatusChanged, (event) => {
@@ -161,6 +174,7 @@ async function build(setup: Setup = {}) {
   return {
     run,
     posts,
+    waitSpans,
     completed,
     started,
     intentCalls,
@@ -272,6 +286,15 @@ describe('a step that meets a step already working waits for it (AC-13)', () => 
     expect(seen).toEqual(['c', 'a', 'b']);
     // The earlier declaration of b is replaced, not added to (AC-11): both were posted, the first is superseded.
     expect(t.ofKind('intent').filter((p) => p.stepId === 'b')).toHaveLength(2);
+    // The wait is in the trace for a view to show: one span, naming the step it waited for, ended once b was admitted.
+    expect(t.waitSpans).toEqual([{ step: 'b', blocker: 'a', count: 1 }]);
+  });
+
+  it('records no wait span for a step that was never put back', async () => {
+    const t = await build({ intents: { a: 'INTENT src/a/', b: 'INTENT docs/' } });
+    const result = await t.run(wf(step('a'), step('b')));
+    expect(result.status, result.failureReason).toBe(WorkflowStatus.Completed);
+    expect(t.waitSpans).toEqual([]);
   });
 
   it('is admitted alone once it was put back max_waits times', async () => {

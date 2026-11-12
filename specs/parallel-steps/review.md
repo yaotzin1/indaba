@@ -68,7 +68,13 @@ waited a fixed 100 ms for a plugin to log, a race against machine load. It now w
 - A negotiation that reaches consensus without a valid proposal goes to the decider, not to the arbiter (AC-14 reads it as "not reached").
 - Steps in one batch that meet are grouped by chains of `meets`, so two steps that do not meet each other but both meet a third negotiate together.
 - A step admitted while another batch is still declaring is not compared with it (it is not yet "working"): landing and resolution catch what the check missed (C-10).
-- Steps put back to wait are shown as `PENDING`; showing them as waiting is T-13.
+- ~~Steps put back to wait are shown as `PENDING`~~ done in T-13: they carry `waitingFor` and say which step they wait for.
+
+### Known gaps (slice 3, T-13)
+
+- The web view has no run board, so intents and contracts are shown only in the dashboard's board pane (T-11); the web view shows the waits. They arrive in the web view with a board view, which is a separate feature.
+- The wait span records the blocker the step first waited for in its start record, which is what a live view reads; if the step is put back again for another blocker, the final blocker and count appear on the span's end record only. A live view therefore shows the first blocker until the wait ends.
+- A step put back to wait gets no `step` span, so it has no `startedAt`; its wait is shown from the wait span only.
 
 ### Known gaps (slice 1)
 

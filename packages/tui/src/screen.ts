@@ -85,7 +85,8 @@ function runTone(status: RunState['status']): Tone {
 export function stepLine(step: StepView, ascii: boolean): string {
   const { glyph, word } = stepMark(step.status, ascii);
   const attempt = step.attempts > 1 ? ` x${step.attempts}` : '';
-  return `${glyph} ${safe(step.id)}  ${word}${attempt}`;
+  const waiting = step.waitingFor === undefined ? '' : `  waiting for ${safe(step.waitingFor)}`;
+  return `${glyph} ${safe(step.id)}  ${word}${attempt}${waiting}`;
 }
 
 /** The notice that stands in for the panes on a terminal that is too small to draw them. */
@@ -193,8 +194,9 @@ function detailRows(
 
   const { glyph, word } = stepMark(step.status, options.ascii);
   const attempt = step.attempts > 1 ? `  attempt ${step.attempts}` : '';
+  const waiting = step.waitingFor === undefined ? '' : `  waiting for ${safe(step.waitingFor)}`;
   const title = row(
-    clip(`${glyph} ${safe(step.id)}  ${word}${attempt}`, width, options.ascii),
+    clip(`${glyph} ${safe(step.id)}  ${word}${attempt}${waiting}`, width, options.ascii),
     stepTone(step.status),
   );
 

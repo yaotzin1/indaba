@@ -536,6 +536,8 @@ export const messages = {
     runningFor: (duration: string): string => `running for ${duration}`,
     /** Said only when several steps run at once: which ones. */
     runningTogether: (names: string): string => `Running at the same time: ${names}`,
+    /** Said only while a step is put back to wait for another (AC-13): each waiting step and the one it waits for. */
+    waitingTogether: (pairs: string): string => `Waiting for another step: ${pairs}`,
     tookTotal: (duration: string): string => `took ${duration}`,
     graphTitle: 'Steps',
     graphHint: 'select one for details',
