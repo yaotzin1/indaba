@@ -187,7 +187,9 @@ export function toolsText(step: StepView): string | undefined {
 function stepLines(step: StepView, options: PlainOptions, idWidth: number): string[] {
   const { glyph, word } = mark(LOOK[step.status] ?? UNKNOWN_STEP, options);
   const attempts = step.attempts > 1 ? `  attempt ${step.attempts}` : '';
-  const lines = [`  ${glyph} ${oneLine(step.id).padEnd(idWidth)}  ${word}${attempts}`];
+  // A step put back to wait for another says which one (specs/parallel-steps, AC-30).
+  const waiting = step.waitingFor === undefined ? '' : `  waiting for ${oneLine(step.waitingFor)}`;
+  const lines = [`  ${glyph} ${oneLine(step.id).padEnd(idWidth)}  ${word}${attempts}${waiting}`];
   const pad = '      ';
 
   for (const line of attemptLines(step)) {

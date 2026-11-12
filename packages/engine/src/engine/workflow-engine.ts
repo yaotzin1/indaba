@@ -291,6 +291,35 @@ export class WorkflowEngine {
     /** How often each step was put back to wait (AC-13), and the step it waits for until that one is COMPLETED. */
     const waits = new Map<string, number>();
     const blockedBy = new Map<string, string>();
+    /**
+     * One open `indaba.step.wait` span per step that is waiting, so a view can show it waiting and for whom (AC-30). It opens
+     * when the step is first put back, keeps the latest blocker and count, and ends when the step is admitted or reset, or
+     * when the run ends.
+     */
+    const waitSpans = new Map<string, Span>();
+    const openWait = async (id: string, blocker: string, count: number): Promise<void> => {
+      const open = waitSpans.get(id);
+      if (open !== undefined) {
+        open.setAttribute('indaba.wait.blocker', blocker);
+        open.setAttribute('indaba.wait.count', count);
+        return;
+      }
+      waitSpans.set(
+        id,
+        await this.tracer.startSpan('indaba.step.wait', root, {
+          'indaba.step.id': id,
+          'indaba.wait.blocker': blocker,
+          'indaba.wait.count': count,
+        }),
+      );
+    };
+    const closeWait = async (id: string): Promise<void> => {
+      const open = waitSpans.get(id);
+      if (open !== undefined) {
+        waitSpans.delete(id);
+        await this.tracer.endSpan(open, SpanStatus.Ok);
+      }
+    };
     const isBlocked = (id: string): boolean => {
       const blocker = blockedBy.get(id);
       if (blocker !== undefined && states.get(blocker)?.status() === StepStatus.Completed) {
@@ -385,6 +414,9 @@ export class WorkflowEngine {
           if (stepSignal.aborted) {
             working.delete(step.id);
             return { outcome: StepOutcome.cancelled(), attempt: state.attempts() + 1, workspace: undefined };
+          }
+          if (decided?.kind !== 'wait') {
+            await closeWait(step.id);
           }
           if (decided?.kind === 'wait') {
             return {
@@ -484,8 +516,10 @@ export class WorkflowEngine {
         if (putBack !== undefined) {
           // Put back before it began (AC-13, AC-16): still PENDING, its slot is free, and it waits for the step it met. The
           // feedback of a retry stays for the attempt that finally runs.
-          waits.set(step.id, (waits.get(step.id) ?? 0) + 1);
+          const count = (waits.get(step.id) ?? 0) + 1;
+          waits.set(step.id, count);
           blockedBy.set(step.id, putBack);
+          await openWait(step.id, putBack, count);
           continue;
         }
         feedback.delete(step.id);
@@ -530,6 +564,7 @@ export class WorkflowEngine {
             // Its waiting is over with its reset: a new attempt starts with no waits and no one to wait for (AC-28).
             waits.delete(id);
             blockedBy.delete(id);
+            await closeWait(id);
             for (const [waiter, blocker] of blockedBy) {
               if (blocker === id) {
                 blockedBy.delete(waiter);
@@ -577,6 +612,9 @@ export class WorkflowEngine {
     if ((teardown !== undefined || removeFailed) && failure === undefined) {
       status = WorkflowStatus.Failed;
       reason = 'The workspace could not be removed.';
+    }
+    for (const id of [...waitSpans.keys()]) {
+      await closeWait(id);
     }
     await delivered;
     await this.closeTrace(root, status, reason ?? (failure === undefined ? undefined : 'The run failed.'));

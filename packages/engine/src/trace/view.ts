@@ -116,6 +116,19 @@ function startedSpan(state: RunState, record: SpanStartedRecord): RunState {
     );
   }
 
+  // A step put back to wait for another (AC-13): the span lasts as long as the wait and names the step waited for.
+  if (record.name === 'indaba.step.wait') {
+    const waiting = text(record.attributes['indaba.step.id']);
+    const blocker = text(record.attributes['indaba.wait.blocker']);
+    if (waiting !== undefined && blocker !== undefined) {
+      return withStep(
+        { ...base, owners: { ...base.owners, [record.spanId]: { kind: 'wait', stepId: waiting } } },
+        waiting,
+        (step) => ({ ...step, waitingFor: blocker }),
+      );
+    }
+  }
+
   const parent = base.owners[record.parentSpanId];
   if (parent?.kind === 'step' && parent.stepId !== undefined) {
     const space = record.name.indexOf(' ');
@@ -203,6 +216,10 @@ function endedSpan(state: RunState, record: SpanEndedRecord): RunState {
       skipped: [...step.skipped, ...skipped],
       consensus: outcome === undefined ? step.consensus : { outcome, rounds: rounds ?? 0 },
     }));
+  }
+
+  if (owner?.kind === 'wait' && owner.stepId !== undefined) {
+    return withStep(base, owner.stepId, (step) => ({ ...step, waitingFor: undefined }));
   }
 
   if (owner?.kind === 'runner' && owner.stepId !== undefined) {

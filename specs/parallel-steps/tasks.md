@@ -46,7 +46,7 @@ a setting, removed in T-15).
   kinds; changelog entries naming the `PluginHost` addition and the union members (`api-surface.md`). Tests: parsing forms and bounds; meeting rules.
 - [x] T-12 (done 2026-11-11; `engine/coordination.ts`, `StepExecutor.intent`, `StepRunOptions.contract` and `debate`, the engine's `negotiationDecider` option passed by the CLI from `RegistryPluginHost`; deviations and gaps in the amendment of `api-surface.md` and in `review.md`; **the cap stays**). `@indaba/engine`: the intent call, posting the intent, putting back with `maxWaits`, the negotiation through
   a synthetic debate, posting the contract, the decider seam with its default. Tests with fake participants.
-- [ ] T-13. Views: waiting steps, intents and contracts.
+- [x] T-13 (done 2026-11-12; the engine records each wait as an `indaba.step.wait` span, the view model reads it into `StepView.waitingFor`, and `watch --plain`, the dashboard and the web run screen say which step waits for which; the dashboard's board pane already marks intents and contracts since T-11, the web view has no board, see `review.md`). Views: waiting steps, intents and contracts.
 
 ## Slice 4: resolution and review before landing
 
