@@ -123,6 +123,8 @@ gantt
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
+    host-process-containment :active, 2026-11-12, 1d
+    limit-handoff            :active, 2026-11-12, 1d
 ```
 
 `desktop-app` was dropped and is left out of the chart.
@@ -233,6 +235,8 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `parallel-steps` | In progress: slice 1 (the pool, the fields, the configuration; changes no run) on `feat/parallel-steps-pool`; slices 2 to 4 not started. Specified; plan and tasks written, decisions C-01 to C-11 confirmed; needs `run-blackboard` first; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
 | `path-ownership` | Not started (specified; decisions C-01 to C-04 confirmed; builds on `parallel-steps` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `step-fanout` | Not started (specified; draft; builds on `parallel-steps` and `run-blackboard`; replaces the `workflow-engine` non-goal "dynamic graphs") | `@indaba/core` (`for_each`, `GraphExpander`, `PluginHost.registerGraphExpander`), `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
+| `host-process-containment` | Not started (specified; stages 1 to 5 done; builds on `runner-adapters`, `transport-priority`, `git-workspace`, `step-stalls`; hardens host runs alongside `agent-sandbox`) | `@indaba/runners` (`buildRunnerEnvironment`, confined `.indaba/tmp`, `ClaudeRunner` `--disallowedTools Task`), `@indaba/engine` (`GitWorktree.verifyRefs` and ref rollback), `indaba` |
+| `limit-handoff` | Not started (specified; stages 1 to 5 done; builds on `transport-priority`, `step-budgets`, `ruling-channel`, `git-workspace`; T-01 research on real CLI signals comes first) | `@indaba/core` (`RunLimit`, `classifyLimit`, `LimitLedger`, `decideOnLimit`, `on_limit`), `@indaba/engine` (executor, handoff note, wait), `@indaba/runners` (signal adapters), `indaba`, `@indaba/tui`, `@indaba/web` |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
