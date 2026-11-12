@@ -126,7 +126,6 @@ async function build(setup: Setup = {}) {
     projectDir: repo,
     ids,
     maxParallelSteps: 3,
-    maxParallelCap: 8,
   });
   const run = (workflow: string) =>
     engine.run(parseWorkflow(workflow), {

@@ -81,7 +81,12 @@ waited a fixed 100 ms for a plugin to log, a race against machine load. It now w
 - `indaba ui --parallel` and the limit in the Settings screens of the terminal and the web view (AC-01, AC-04) are not done; they need
   the run control and the Settings screens and are the next change of slice 1.
 - `meets`, `mustWait`, intents and negotiation (slice 3), forks and landing (slice 2), resolution and review before landing (slice 4).
-- The cap (`PARALLEL_STEP_CAP`) stays through slice 2 (forks work behind `maxParallelCap`) and goes with T-15.
+- The cap (`PARALLEL_STEP_CAP`) is removed at T-15.
+
+### Release (slice 4, T-15)
+
+- **The cap is removed.** A limit above 1 now runs steps at the same time; the notice at the start of a run and in `indaba plan` shows the consequences (AC-04a) instead of "steps run one at a time in this version".
+- **Review before landing (AC-21) is pending, not done.** `step-verdicts` and `review-gate` are specified and not implemented, so there is no review to wire. A step lands after its guards and, when it conflicts, after the resolution of T-14. When either spec ships, its review runs between the guards and the landing, on the step's own diff; the seam is `land` in `workflow-engine.ts`. Until then a person who sets a limit above 1 gets guards and resolution only.
 
 ### Known gaps (slice 4, T-14)
 

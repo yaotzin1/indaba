@@ -28,7 +28,6 @@ import {
   effectiveGuards,
   FileWorkflowRegistry,
   fullAccessSteps,
-  PARALLEL_STEP_CAP,
   type PermissionFinding,
   type PermissionRunners,
   PROJECT_CONFIG_FILE,
@@ -928,7 +927,7 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     }
   });
 
-  // The groups for the limit that would run: variable, file, then the workflow, never above the cap (specs/parallel-steps, AC-32).
+  // The groups for the limit that would run: variable, file, then the workflow, (specs/parallel-steps, AC-32).
   const configured = await readProjectConfig(io.cwd);
   const asked = resolveLimit({
     flag: undefined,
@@ -941,7 +940,7 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   if (notice !== undefined) {
     io.stdout.write(`${notice}\n`);
   }
-  for (const line of planGroupLines(order, Math.min(wanted, PARALLEL_STEP_CAP))) {
+  for (const line of planGroupLines(order, wanted)) {
     io.stdout.write(`${line}\n`);
   }
 

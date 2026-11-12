@@ -52,7 +52,7 @@ a setting, removed in T-15).
 
 - [x] T-14 (done 2026-11-12; `engine/resolution.ts`: a conflicting landing is settled under the landing lock by the step's agent in the landing worktree, a check that no marker is left, the step's guards, and a debate of the two roles with the agent of the step it met; the **cap stays**, lifted for tests by `maxParallelCap`; gaps in `review.md`). `@indaba/engine`: resolution in the landing workspace (agent, guards, debate of the two roles, arbiter); one
   per landing; does not count against `max_retries`. Tests with fake participants and real git.
-- [ ] T-15. Review before landing (spec AC-21) wired to whatever review `step-verdicts` provides at that time, or noted
+- [x] T-15 (done 2026-11-12; the cap is removed: `PARALLEL_STEP_CAP`, `maxParallelCap`, the "one at a time in this version" notice; **review before landing (AC-21) is pending** because `step-verdicts` is not implemented, noted in `review.md`). Review before landing (spec AC-21) wired to whatever review `step-verdicts` provides at that time, or noted
   as pending in `review.md` if it has not shipped. Remove the release cap.
 - [ ] T-16. `review.md` against the seven dimensions with the gates' actual output; DEPENDENCY_MAP status; positioning
   page row moves to "Works".

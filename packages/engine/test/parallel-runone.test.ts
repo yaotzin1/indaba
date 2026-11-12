@@ -25,7 +25,7 @@ import {
 import { FakeRegistry, FakeRunner, FixedClock, type Handler, makeGitRepo, SequenceIds } from './support.js';
 
 // specs/parallel-steps, T-09: `runOne` forks a worktree for each step, lands its change under the landing lock and writes the
-// patch after each landing. The release cap is lifted through `maxParallelCap`; the engine's other tests keep the cap at 1.
+// patch after each landing.
 
 const HEAD = 'version: "1.0"\nname: t\nroles:\n  w: {runner: work}\nartifacts:\n  patch: out/run.patch\n';
 const steps = (...lines: string[]): string =>
@@ -115,7 +115,6 @@ async function build(handler: Handler, setup: Setup = {}) {
     projectDir: repo,
     ids,
     maxParallelSteps: setup.limit ?? 3,
-    maxParallelCap: 8,
   });
   const run = (workflow: string, taskId = 'T9') =>
     engine.run(parseWorkflow(workflow), {

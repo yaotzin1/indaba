@@ -43,15 +43,6 @@ import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
 import { StepPool } from './step-pool.js';
 
-/**
- * The most steps that run at once in a release, until negotiation and resolution (slices 3 and 4) and the release (T-15) land.
- * Forks and landing exist (T-08, T-09), but agents in parallel steps always talk (C-11), so a release without slices 3 and 4
- * would break that promise. A limit above it is accepted, recorded as asked, and the run still takes one step at a time, so a
- * person who asks for more is told so by the command line instead of being promised a parallelism that does not happen.
- * `WorkflowEngineOptions.maxParallelCap` lifts it for the engine's own tests. It goes with T-15.
- */
-export const PARALLEL_STEP_CAP = 1;
-
 /** Where the resolved limit of steps came from, written on the root span (specs/parallel-steps, AC-31). */
 export type ParallelSource = 'flag' | 'env' | 'config' | 'workflow' | 'default';
 
@@ -69,11 +60,6 @@ export interface WorkflowEngineOptions {
   readonly maxParallelSteps?: number;
   /** Where `maxParallelSteps` came from, for the root span. Absent means the default. */
   readonly maxParallelSource?: Exclude<ParallelSource, 'workflow'>;
-  /**
-   * The most steps that run at once whatever the limit says. Default `PARALLEL_STEP_CAP`; only the engine's tests raise it,
-   * until the release cap goes (T-15). The composition root never passes it.
-   */
-  readonly maxParallelCap?: number;
   /** How often a step is put back to wait before it is admitted alone (AC-13). A workflow's `max_waits` can lower it. Default 3. */
   readonly maxWaits?: number;
   /**
@@ -118,7 +104,6 @@ export class WorkflowEngine {
   private readonly maxParallelSteps: number;
   private readonly maxParallelSource: ParallelSource;
   private readonly maxWaits: number;
-  private readonly parallelCap: number;
   private readonly negotiationDecider: NegotiationDecider | undefined;
 
   constructor(options: WorkflowEngineOptions) {
@@ -133,7 +118,6 @@ export class WorkflowEngine {
     this.maxParallelSteps = options.maxParallelSteps ?? 1;
     this.maxParallelSource = options.maxParallelSource ?? 'default';
     this.maxWaits = options.maxWaits ?? 3;
-    this.parallelCap = options.maxParallelCap ?? PARALLEL_STEP_CAP;
     this.negotiationDecider = options.negotiationDecider;
   }
 
@@ -185,11 +169,11 @@ export class WorkflowEngine {
       states.set(step.id, new StepState(step.id));
     });
 
-    // The limit is the smaller of the run's and the workflow's, never raised by the workflow (AC-03), and never above the cap.
+    // The limit is the smaller of the run's and the workflow's, never raised by the workflow (AC-03).
     const asked = this.maxParallelSteps;
     const wanted =
       workflow.maxParallel !== undefined && workflow.maxParallel < asked ? workflow.maxParallel : asked;
-    const limit = Math.min(wanted, this.parallelCap);
+    const limit = wanted;
     const limitSource: ParallelSource = wanted !== asked ? 'workflow' : this.maxParallelSource;
     const maxWaits = Math.min(this.maxWaits, workflow.maxWaits ?? this.maxWaits);
 
