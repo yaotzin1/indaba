@@ -83,7 +83,7 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
         { flexDirection: 'row' },
         h(Rows, { rows: screen.list, color, width: layout.listWidth }),
         h(Text, { dimColor: true }, separator),
-        h(Rows, { rows: screen.detail, color, width: layout.detailWidth }),
+        h(Rows, { rows: [...(screen.panes ?? []), ...screen.detail], color, width: layout.detailWidth }),
         ...(layout.dockWidth > 0
           ? [
               h(Text, { key: 'dock-separator', dimColor: true }, separator),
@@ -101,7 +101,7 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
     header,
     h(Rows, { rows: screen.list, color, width: layout.columns }),
     h(Text, { dimColor: true }, separator.repeat(layout.columns)),
-    h(Rows, { rows: screen.detail, color, width: layout.columns }),
+    h(Rows, { rows: [...(screen.panes ?? []), ...screen.detail], color, width: layout.columns }),
     footer,
   );
 }

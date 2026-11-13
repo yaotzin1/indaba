@@ -13,6 +13,13 @@ export interface Layout {
   /** Width and rows of the board docked beside the detail pane; 0 when the board is not docked. */
   readonly dockWidth: number;
   readonly dockRows: number;
+  /**
+   * Rows of the block of panes of the running steps, drawn above the detail pane (specs/tui-agent-panes). They are already
+   * taken off `detailRows`, with one row for the line under them. 0 when no step runs or there is no room.
+   */
+  readonly paneRows: number;
+  /** How many panes of four rows fit in `paneRows`. */
+  readonly paneCap: number;
 }
 
 export const MIN_COLUMNS = 40;
@@ -29,11 +36,43 @@ const MAX_LIST_WIDTH = 32;
 const MAX_DOCKED_LIST_WIDTH = 28;
 const SEPARATOR = 1;
 
+/** One pane is a title row and three rows of the tail of the step's output. */
+export const PANE_ROWS = 4;
+
+/**
+ * Rows the block of panes takes out of a detail pane of `detailRows`: at most a third of it and at most what the running steps
+ * fill, in whole panes of {@link PANE_ROWS}; 0 when that is not one pane. So a small terminal has none, and the list and the
+ * detail are what they were.
+ */
+export function paneRowsFor(detailRows: number, running: number): number {
+  const wanted = Math.min(Math.floor(Math.max(0, detailRows) / 3), Math.max(0, running) * PANE_ROWS);
+  return Math.floor(wanted / PANE_ROWS) * PANE_ROWS;
+}
+
+/** The layout of the screen, and of the panes of `panes` running steps inside the detail pane. */
 export function computeLayout(
   columns: number,
   rows: number,
-  options: { readonly dock?: boolean } = {},
+  options: { readonly dock?: boolean; readonly panes?: number } = {},
 ): Layout {
+  const base = baseLayout(columns, rows, options);
+  const paneRows = base.mode === 'too-small' ? 0 : paneRowsFor(base.detailRows, options.panes ?? 0);
+  if (paneRows === 0) {
+    return { ...base, paneRows: 0, paneCap: 0 };
+  }
+  return {
+    ...base,
+    detailRows: base.detailRows - paneRows - 1,
+    paneRows,
+    paneCap: paneRows / PANE_ROWS,
+  };
+}
+
+function baseLayout(
+  columns: number,
+  rows: number,
+  options: { readonly dock?: boolean },
+): Omit<Layout, 'paneRows' | 'paneCap'> {
   const safeColumns = Number.isFinite(columns) && columns > 0 ? Math.floor(columns) : 0;
   const safeRows = Number.isFinite(rows) && rows > 0 ? Math.floor(rows) : 0;
   const body = Math.max(0, safeRows - 2);

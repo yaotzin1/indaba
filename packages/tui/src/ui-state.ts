@@ -16,6 +16,18 @@ export interface UiState {
   readonly confirmQuit: boolean;
   /** What the person chose to do with the screen. `none` means keep going. */
   readonly quit: 'none' | 'close' | 'detach' | 'cancel';
+  /** What the detail pane shows of the step: its output, or its reasoning (`r`, back with `o`). */
+  readonly panel: 'output' | 'reasoning';
+  /** Lines of reasoning scrolled back; each view keeps its own place. */
+  readonly reasoningScroll: number;
+  /** The id of the step of the focused pane (a pane is drawn for each running step). A step's id, never an index. */
+  readonly pane: string | undefined;
+  /** The first running step drawn, when more are running than the panes have room for. */
+  readonly paneOffset: number;
+  /** The focused pane takes the whole detail pane (`Enter` or `z`), until `Esc`. */
+  readonly enlarged: boolean;
+  /** One fixed line of news (the enlarged step finished); it goes with the next key. */
+  readonly notice: string | undefined;
 }
 
 /** A key press, named so that nothing here depends on Ink. */
@@ -43,6 +55,12 @@ export interface UiContext {
   readonly attached: boolean;
   /** The board is docked beside the other panes, so it is always showing and `b` only moves the arrow keys to it. */
   readonly docked?: boolean;
+  /** Lines of reasoning the shown step has, as drawn (wrapped). */
+  readonly reasoningLines?: number;
+  /** The ids of the running steps, in the order of the run: the steps that have a pane. */
+  readonly panes?: readonly string[];
+  /** How many panes fit in the block at this size. */
+  readonly paneCap?: number;
 }
 
 export function initialUi(): UiState {
@@ -55,6 +73,12 @@ export function initialUi(): UiState {
     help: false,
     confirmQuit: false,
     quit: 'none',
+    panel: 'output',
+    reasoningScroll: 0,
+    pane: undefined,
+    paneOffset: 0,
+    enlarged: false,
+    notice: undefined,
   };
 }
 
@@ -67,21 +91,69 @@ export function clampUi(ui: UiState, context: UiContext): UiState {
   const selected = clamp(ui.selected, 0, context.steps - 1);
   const scroll = clamp(ui.scroll, 0, context.outputLines - 1);
   // the terminal was made narrower: a board that is neither docked nor open cannot hold the arrow keys
-  const focus = ui.focus === 'board' && context.docked !== true && !ui.board ? 'list' : ui.focus;
-  return selected === ui.selected && scroll === ui.scroll && focus === ui.focus
+  let focus = ui.focus === 'board' && context.docked !== true && !ui.board ? 'list' : ui.focus;
+  const reasoningScroll = clamp(ui.reasoningScroll, 0, (context.reasoningLines ?? 0) - 1);
+  let pane = ui.pane;
+  let paneOffset = ui.paneOffset;
+  let enlarged = ui.enlarged;
+  let notice = ui.notice;
+  if (context.panes !== undefined) {
+    const running = context.panes;
+    if (pane !== undefined && !running.includes(pane)) {
+      pane = undefined;
+    }
+    if (enlarged && pane === undefined) {
+      // the step it showed is no longer running: say so once, and give the keys back to the list
+      enlarged = false;
+      notice = 'step finished';
+      focus = 'list';
+    }
+    paneOffset = clamp(paneOffset, 0, running.length - (context.paneCap ?? running.length));
+  }
+  return selected === ui.selected &&
+    scroll === ui.scroll &&
+    focus === ui.focus &&
+    reasoningScroll === ui.reasoningScroll &&
+    pane === ui.pane &&
+    paneOffset === ui.paneOffset &&
+    enlarged === ui.enlarged &&
+    notice === ui.notice
     ? ui
-    : { ...ui, selected, scroll, focus };
+    : { ...ui, selected, scroll, focus, reasoningScroll, pane, paneOffset, enlarged, notice };
 }
 
 function select(ui: UiState, to: number, context: UiContext): UiState {
   const selected = clamp(to, 0, context.steps - 1);
-  // a different step starts at its newest output
-  return selected === ui.selected ? ui : { ...ui, selected, scroll: 0, follow: true };
+  // a different step starts at its newest output and its newest reasoning
+  return selected === ui.selected ? ui : { ...ui, selected, scroll: 0, reasoningScroll: 0, follow: true };
 }
 
 function scrollBy(ui: UiState, lines: number, context: UiContext): UiState {
+  if (ui.panel === 'reasoning') {
+    return {
+      ...ui,
+      reasoningScroll: clamp(ui.reasoningScroll + lines, 0, (context.reasoningLines ?? 0) - 1),
+    };
+  }
   const scroll = clamp(ui.scroll + lines, 0, context.outputLines - 1);
   return { ...ui, scroll, follow: scroll === 0 };
+}
+
+/** Moves the focus of the panes by `by`, and the window of them to keep it in sight. Nothing to focus: nothing changes. */
+function movePane(ui: UiState, by: number, context: UiContext): UiState {
+  const running = context.panes ?? [];
+  if (running.length === 0) {
+    return ui;
+  }
+  const at = ui.pane === undefined ? -1 : running.indexOf(ui.pane);
+  const next = clamp(at < 0 ? (by > 0 ? 0 : running.length - 1) : at + by, 0, running.length - 1);
+  const cap = Math.max(1, context.paneCap ?? running.length);
+  const paneOffset =
+    next < ui.paneOffset ? next : next >= ui.paneOffset + cap ? next - cap + 1 : ui.paneOffset;
+  const pane = running[next];
+  return pane === ui.pane && paneOffset === ui.paneOffset
+    ? ui
+    : { ...ui, pane, paneOffset, scroll: 0, follow: true };
 }
 
 /** Tab moves the arrow keys between the step list and the other pane, which is the board while it is open. */
@@ -95,7 +167,12 @@ function nextFocus(ui: UiState, docked: boolean): UiState['focus'] {
   return 'list';
 }
 
+/** A key press and the sizes in, the next state out. A line of news lasts until the next key. */
 export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiState {
+  return reduceKey(ui.notice === undefined ? ui : { ...ui, notice: undefined }, press, context);
+}
+
+function reduceKey(ui: UiState, press: KeyName, context: UiContext): UiState {
   if (ui.confirmQuit) {
     if (typeof press === 'object') {
       if (press.char === 'd') {
@@ -119,13 +196,38 @@ export function reduceUi(ui: UiState, press: KeyName, context: UiContext): UiSta
     if (ui.help) {
       return { ...ui, help: false };
     }
+    if (ui.enlarged) {
+      return { ...ui, enlarged: false, focus: 'list', scroll: 0, follow: true };
+    }
     if (context.docked === true) {
       return ui.focus === 'board' ? { ...ui, focus: 'list' } : ui;
     }
     return ui.board ? { ...ui, board: false, focus: 'detail' } : ui;
   }
+  const char = typeof press === 'object' ? press.char : undefined;
+  if (ui.enlarged && (char === 'b' || char === '?' || char === 'h' || char === 'r' || char === 'o')) {
+    // the enlarged pane has the screen: no board, help or other view until it is put back
+    return ui;
+  }
+  if (char === '[' || char === ']') {
+    return ui.help ? ui : movePane(ui, char === ']' ? 1 : -1, context);
+  }
+  if ((press === 'enter' || char === 'z') && !ui.help) {
+    const running = context.panes ?? [];
+    const pane = ui.pane !== undefined && running.includes(ui.pane) ? ui.pane : running[0];
+    if (pane === undefined || ui.enlarged) {
+      return ui;
+    }
+    return { ...ui, pane, enlarged: true, focus: 'detail', scroll: 0, follow: true, board: false };
+  }
+  if (char === 'r' && !ui.help) {
+    return { ...ui, panel: 'reasoning' };
+  }
+  if (char === 'o' && !ui.help) {
+    return { ...ui, panel: 'output' };
+  }
   if (press === 'tab') {
-    return { ...ui, focus: nextFocus(ui, context.docked === true) };
+    return ui.enlarged ? ui : { ...ui, focus: nextFocus(ui, context.docked === true) };
   }
   if (typeof press === 'object' && press.char === 'b' && !ui.help) {
     if (context.docked === true) {
