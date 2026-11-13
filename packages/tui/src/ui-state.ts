@@ -26,7 +26,7 @@ export interface UiState {
   readonly paneOffset: number;
   /** The focused pane takes the whole detail pane (`Enter` or `z`), until `Esc`. */
   readonly enlarged: boolean;
-  /** One fixed line of news (the enlarged step finished); it goes with the next key. */
+  /** One fixed line of news (the enlarged step is no longer running); it goes with the next key. */
   readonly notice: string | undefined;
 }
 
@@ -105,7 +105,8 @@ export function clampUi(ui: UiState, context: UiContext): UiState {
     if (enlarged && pane === undefined) {
       // the step it showed is no longer running: say so once, and give the keys back to the list
       enlarged = false;
-      notice = 'step finished';
+      // not "finished": a step that retries or waits is no longer running either, and the line must be true of all of them
+      notice = 'step is no longer running';
       focus = 'list';
     }
     paneOffset = clamp(paneOffset, 0, running.length - (context.paneCap ?? running.length));
@@ -142,7 +143,8 @@ function scrollBy(ui: UiState, lines: number, context: UiContext): UiState {
 /** Moves the focus of the panes by `by`, and the window of them to keep it in sight. Nothing to focus: nothing changes. */
 function movePane(ui: UiState, by: number, context: UiContext): UiState {
   const running = context.panes ?? [];
-  if (running.length === 0) {
+  // with no room for panes (a small terminal) nothing is drawn to move between; an enlarged pane has no block of them either
+  if (running.length === 0 || (!ui.enlarged && context.paneCap === 0)) {
     return ui;
   }
   const at = ui.pane === undefined ? -1 : running.indexOf(ui.pane);
@@ -151,9 +153,12 @@ function movePane(ui: UiState, by: number, context: UiContext): UiState {
   const paneOffset =
     next < ui.paneOffset ? next : next >= ui.paneOffset + cap ? next - cap + 1 : ui.paneOffset;
   const pane = running[next];
-  return pane === ui.pane && paneOffset === ui.paneOffset
-    ? ui
-    : { ...ui, pane, paneOffset, scroll: 0, follow: true };
+  if (pane === ui.pane && paneOffset === ui.paneOffset) {
+    return ui;
+  }
+  // moving between panes is not reading another step: the place in the selected one is kept, unless the pane is enlarged and
+  // another step takes its place
+  return ui.enlarged ? { ...ui, pane, paneOffset, scroll: 0, follow: true } : { ...ui, pane, paneOffset };
 }
 
 /** Tab moves the arrow keys between the step list and the other pane, which is the board while it is open. */
@@ -248,6 +253,15 @@ function reduceKey(ui: UiState, press: KeyName, context: UiContext): UiState {
       : ui.focus === 'board'
         ? ui
         : scrollBy(ui, -1, context);
+  }
+  // an enlarged pane has the screen: the step list behind it, and its follow mode, are not changed from here
+  if (
+    ui.enlarged &&
+    (press === 'home' ||
+      press === 'end' ||
+      (typeof press === 'object' && (press.char === 'g' || press.char === 'G' || press.char === 'f')))
+  ) {
+    return ui;
   }
   if (press === 'home' || (typeof press === 'object' && press.char === 'g')) {
     return select(ui, 0, context);

@@ -10,7 +10,7 @@ import {
 } from '@indaba/engine';
 import { type BoardPane, boardHelpRows, boardRows } from './board-screen.js';
 import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS, wrap } from './layout.js';
-import { paneBlockRows, panesFor } from './panes.js';
+import { flatLine, paneBlockRows, panesFor } from './panes.js';
 import type { UiState } from './ui-state.js';
 
 /** How a row is drawn when colour is on. State is never shown by tone alone: every row also has a glyph and a word. */
@@ -184,7 +184,19 @@ export function shownStep(run: RunState, ui: UiState): StepView | undefined {
 /** The model's reasoning of a step as drawn: complete lines and the one being written, cleaned and wrapped. */
 function reasoningWrapped(step: StepView, width: number): string[] {
   const lines = [...step.thoughts, ...(step.partialThought === '' ? [] : [step.partialThought])];
-  return lines.flatMap((line) => wrap(sanitize(line).replaceAll(String.fromCharCode(10), ' '), width));
+  return lines.flatMap((line) => wrap(flatLine(line), width));
+}
+
+/** The output of a step as drawn: each line wrapped to the width, so scrolling counts rows and not lines. */
+function outputWrapped(step: StepView, width: number): string[] {
+  const lines = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])];
+  return lines.flatMap((line) => wrap(flatLine(line), width));
+}
+
+/** How many rows the output of the shown step takes at this width, for the scroll limit. */
+export function outputLinesOf(run: RunState, ui: UiState, width: number): number {
+  const step = shownStep(run, ui);
+  return step === undefined ? 0 : outputWrapped(step, width).length;
 }
 
 /** How many rows the reasoning of the shown step takes at this width, for the scroll limit. */
@@ -230,9 +242,7 @@ function detailRows(
   const info = infoRows(step, width, options.ascii).slice(0, room);
 
   // a long line is wrapped over several rows, so scrolling counts rows as they are drawn
-  const lines = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])].flatMap((line) =>
-    wrap(sanitize(line).replaceAll('\n', ' '), width),
-  );
+  const lines = outputWrapped(step, width);
   const thinking = reasoningWrapped(step, width);
   const reasoning = ui.panel === 'reasoning';
   const shown = reasoning ? thinking : lines;
@@ -307,14 +317,15 @@ function paneBlock(run: RunState, ui: UiState, layout: Layout, options: ScreenOp
 
 function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
   const arrows = options.ascii ? 'up/down' : '↑↓';
-  if (ui.notice !== undefined) {
-    return row(clip(ui.notice, layout.columns, options.ascii), 'info');
-  }
+  // the question about a run is never hidden by news: d and c act on it
   if (ui.confirmQuit) {
     return row(
       clip('quit: d detach (the run keeps going)   c cancel the run   n stay', layout.columns, options.ascii),
       'warn',
     );
+  }
+  if (ui.notice !== undefined) {
+    return row(clip(ui.notice, layout.columns, options.ascii), 'info');
   }
   const follow = ui.follow ? 'f follow*' : 'f follow';
   const keys =
@@ -349,6 +360,12 @@ export function buildScreen(
     };
   }
   const list = listRows(run, ui, layout, options);
+  // The help and the board in place of the detail pane have the rows the panes would have taken: nothing is drawn there,
+  // and the footer must not move up.
+  const whole: Layout =
+    layout.paneRows > 0
+      ? { ...layout, detailRows: layout.detailRows + layout.paneRows + 1, paneRows: 0, paneCap: 0 }
+      : layout;
   if (ui.help) {
     return {
       header,
@@ -356,7 +373,7 @@ export function buildScreen(
       detail: [
         ...helpRows(layout.detailWidth, options.ascii),
         ...boardHelpRows(layout.detailWidth, options.ascii),
-      ].slice(0, layout.detailRows),
+      ].slice(0, whole.detailRows),
       dock: [],
       footer: footerRow(ui, layout, options),
       outputLines: 0,
@@ -365,7 +382,7 @@ export function buildScreen(
   const docked = layout.dockWidth > 0;
   const dock = docked ? boardRows(board, layout.dockWidth, layout.dockRows, { ascii: options.ascii }) : [];
   if (ui.board && !docked) {
-    const rows = boardRows(board, layout.detailWidth, layout.detailRows, { ascii: options.ascii });
+    const rows = boardRows(board, layout.detailWidth, whole.detailRows, { ascii: options.ascii });
     return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines: 0 };
   }
   const { rows, outputLines, reasoningLines } = detailRows(run, ui, layout, options);

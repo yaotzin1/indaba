@@ -76,7 +76,7 @@ Slice 3b:
 - **Panel keys.** `r` shows reasoning, `o` shows output; `b` and the dock are unchanged. Each view keeps its own scroll position. A debate step shows `consensus: <outcome> after <n> round(s)` in both views. Nothing in `ui-state.ts` or `app.ts` used `r`, `o`, `z`, `[` or `]` before.
 - **Panes.** `paneRows = min(floor(detailRows / 3), running * 4)`, and 0 when that is under 4, so a 40 by 8 terminal has none and the list and detail are what they are today. A pane is 4 rows: a title (glyph, word, id, `attempt N`, cost) and 3 rows of output tail. `cap = floor(paneRows / 4)`, the title of the block says `+N more` when steps are hidden, and `[` `]` slide the window.
 - **Cost.** The sum of `costUsd` over the step's agent runners (not `execute_tool` commands, as `runnerText` does). No runner priced: `cost unknown`, never `$0`; some priced: `$X+`.
-- **Focus** is the id of a step, not an index, so a retry does not move it. When the enlarged step stops running the pane closes with the notice "step finished"; a resize clamps the same way. While a pane is enlarged `?`, `b`, `r` and `o` do nothing, and `Esc` unwinds help, the quit question, the enlarged pane, then the board.
+- **Focus** is the id of a step, not an index, so a retry does not move it. When the enlarged step stops running the pane closes with the notice "step is no longer running"; a resize clamps the same way. While a pane is enlarged `?`, `b`, `r` and `o` do nothing, and `Esc` unwinds help, the quit question, the enlarged pane, then the board.
 - **Chat** (3.6) and several panes side by side (3.5) stay in slice 3b.
 
 ## Artifacts not written

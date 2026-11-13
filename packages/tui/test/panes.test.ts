@@ -209,10 +209,30 @@ describe('the set of panes (AC-01, AC-06)', () => {
     expect(all).not.toContain(String.fromCharCode(7));
   });
 
-  it('wraps a long line by what is drawn, and counts wide characters as one each', () => {
+  // Known gap (review.md): every wrap in the dashboard counts characters, not terminal columns, so a wide character takes
+  // two columns on a terminal and a row of them can run past the edge. This documents it; it is not a promise.
+  it('wraps by characters, as the whole dashboard does, so a wide character counts as one', () => {
     const wide = '界'.repeat(25);
     const found = panesFor(runOf([stepOf({ output: [wide] })]), { ...input, width: 10 });
     expect(found.panes[0]?.tail).toEqual(['界界界界界界界界界界', '界界界界界界界界界界', '界界界界界']);
+  });
+
+  it('shows a tab as spaces, and a line that is only a line break as a blank row, not as no data', () => {
+    const tab = panesFor(runOf([stepOf({ output: [`${String.fromCharCode(9)}indented`] })]), input);
+    expect(tab.panes[0]?.tail).toEqual(['  indented']);
+    const blank = panesFor(runOf([stepOf({ output: [''] })]), input);
+    expect(blank.panes[0]?.tail).toEqual(['']);
+  });
+
+  it('keeps the count of the hidden panes in sight when the title is long and the pane is narrow', () => {
+    const run = runOf(
+      Array.from({ length: 12 }, (_, i) => stepOf({ id: `a-very-long-step-name-number-${i}`, attempts: 3 })),
+    );
+    const rows = paneBlockRows(panesFor(run, { ...input, rows: 8, width: 40 }), 40, false);
+    expect(rows[0]?.text).toContain('(+10 more: [ ])');
+    expect(Array.from(rows[0]?.text ?? '').length).toBeLessThanOrEqual(40);
+    // and with no hidden pane there is no hint
+    expect(paneBlockRows(panesFor(runOf(running(2)), input), 60, false)[0]?.text).not.toContain('more');
   });
 
   it('keeps every row inside the width', () => {

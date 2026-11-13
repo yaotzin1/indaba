@@ -63,9 +63,14 @@ const oneLine = (text: string): string =>
     .replace(/[\r\n\t]+/g, ' ')
     .trim();
 
+/** A line from an agent as one drawable line: control sequences gone, a newline a space, a tab two spaces. */
+export function flatLine(line: string): string {
+  return sanitize(line).split(String.fromCharCode(10)).join(' ').split(String.fromCharCode(9)).join('  ');
+}
+
 function tailOf(step: StepView, width: number): string[] {
   const lines = [...step.output, ...(step.partialLine === '' ? [] : [step.partialLine])];
-  const wrapped = lines.flatMap((line) => wrap(sanitize(line).replaceAll('\n', ' '), width));
+  const wrapped = lines.flatMap((line) => wrap(flatLine(line), width));
   const last = wrapped.slice(-TAIL_ROWS);
   return last.length === 0 ? ['(no data yet)'] : last;
 }
@@ -104,8 +109,11 @@ export function panesFor(run: RunState, input: PanesInput): Panes {
 export function paneBlockRows(found: Panes, width: number, ascii: boolean): Row[] {
   const rows: Row[] = [];
   found.panes.forEach((pane, index) => {
+    // the count of the panes that do not fit is never clipped off the end of a long title: the title gives way to it
     const more = index === 0 && found.hidden > 0 ? `  (+${found.hidden} more: [ ])` : '';
-    rows.push({ text: clip(`${pane.title}${more}`, width, ascii), tone: pane.tone, selected: pane.focused });
+    const room = Math.max(0, width - Array.from(more).length);
+    const text = more === '' ? clip(pane.title, width, ascii) : `${clip(pane.title, room, ascii)}${more}`;
+    rows.push({ text: clip(text, width, ascii), tone: pane.tone, selected: pane.focused });
     for (let i = 0; i < TAIL_ROWS; i += 1) {
       const text = pane.tail[i];
       rows.push({

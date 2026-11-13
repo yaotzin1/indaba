@@ -176,7 +176,7 @@ describe('enlarging a pane (3.4)', () => {
       enlarged: false,
       pane: undefined,
       focus: 'list',
-      notice: 'step finished',
+      notice: 'step is no longer running',
     });
     // the notice goes with the next key
     expect(press(closed, ch('j')).notice).toBeUndefined();
@@ -194,6 +194,37 @@ describe('enlarging a pane (3.4)', () => {
     const big = from({ enlarged: true, pane: 'a', focus: 'detail' });
     expect(press(big, ch('q')).quit).toBe('close');
     expect(press(big, 'ctrl-c').quit).toBe('close');
+  });
+});
+
+describe('what the review of the first version found', () => {
+  it('moves between panes without losing the place in the output the person is reading', () => {
+    const reading = from({ scroll: 12, follow: false });
+    expect(press(reading, ch(']'))).toMatchObject({ pane: 'a', scroll: 12, follow: false });
+    // an enlarged pane that changes to another step starts at its newest output
+    const big = from({ enlarged: true, pane: 'a', focus: 'detail', scroll: 12, follow: false });
+    expect(press(big, ch(']'))).toMatchObject({ pane: 'b', scroll: 0, follow: true });
+  });
+
+  it('moves no focus when there is no room to draw a pane, unless a pane is enlarged', () => {
+    const ui = initialUi();
+    expect(press(ui, ch(']'), ctx({ paneCap: 0 }))).toBe(ui);
+    const big = from({ enlarged: true, pane: 'a', focus: 'detail' });
+    expect(press(big, ch(']'), ctx({ paneCap: 0 })).pane).toBe('b');
+    // but a step can still be enlarged on a small terminal, to read it
+    expect(press(ui, 'enter', ctx({ paneCap: 0 }))).toMatchObject({ enlarged: true, pane: 'a' });
+  });
+
+  it('leaves the step list and the follow mode alone while a pane is enlarged', () => {
+    const big = from({ enlarged: true, pane: 'a', focus: 'detail', selected: 2, follow: true });
+    for (const key of ['home', 'end', ch('g'), ch('G'), ch('f')] as const) {
+      expect(press(big, key)).toBe(big);
+    }
+  });
+
+  it('says only what is true when the enlarged step stops: it is no longer running, not finished', () => {
+    const closed = clampUi(from({ enlarged: true, pane: 'a', focus: 'detail' }), ctx({ panes: [] }));
+    expect(closed.notice).toBe('step is no longer running');
   });
 });
 

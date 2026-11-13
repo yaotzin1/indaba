@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { computeLayout, initialUi, type UiState } from '../src/index.js';
-import { buildScreen, reasoningLinesOf } from '../src/screen.js';
+import { buildScreen, outputLinesOf, reasoningLinesOf } from '../src/screen.js';
 import { agent, running, runOf, stepOf } from './panes-fixtures.js';
 
 const options = { ascii: false, attached: false };
@@ -224,10 +224,92 @@ describe('an enlarged pane (3.4)', () => {
     expect(screen.detail.length).toBeGreaterThan(0);
   });
 
-  it('says in the footer that the step finished, once, and only then', () => {
-    const noted = buildScreen(run, from({ notice: 'step finished' }), computeLayout(120, 40), options);
-    expect(noted.footer.text).toBe('step finished');
+  it('says in the footer that the step is no longer running, once, and only then', () => {
+    const noted = buildScreen(
+      run,
+      from({ notice: 'step is no longer running' }),
+      computeLayout(120, 40),
+      options,
+    );
+    expect(noted.footer.text).toBe('step is no longer running');
     expect(buildScreen(run, initialUi(), computeLayout(120, 40), options).footer.text).toContain('q quit');
+  });
+});
+
+describe('what the review of the first version found', () => {
+  const layout = computeLayout(80, 24, { panes: 12 });
+  const run = runOf(running(12));
+
+  it('gives the help and a board in place of the detail pane the rows the panes would have had', () => {
+    const none = computeLayout(80, 24);
+    const help = buildScreen(run, from({ help: true }), layout, options);
+    expect(help.detail.length).toBeGreaterThan(layout.detailRows);
+    expect(help.detail.length).toBeLessThanOrEqual(none.detailRows);
+    const board = buildScreen(run, from({ board: true, focus: 'board' }), layout, options);
+    expect(board.panes ?? []).toEqual([]);
+  });
+
+  it('shows the question about a run before any news, because d and c answer it', () => {
+    const both = buildScreen(
+      run,
+      from({ confirmQuit: true, notice: 'step is no longer running' }),
+      layout,
+      options,
+    );
+    expect(both.footer.text).toContain('d detach');
+    expect(both.footer.text).not.toContain('no longer running');
+  });
+
+  it('counts the rows of the output as drawn, so a long wrapped line can be scrolled to its start', () => {
+    const long = stepOf({ output: ['x'.repeat(800)] });
+    const narrow = computeLayout(80, 10);
+    const lines = outputLinesOf(runOf([long]), initialUi(), narrow.detailWidth);
+    expect(lines).toBe(Math.ceil(800 / narrow.detailWidth));
+    expect(lines).toBeGreaterThan(narrow.detailRows);
+    const top = buildScreen(runOf([long]), from({ scroll: lines - 1, follow: false }), narrow, options);
+    expect(top.outputLines).toBe(lines);
+    expect(text(top.detail)).toContain('back, f to follow');
+  });
+
+  it('shows the exact row at the top of a scrolled reasoning, and how far back it is', () => {
+    const step = stepOf({ thoughts: Array.from({ length: 40 }, (_, i) => `thought number ${i}`) });
+    const small = computeLayout(100, 14);
+    expect(reasoningLinesOf(runOf([step]), initialUi(), small.detailWidth)).toBe(40);
+    const back = buildScreen(runOf([step]), from({ panel: 'reasoning', reasoningScroll: 5 }), small, options);
+    expect(text(back.detail)).toContain('5 lines back');
+    expect(text(back.detail)).toContain('thought number 34');
+    expect(text(back.detail)).not.toContain('thought number 39');
+  });
+
+  it('removes control sequences from every text a pane or the detail shows: partial lines, thoughts, waiting-for, outcome', () => {
+    const esc = String.fromCharCode(27);
+    const step = stepOf({
+      output: [`o${esc}[31m`],
+      partialLine: `p${esc}]0;title`,
+      thoughts: [`t${esc}[2J`],
+      partialThought: `q${esc}[0m`,
+      waitingFor: `w${esc}[1m`,
+      consensus: { outcome: `ok${esc}[0m`, rounds: 2 },
+    });
+    for (const panel of ['output', 'reasoning'] as const) {
+      const screen = buildScreen(
+        runOf([step]),
+        from({ panel }),
+        computeLayout(120, 40, { panes: 1 }),
+        options,
+      );
+      expect(text([...screen.list, ...screen.detail, ...(screen.panes ?? []), screen.footer])).not.toContain(
+        esc,
+      );
+    }
+  });
+
+  it('never shows an unknown cost as zero, in a pane or on the detail', () => {
+    const unknown = runOf([stepOf({ runners: [agent(undefined)] })]);
+    const screen = buildScreen(unknown, initialUi(), computeLayout(120, 40, { panes: 1 }), options);
+    const shown = text([...(screen.panes ?? []), ...screen.detail]);
+    expect(shown).toContain('cost unknown');
+    expect(shown).not.toContain('$0');
   });
 });
 

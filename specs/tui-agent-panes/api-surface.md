@@ -44,7 +44,7 @@ export interface UiState {
   readonly pane: string | undefined;
   readonly paneOffset: number;
   readonly enlarged: boolean;
-  /** One fixed line of news (a step finished while enlarged); it goes with the next key. */
+  /** One fixed line of news (the enlarged step is no longer running); it goes with the next key. */
   readonly notice: string | undefined;
 }
 ```

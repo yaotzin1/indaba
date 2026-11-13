@@ -144,12 +144,14 @@ describe('the panes of running steps in the dashboard (AC-01, AC-02)', () => {
     stdin.type('z');
     await wait(() => lately(stdout).includes('enlarged, Esc to return'));
     push({ ...status('plan', 'COMPLETED', undefined, T(9)) });
-    await wait(() => lately(stdout).includes('step finished'));
+    await wait(() => lately(stdout).includes('step is no longer running'));
     expect(lately(stdout)).not.toContain('enlarged, Esc to return');
     // the next key takes the line of news away
     stdin.type('j');
     // a picture drawn after the key has the usual key line again, so the line of news is gone
-    await wait(() => since(stdout).includes('q quit') && !since(stdout).includes('step finished'));
+    await wait(
+      () => since(stdout).includes('q quit') && !since(stdout).includes('step is no longer running'),
+    );
     stdin.type('q');
     await done;
   });
