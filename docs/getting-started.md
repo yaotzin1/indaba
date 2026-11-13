@@ -174,6 +174,11 @@ Indaba reads only these from its environment, and passes only these to the runne
 | `INDABA_CODEX_CMD` | `codex` runner | Replaces the built-in Codex command line. Space-separated words; `{prompt}` and `{model}` mark where those go |
 | `INDABA_ANTIGRAVITY_CMD` | `antigravity` runner | The same, for Antigravity |
 
+The agent CLIs, `shell` commands and `acp` agents that Indaba starts do not inherit the rest of your environment: they get the
+basics (`PATH`, `HOME`, locale, certificates, proxies), the variables of their own provider (`ANTHROPIC_*` for `claude-code`,
+`OPENAI_*` for `codex`, ...) and, for `acp`, what `INDABA_ACP_PASS_ENV` names. Their `TEMP`, `TMP` and `TMPDIR` point into
+`<working directory>/.indaba/tmp`. See [What a step's process inherits](workflow-format.md#what-a-steps-process-inherits).
+
 A key is never written to a trace, event, error message or artifact, and anything that looks like a
 credential in the environment is replaced with `[redacted]` if it appears in output Indaba prints. Never
 put a key in a workflow file.

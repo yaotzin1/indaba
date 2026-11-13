@@ -55,6 +55,8 @@ describe('ClaudeRunner usage reporting (specs/claude-code-usage)', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--disallowedTools',
+      'Task',
       '--permission-mode',
       'acceptEdits',
       '--model',
@@ -182,7 +184,15 @@ describe('ClaudeRunner usage reporting (specs/claude-code-usage)', () => {
     const chunks: string[] = [];
     const result = await runner.run({ prompt: 'go', workdir: TMP, onOutput: (c) => chunks.push(c) });
 
-    expect(spawner.last.command).toEqual(['claude', '-p', 'go', '--permission-mode', 'acceptEdits']);
+    expect(spawner.last.command).toEqual([
+      'claude',
+      '-p',
+      'go',
+      '--disallowedTools',
+      'Task',
+      '--permission-mode',
+      'acceptEdits',
+    ]);
     expect(result.output).toBe('plain answer\n');
     expect(result.usage).toBeUndefined();
     expect(chunks.join('')).toBe('plain answer\n');
@@ -202,7 +212,7 @@ describe('ClaudeRunner usage reporting (specs/claude-code-usage)', () => {
       const spawner = printing('plain\n');
       const result = await new ClaudeRunner({ spawner, extraArgs }).run({ prompt: 'go', workdir: TMP });
 
-      expect(spawner.last.command).toEqual(['claude', '-p', 'go', ...extraArgs]);
+      expect(spawner.last.command).toEqual(['claude', '-p', 'go', '--disallowedTools', 'Task', ...extraArgs]);
       expect(spawner.last.command).not.toContain('--verbose');
       expect(result.output).toBe('plain\n');
       expect(result.usage).toBeUndefined();

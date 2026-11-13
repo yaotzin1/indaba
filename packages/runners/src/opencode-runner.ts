@@ -27,6 +27,10 @@ export class OpenCodeRunner extends AbstractCliRunner implements McpCapable {
     this.extraArgs = options.extraArgs ?? [];
   }
 
+  protected override envPrefixes(): readonly string[] {
+    return ['OPENCODE_', 'ANTHROPIC_', 'OPENAI_', 'GOOGLE_', 'GEMINI_', 'OPENROUTER_'];
+  }
+
   mcpCapability(): McpCapability {
     return McpCapability.AgentManaged;
   }

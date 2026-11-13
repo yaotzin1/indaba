@@ -331,6 +331,31 @@ depend on an isolated step run in the same worktree, so a verify step sees what 
 worktree is removed when the run ends, whether it completed, failed or was cancelled. The project
 directory must be a git repository.
 
+### What a step's process inherits
+
+Whatever the isolation, a process Indaba starts for a step (an agent CLI, a `shell` command, an `acp` agent) runs as you, so
+Indaba narrows what it is handed. Until `agent-sandbox` can contain it, these four defaults hold:
+
+- **A confined temporary directory.** `TEMP`, `TMP` and `TMPDIR` point at `<working directory>/.indaba/tmp`, which is created
+  before the process starts and removed when it ends (success, failure, timeout, stall or abort). A build or test that honours
+  `$TEMP` stays on the project's drive instead of filling the system drive. It is under `.indaba`, so it never shows up in a
+  step's diff. A process that ignores the variables and opens an absolute path is not stopped: that needs a sandbox.
+- **An allowlist of the environment.** A child receives the operating system and toolchain basics (`PATH`, `HOME`, locale,
+  certificates, proxies), the variables whose names start with its own provider's prefix (`ANTHROPIC_` and `CLAUDE_` for
+  `claude-code`, `OPENAI_` and `CODEX_` for `codex`, and so on), and what the runner was told to pass (`passEnv`). Nothing else:
+  a cloud key or a repository token in your shell is not visible to the agent. The `shell` runner gets the basics and the
+  toolchains' own settings (`CI`, `NODE_OPTIONS`, `PNPM_HOME`, `NPM_CONFIG_*`, `CARGO_HOME`, `GOPATH`, `VIRTUAL_ENV`, ...), and
+  never a provider key, so a verification command cannot send your model key anywhere.
+- **No subagents behind Indaba's back.** `claude-code` is started with `--disallowedTools Task`, so one step cannot start a tree
+  of its own Claude subagents and get around `--parallel`. An embedder that wants them sets `allowSubagents: true`; an
+  `extraArgs` that already sets `--allowedTools` or `--disallowedTools` is left as written.
+- **Branches and tags stay put.** A git worktree shares `refs/heads/*` and `refs/tags/*` with your checkout. For a step with
+  `isolation: git_worktree`, Indaba records them before the step and checks them after. If the step added, moved or deleted
+  one, they are put back, the worktree is restored and the step fails with
+  `Step "<id>" modified git references outside its isolated worktree (<refs>); changes to branches and tags were rolled back.`
+  The failure goes through the step's `on_failure` like any other. A branch you commit to yourself while a worktree step is
+  running counts as a change too, so do not commit to the repository during such a step.
+
 ### The board: notes between steps
 
 Steps of one run can leave each other short notes. A step says what it may **post** and what it wants to **read**; the

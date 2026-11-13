@@ -127,6 +127,8 @@ describe('MCP in the runners', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--disallowedTools',
+      'Task',
     ]);
   });
 

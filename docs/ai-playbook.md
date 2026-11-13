@@ -97,7 +97,7 @@ step, that step's earlier notes are replaced.
   failure, so make the guard's message say what to fix.
 - For review, use `consensus_with` with a `decision_type` and an `arbiter`. Agreement means "I accept the other's findings", so say
   that in the goal. The messages and the outcome appear on the board for later steps.
-- Keep keys in the environment (`OPENROUTER_API_KEY` and the like). Never write one into a workflow, a prompt or a note.
+- Keep keys in the environment (`OPENROUTER_API_KEY` and the like). Never write one into a workflow, a prompt or a note. A step's process gets only the basics and its own provider's variables (not your whole environment), a `TEMP` inside the step's folder, and `claude-code` runs without its own subagents; see [what a step's process inherits](workflow-format.md#what-a-steps-process-inherits).
 - When asked to cut the cost of a workflow, change one role or step at a time and compare runs (see [cost-experiments.md](cost-experiments.md)). Report what the run used and what it produced. A cost shown as absent is unknown, not zero; Indaba has no spending ceiling, and you must not say a variant is cheaper from one run or from a model's list price.
 
 ## Failures and what to do
@@ -111,6 +111,7 @@ step, that step's earlier notes are replaced.
 | `run` exit 1, `Task ... finished: FAILED` | a step failed and retries ran out | `watch latest --plain`: read the failed step's reason; fix the goal or the guard |
 | `run` exit 2, ESCALATED | a debate stalled or retries ran out and a human is needed | do not retry blindly: report the open objections to the person, or add an `arbiter` |
 | `run` exit 1 or 2, reason `Stalled: no activity for N seconds.` | an attempt showed no activity for the step's `stall.after_seconds` and its stall retries are used up | do not raise the limit blindly: read the step's trace for `indaba.step.stalled`, and check whether the step legitimately goes quiet (then raise `after_seconds`) or hangs (then report it) |
+| `run` exit 1, reason `modified git references outside its isolated worktree` | an isolated step added, moved or deleted a branch or tag; Indaba put them back | do not rerun unchanged: say what the step did, tighten its goal or its permissions, and do not commit to the repository while a worktree step runs |
 | `run` exit 130 | it was cancelled | start again only if the person asked |
 | `watch` exit 3 | the files end without a final state | the run is still going or died; wait, or `watch latest` again |
 | the next step did not get a note | the first step failed, the line did not match the grammar, or the step does not read it | `plan` must show `may post` on the first and `reads` on the second; check `indaba.board.ignored` on the first step's span |

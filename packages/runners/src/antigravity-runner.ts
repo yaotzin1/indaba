@@ -29,6 +29,10 @@ export class AntigravityRunner extends AbstractCliRunner implements McpCapable {
     this.extraArgs = options.extraArgs ?? [];
   }
 
+  protected override envPrefixes(): readonly string[] {
+    return ['GEMINI_', 'GOOGLE_', 'ANTIGRAVITY_'];
+  }
+
   mcpCapability(): McpCapability {
     return McpCapability.AgentManaged;
   }

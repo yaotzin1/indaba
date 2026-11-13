@@ -21,10 +21,24 @@ export interface ClaudeRunnerOptions extends CliRunnerOptions {
    * and reports nothing, as before (specs/claude-code-usage).
    */
   readonly reportUsage?: boolean;
+  /**
+   * Let Claude Code start its own subagents with the `Task` tool (default false). They run behind Indaba's concurrency
+   * limit, so by default the call carries `--disallowedTools Task`; an `extraArgs` that already sets `--disallowedTools`
+   * or `--allowedTools` is left as the embedder wrote it (specs/host-process-containment, AC-08, AC-09).
+   */
+  readonly allowSubagents?: boolean;
 }
 
 function choosesOutputFormat(args: readonly string[]): boolean {
   return args.some((arg) => arg === '--output-format' || arg.startsWith('--output-format='));
+}
+
+function choosesToolFilter(args: readonly string[]): boolean {
+  return args.some((arg) =>
+    ['--disallowedTools', '--disallowed-tools', '--allowedTools', '--allowed-tools'].some(
+      (flag) => arg === flag || arg.startsWith(`${flag}=`),
+    ),
+  );
 }
 
 /**
@@ -49,11 +63,13 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable, Stall
   private readonly binary: string;
   private readonly extraArgs: readonly string[] | undefined;
   private readonly reportsUsage: boolean;
+  private readonly blocksSubagents: boolean;
 
   constructor(options: ClaudeRunnerOptions = {}) {
     super(options);
     this.binary = options.binary ?? 'claude';
     this.extraArgs = options.extraArgs;
+    this.blocksSubagents = options.allowSubagents !== true && !choosesToolFilter(options.extraArgs ?? []);
     this.reportsUsage = options.reportUsage !== false && !choosesOutputFormat(options.extraArgs ?? []);
   }
 
@@ -77,6 +93,7 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable, Stall
         usePty: false,
         clean: stripAnsi,
         signal,
+        environment: this.environmentPolicy(),
       });
       const parsed = parseClaudeStream(raw.output);
       // Output that is no JSON at all (an older CLI's plain error) is shown as it came, never swallowed.
@@ -120,6 +137,10 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable, Stall
     return McpCapability.Injected;
   }
 
+  protected override envPrefixes(): readonly string[] {
+    return ['ANTHROPIC_', 'CLAUDE_'];
+  }
+
   protected command(request: RunRequest): readonly string[] {
     return this.build(request, undefined);
   }
@@ -155,6 +176,8 @@ export class ClaudeRunner extends AbstractCliRunner implements McpCapable, Stall
       '-p',
       request.prompt,
       ...(this.reportsUsage ? this.usageArguments() : []),
+      // Before the permission flags: a written level always comes last.
+      ...(this.blocksSubagents ? ['--disallowedTools', 'Task'] : []),
       ...permission,
     ];
     if (mcpConfigFile !== undefined) {

@@ -9,6 +9,7 @@ import {
   type ProcessSpec,
   RunnerRegistry,
 } from '../src/index.js';
+import { TMP } from './support.js';
 
 function recorder() {
   const records: LogRecord[] = [];
@@ -144,7 +145,7 @@ describe('RunnerRegistry.withDefaults with a logger', () => {
         },
       },
     );
-    await registry.get('shell').run({ prompt: 'echo hi', workdir: '/w', timeoutSeconds: 5 });
+    await registry.get('shell').run({ prompt: 'echo hi', workdir: TMP, timeoutSeconds: 5 });
     expect(runs).toHaveLength(1);
     expect(messages()).toContain('a process started');
     expect(messages()).toContain('a process ended');

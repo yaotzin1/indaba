@@ -1,4 +1,5 @@
 import { DEFAULT_TIMEOUT_SECONDS, type RunRequest, RunResult, type RunResultInit } from '@indaba/core';
+import { buildRunnerEnvironment, type EnvironmentPolicy, withConfinedTemp } from './env.js';
 import type { ProcessMode, ProcessSpawner } from './process.js';
 
 /**
@@ -31,10 +32,17 @@ export interface ExecuteOptions {
   readonly verbatimArguments?: boolean;
   readonly clean?: (text: string) => string;
   readonly signal?: AbortSignal | undefined;
+  /** Which host variables the child receives. Absent: only the baseline. */
+  readonly environment?: Partial<EnvironmentPolicy>;
 }
 
 /** Runs one process and folds its stream, exit and timing into a result. */
-export async function executeProcess(options: ExecuteOptions): Promise<ProcessRunResult> {
+export function executeProcess(options: ExecuteOptions): Promise<ProcessRunResult> {
+  // The child's TEMP, TMP and TMPDIR are a directory inside its working directory, removed when the call ends.
+  return withConfinedTemp(options.request.workdir, (tempDir) => runProcess(options, tempDir));
+}
+
+async function runProcess(options: ExecuteOptions, tempDir: string): Promise<ProcessRunResult> {
   const { request } = options;
   const started = performance.now();
   const timeoutSeconds = request.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
@@ -47,7 +55,12 @@ export async function executeProcess(options: ExecuteOptions): Promise<ProcessRu
     {
       command: options.command,
       cwd: request.workdir,
-      env: request.env ?? {},
+      env: buildRunnerEnvironment({
+        ...(options.environment ?? {}),
+        additions: request.env ?? {},
+        tempDir,
+      }),
+      inheritEnv: false,
       usePty: options.usePty,
       timeoutSeconds,
       ...(request.stallSeconds !== undefined ? { stallSeconds: request.stallSeconds } : {}),

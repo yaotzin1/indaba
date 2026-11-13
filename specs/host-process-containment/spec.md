@@ -1,6 +1,6 @@
 # Specification: Host process and workspace containment (temp confinement, environment allowlist, subagent cap and git ref integrity)
 
-> **Status**: Draft (specified; stages 1 to 5 complete, ready for stage 6 implementation)
+> **Status**: Implemented (stages 1 to 7 complete; see [`review.md`](review.md))
 > **Stage entry**: 5 (alpha pre-1.0: breaking default changes take the next minor with a labelled changelog note, no legacy compatibility shims)
 > **Semver impact**: major in 1.x, delivered as the next **minor** in `0.x` alpha with a labelled breaking-change note in `CHANGELOG.md` (changes the default environment passed to CLI and shell runners, redirects `TEMP`/`TMP`/`TMPDIR` to the step workspace, adds `--disallowedTools Task` to `claude-code` by default, and fails a worktree step that mutates main repository refs). Confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/runner-adapters`](../runner-adapters/spec.md) (`AbstractCliRunner`, `NodeProcessSpawner`, `ClaudeRunner`), [`specs/transport-priority`](../transport-priority/spec.md) (`AcpRunner` environment allowlist), [`specs/git-workspace`](../git-workspace/spec.md) (`GitWorktree`, `WorkspaceCheckpoint`), [`specs/step-stalls`](../step-stalls/spec.md) (`RestorableWorkspace`), [`specs/agent-permissions`](../agent-permissions/spec.md) (CLI flag enforcement).
@@ -30,32 +30,32 @@ Because Indaba is in **alpha (`0.x`)**, these four gaps are closed directly by c
 
 **Confined per-step temporary directory**
 
-- [ ] AC-01. Before starting a child process for a `RunRequest`, `executeProcess` (for CLI and shell runners) and `AcpRunner` create `<workdir>/.indaba/tmp` (`mkdir` with `recursive: true`) and set `TEMP`, `TMP` and `TMPDIR` in the child's environment to that resolved path, unless the caller explicitly passed `TEMP`, `TMP` or `TMPDIR` in `request.env`.
-- [ ] AC-02. When the process call settles (in `finally`, on success, non-zero exit, timeout, stall or abort), `<workdir>/.indaba/tmp` is removed (`rm` with `recursive: true, force: true`) and recreated empty for the next call if needed, so temporary files do not accumulate across retries or commands.
-- [ ] AC-03. Because `<workdir>/.indaba/tmp` lies under `.indaba`, it is ignored by `GitWorktree.diff()`, `GitWorktree.stageAll()`, `DiffWithinScopeGuard` and `AcpFileServer` without new special cases.
+- [x] AC-01. Before starting a child process for a `RunRequest`, `executeProcess` (for CLI and shell runners) and `AcpRunner` create `<workdir>/.indaba/tmp` (`mkdir` with `recursive: true`) and set `TEMP`, `TMP` and `TMPDIR` in the child's environment to that resolved path, unless the caller explicitly passed `TEMP`, `TMP` or `TMPDIR` in `request.env`.
+- [x] AC-02. When the process call settles (in `finally`, on success, non-zero exit, timeout, stall or abort), `<workdir>/.indaba/tmp` is removed (`rm` with `recursive: true, force: true`) and recreated empty for the next call if needed, so temporary files do not accumulate across retries or commands.
+- [x] AC-03. Because `<workdir>/.indaba/tmp` lies under `.indaba`, it is ignored by `GitWorktree.diff()`, `GitWorktree.stageAll()`, `DiffWithinScopeGuard` and `AcpFileServer` without new special cases.
 
 **Environment allowlist across all runners**
 
-- [ ] AC-04. `buildRunnerEnvironment` (shared by `AcpRunner` and `AbstractCliRunner`) constructs the child process environment from:
+- [x] AC-04. `buildRunnerEnvironment` (shared by `AcpRunner` and `AbstractCliRunner`) constructs the child process environment from:
   1. `BASELINE_ENV_NAMES` (`PATH`, `HOME`, `USERPROFILE`, `HOMEDRIVE`, `HOMEPATH`, `APPDATA`, `LOCALAPPDATA`, `PROGRAMDATA`, `PROGRAMFILES`, `SYSTEMROOT`, `SYSTEMDRIVE`, `COMSPEC`, `PATHEXT`, `LANG`, `LANGUAGE`, `LC_ALL`, `TERM`, `COLORTERM`, `SHELL`, `USER`, `USERNAME`, `LOGNAME`, `TZ`, `SSL_CERT_FILE`, `SSL_CERT_DIR`, `NODE_EXTRA_CA_CERTS`, `HTTP_PROXY`, `HTTPS_PROXY`, `NO_PROXY`, `XDG_CONFIG_HOME`, `XDG_CACHE_HOME`, `XDG_DATA_HOME`, `XDG_STATE_HOME`);
   2. the runner's declared `envPrefixes` (for `ClaudeRunner`: `['ANTHROPIC_', 'CLAUDE_']`; for `CodexRunner`: `['OPENAI_', 'CODEX_']`; for `AntigravityRunner`: `['GEMINI_', 'GOOGLE_', 'ANTIGRAVITY_']`; for `CursorRunner`: `['CURSOR_', 'OPENAI_', 'ANTHROPIC_']`; for `OpenCodeRunner`: `['OPENCODE_', 'ANTHROPIC_', 'OPENAI_', 'GOOGLE_', 'GEMINI_', 'OPENROUTER_']`);
   3. any pattern in `CliRunnerOptions.passEnv` (exact variable name or prefix ending in `*`, matching `AcpRunnerOptions.passEnv`);
   4. explicit `request.env` additions;
   5. `TEMP`, `TMP` and `TMPDIR` set to the confined `<workdir>/.indaba/tmp` path (unless overridden by `request.env`).
-- [ ] AC-05. Variables in `process.env` that match none of AC-04 (such as `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, or another provider's key) are absent from the child process environment of every agent CLI runner and `AcpRunner`.
-- [ ] AC-06. `ShellRunner` applies the same `BASELINE_ENV_NAMES` + `ShellRunnerOptions.passEnv` + `request.env` + confined `TEMP`/`TMP`/`TMPDIR`, plus common build/toolchain variables (`CI`, `NODE_ENV`, ` NODE_OPTIONS`, `PNPM_HOME`, `NPM_CONFIG_*`, `CARGO_HOME`, `RUSTUP_HOME`, `GOPATH`, `GOROOT`, `VIRTUAL_ENV`), and never passes `ANTHROPIC_*`, `OPENAI_*`, `OPENROUTER_*`, `GEMINI_*` or `CLAUDE_*` API keys to verification commands unless named in `passEnv` or `request.env`.
-- [ ] AC-07. `NodeProcessSpawner` no longer merges `process.env` implicitly when `spec.inheritEnv === false` (the new default for runners that pass a complete filtered environment); for direct callers of `ProcessSpawner` that omit `inheritEnv`, `process.ts` uses the filtered baseline environment rather than raw `process.env`.
+- [x] AC-05. Variables in `process.env` that match none of AC-04 (such as `AWS_SECRET_ACCESS_KEY`, `GITHUB_TOKEN`, `DATABASE_URL`, or another provider's key) are absent from the child process environment of every agent CLI runner and `AcpRunner`.
+- [x] AC-06. `ShellRunner` applies the same `BASELINE_ENV_NAMES` + `ShellRunnerOptions.passEnv` + `request.env` + confined `TEMP`/`TMP`/`TMPDIR`, plus common build/toolchain variables (`CI`, `NODE_ENV`, ` NODE_OPTIONS`, `PNPM_HOME`, `NPM_CONFIG_*`, `CARGO_HOME`, `RUSTUP_HOME`, `GOPATH`, `GOROOT`, `VIRTUAL_ENV`), and never passes `ANTHROPIC_*`, `OPENAI_*`, `OPENROUTER_*`, `GEMINI_*` or `CLAUDE_*` API keys to verification commands unless named in `passEnv` or `request.env`.
+- [x] AC-07. `NodeProcessSpawner` no longer merges `process.env` implicitly when `spec.inheritEnv === false` (the new default for runners that pass a complete filtered environment); for direct callers of `ProcessSpawner` that omit `inheritEnv`, `process.ts` uses the filtered baseline environment rather than raw `process.env`.
 
 **Disabling recursive subagent spawning in `ClaudeRunner`**
 
-- [ ] AC-08. `ClaudeRunner` passes `--disallowedTools Task` by default so a single workflow step cannot spawn an unbounded tree of internal Claude subagents behind Indaba's back.
-- [ ] AC-09. `ClaudeRunnerOptions` gains `allowSubagents?: boolean` (default `false`). When `allowSubagents: true`, or when `extraArgs` already specifies `--disallowedTools` or `--allowedTools`, `ClaudeRunner` does not add `--disallowedTools Task`.
+- [x] AC-08. `ClaudeRunner` passes `--disallowedTools Task` by default so a single workflow step cannot spawn an unbounded tree of internal Claude subagents behind Indaba's back.
+- [x] AC-09. `ClaudeRunnerOptions` gains `allowSubagents?: boolean` (default `false`). When `allowSubagents: true`, or when `extraArgs` already specifies `--disallowedTools` or `--allowedTools`, `ClaudeRunner` does not add `--disallowedTools Task`.
 
 **Git reference integrity for isolated worktrees**
 
-- [ ] AC-10. `GitWorktree.checkpoint()` records, in addition to `head` and `tree`, the repository's branch and tag references (`refs/heads/*` and `refs/tags/*`, via `git for-each-ref --format=%(refname)%00%(objectname) refs/heads refs/tags`).
-- [ ] AC-11. `GitWorktree.restore(checkpoint)` restores any deleted or modified ref under `refs/heads/*` and `refs/tags/*` to the object id recorded in the checkpoint (and deletes any new branch or tag the failed attempt created under `refs/heads/*` or `refs/tags/*`), using `git update-ref` with argument arrays (`shell: false`) and validated object ids (`OBJECT_ID`).
-- [ ] AC-12. After an isolated step runs (before guards and landing), `StepExecutor` / `WorkflowEngine` checks whether any ref under `refs/heads/*` or `refs/tags/*` changed relative to the checkpoint taken before the step. If any ref was added, moved or deleted, the engine restores the refs from the checkpoint and fails the step with: `Step "<id>" modified git references outside its isolated worktree (<ref names>); changes to branches and tags were rolled back.`
+- [x] AC-10. `GitWorktree.checkpoint()` records, in addition to `head` and `tree`, the repository's branch and tag references (`refs/heads/*` and `refs/tags/*`, via `git for-each-ref --format=%(refname)%00%(objectname) refs/heads refs/tags`).
+- [x] AC-11. `GitWorktree.restore(checkpoint)` restores any deleted or modified ref under `refs/heads/*` and `refs/tags/*` to the object id recorded in the checkpoint (and deletes any new branch or tag the failed attempt created under `refs/heads/*` or `refs/tags/*`), using `git update-ref` with argument arrays (`shell: false`) and validated object ids (`OBJECT_ID`).
+- [x] AC-12. After an isolated step runs (before guards and landing), `StepExecutor` / `WorkflowEngine` checks whether any ref under `refs/heads/*` or `refs/tags/*` changed relative to the checkpoint taken before the step. If any ref was added, moved or deleted, the engine restores the refs from the checkpoint and fails the step with: `Step "<id>" modified git references outside its isolated worktree (<ref names>); changes to branches and tags were rolled back.`
 
 ## 4. Non-goals
 

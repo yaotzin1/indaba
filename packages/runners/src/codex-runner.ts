@@ -43,6 +43,10 @@ export class CodexRunner extends AbstractCliRunner implements McpCapable {
     return level === PermissionLevel.Edit ? ['--sandbox', 'workspace-write'] : [];
   }
 
+  protected override envPrefixes(): readonly string[] {
+    return ['OPENAI_', 'CODEX_'];
+  }
+
   mcpCapability(): McpCapability {
     return McpCapability.Injected;
   }

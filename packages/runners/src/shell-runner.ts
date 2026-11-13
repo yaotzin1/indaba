@@ -1,4 +1,5 @@
 import type { Runner, RunRequest } from '@indaba/core';
+import type { EnvironmentPolicy } from './env.js';
 import { NodeProcessSpawner, type ProcessSpawner } from './process.js';
 import { executeProcess, type ProcessRunResult } from './process-runner.js';
 
@@ -20,8 +21,29 @@ export function shellInvocation(line: string, platform: NodeJS.Platform = proces
   return { command: ['/bin/sh', '-c', line], verbatimArguments: false };
 }
 
+/**
+ * What a verification command may read besides the baseline: the toolchains' own settings. No provider key is on the
+ * list (specs/host-process-containment, AC-06, C-03).
+ */
+const SHELL_TOOLCHAIN_ENV: readonly string[] = [
+  'CI',
+  'NODE_ENV',
+  'NODE_OPTIONS',
+  'PNPM_HOME',
+  'NPM_CONFIG_*',
+  'CARGO_HOME',
+  'RUSTUP_HOME',
+  'GOPATH',
+  'GOROOT',
+  'VIRTUAL_ENV',
+];
+
 export interface ShellRunnerOptions {
   readonly spawner?: ProcessSpawner;
+  /** The environment the command's own is taken from; only an allowlist of it is passed on. Defaults to this process's. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Extra variables to pass on: exact names, or a prefix ending in `*`. */
+  readonly passEnv?: readonly string[];
 }
 
 /**
@@ -34,9 +56,15 @@ export class ShellRunner implements Runner {
   readonly description =
     'Runs the step’s command lines in order through the system shell (/bin/sh, or cmd.exe on Windows); the first that exits non-zero fails the step.';
   private readonly spawner: ProcessSpawner;
+  private readonly environment: EnvironmentPolicy;
 
   constructor(options: ShellRunnerOptions = {}) {
     this.spawner = options.spawner ?? new NodeProcessSpawner();
+    this.environment = {
+      source: options.env ?? process.env,
+      prefixes: [],
+      passEnv: [...SHELL_TOOLCHAIN_ENV, ...(options.passEnv ?? [])],
+    };
   }
 
   run(request: RunRequest, signal?: AbortSignal): Promise<ProcessRunResult> {
@@ -48,6 +76,7 @@ export class ShellRunner implements Runner {
       usePty: false,
       verbatimArguments: invocation.verbatimArguments,
       signal,
+      environment: this.environment,
     });
   }
 }

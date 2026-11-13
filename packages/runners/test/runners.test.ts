@@ -108,6 +108,8 @@ describe('CLI runner command lines', () => {
       '--output-format',
       'stream-json',
       '--verbose',
+      '--disallowedTools',
+      'Task',
       '--permission-mode',
       'acceptEdits',
       '--model',

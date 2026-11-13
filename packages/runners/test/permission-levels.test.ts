@@ -35,7 +35,8 @@ async function commandOf(
 }
 
 /** What a default ClaudeRunner adds to ask the CLI for its usage (specs/claude-code-usage). */
-const USAGE = ['--output-format', 'stream-json', '--verbose'];
+/** The usage flags, then the default that keeps Claude Code from starting subagents of its own. */
+const USAGE = ['--output-format', 'stream-json', '--verbose', '--disallowedTools', 'Task'];
 const claude = (spawner: FakeSpawner) => new ClaudeRunner({ spawner, usePty: false });
 const agy = (spawner: FakeSpawner) => new AntigravityRunner({ spawner, usePty: false });
 
@@ -204,7 +205,11 @@ describe('extraArgs can never widen a written level (AC-07)', () => {
       'claude',
       '-p',
       'p',
-      ...USAGE,
+      '--output-format',
+      'stream-json',
+      '--disallowedTools',
+      'Task',
+      '--verbose',
       '--permission-mode',
       'plan',
     ]);

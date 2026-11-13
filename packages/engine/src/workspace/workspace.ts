@@ -22,6 +22,12 @@ export interface RestorableWorkspace extends Workspace {
   checkpoint(): Promise<WorkspaceCheckpoint>;
   /** Puts the workspace back to a checkpoint of its own, discarding what changed since. Ignored files are never touched. */
   restore(checkpoint: WorkspaceCheckpoint): Promise<void>;
+  /**
+   * The names of the branches and tags (`refs/heads/*`, `refs/tags/*`) that were added, moved or deleted since `checkpoint`;
+   * empty when none were (specs/host-process-containment, AC-12). Optional on purpose, so a workspace written before it
+   * existed keeps compiling: it is simply not checked.
+   */
+  verifyRefs?(checkpoint: WorkspaceCheckpoint): Promise<readonly string[]>;
 }
 
 export function isRestorable(workspace: Workspace): workspace is RestorableWorkspace {
