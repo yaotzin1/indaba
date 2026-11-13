@@ -1,6 +1,6 @@
 # Specification: Passing environment variables to built-in runners (`passEnv` from the command line)
 
-> **Status**: Draft (stages 1 and 2 written; section 8 records what an Indaba debate settled on 2026-11-13, awaiting the maintainer's confirmation; Q6 is still open)
+> **Status**: Draft (stages 1 and 2 written; section 8 records what an Indaba debate settled on 2026-11-13, awaiting the maintainer's confirmation; Q6 settled by a second debate, also awaiting confirmation)
 > **Stage entry**: 1
 > **Semver impact**: minor (provisional: a new, optional way to configure the CLI; nothing existing changes). Confirmed in `api-surface.md` once section 8 is settled.
 > **Builds on**: [`specs/host-process-containment`](../host-process-containment/spec.md) (the allowlist this opens a door in), [`specs/transport-priority`](../transport-priority/spec.md) (`INDABA_ACP_PASS_ENV`, the one precedent), [`specs/logging`](../logging/spec.md) (`indaba.config`).
@@ -61,6 +61,10 @@ Written after the debate of section 8. Criteria marked (debate) were added or co
 - [ ] AC-10. (debate) A project's `indaba.config` may list names it *requests*. They are not granted: `plan` prints each as requested, not granted, with the name,
   the runner and the plain instruction to grant it (what the name is for, which runner would get it, the exact step), and the same text appears at the start of a run
   that has one, so a person who skips `plan` still sees it. The text says to grant only what the person recognises; there is no one-click grant. Both texts are tested.
+- [ ] AC-11. (debate 2) Grants are read only from the user-level file. A project `indaba.config` carrying `passEnv` is rejected with a message naming the key and saying to use `requestEnv`;
+  the loader never reads a grant from a project. A test covers the rejection and that the allowlist is unchanged.
+- [ ] AC-12. (debate 2) The user-level file has no path override and is not read through a symlink that leaves its folder. `indaba env grant` run without a terminal refuses an entry that
+  comes from a project's request. Both are tested.
 
 ## 4. Non-goals
 
@@ -118,8 +122,16 @@ Settled by an Indaba debate on 2026-11-13: two `claude-code` agents, one arguing
 - **Q4. `INDABA_ACP_PASS_ENV`.** *Decided (as recommended):* stays, as an alias for `INDABA_PASS_ENV_ACP`, documented as such. Dropping it would be a breaking change.
 - **Q5. Prefix patterns.** *Decided (as recommended, with conditions):* `AWS_*` is allowed, because Bedrock needs it. `plan` lists what a prefix matches and marks `SECRET`, `TOKEN` and `KEY`
   names with a warning that does not block; a bare `*` and a prefix under 3 characters are refused (AC-05).
-- **Q6. (open, raised by the debate's outcome) Where is the user-level file?** Not decided: the file's name and place (for example under the user's home, beside `indaba` state), its format
-  (the YAML of `indaba.config`), who writes it (hand, `indaba` subcommand, wizard) and what the TUI offers. This one needs the maintainer, and probably `specs/tui-home` and the wizard plans.
+- **Q6. Where is the user-level file?** *Decided by a second debate (2026-11-13, `claude-code` against `antigravity`, consensus after two rounds, trace `599c795662271aa543698e2201155a62`),
+  awaiting the maintainer:* `<userConfigFolder>/indaba/indaba.config`, using `userConfigFolder()` in `packages/cli/src/config-folder.ts` (`%APPDATA%` on Windows,
+  `~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` or `~/.config` elsewhere), the folder where `indaba ui` already keeps what a person confirmed. Checked in the repository: the helper exists.
+  - **No path override.** An environment variable that moved the file could point the trusted store into a cloned repository; a symlink leading out of the folder is refused.
+  - **Format:** the YAML of `indaba.config`, names only, `passEnv: { <runner>: [AWS_PROFILE, AWS_*] }`, validated by AC-05. The user file's `passEnv` is a **grant**; a project's
+    `indaba.config` uses a different key, `requestEnv`, and a `passEnv` in a project file is rejected, so the shared filename cannot mix the two meanings (AC-11).
+  - **Writers:** by hand, `indaba settings`, the wizard and `indaba env grant|revoke|list <runner> <name>`, all through one comment-preserving atomic writer (temporary file, then rename; mode 0600 on Unix).
+    `indaba env grant` refuses to take an entry from a project's request when it runs without a terminal (AC-12).
+  - A first proposal (`passenv.yaml`, `~/.config` on macOS, `INDABA_USER_CONFIG`) was withdrawn by its author for the reasons above.
+  - Not yet checked: the existing round-trip writer is in `@indaba/engine`; whether it preserves comments is for the plan (stage 3) to confirm before this is relied on.
 
 Criteria the debate found wrong or untestable were corrected above (AC-03, AC-05, AC-06) or added (AC-10).
 
