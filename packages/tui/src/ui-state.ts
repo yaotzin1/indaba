@@ -29,6 +29,7 @@ export type KeyName =
   | 'tab'
   | 'escape'
   | 'enter'
+  | 'backspace'
   | 'ctrl-c'
   | { readonly char: string };
 

@@ -11,7 +11,13 @@ import {
   MAX_USE_ITEM,
   summaryOfUse,
 } from '../src/run-control/confirm.js';
-import { createRunControl, RUN_INPUTS, RunControlError } from '../src/run-control/index.js';
+import {
+  createRunControl,
+  RUN_INPUT_MAX_AGE_MS,
+  RUN_INPUTS,
+  RunControlError,
+  START_TIMEOUT_MS,
+} from '../src/run-control/index.js';
 import {
   MAX_WORKFLOW_BYTES,
   readWorkflow,
@@ -529,9 +535,26 @@ describe('the run control (T-12)', () => {
       'demo.workflow.ai.yml': WORKFLOW,
       '.indaba/run-inputs/web-old.yml': WORKFLOW,
     });
-    const { control } = await controlFor([root], fakeStarter().starter);
+    // the copy is old enough: the clock is a day ahead of when it was written
+    const { control } = await controlFor([root], fakeStarter().starter, {
+      now: () => Date.now() + 86_400_000,
+    });
     await confirmAndStart(control);
     expect((await readdir(join(root, RUN_INPUTS))).includes('web-old.yml')).toBe(false);
+  });
+
+  it('keeps a copy that is too young to be one a crash left, so a child still starting can read it', async () => {
+    const root = await project({
+      'demo.workflow.ai.yml': WORKFLOW,
+      '.indaba/run-inputs/web-young.yml': WORKFLOW,
+    });
+    const { control } = await controlFor([root], fakeStarter().starter);
+    await confirmAndStart(control);
+    expect((await readdir(join(root, RUN_INPUTS))).includes('web-young.yml')).toBe(true);
+  });
+
+  it('waits longer to sweep a copy than it waits for a start, with a margin', () => {
+    expect(RUN_INPUT_MAX_AGE_MS).toBeGreaterThan(START_TIMEOUT_MS * 2);
   });
 
   it('learns the trace id from the root span the engine writes, also with runs starting together (AC-08)', async () => {
@@ -860,5 +883,50 @@ describe('the steps at full access (specs/agent-permissions AC-05)', () => {
     const { workflow, hash } = await confirmAndStart(control);
     await control.start({ workflowId: workflow.id, fullAccessConfirmedHash: hash });
     expect(runs.every((run) => !run.args.some((arg) => arg.startsWith('--allow-full-access')))).toBe(true);
+  });
+});
+
+describe('detach (specs/tui-run-control, AC-05, AC-11)', () => {
+  it('releases every live run and stops none', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const { started } = await confirmAndStart(control);
+    await statusUntil(control, started.startId, { state: 'starting' });
+    control.detach?.();
+    expect(runs[0]?.calls).toEqual(['release']);
+    expect(logged.some((r) => r.message === 'runs detached')).toBe(true);
+  });
+
+  it('releases a run once: a second call finds nothing, and nothing already ended is touched', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const first = await confirmAndStart(control);
+    const second = await control.start({ workflowId: first.workflow.id });
+    expect(second.startId).not.toBe(first.started.startId);
+    runs[1]?.finish(0);
+    await flush();
+    control.detach?.();
+    control.detach?.();
+    expect(runs[0]?.calls).toEqual(['release']);
+    expect(runs[1]?.calls).toEqual([]);
+  });
+
+  it('is not undone by stopAll: a released run is never cancelled or killed afterwards', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter({ ignoresCancel: true });
+    const { control } = await controlFor([root], starter);
+    await confirmAndStart(control);
+    control.detach?.();
+    await control.stopAll();
+    expect(runs[0]?.calls).toEqual(['release']);
+  });
+
+  it('does nothing when there is no run', () => {
+    // a control that never started anything has nothing to release and does not fail
+    return controlFor([], fakeStarter().starter).then(({ control }) => {
+      expect(() => control.detach?.()).not.toThrow();
+    });
   });
 });

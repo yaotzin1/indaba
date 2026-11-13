@@ -9,6 +9,8 @@ export interface HomeScreenOptions {
   readonly ascii: boolean;
   /** A way to open a run was supplied, so the key line and `?` name `Enter`. */
   readonly canOpen: boolean;
+  /** A control that starts and stops runs was supplied, so the keys `n` and `s` are named. */
+  readonly canControl?: boolean;
 }
 
 const row = (text: string, tone: Tone = 'normal', selected = false): Row => ({ text, tone, selected });
@@ -64,7 +66,9 @@ function runLine(run: RunSummary, width: number, ascii: boolean): string {
 function helpRows(options: HomeScreenOptions): Row[] {
   return [
     row('Keys', 'accent'),
-    ...shippedKeys({ openRun: options.canOpen }).map((key) => row(`${fit(key.keys, 10)}${key.label}`)),
+    ...shippedKeys({ openRun: options.canOpen, runs: options.canControl === true }).map((key) =>
+      row(`${fit(key.keys, 10)}${key.label}`),
+    ),
   ];
 }
 
@@ -86,10 +90,14 @@ function detailRows(run: RunSummary | undefined, width: number, ascii: boolean):
 }
 
 function keyLine(state: HomeState, options: HomeScreenOptions, width: number): Row {
+  if (state.notice !== undefined) {
+    // the footer has the whole width; a list pane is too narrow for a sentence
+    return row(clip(safe(state.notice, options.ascii), width, options.ascii), 'info');
+  }
   if (state.confirmQuit) {
     return row(clip('d detach (the run goes on)   c stop the run   n stay', width, options.ascii), 'warn');
   }
-  const text = shippedKeys({ openRun: options.canOpen })
+  const text = shippedKeys({ openRun: options.canOpen, runs: options.canControl === true })
     .filter((key) => key.id !== 'up' && key.id !== 'down')
     .map((key) => `${key.keys} ${key.label}`)
     .join('   ');

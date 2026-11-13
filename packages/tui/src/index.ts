@@ -46,6 +46,16 @@ export { KEYS, shippedKeys } from './keymap.js';
 export type { Layout } from './layout.js';
 export { clip, computeLayout, DOCK_COLUMNS, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
 export { MAX_REPLAY_WAIT_MS, replay } from './replay.js';
+export type {
+  FlowEffect,
+  FlowEvent,
+  FlowState,
+  FlowStep,
+  RunControlPort,
+  RunControlRefusal,
+} from './run-flow.js';
+export { isRunControlError, reduceFlow, visibleWorkflows } from './run-flow.js';
+export { buildFlowScreen } from './run-flow-screen.js';
 export type { Row, Screen, ScreenOptions, Tone } from './screen.js';
 export { buildScreen, stepLine, stepTone, tooSmallRows } from './screen.js';
 export type { SettingsActions, SettingsOptions, SettingsResult } from './settings.js';

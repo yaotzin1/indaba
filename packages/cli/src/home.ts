@@ -3,7 +3,8 @@ import type { Logger } from '@indaba/core';
 import { BoardReader, TraceReader } from '@indaba/engine';
 import type { Io } from './main.js';
 import { redact } from './redact.js';
-import type { TuiHomeOptions, TuiHomeResult, TuiLoad, TuiModule } from './tui-loader.js';
+import type { UiRunControl } from './server-loader.js';
+import type { HomeRunControl, TuiHomeOptions, TuiHomeResult, TuiLoad, TuiModule } from './tui-loader.js';
 
 /** What bare `indaba` does on a terminal (specs/tui-home): open Home, or fall back to the usage error it has always had. */
 export type HomeGate =
@@ -62,6 +63,61 @@ export interface HomeSettings {
   readonly color: boolean;
   /** Only to redact a failure message: the values of credentials in it are replaced. */
   readonly environment: Readonly<Record<string, string | undefined>>;
+  /** The control that starts and stops runs, when this command can start runs (the same one `indaba ui` uses). */
+  readonly control?: UiRunControl;
+}
+
+type Environment = Readonly<Record<string, string | undefined>>;
+
+/** Every string in a value, with the credentials of the environment replaced; the shape is kept. */
+export function redactDeep(value: unknown, environment: Environment): unknown {
+  if (typeof value === 'string') {
+    return redact(value, environment);
+  }
+  if (Array.isArray(value)) {
+    return value.map((item) => redactDeep(item, environment));
+  }
+  if (typeof value === 'object' && value !== null) {
+    return Object.fromEntries(
+      Object.entries(value).map(([key, item]) => [key, redactDeep(item, environment)]),
+    );
+  }
+  return value;
+}
+
+/**
+ * What the screen gets of the control: the same answers, with every string cleared of credentials before it can be drawn,
+ * and a refusal re-made with its name, code and detail redacted. `detach` is the control's, or nothing when it has none.
+ */
+export function homeRunControl(control: UiRunControl, environment: Environment): HomeRunControl {
+  const clear = <T>(value: T): T => redactDeep(value, environment) as T;
+  const remake = (error: unknown): Error => {
+    if (!(error instanceof Error)) {
+      return new Error(redact(String(error), environment));
+    }
+    const made = new Error(redact(error.message, environment));
+    made.name = error.name;
+    const { code, detail } = error as { code?: unknown; detail?: unknown };
+    return Object.assign(made, {
+      ...(typeof code === 'string' ? { code } : {}),
+      ...(detail === undefined ? {} : { detail: clear(detail) }),
+    });
+  };
+  return {
+    list: async () => clear(await control.list()),
+    start: async (request) => {
+      try {
+        return await control.start(request);
+      } catch (error) {
+        throw remake(error);
+      }
+    },
+    startStatus: (startId) => clear(control.startStatus(startId)),
+    stop: (runId) => control.stop(runId),
+    isAlive: (runId) => control.isAlive(runId),
+    stopAll: () => control.stopAll(),
+    detach: () => control.detach?.(),
+  };
 }
 
 /** Opens Home on the runs of the project and returns the command's exit status. */
@@ -77,6 +133,9 @@ export async function runHome(
   try {
     const result = await gate.tui.run({
       // an error from reading the traces is drawn on the screen, so the credentials in it are replaced first
+      ...(settings.control === undefined
+        ? {}
+        : { runs: homeRunControl(settings.control, settings.environment) }),
       listRuns: async () => {
         try {
           return await traces.listRuns();
@@ -104,5 +163,12 @@ export async function runHome(
     logger.info('tui.home', 'the home screen failed', { reason });
     io.stderr.write(`The home screen failed (${reason}). indaba watch --plain lists the runs as text.\n`);
     return 1;
+  } finally {
+    // Whatever ended the screen, a run started here is let go, never stopped by leaving; detach is idempotent.
+    try {
+      settings.control?.detach?.();
+    } catch {
+      logger.info('tui.home', 'the runs could not be released');
+    }
   }
 }

@@ -8,8 +8,8 @@ import { computeLayout } from '../src/layout.js';
 describe('the key table of Home', () => {
   it('hides a key whose option was not wired, and shows it when it was', () => {
     expect(shippedKeys({ openRun: false }).map((k) => k.id)).not.toContain('open');
-    expect(shippedKeys({ openRun: true }).map((k) => k.id)).toContain('open');
-    expect(shippedKeys({ openRun: true })).toHaveLength(KEYS.length);
+    expect(shippedKeys({ openRun: true, runs: true }).map((k) => k.id)).toContain('open');
+    expect(shippedKeys({ openRun: true, runs: true })).toHaveLength(KEYS.length);
   });
 
   it('is plain ASCII, so it reads on any terminal', () => {
@@ -20,16 +20,23 @@ describe('the key table of Home', () => {
 
   it('has the same keys in the ? overlay as in the table', () => {
     const layout = computeLayout(100, 30);
-    const screen = buildHomeScreen({ ...initialHome(), help: true }, layout, { ascii: true, canOpen: true });
+    const screen = buildHomeScreen({ ...initialHome(), help: true }, layout, {
+      ascii: true,
+      canOpen: true,
+      canControl: true,
+    });
     const shown = screen.detail.map((r) => r.text);
-    for (const key of shippedKeys({ openRun: true })) {
+    for (const key of shippedKeys({ openRun: true, runs: true })) {
       expect(shown.some((line) => line.startsWith(key.keys) && line.includes(key.label))).toBe(true);
     }
     const without = buildHomeScreen({ ...initialHome(), help: true }, layout, {
       ascii: true,
       canOpen: false,
     });
-    expect(without.detail.map((r) => r.text).join('\n')).not.toContain('open the run');
+    const hidden = without.detail.map((r) => r.text).join('\n');
+    expect(hidden).not.toContain('open the run');
+    expect(hidden).not.toContain('start a workflow');
+    expect(hidden).not.toContain('stop a run');
   });
 
   it('is the table the documentation prints', () => {

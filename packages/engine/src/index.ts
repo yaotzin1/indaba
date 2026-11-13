@@ -3,7 +3,12 @@
  * only import the engine (the terminal dashboard and its Settings screen) takes them from the same place as everyone
  * else.
  */
+/**
+ * The wire types of starting and stopping a run (specs/tui-run-control, epic rule R-02), re-exported so the terminal
+ * application, which may only import the engine, takes them from the one place the web view's contract defines them.
+ */
 export type {
+  FullAccessStep,
   LogContext,
   LogFields,
   Logger,
@@ -11,9 +16,16 @@ export type {
   LogLevel,
   LogRecord,
   LogSink,
+  RunSummaryOfUse,
   SettingDescription,
   SinkSettings,
   SinkType,
+  StartRunRequest,
+  StartRunResponse,
+  StartStatusResponse,
+  StopRunResponse,
+  WorkflowListResponse,
+  WorkflowSummary,
 } from '@indaba/core';
 export {
   createLogger,

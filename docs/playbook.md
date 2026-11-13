@@ -123,7 +123,7 @@ indaba watch latest --replay    # play a finished run back with its original tim
 indaba watch latest --plain     # lines, not the dashboard
 ```
 
-**The home screen**: bare `indaba` on a terminal lists the runs of the project (`j` `k` to move, `Enter` to open one in the dashboard, `r` to refresh, `?` for the keys, `q` to quit). Without a terminal, or with `INDABA_NO_TUI=1`, it is the usage error it always was.
+**The home screen**: bare `indaba` on a terminal lists the runs of the project (`j` `k` to move, `Enter` to open one in the dashboard, `n` to start a workflow after confirming what it uses, `s` to stop a run started there, `r` to refresh, `?` for the keys, `q` to quit). Without a terminal, or with `INDABA_NO_TUI=1`, it is the usage error it always was.
 
 **The dashboard** (`@indaba/tui`, installed with `indaba`) opens on a terminal. The steps are on the
 left and the output of the selected one on the right; below 80 columns they stack.

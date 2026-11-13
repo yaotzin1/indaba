@@ -420,11 +420,12 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
       return gate.code;
     }
     if (gate.kind === 'open') {
-      return logged('home', io.cwd, { args: [], level: undefined, dir: undefined }, io, (logger) =>
+      return logged('home', io.cwd, { args: [], level: undefined, dir: undefined }, io, async (logger) =>
         runHome(io, gate, logger, {
           ascii: io.env.INDABA_ASCII === '1',
           color: io.env.NO_COLOR === undefined || io.env.NO_COLOR === '',
           environment: io.env,
+          ...(await homeControl(io, logger)),
         }),
       );
     }
@@ -756,6 +757,20 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
         logger,
       }),
   };
+}
+
+/**
+ * The control Home starts and stops runs with: the one `indaba ui` builds for the project, when this process can start runs.
+ * Home without it still lists and opens runs, so a failure to build it is logged and not fatal.
+ */
+async function homeControl(io: Io, logger: Logger): Promise<{ control?: UiRunControl }> {
+  try {
+    const control = (await uiBackendsFor(io, logger)).runControl?.([io.cwd]);
+    return control === undefined ? {} : { control };
+  } catch {
+    logger.info('cli.home', 'the control that starts runs could not be built; Home only lists runs');
+    return {};
+  }
 }
 
 /** What the page of `indaba ui` may do with the logging settings of a project: the same reader, writer and test as `indaba settings`. */
