@@ -65,10 +65,13 @@ export function HomeApp(props: HomeAppProps): ReactElement {
 
   const layout = computeLayout(size.columns, size.rows);
   const isOwnedAndAlive = (runId: string): boolean =>
-    control !== undefined && state.owned.includes(runId) && control.isAlive(runId);
+    control !== undefined &&
+    state.owned.includes(runId) &&
+    !state.stopping.includes(runId) &&
+    control.isAlive(runId);
   // Read afresh at each key: a run that ended since the last drawing must not make quitting ask about it.
   const contextNow = (): HomeContext => ({
-    attached: props.attached || state.owned.some(isOwnedAndAlive),
+    attached: props.attached || state.unsure || state.owned.some(isOwnedAndAlive),
     canOpen: props.openRun !== undefined,
     pageSize: Math.max(1, layout.listRows - 1),
     canControl: control !== undefined,
@@ -248,6 +251,8 @@ export function HomeApp(props: HomeAppProps): ReactElement {
       ...(props.logger === undefined ? {} : { logger: props.logger }),
       onFinish: (result) => {
         if (result.quit === 'cancel' && control !== undefined) {
+          // asked to stop: leaving Home right after must not ask about a run that is already ending
+          dispatch({ event: { stopRequested: runId }, context });
           try {
             control.stop(runId);
           } catch {

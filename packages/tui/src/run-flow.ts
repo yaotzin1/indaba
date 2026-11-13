@@ -149,14 +149,31 @@ export interface FlowStep {
   readonly opened?: string;
   /** One line for Home to show. */
   readonly notice?: string;
+  /**
+   * A start ended without the screen knowing whether a run exists (it was lost, or it did not appear in time). A child may
+   * still be going, so leaving must ask about it as it asks about a run it knows.
+   */
+  readonly unsure?: true;
 }
 
 /** Text that came from the control or a file, safe for one line: no control character, and bounded. */
+/** Characters that move or hide what is drawn: C0 and C1 controls (0x9b is a terminal's own CSI), and the bidi controls. */
+function isControl(code: number): boolean {
+  return (
+    code < 0x20 ||
+    (code >= 0x7f && code <= 0x9f) ||
+    code === 0x61c ||
+    code === 0x200e ||
+    code === 0x200f ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069)
+  );
+}
+
 export function plain(text: string, limit = 200): string {
   let out = '';
   for (const char of text) {
-    const code = char.codePointAt(0) ?? 0;
-    out += code < 0x20 || code === 0x7f ? ' ' : char;
+    out += isControl(char.codePointAt(0) ?? 0) ? ' ' : char;
   }
   const flat = out.replace(/ {2,}/g, ' ').trim();
   return Array.from(flat).length > limit
@@ -451,14 +468,14 @@ export function reduceFlow(state: FlowState, event: FlowEvent): FlowStep {
     }
     case 'starting': {
       if ('threw' in event) {
-        return { state: failed(state, plain(event.threw)) };
+        return { state: failed(state, plain(event.threw)), unsure: true };
       }
       if (!('status' in event)) {
         return { state };
       }
       const status = event.status;
       if (status === undefined) {
-        return { state: failed(state, 'The start was lost: the control no longer knows it') };
+        return { state: failed(state, 'The start was lost: the control no longer knows it'), unsure: true };
       }
       if (status.state === 'running' && status.runId !== undefined) {
         return { state: undefined, opened: status.runId };
@@ -469,7 +486,7 @@ export function reduceFlow(state: FlowState, event: FlowEvent): FlowStep {
         return { state: failed(state, reason) };
       }
       if (state.polls + 1 >= MAX_START_POLLS) {
-        return { state: failed(state, 'The run did not start in time') };
+        return { state: failed(state, 'The run did not start in time'), unsure: true };
       }
       return {
         state: doing<Starting>(

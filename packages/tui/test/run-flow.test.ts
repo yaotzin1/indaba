@@ -467,3 +467,35 @@ describe('plain', () => {
     expect(plain('  spaced   out  ')).toBe('spaced out');
   });
 });
+
+describe('plain, for text a file or the control wrote', () => {
+  it('blanks the C1 controls (0x9b is a terminal CSI) and the bidi controls, not only the C0 ones', () => {
+    const csi = String.fromCharCode(0x9b);
+    expect(plain(`a${csi}2Jb`)).toBe('a 2Jb');
+    for (let code = 0x80; code <= 0x9f; code += 1) {
+      expect(plain(`a${String.fromCharCode(code)}b`)).toBe('a b');
+    }
+    for (const code of [
+      0x61c, 0x200e, 0x200f, 0x202a, 0x202b, 0x202c, 0x202d, 0x202e, 0x2066, 0x2067, 0x2068, 0x2069,
+    ]) {
+      expect(plain(`a${String.fromCharCode(code)}b`)).toBe('a b');
+    }
+    // text that is only text is left alone: accents, CJK and an emoji are not controls
+    expect(plain(`caf${String.fromCharCode(0xe9)} ${String.fromCharCode(0x4e2d)}`)).toBe(
+      `caf${String.fromCharCode(0xe9)} ${String.fromCharCode(0x4e2d)}`,
+    );
+  });
+});
+
+describe('what a known refusal does not say', () => {
+  it.each(['workflow_not_found', 'not_saved', 'start_failed'])(
+    '%s uses the words of the screen, never the control',
+    (code) => {
+      const failed = reduceFlow(reduceFlow(picker(), { press: 'enter' }).state as FlowState, {
+        refused: refusal(code, {}, 'a raw detail text with /home/someone/secret.yml'),
+      }).state as { message: string };
+      expect(failed.message).not.toContain('raw detail text');
+      expect(failed.message).not.toContain('/home/someone');
+    },
+  );
+});

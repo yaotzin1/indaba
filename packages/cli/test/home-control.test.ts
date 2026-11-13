@@ -140,6 +140,34 @@ describe('what the screen gets of the control (AC-07, AC-13)', () => {
   });
 });
 
+describe('every call the screen makes is guarded (AC-13)', () => {
+  const boom = (): never => {
+    throw new Error(`failed with ${SECRET}`);
+  };
+  const reject = (): Promise<never> => Promise.reject(new Error(`failed with ${SECRET}`));
+
+  it.each([
+    ['list', { list: reject }, (port: RunControlPort) => port.list()],
+    ['start', { start: reject }, (port: RunControlPort) => port.start({ workflowId: 'w' })],
+    ['stopAll', { stopAll: reject }, (port: RunControlPort) => port.stopAll()],
+  ] as const)('%s rejects with the credential replaced', async (_name, over, call) => {
+    const port = homeRunControl(fakeControl(over as Partial<UiRunControl>), ENV);
+    const error = await call(port).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(Error);
+    expect((error as Error).message).toBe('failed with [redacted]');
+  });
+
+  it.each([
+    ['startStatus', { startStatus: boom }, (port: RunControlPort) => port.startStatus('x')],
+    ['stop', { stop: boom }, (port: RunControlPort) => port.stop('r')],
+    ['isAlive', { isAlive: boom }, (port: RunControlPort) => port.isAlive('r')],
+    ['detach', { detach: boom }, (port: RunControlPort) => port.detach()],
+  ] as const)('%s throws with the credential replaced', (_name, over, call) => {
+    const port = homeRunControl(fakeControl(over as Partial<UiRunControl>), ENV);
+    expect(() => call(port)).toThrow('failed with [redacted]');
+  });
+});
+
 describe('Home started from bare indaba with a control (AC-05, AC-11)', () => {
   const rawTerminal = () => ({
     stdin: Object.assign(new PassThrough(), { setRawMode: () => undefined }),

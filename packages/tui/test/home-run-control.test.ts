@@ -108,6 +108,11 @@ function start(
     makeRun({ runId: 'r1', workflow: 'review', status: 'running' }),
     makeRun({ runId: 'old', workflow: 'earlier' }),
   ];
+  const typeKey = stdin.type.bind(stdin);
+  stdin.type = (data: string): void => {
+    typedAt.set(stdout, stdout.frames.length);
+    typeKey(data);
+  };
   const done = run({
     listRuns,
     openRun: () => ({ source: endless(sampleRecords()) }),
@@ -122,7 +127,14 @@ function start(
   return { stdout, stdin, done };
 }
 
-const seen = (stdout: FakeStdout, text: string): boolean => stdout.frames.slice(-4).join('').includes(text);
+/** Where the screen was when the last key was typed: only what was drawn after it can answer that key. */
+const typedAt = new WeakMap<FakeStdout, number>();
+
+const seen = (stdout: FakeStdout, text: string): boolean =>
+  stdout.frames
+    .slice(typedAt.get(stdout) ?? 0)
+    .join('')
+    .includes(text);
 
 /** Presses the keys of a whole start, up to the run appearing in its dashboard. */
 async function startRun(stdout: FakeStdout, stdin: FakeStdin): Promise<void> {
@@ -276,9 +288,13 @@ describe('starting a run from Home (tui-run-control)', () => {
     a.stdin.type('y');
     await until(() => seen(a.stdout, 'start was lost'));
     a.stdin.type('x');
-    await sleep(20);
+    await until(() => seen(a.stdout, 'earlier'));
+    // a lost start may still have a child, so leaving asks, and d lets it go
     a.stdin.type('q');
-    await a.done;
+    await until(() => seen(a.stdout, 'stop the run'));
+    a.stdin.type('d');
+    await expect(a.done).resolves.toEqual({ quit: 'detach', code: 0 });
+    expect(lost.detached).toBe(1);
 
     const failing = fakeControl({
       starts: [confirmation(), () => Promise.resolve({ startId: 'web-2' })],
@@ -533,6 +549,84 @@ describe('stopping and leaving (AC-04, AC-11)', () => {
     const calls = control.aliveCalls;
     await sleep(60);
     expect(control.aliveCalls).toBe(calls);
+  });
+});
+
+describe('what the review of the first version found', () => {
+  it('does not let a late d turn a stop into a detach while the runs are still being stopped', async () => {
+    let finishStop: () => void = () => undefined;
+    const control = fakeControl({ starts: [confirmation(), () => Promise.resolve({ startId: 'web-1' })] });
+    control.alive.add('r1');
+    control.stopAll = () =>
+      new Promise<void>((resolve) => {
+        control.stoppedAll += 1;
+        finishStop = () => {
+          control.alive.clear();
+          resolve();
+        };
+      });
+    const { stdout, stdin, done } = start(control);
+    await startRun(stdout, stdin);
+    stdin.type('q');
+    await until(() => seen(stdout, 'cancel the run'));
+    stdin.type('d');
+    await until(() => seen(stdout, 'earlier'));
+    stdin.type('q');
+    await until(() => seen(stdout, 'stop the run'));
+    stdin.type('c');
+    await until(() => control.stoppedAll === 1);
+    // the stop is pending: these keys must change nothing, and above all must not detach or leave
+    stdin.type('d');
+    stdin.type('n');
+    stdin.type('q');
+    stdin.type(KEY.ctrlC);
+    await sleep(60);
+    expect(control.detached).toBe(0);
+    finishStop();
+    await expect(done).resolves.toEqual({ quit: 'cancel', code: 130 });
+    expect(control.stoppedAll).toBe(1);
+  });
+
+  it('still asks on quit after a start that did not appear in time, because a child may be going', async () => {
+    const control = fakeControl({
+      starts: [confirmation(), () => Promise.resolve({ startId: 'web-1' })],
+      statuses: [undefined],
+    });
+    const { stdout, stdin, done } = start(control);
+    await until(() => stdout.text.includes('review'));
+    stdin.type('n');
+    await until(() => seen(stdout, 'app / review'));
+    stdin.type(String.fromCharCode(13));
+    await until(() => seen(stdout, 'Confirm what review'));
+    stdin.type('y');
+    await until(() => seen(stdout, 'start was lost'));
+    stdin.type('x');
+    await until(() => seen(stdout, 'earlier'));
+    // nothing is known to be alive, yet leaving asks, and c would stop what the control may still hold
+    stdin.type('q');
+    await until(() => seen(stdout, 'stop the run'));
+    stdin.type('c');
+    await expect(done).resolves.toEqual({ quit: 'cancel', code: 130 });
+    expect(control.stoppedAll).toBe(1);
+  });
+
+  it('does not ask about a run that was just cancelled from its dashboard, when Home is left at once', async () => {
+    const control = fakeControl({ starts: [confirmation(), () => Promise.resolve({ startId: 'web-1' })] });
+    control.alive.add('r1');
+    // the run takes its time to end: it is still alive when Home is left
+    control.stop = (runId) => {
+      control.stopped.push(runId);
+      return { state: 'stopping' };
+    };
+    const { stdout, stdin, done } = start(control);
+    await startRun(stdout, stdin);
+    stdin.type('q');
+    await until(() => seen(stdout, 'cancel the run'));
+    stdin.type('c');
+    await until(() => seen(stdout, 'earlier'));
+    stdin.type('q');
+    await expect(done).resolves.toEqual({ quit: 'close', code: 0 });
+    expect(control.stopped).toEqual(['r1']);
   });
 });
 

@@ -103,20 +103,30 @@ export function homeRunControl(control: UiRunControl, environment: Environment):
       ...(detail === undefined ? {} : { detail: clear(detail) }),
     });
   };
+  // Every call the screen makes is guarded the same way: what it returns is cleared of credentials, and what it throws
+  // is made again with its message and detail cleared, so nothing a control says can reach the screen as it was.
+  const guarded = async <T>(call: () => Promise<T>): Promise<T> => {
+    try {
+      return clear(await call());
+    } catch (error) {
+      throw remake(error);
+    }
+  };
+  const guardedNow = <T>(call: () => T): T => {
+    try {
+      return clear(call());
+    } catch (error) {
+      throw remake(error);
+    }
+  };
   return {
-    list: async () => clear(await control.list()),
-    start: async (request) => {
-      try {
-        return await control.start(request);
-      } catch (error) {
-        throw remake(error);
-      }
-    },
-    startStatus: (startId) => clear(control.startStatus(startId)),
-    stop: (runId) => control.stop(runId),
-    isAlive: (runId) => control.isAlive(runId),
-    stopAll: () => control.stopAll(),
-    detach: () => control.detach?.(),
+    list: () => guarded(() => control.list()),
+    start: (request) => guarded(() => control.start(request)),
+    startStatus: (startId) => guardedNow(() => control.startStatus(startId)),
+    stop: (runId) => guardedNow(() => control.stop(runId)),
+    isAlive: (runId) => guardedNow(() => control.isAlive(runId)),
+    stopAll: () => guarded(() => control.stopAll()),
+    detach: () => guardedNow(() => control.detach?.()),
   };
 }
 

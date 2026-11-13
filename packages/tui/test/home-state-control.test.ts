@@ -154,4 +154,61 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
       notice: 'The runs could not be stopped: EPERM',
     });
   });
+
+  it('ignores every key while the runs are being stopped for a quit, so a late d cannot turn it into a detach', () => {
+    const attached = { ...control, attached: true };
+    const quitting = send(send(loaded(), key('q'), attached), key('c'), attached);
+    expect(quitting).toMatchObject({ quit: 'cancel', confirmQuit: true });
+    for (const event of [
+      key('d'),
+      key('n'),
+      key('c'),
+      key('q'),
+      named('escape'),
+      named('enter'),
+      named('ctrl-c'),
+      key('s'),
+    ]) {
+      expect(send(quitting, event, attached)).toBe(quitting);
+    }
+    // the same for a detach already chosen
+    const detaching = send(send(loaded(), key('q'), attached), key('d'), attached);
+    expect(send(detaching, key('c'), attached)).toBe(detaching);
+    // and a failed stop gives the keys back
+    const back = send(quitting, { quitFailed: 'x' }, attached);
+    expect(send(back, key('j'), attached)).not.toBe(back);
+  });
+
+  it('remembers that a start ended without knowing whether a run exists, so leaving can ask about it', () => {
+    let state = send(withPicker(), named('enter'));
+    state = send(state, { flow: { started: { startId: 'web-1' } } });
+    expect(state.unsure).toBe(false);
+    state = send(state, { flow: { status: undefined } });
+    expect(state).toMatchObject({ flow: { kind: 'failed' }, unsure: true });
+    // it stays remembered after the dialog is closed
+    expect(send(state, key('x')).unsure).toBe(true);
+    // a start that failed in a way the control reported is not unsure
+    let known = send(withPicker(), named('enter'));
+    known = send(known, { flow: { started: { startId: 'web-2' } } });
+    known = send(known, { flow: { status: { state: 'failed', failure: 'no' } } });
+    expect(known.unsure).toBe(false);
+  });
+
+  it('is unsure after a start that did not appear in time, and after a poll that threw', () => {
+    let state = send(withPicker(), named('enter'));
+    state = send(state, { flow: { started: { startId: 'web-1' } } });
+    for (let i = 0; i < 120; i += 1) {
+      state = send(state, { flow: { status: { state: 'starting' } } });
+    }
+    expect(state.unsure).toBe(true);
+    let thrown = send(withPicker(), named('enter'));
+    thrown = send(thrown, { flow: { started: { startId: 'web-3' } } });
+    expect(send(thrown, { flow: { threw: 'EBUSY' } }).unsure).toBe(true);
+  });
+
+  it('records a run asked to stop once, so quitting does not ask about it again', () => {
+    const state = send(loaded(), { stopRequested: 'r1' });
+    expect(state.stopping).toEqual(['r1']);
+    expect(send(state, { stopRequested: 'r1' })).toBe(state);
+  });
 });

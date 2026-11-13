@@ -1,4 +1,4 @@
-import { chmod, mkdir, readdir, readFile, symlink, writeFile } from 'node:fs/promises';
+import { chmod, mkdir, readdir, readFile, symlink, utimes, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createLogger, type LogRecord, Span, SpanStarted, WorkflowValidationError } from '@indaba/core';
 import { parseWorkflow, RunEventWriter } from '@indaba/engine';
@@ -883,6 +883,63 @@ describe('the steps at full access (specs/agent-permissions AC-05)', () => {
     const { workflow, hash } = await confirmAndStart(control);
     await control.start({ workflowId: workflow.id, fullAccessConfirmedHash: hash });
     expect(runs.every((run) => !run.args.some((arg) => arg.startsWith('--allow-full-access')))).toBe(true);
+  });
+});
+
+describe('the sweep of run copies, at its edges (specs/tui-run-control)', () => {
+  const OLD_ENOUGH = 60_000;
+
+  /** A fixed modification time, in whole seconds, so the age at a given clock is exact and no real clock is read. */
+  const WRITTEN_MS = 1_700_000_000_000;
+
+  /** Sweeps a copy written at WRITTEN_MS with a clock that reads `ageMs` after it. */
+  async function sweptWith(files: Record<string, string>, ageMs: number) {
+    const root = await project({ 'demo.workflow.ai.yml': WORKFLOW, ...files });
+    const folder = join(root, RUN_INPUTS);
+    const written = new Date(WRITTEN_MS);
+    for (const name of await readdir(folder)) {
+      await utimes(join(folder, name), written, written);
+    }
+    const { control } = await controlFor([root], fakeStarter().starter, {
+      now: () => WRITTEN_MS + ageMs,
+      maxInputAgeMs: OLD_ENOUGH,
+    });
+    await control.list();
+    await confirmAndStart(control);
+    return readdir(folder);
+  }
+
+  it('keeps a copy until it is exactly as old as the limit, and removes it then', async () => {
+    const files = { '.indaba/run-inputs/web-edge.yml': WORKFLOW };
+    expect(await sweptWith(files, OLD_ENOUGH - 1)).toContain('web-edge.yml');
+    expect(await sweptWith(files, OLD_ENOUGH)).not.toContain('web-edge.yml');
+    expect(await sweptWith(files, OLD_ENOUGH + 1)).not.toContain('web-edge.yml');
+  });
+
+  it('removes a copy whose age cannot be read, as it removes one that is old', async () => {
+    const root = await project({ 'demo.workflow.ai.yml': WORKFLOW });
+    const folder = join(root, RUN_INPUTS);
+    await mkdir(folder, { recursive: true });
+    // a link to nothing: it is listed, but it cannot be examined
+    await symlink(join(root, 'nowhere'), join(folder, 'web-dangling.yml'));
+    const { control } = await controlFor([root], fakeStarter().starter);
+    await confirmAndStart(control);
+    expect(await readdir(folder)).not.toContain('web-dangling.yml');
+  });
+
+  it('keeps the copy of a run that was detached, for a new control that starts a moment later', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const first = (await controlFor([root], starter)).control;
+    const { started } = await confirmAndStart(first);
+    first.detach?.();
+    expect(runs[0]?.calls).toEqual(['release']);
+    const copy = `${started.startId}.yml`;
+    expect(await readdir(join(root, RUN_INPUTS))).toContain(copy);
+    // a second process starts its own control: the young copy is not its to remove
+    const second = (await controlFor([root], fakeStarter().starter)).control;
+    await confirmAndStart(second);
+    expect(await readdir(join(root, RUN_INPUTS))).toContain(copy);
   });
 });
 

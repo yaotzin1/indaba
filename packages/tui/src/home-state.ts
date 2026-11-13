@@ -35,11 +35,17 @@ export interface HomeState {
   readonly owned: readonly string[];
   /** One line of news (a run stopped, a refusal); it goes with the next key. */
   readonly notice: string | undefined;
+  /** Runs of `owned` that were asked to stop and may not have ended yet: leaving does not ask about them again. */
+  readonly stopping: readonly string[];
+  /** A start ended with no way to tell whether a run exists, so leaving must ask as it does for a run it knows. */
+  readonly unsure: boolean;
 }
 
 export type HomeEvent =
   | { readonly press: KeyName }
   | { readonly flow: FlowEvent }
+  /** A run started here was asked to stop (from its dashboard). */
+  | { readonly stopRequested: string }
   /** Stopping the runs for a quit failed: stay, and say so. */
   | { readonly quitFailed: string }
   | { readonly runs: readonly RunSummary[]; readonly generation: number }
@@ -74,6 +80,8 @@ export function initialHome(): HomeState {
     flow: undefined,
     owned: [],
     notice: undefined,
+    stopping: [],
+    unsure: false,
   };
 }
 
@@ -95,7 +103,7 @@ function move(state: HomeState, to: number): HomeState {
 
 /** What a step of the flow does to Home: the dialog moves on or closes, a run it started is owned and opened. */
 function applyStep(state: HomeState, step: FlowStep, context: HomeContext): HomeState {
-  let next: HomeState = { ...state, flow: step.state };
+  let next: HomeState = { ...state, flow: step.state, unsure: state.unsure || step.unsure === true };
   if (step.notice !== undefined) {
     next = refetch({ ...next, notice: step.notice });
   }
@@ -183,12 +191,17 @@ function pressed(state: HomeState, press: KeyName, context: HomeContext): HomeSt
 
 export function reduceHome(state: HomeState, event: HomeEvent, context: HomeContext): HomeState {
   if ('press' in event) {
-    // while a run is open its dashboard has the keyboard
-    if (state.open !== undefined) {
+    // while a run is open its dashboard has the keyboard; while the runs are being stopped for a quit, nobody does
+    if (state.open !== undefined || state.quit !== 'none') {
       return state;
     }
     const heard = state.notice === undefined ? state : { ...state, notice: undefined };
     return pressed(heard, event.press, context);
+  }
+  if ('stopRequested' in event) {
+    return state.stopping.includes(event.stopRequested)
+      ? state
+      : { ...state, stopping: [...state.stopping, event.stopRequested] };
   }
   if ('quitFailed' in event) {
     return { ...state, quit: 'none', confirmQuit: false, notice: event.quitFailed };
