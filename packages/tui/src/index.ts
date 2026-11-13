@@ -34,7 +34,15 @@ export {
   selectedIndex,
   visibleEntries,
 } from './board-state.js';
+export type { HomeOptions, HomeResult, HomeRunSource } from './home.js';
+export { run } from './home.js';
+export type { HomeScreenOptions } from './home-screen.js';
+export { buildHomeScreen, costText } from './home-screen.js';
+export type { HomeContext, HomeEvent, HomeState } from './home-state.js';
+export { initialHome, reduceHome } from './home-state.js';
 export type { AppResult } from './ink/app.js';
+export type { KeyDef } from './keymap.js';
+export { KEYS, shippedKeys } from './keymap.js';
 export type { Layout } from './layout.js';
 export { clip, computeLayout, DOCK_COLUMNS, fit, MIN_COLUMNS, MIN_ROWS, SPLIT_COLUMNS } from './layout.js';
 export { MAX_REPLAY_WAIT_MS, replay } from './replay.js';

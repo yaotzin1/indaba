@@ -117,7 +117,7 @@ gantt
     path-ownership         :active, 2026-10-27, 1d
     step-fanout            :active, 2026-10-27, 1d
     tui-epic the full terminal application :active, 2026-11-06, 1d
-    tui-home (TUI-1)       :active, 2026-11-06, 1d
+    tui-home (TUI-1)       :done, 2026-11-13, 1d
     tui-run-control (TUI-2) :active, 2026-11-06, 1d
     tui-agent-panes (TUI-3) :active, 2026-11-06, 1d
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
@@ -220,7 +220,7 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `agent-reasoning` | Implemented (builds on `observability`, `runner-adapters` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `tui-default` | Implemented (a packaging change; no symbol added) | `indaba` (`@indaba/tui` becomes a dependency) |
 | `tui-epic` | Epic. Draft (specified; no code) | orders `TUI-1` to `TUI-6`; `@indaba/tui`, `indaba` |
-| `tui-home` | Feature `TUI-1`, epic release 1. Not started (specified; draft) | `@indaba/tui`, `indaba` |
+| `tui-home` | Feature `TUI-1`, epic release 1. Implemented on `feat/tui-home` (bare `indaba` on a terminal opens Home; the key map, the run list and opening a run in the dashboard; `INDABA_NO_TUI`, `INDABA_ASCII`; the parity check of `check-workflow`); settings stays a command and starting a run is `tui-run-control` | `@indaba/tui`, `indaba` |
 | `tui-run-control` | Feature `TUI-2`, epic release 1. Not started (specified; draft; builds on `web-app-actions`, `workflow-registry`, `workflow-inputs`) | `@indaba/tui`, `indaba` |
 | `tui-agent-panes` | Feature `TUI-3`; slice 3a is epic release 1, slice 3b waits for `parallel-steps` and `agent-conversation`. Not started (specified; draft) | `@indaba/tui` |
 | `tui-questions` | Feature `TUI-4`. Not started (specified; draft; blocked; waits for `agent-conversation`, `question-contract`, `review-gate`, `ruling-channel`) | `@indaba/tui`, `indaba` |

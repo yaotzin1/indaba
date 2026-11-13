@@ -1,4 +1,5 @@
 import type { Logger, LoggingSettings, SinkSettings } from '@indaba/core';
+import type { BoardFileRecord, RunRecord, RunSummary } from '@indaba/engine';
 
 /** What the command line needs of `@indaba/tui`. The package is optional, so its types are not imported. */
 export interface TuiWatchOptions {
@@ -35,10 +36,33 @@ export interface TuiSettingsOptions {
   readonly logger?: Logger;
 }
 
+/** What bare `indaba` needs of Home in `@indaba/tui` (specs/tui-home). */
+export interface TuiHomeOptions {
+  readonly listRuns: () => Promise<readonly RunSummary[]>;
+  readonly openRun?: (
+    runId: string,
+    signal: AbortSignal,
+  ) => { readonly source: AsyncIterable<RunRecord>; readonly board?: AsyncIterable<BoardFileRecord> };
+  readonly attached?: boolean;
+  readonly ascii: boolean;
+  readonly color: boolean;
+  readonly stdout: NodeJS.WritableStream;
+  readonly stdin: NodeJS.ReadableStream;
+  readonly signal?: AbortSignal;
+  readonly logger?: Logger;
+}
+
+export interface TuiHomeResult {
+  readonly quit: 'close' | 'detach' | 'cancel';
+  readonly code: number;
+}
+
 export interface TuiModule {
   watch(options: TuiWatchOptions): Promise<TuiWatchResult>;
   /** The Settings screen of logging; absent in a version of @indaba/tui older than it. */
   editLoggingSettings?(options: TuiSettingsOptions): Promise<{ readonly saved: boolean }>;
+  /** Home, the application of bare `indaba`; absent in a version of @indaba/tui older than it. */
+  run?(options: TuiHomeOptions): Promise<TuiHomeResult>;
 }
 
 export type TuiLoad = { readonly tui: TuiModule } | { readonly missing: string };

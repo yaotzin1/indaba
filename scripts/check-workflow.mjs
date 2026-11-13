@@ -315,6 +315,31 @@ export function checkSpecDirectory(name, files, specText, specKit) {
     return errors;
 }
 
+/**
+ * Rule R-01 of the TUI epic (specs/tui-epic): a feature of it has a "Parity" section holding a table, with a row for
+ * each capability and no empty cell. A cell that says "not yet" names a date or a spec; this checks that it is not empty.
+ * Specs that are not features of the epic (they do not say so in their header) are not held to it.
+ */
+export function checkParity(name, specText) {
+    if (!specText || !/feature of \[`tui-epic`\]/.test(specText)) return [];
+    const lines = specText.replace(/\r\n/g, '\n').split('\n');
+    const start = lines.findIndex((line) => /^##\s+(?:\d+\.\s+)?Parity\s*$/.test(line.trim()));
+    if (start === -1) return [`specs/${name} is a feature of tui-epic and has no "Parity" section (rule R-01)`];
+    const table = [];
+    for (const line of lines.slice(start + 1)) {
+        if (/^#{1,2}\s/.test(line)) break;
+        if (line.trim().startsWith('|')) table.push(line.trim());
+    }
+    const body = table.slice(2);
+    if (body.length === 0) return [`specs/${name} has a "Parity" section with no table rows (rule R-01)`];
+    const errors = [];
+    for (const row of body) {
+        const cells = row.replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+        if (cells.some((cell) => cell === '')) errors.push(`specs/${name} has an empty cell in its "Parity" table: ${row} (rule R-01)`);
+    }
+    return errors;
+}
+
 /** Stages, tracks, registry and rules against each other and the file system. */
 export function checkStructure(workflow, { fileExists = exists, skillDirectories = [] } = {}) {
     const errors = [];
@@ -516,6 +541,7 @@ export function runChecks({ remote = false } = {}) {
         const files = fs.readdirSync(directory);
         const specText = files.includes('spec.md') ? fs.readFileSync(path.join(directory, 'spec.md'), 'utf8') : null;
         errors.push(...checkSpecDirectory(entry.name, files, specText, specKit));
+        errors.push(...checkParity(entry.name, specText));
     }
 
     if (remote) errors.push(...checkRemote(workflow.ci));
