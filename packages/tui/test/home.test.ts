@@ -160,6 +160,37 @@ describe('Home on a terminal', () => {
     await done;
   });
 
+  it('does not draw again when a list arrives while a run is open (AC-12)', async () => {
+    const answers: Array<(value: RunSummary[]) => void> = [];
+    const listRuns = vi.fn(
+      () =>
+        new Promise<RunSummary[]>((resolve) => {
+          answers.push(resolve);
+        }),
+    );
+    const openRun = () => ({ source: endless(sampleRecords()) });
+    const { stdout, stdin, done } = start({ listRuns, openRun });
+    await until(() => answers.length === 1);
+    answers[0]?.(runs(2));
+    await until(() => stdout.text.includes('wf-0'));
+    stdin.type('r');
+    await until(() => answers.length === 2);
+    stdin.type(String.fromCharCode(13));
+    await until(() => stdout.text.includes('line two'));
+    await sleep(40);
+    const frames = stdout.frames.length;
+    answers[1]?.([makeRun({ runId: 'late', workflow: 'latecomer' })]);
+    await sleep(60);
+    expect(stdout.frames.length).toBe(frames);
+    expect(stdout.text).not.toContain('latecomer');
+    stdin.type('q');
+    await until(() => listRuns.mock.calls.length === 3);
+    answers[2]?.(runs(1));
+    await until(() => stdout.frames.slice(-3).join('').includes('runs (1)'));
+    stdin.type('q');
+    await done;
+  });
+
   it('survives a run that cannot be opened: back to the list, logged', async () => {
     const { logger, records } = recordingLogger();
     const { stdout, stdin, done } = start({
@@ -171,6 +202,9 @@ describe('Home on a terminal', () => {
     await until(() => stdout.text.includes('wf-0'));
     stdin.type('\r');
     await until(() => records.some((r) => r.message === 'a run could not be opened'));
+    // the list is still there, and no text of the failure was logged
+    await until(() => stdout.frames.slice(-3).join('').includes('wf-0'));
+    expect(JSON.stringify(records)).not.toContain('no such trace');
     stdin.type('q');
     await expect(done).resolves.toMatchObject({ quit: 'close' });
   });

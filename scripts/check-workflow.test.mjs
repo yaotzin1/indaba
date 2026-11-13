@@ -243,6 +243,11 @@ test('checkParity fails a feature of the TUI epic without a Parity section, with
     assert.match(checkParity('tui-x', epicFeature(empty)).join(), /empty cell/);
 });
 
+test('checkParity fails a row that is narrower or wider than the header', () => {
+    const narrow = goodParity.replace('| Home | header | this feature | `indaba --help` |', '| Home | header |');
+    assert.match(checkParity('tui-x', epicFeature(narrow)).join(), /different width/);
+});
+
 test('checkParity does not read a table past the next heading', () => {
     const other = '## 7. Parity\n\n| A | B |\n| :--- | :--- |\n| x | y |\n\n## 8. Other\n\n| a | |\n';
     assert.deepEqual(checkParity('tui-x', epicFeature(other)), []);

@@ -76,7 +76,16 @@ export async function runHome(
   const boards = new BoardReader(directory);
   try {
     const result = await gate.tui.run({
-      listRuns: () => traces.listRuns(),
+      // an error from reading the traces is drawn on the screen, so the credentials in it are replaced first
+      listRuns: async () => {
+        try {
+          return await traces.listRuns();
+        } catch (error) {
+          throw new Error(
+            redact(error instanceof Error ? error.message : String(error), settings.environment),
+          );
+        }
+      },
       openRun: (runId, signal) => ({
         source: traces.follow(runId, signal),
         board: boards.follow(runId, signal),
@@ -92,6 +101,7 @@ export async function runHome(
   } catch (error) {
     // The screen failing leaves no run behind (Home starts none): say why, redacted, and fail.
     const reason = redact(error instanceof Error ? error.message : String(error), settings.environment);
+    logger.info('tui.home', 'the home screen failed', { reason });
     io.stderr.write(`The home screen failed (${reason}). indaba watch --plain lists the runs as text.\n`);
     return 1;
   }

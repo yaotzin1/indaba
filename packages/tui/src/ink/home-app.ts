@@ -93,10 +93,9 @@ export function HomeApp(props: HomeAppProps): ReactElement {
     const controller = new AbortController();
     try {
       setOpened({ runId, feed: props.openRun(runId, controller.signal) });
-    } catch (error) {
-      props.logger?.info('tui.home', 'a run could not be opened', {
-        reason: error instanceof Error ? error.message : String(error),
-      });
+    } catch {
+      // no text of the failure: it may carry a path or a credential, and the screen does not need it
+      props.logger?.info('tui.home', 'a run could not be opened');
       dispatch({ event: { left: true }, context });
     }
     return () => {

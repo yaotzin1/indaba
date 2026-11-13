@@ -1,9 +1,9 @@
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { PassThrough } from 'node:stream';
-import { serializeRecord } from '@indaba/engine';
+import { createLogger, type LogRecord, serializeRecord, TraceReader } from '@indaba/engine';
 import { describe, expect, it, vi } from 'vitest';
-import { homeGate } from '../src/home.js';
+import { homeGate, runHome } from '../src/home.js';
 import { type Io, main } from '../src/index.js';
 import { loadTui, type TuiHomeOptions, type TuiLoad, type TuiModule } from '../src/tui-loader.js';
 import { captureIo, makeTempDir } from './support.js';
@@ -220,6 +220,54 @@ describe('bare indaba: the gate of Home (specs/tui-home)', () => {
     expect(r.err).toContain('The home screen failed (boom with');
     expect(r.err).not.toContain(secret);
     expect(r.err.trim().split('\n')).toHaveLength(1);
+  });
+
+  it('logs the failure with the credential replaced, as the failure table says', async () => {
+    const secret = ['sk', 'live', '0123456789', 'abcdefghij'].join('-');
+    const environment = { OPENROUTER_API_KEY: secret };
+    const records: LogRecord[] = [];
+    const logger = createLogger({
+      sinks: [{ write: (r) => void records.push(r) }],
+      clock: () => new Date(0),
+    });
+    const captured = captureIo(await makeTempDir(), environment);
+    const tui: TuiModule & { run: (options: TuiHomeOptions) => Promise<never> } = {
+      watch: async () => ({ quit: 'close', code: 0 }),
+      run: async () => {
+        throw new Error(`boom with ${secret}`);
+      },
+    };
+    const code = await runHome(
+      { ...captured.io, terminal: rawTerminal() },
+      { kind: 'open', tui, terminal: rawTerminal() },
+      logger,
+      { ascii: false, color: true, environment },
+    );
+    expect(code).toBe(1);
+    const logged = JSON.stringify(records);
+    expect(logged).toContain('the home screen failed');
+    expect(logged).toContain('boom with');
+    expect(logged).not.toContain(secret);
+  });
+
+  it('replaces a credential in an error from reading the runs before the screen can draw it', async () => {
+    const secret = ['sk', 'live', '0123456789', 'abcdefghij'].join('-');
+    const spy = vi
+      .spyOn(TraceReader.prototype, 'listRuns')
+      .mockRejectedValue(new Error(`cannot read with ${secret}`));
+    try {
+      const r = await bare(homeTui(), { env: { OPENROUTER_API_KEY: secret } });
+      const options = r.calls[0];
+      expect(options).toBeDefined();
+      const failure = await options?.listRuns().then(
+        () => undefined,
+        (error: unknown) => (error instanceof Error ? error.message : String(error)),
+      );
+      expect(failure).toContain('cannot read with');
+      expect(failure).not.toContain(secret);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it('is not asked for by the commands that have their own behaviour', async () => {

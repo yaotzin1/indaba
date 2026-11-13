@@ -127,7 +127,9 @@ export function reduceHome(state: HomeState, event: HomeEvent, context: HomeCont
   if ('left' in event) {
     return state.open === undefined ? state : refetch({ ...state, open: undefined });
   }
-  if (event.generation !== state.generation) {
+  // A list that belongs to an older fetch, or that arrives while a run is open, changes nothing: coming back from the
+  // run fetches again (specs/tui-home, AC-12).
+  if (event.generation !== state.generation || state.open !== undefined) {
     return state;
   }
   if ('runs' in event) {

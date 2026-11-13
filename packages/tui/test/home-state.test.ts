@@ -111,11 +111,23 @@ describe('Home state', () => {
   it('opens the selected run with Enter, and only when a way to open was supplied', () => {
     const s = send(loaded(3), key('j'));
     expect(send(s, named('enter')).open).toBe('a1');
-    expect(send(s, named('enter'), { ...ctx, canOpen: false }).open).toBeUndefined();
-    expect(send(loaded(0), named('enter')).open).toBeUndefined();
+    expect(send(s, named('enter'), { ...ctx, canOpen: false })).toBe(s);
+    const none = loaded(0);
+    expect(send(none, named('enter'))).toBe(none);
     const opened = send(s, named('enter'));
     // the opened run's dashboard has the keyboard
     expect(send(opened, key('q'))).toBe(opened);
+  });
+
+  it('ignores a list or a failure that arrives while a run is open, and fetches again on return (AC-12)', () => {
+    const fetching = send(loaded(3), key('r'));
+    const opened = send(fetching, named('enter'));
+    expect(opened.open).toBe('a0');
+    expect(send(opened, { runs: runs(1), generation: opened.generation })).toBe(opened);
+    expect(send(opened, { failed: 'late', generation: opened.generation })).toBe(opened);
+    const back = send(opened, { left: true });
+    expect(back).toMatchObject({ open: undefined, loading: true });
+    expect(back.generation).toBe(opened.generation + 1);
   });
 
   it('refetches when the person comes back from a run', () => {

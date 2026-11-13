@@ -75,7 +75,7 @@ function detailRows(run: RunSummary | undefined, width: number, ascii: boolean):
   const { mark, plain } = MARKS[run.status];
   return [
     row(clip(`${ascii ? plain : mark} ${run.status}`, width, ascii), TONES[run.status]),
-    row(clip(`run      ${run.runId}`, width, ascii)),
+    row(clip(`run      ${safe(run.runId, ascii)}`, width, ascii)),
     row(
       clip(`workflow ${run.workflow === undefined ? '(unnamed)' : safe(run.workflow, ascii)}`, width, ascii),
     ),

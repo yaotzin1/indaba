@@ -69,6 +69,16 @@ describe('Home screen', () => {
     expect(all).toContain('rev?');
   });
 
+  it('cleans the run id in the details too (a trace is untrusted)', () => {
+    const esc = String.fromCharCode(27);
+    const state = stateWith([makeRun({ runId: `ab${esc}[2Jc${String.fromCharCode(233)}` })]);
+    const wide = buildHomeScreen(state, computeLayout(100, 24), { ascii: true, canOpen: true });
+    const shown = texts(wide.detail);
+    expect(shown).not.toContain(esc);
+    expect(shown.split(String.fromCharCode(10)).every((line) => /^[ -~]*$/.test(line))).toBe(true);
+    expect(shown).toContain('run      ab');
+  });
+
   it('removes control sequences that came from a trace', () => {
     const esc = String.fromCharCode(27);
     const list = [makeRun({ workflow: `bad${esc}[31mname` })];

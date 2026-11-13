@@ -330,11 +330,13 @@ export function checkParity(name, specText) {
         if (/^#{1,2}\s/.test(line)) break;
         if (line.trim().startsWith('|')) table.push(line.trim());
     }
+    const width = (row) => row.replace(/^\|/, '').replace(/\|$/, '').split('|').length;
     const body = table.slice(2);
     if (body.length === 0) return [`specs/${name} has a "Parity" section with no table rows (rule R-01)`];
     const errors = [];
     for (const row of body) {
         const cells = row.replace(/^\|/, '').replace(/\|$/, '').split('|').map((cell) => cell.trim());
+        if (width(row) !== width(table[0])) errors.push(`specs/${name} has a row of a different width than its "Parity" header: ${row} (rule R-01)`);
         if (cells.some((cell) => cell === '')) errors.push(`specs/${name} has an empty cell in its "Parity" table: ${row} (rule R-01)`);
     }
     return errors;
