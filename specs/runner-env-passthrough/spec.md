@@ -1,6 +1,6 @@
 # Specification: Passing environment variables to built-in runners (`passEnv` from the command line)
 
-> **Status**: Draft (stage 1 written; stage 2 open: section 8 holds the questions this spec asks the maintainer to settle)
+> **Status**: Draft (stages 1 and 2 written; section 8 records what an Indaba debate settled on 2026-11-13, awaiting the maintainer's confirmation; Q6 is still open)
 > **Stage entry**: 1
 > **Semver impact**: minor (provisional: a new, optional way to configure the CLI; nothing existing changes). Confirmed in `api-surface.md` once section 8 is settled.
 > **Builds on**: [`specs/host-process-containment`](../host-process-containment/spec.md) (the allowlist this opens a door in), [`specs/transport-priority`](../transport-priority/spec.md) (`INDABA_ACP_PASS_ENV`, the one precedent), [`specs/logging`](../logging/spec.md) (`indaba.config`).
@@ -38,23 +38,29 @@ can do neither.
 
 ## 3. Acceptance criteria
 
-The shape of the setting is open (section 8, Q1 to Q3); these criteria hold for every answer.
+Written after the debate of section 8. Criteria marked (debate) were added or corrected by it.
 
 - [ ] AC-01. A person can name variables (exact names, or a prefix ending in `*`, the same grammar as `INDABA_ACP_PASS_ENV`) that the
   built-in process runners pass on to their children, without writing code.
 - [ ] AC-02. The setting can be scoped to one runner, so a variable meant for `claude-code` is not seen by `shell` or `codex` (US-02).
-- [ ] AC-03. Nothing in a workflow file, an artifact, a model's output or a step's `env` can add to what is passed (US-03). The setting is read
-  only from the process environment, a command-line option or the project configuration file, which the person controls.
+- [ ] AC-03. (debate) Nothing in a workflow file, an artifact, a model's output, a step's `env` or the project's `indaba.config` can grant a name (US-03).
+  The setting is read only from the process environment and the user-level file of Q1, which the person controls. A test shows that a step's `env`
+  and a project file each leave the allowlist unchanged.
 - [ ] AC-04. Only names are ever stored or shown. A value is read from the environment at the moment the runner starts a process; it is
   never written to `indaba.config`, a trace, an event, a log, an error or the output of `indaba plan` / `indaba catalog`.
-- [ ] AC-05. A name that is not a plausible variable name (letters, digits, underscore; a `*` only at the end), or an entry that is a bare `*`, is a usage
-  error that names the entry, not silently ignored. A bare `*` is refused because it would undo the allowlist.
-- [ ] AC-06. `indaba plan` (or `validate`) says, per runner, which names will be passed on, so a person can check without running.
-  A name that matches nothing in the current environment is reported as such, not as an error.
+- [ ] AC-05. (debate) A name that is not a plausible variable name (letters, digits, underscore; a `*` only at the end), an entry that is a bare `*` and a
+  prefix of fewer than 3 characters are usage errors. The message names the entry and says how to fix it (tested on the text, not only on the exit code).
+- [ ] AC-06. (debate) `indaba plan` prints, per runner, one line per entry in an exact format (fixed in `api-surface.md`): the runner, the entry, the names it matches
+  in the current environment (names only) or `not set`, and a `warning` mark on a matched name that contains `SECRET`, `TOKEN` or `KEY`. The warning never blocks.
+  A test covers the matched, the not-set and the warning lines, and that no value appears.
 - [ ] AC-07. Without the setting, nothing changes: the allowlist of `specs/host-process-containment` is exactly what it was.
 - [ ] AC-08. `INDABA_ACP_PASS_ENV` keeps working unchanged (or is folded into the new setting with the same effect).
 - [ ] AC-09. Every process runner honours it the same way, built-in or registered by a plugin through the public contract: a plugin
-  runner that builds its environment with `buildRunnerEnvironment` gets the same names.
+  runner that builds its environment with `buildRunnerEnvironment` gets the same names. (debate) When two sources name the same variable the result is
+  the union, and a test shows it.
+- [ ] AC-10. (debate) A project's `indaba.config` may list names it *requests*. They are not granted: `plan` prints each as requested, not granted, with the name,
+  the runner and the plain instruction to grant it (what the name is for, which runner would get it, the exact step), and the same text appears at the start of a run
+  that has one, so a person who skips `plan` still sees it. The text says to grant only what the person recognises; there is no one-click grant. Both texts are tested.
 
 ## 4. Non-goals
 
@@ -95,23 +101,27 @@ The shape of the setting is open (section 8, Q1 to Q3); these criteria hold for 
 | reading the environment, the flag and `indaba.config`; `plan` output | `indaba` (the composition root), `@indaba/engine` (the config section) | infrastructure |
 | docs | `docs/` | |
 
-## 8. Clarifications: the questions to settle
+## 8. Clarifications
 
-Each has a recommendation; the discussion should confirm or overturn it, and say why.
+Settled by an Indaba debate on 2026-11-13: two `claude-code` agents, one arguing for the narrowest boundary (security) and one for a person who cannot write code
+(usability), reached consensus after two rounds. The maintainer confirms or overturns each decision; the transcript is in the run's board (trace
+`41faf97c05317c5949a4b97f6cc4aeae`). The original recommendations are kept where the debate changed them.
 
-- **Q1. Where is it set?** (a) an environment variable; (b) a section of `indaba.config`; (c) a `--pass-env` option on `run`; (d) all three.
-  *Recommendation:* (a) and (b), no flag. A flag is noise on every command line and lands in shell history; the environment variable
-  is the existing precedent (`INDABA_ACP_PASS_ENV`), and the config file is where a team records it once.
-- **Q2. What is the scope?** (a) one global list for every runner; (b) a list per runner; (c) global for the agent CLIs and a separate one for `shell`.
-  *Recommendation:* (b), with a short grammar: `INDABA_PASS_ENV_<RUNNER>` (`claude-code` as `CLAUDE_CODE`) and a `runners.<name>.pass_env` list in `indaba.config`.
-  A single global list gives the agent every variable the test command needs and the reverse (US-02).
-- **Q3. How is a hostile `indaba.config` answered?** (a) the config file may not widen the allowlist at all (environment variable only);
-  (b) it may, and `plan` prints what it passes; (c) it may, but Indaba asks for confirmation the first time a project's list changes
-  (a recorded hash, like trust on first use).
-  *Recommendation:* (c) if the audience is people who clone projects; otherwise (a). This is the question the maintainer must answer.
-- **Q4. Does `INDABA_ACP_PASS_ENV` stay?** *Recommendation:* yes, as an alias for `INDABA_PASS_ENV_ACP`, documented as such.
-- **Q5. Prefix patterns.** Is `AWS_*` allowed, given that it also passes `AWS_SECRET_ACCESS_KEY`? *Recommendation:* allowed, because Bedrock needs exactly that, with the
-  listing of AC-06 as the safeguard; a bare `*` refused (AC-05).
+- **Q1. Where is it set?** *Decided:* an environment variable and a **user-level** configuration file, no command-line flag, and **no** project `indaba.config`.
+  The original recommendation (the environment variable and `indaba.config`) is overturned: a project file belongs to whoever wrote the repository, so it is the attacker's
+  file in a clone. A non-developer needs a setting that stays set, so the user-level file is required, not optional; a wizard or the TUI can write it once.
+- **Q2. What is the scope?** *Decided (as recommended):* a list per runner (`INDABA_PASS_ENV_<RUNNER>`, `claude-code` as `CLAUDE_CODE`, and a per-runner list in the user-level file).
+  A global list would give the agent what the test command needs and the reverse (US-02). A wizard or the TUI says "for Claude Code" and "for the test command", never the variable name.
+- **Q3. How is a hostile `indaba.config` answered?** *Decided:* (a), overturning the recommendation of (c): a project file can never widen the allowlist. A trust-on-first-use
+  prompt would be consent theatre for someone who cannot judge a list of names. Instead a project file may only *request* names, shown as "requested, not granted" (AC-10), and
+  trust-on-first-use can be added later if people ask. The accepted risk: someone who copies a grant command from a cloned project's README; hence the wording rule of AC-10.
+- **Q4. `INDABA_ACP_PASS_ENV`.** *Decided (as recommended):* stays, as an alias for `INDABA_PASS_ENV_ACP`, documented as such. Dropping it would be a breaking change.
+- **Q5. Prefix patterns.** *Decided (as recommended, with conditions):* `AWS_*` is allowed, because Bedrock needs it. `plan` lists what a prefix matches and marks `SECRET`, `TOKEN` and `KEY`
+  names with a warning that does not block; a bare `*` and a prefix under 3 characters are refused (AC-05).
+- **Q6. (open, raised by the debate's outcome) Where is the user-level file?** Not decided: the file's name and place (for example under the user's home, beside `indaba` state), its format
+  (the YAML of `indaba.config`), who writes it (hand, `indaba` subcommand, wizard) and what the TUI offers. This one needs the maintainer, and probably `specs/tui-home` and the wizard plans.
+
+Criteria the debate found wrong or untestable were corrected above (AC-03, AC-05, AC-06) or added (AC-10).
 
 ## Artifacts not written
 
