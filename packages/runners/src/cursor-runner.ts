@@ -17,6 +17,10 @@ export class CursorRunner extends AbstractCliRunner implements McpCapable {
     this.binary = options.binary ?? 'cursor-agent';
   }
 
+  protected override envPrefixes(): readonly string[] {
+    return ['CURSOR_', 'OPENAI_', 'ANTHROPIC_'];
+  }
+
   mcpCapability(): McpCapability {
     return McpCapability.AgentManaged;
   }

@@ -6,6 +6,7 @@ import type {
   Runner,
   RunRequest,
 } from '@indaba/core';
+import type { EnvironmentPolicy } from './env.js';
 import { NodeProcessSpawner, type ProcessSpawner } from './process.js';
 import { executeProcess, type ProcessRunResult, stripAnsi } from './process-runner.js';
 
@@ -32,6 +33,10 @@ export interface CliRunnerOptions {
   readonly usePty?: boolean;
   /** Replaces the real process layer. Unit tests inject a fake. */
   readonly spawner?: ProcessSpawner;
+  /** The environment the agent's own is taken from; only an allowlist of it is passed on. Defaults to this process's. */
+  readonly env?: Readonly<Record<string, string | undefined>>;
+  /** Extra variables to pass on: exact names, or a prefix ending in `*`. */
+  readonly passEnv?: readonly string[];
 }
 
 /**
@@ -44,10 +49,24 @@ export abstract class AbstractCliRunner implements Runner, PermissionCapable {
   abstract readonly name: string;
   protected readonly usePty: boolean;
   protected readonly spawner: ProcessSpawner;
+  private readonly hostEnv: Readonly<Record<string, string | undefined>>;
+  private readonly passEnv: readonly string[];
 
   protected constructor(options: CliRunnerOptions = {}) {
+    this.hostEnv = options.env ?? process.env;
+    this.passEnv = options.passEnv ?? [];
     this.usePty = options.usePty ?? true;
     this.spawner = options.spawner ?? new NodeProcessSpawner();
+  }
+
+  /** The prefixes of the provider credentials this CLI is meant to hold, besides the baseline. A subclass declares its own. */
+  protected envPrefixes(): readonly string[] {
+    return [];
+  }
+
+  /** The allowlist of the host environment this runner's child receives (specs/host-process-containment, AC-04). */
+  protected environmentPolicy(): EnvironmentPolicy {
+    return { source: this.hostEnv, prefixes: this.envPrefixes(), passEnv: this.passEnv };
   }
 
   protected abstract command(request: RunRequest): readonly string[];
@@ -89,6 +108,7 @@ export abstract class AbstractCliRunner implements Runner, PermissionCapable {
         usePty: this.usePty,
         clean: stripAnsi,
         signal,
+        environment: this.environmentPolicy(),
       });
     } finally {
       await prepared.cleanup();

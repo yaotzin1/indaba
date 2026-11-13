@@ -26,6 +26,7 @@ import {
   METHOD_NOT_FOUND,
 } from './acp-connection.js';
 import { AcpFileServer, decidePermission, parseOptions, selectOption } from './acp-policy.js';
+import { buildRunnerEnvironment, withConfinedTemp } from './env.js';
 import {
   NodeStreamingProcessSpawner,
   type ProcessSession,
@@ -92,49 +93,9 @@ export interface AcpRunnerOptions {
   readonly cancelGraceMs?: number;
 }
 
-const BASELINE_NAMES = new Set(
-  [
-    'PATH',
-    'HOME',
-    'USERPROFILE',
-    'HOMEDRIVE',
-    'HOMEPATH',
-    'APPDATA',
-    'LOCALAPPDATA',
-    'PROGRAMDATA',
-    'PROGRAMFILES',
-    'SYSTEMROOT',
-    'SYSTEMDRIVE',
-    'COMSPEC',
-    'PATHEXT',
-    'TEMP',
-    'TMP',
-    'TMPDIR',
-    'LANG',
-    'LANGUAGE',
-    'TERM',
-    'SHELL',
-    'USER',
-    'USERNAME',
-    'LOGNAME',
-    'TZ',
-    'HTTP_PROXY',
-    'HTTPS_PROXY',
-    'NO_PROXY',
-    'ALL_PROXY',
-    'SSL_CERT_FILE',
-    'SSL_CERT_DIR',
-    'NODE_EXTRA_CA_CERTS',
-  ].map((name) => name.toUpperCase()),
-);
-const BASELINE_PREFIXES = ['XDG_', 'LC_', 'NPM_CONFIG_'];
 const SECRET_NAME = /KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|AUTH/i;
 const MIN_SECRET_LENGTH = 8;
 const STDERR_IN_MESSAGE = 300;
-
-function startsWithAny(name: string, prefixes: readonly string[]): boolean {
-  return prefixes.some((prefix) => name.startsWith(prefix.toUpperCase()));
-}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -199,7 +160,16 @@ export class AcpRunner implements Runner, McpCapable, PermissionCapable {
     return McpCapability.Injected;
   }
 
-  async run(request: RunRequest, signal?: AbortSignal): Promise<RunResult> {
+  run(request: RunRequest, signal?: AbortSignal): Promise<RunResult> {
+    // The agent's TEMP, TMP and TMPDIR are a directory inside its working directory, removed when the call ends.
+    return withConfinedTemp(request.workdir, (tempDir) => this.runAgent(request, signal, tempDir));
+  }
+
+  private async runAgent(
+    request: RunRequest,
+    signal: AbortSignal | undefined,
+    tempDir: string,
+  ): Promise<RunResult> {
     const agent = this.resolveAgent(request.agent);
     const workdir = resolve(request.workdir);
     const permissions = request.permissions;
@@ -214,7 +184,7 @@ export class AcpRunner implements Runner, McpCapable, PermissionCapable {
       }
     }
 
-    const env = this.environmentFor(agent, request.env);
+    const env = this.environmentFor(agent, request.env, tempDir);
     const redact = redactor(env);
     const started = performance.now();
     const session: ProcessSession = await this.spawner.start(
@@ -525,24 +495,15 @@ export class AcpRunner implements Runner, McpCapable, PermissionCapable {
   private environmentFor(
     agent: AcpAgentPreset,
     extra: Readonly<Record<string, string>> | undefined,
+    tempDir: string,
   ): Record<string, string> {
-    const exact = new Set(this.passEnv.filter((p) => !p.endsWith('*')).map((p) => p.toUpperCase()));
-    const prefixes = [
-      ...BASELINE_PREFIXES,
-      ...(agent.envPrefixes ?? []),
-      ...this.passEnv.filter((p) => p.endsWith('*')).map((p) => p.slice(0, -1)),
-    ];
-    const env: Record<string, string> = {};
-    for (const [name, value] of Object.entries(this.env)) {
-      const upper = name.toUpperCase();
-      if (
-        value !== undefined &&
-        (BASELINE_NAMES.has(upper) || exact.has(upper) || startsWithAny(upper, prefixes))
-      ) {
-        env[name] = value;
-      }
-    }
-    return { ...env, ...(extra ?? {}) };
+    return buildRunnerEnvironment({
+      source: this.env,
+      prefixes: agent.envPrefixes ?? [],
+      passEnv: this.passEnv,
+      additions: extra ?? {},
+      tempDir,
+    });
   }
 }
 

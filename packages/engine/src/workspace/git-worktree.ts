@@ -24,6 +24,55 @@ export interface TeardownOptions {
 /** A full object id: 40 hexadecimal characters (SHA-1) or 64 (SHA-256), lower case. Nothing else reaches a git command. */
 const OBJECT_ID = /^(?:[0-9a-f]{40}|[0-9a-f]{64})$/;
 
+/** A branch or tag name as git writes it: no control character, space or glob character, no `..`, never a leading dash. */
+const REF_PREFIX = /^refs\/(?:heads|tags)\/(?!-)/;
+const REF_FORBIDDEN = ' ~^:?*[\\';
+
+function isRefName(name: string): boolean {
+  if (!REF_PREFIX.test(name) || name.includes('..')) {
+    return false;
+  }
+  for (const char of name) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code <= 0x20 || code === 0x7f || REF_FORBIDDEN.includes(char)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** `<oid> <refname>` lines, sorted, so a checkpoint is a plain string that can be recorded and compared. */
+function serialiseRefs(refs: ReadonlyMap<string, string>): string {
+  return [...refs]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([name, oid]) => `${oid} ${name}`)
+    .join('\n');
+}
+
+/** One `<oid> <refname>` line, or undefined when it is not an object id and a plain branch or tag name. */
+function parseRefLine(line: string): [name: string, oid: string] | undefined {
+  const [oid, name, ...rest] = line.trim().split(' ');
+  return oid !== undefined &&
+    name !== undefined &&
+    rest.length === 0 &&
+    OBJECT_ID.test(oid) &&
+    isRefName(name)
+    ? [name, oid]
+    : undefined;
+}
+
+/** The inverse of `serialiseRefs`; a line that is not valid is dropped, never run. */
+function parseRefs(text: string): Map<string, string> {
+  const refs = new Map<string, string>();
+  for (const line of text.split('\n')) {
+    const entry = parseRefLine(line);
+    if (entry !== undefined) {
+      refs.set(entry[0], entry[1]);
+    }
+  }
+  return refs;
+}
+
 const defaultSleep = (ms: number): Promise<void> => new Promise((done) => setTimeout(done, ms));
 
 const SAFE_NAME = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
@@ -82,7 +131,62 @@ export class GitWorktree implements RestorableWorkspace, ForkableWorkspace {
     const head = (await this.git.run(['rev-parse', '--verify', 'HEAD'], this.worktreePath)).trim();
     await this.stageAll();
     const tree = (await this.git.run(['write-tree'], this.worktreePath)).trim();
-    return { head, tree };
+    return { head, tree, refs: serialiseRefs(await this.readRefs()) };
+  }
+
+  /**
+   * Every branch and tag of the repository this worktree belongs to, as `refname -> object id`. A worktree shares
+   * `refs/heads/*` and `refs/tags/*` with the checkout of the person who runs Indaba, so a step that deletes or moves one
+   * changes their repository (specs/host-process-containment, AC-10). Anything that is not an object id and a plain
+   * branch or tag name is left out: it can neither be restored nor reach a git command.
+   */
+  private async readRefs(): Promise<Map<string, string>> {
+    const out = await this.git.run(
+      ['for-each-ref', '--format=%(objectname) %(refname)', 'refs/heads', 'refs/tags'],
+      this.projectDir,
+    );
+    return parseRefs(out);
+  }
+
+  /**
+   * The branches and tags that are not as the checkpoint recorded them: added, deleted or moved to another object, sorted.
+   * Empty when nothing changed, and for a checkpoint that recorded no references.
+   */
+  async verifyRefs(checkpoint: WorkspaceCheckpoint): Promise<readonly string[]> {
+    this.assertLive();
+    if (checkpoint.refs === undefined) {
+      return [];
+    }
+    const before = parseRefs(checkpoint.refs);
+    const now = await this.readRefs();
+    const changed = new Set<string>();
+    for (const [name, oid] of before) {
+      if (now.get(name) !== oid) {
+        changed.add(name);
+      }
+    }
+    for (const name of now.keys()) {
+      if (!before.has(name)) {
+        changed.add(name);
+      }
+    }
+    return [...changed].sort();
+  }
+
+  /** Puts the branches and tags back to a checkpoint's: deleted or moved ones return, new ones are removed. */
+  private async restoreRefs(recorded: string): Promise<void> {
+    const before = parseRefs(recorded);
+    const now = await this.readRefs();
+    for (const [name, oid] of before) {
+      if (now.get(name) !== oid) {
+        await this.git.run(['update-ref', '--', name, oid], this.projectDir);
+      }
+    }
+    for (const name of now.keys()) {
+      if (!before.has(name)) {
+        await this.git.run(['update-ref', '-d', '--', name], this.projectDir);
+      }
+    }
   }
 
   /**
@@ -99,6 +203,9 @@ export class GitWorktree implements RestorableWorkspace, ForkableWorkspace {
     await this.git.run(['reset', '--soft', head, '--'], this.worktreePath);
     await this.stageAll();
     await this.git.run(['read-tree', '--reset', '-u', tree], this.worktreePath);
+    if (checkpoint.refs !== undefined) {
+      await this.restoreRefs(checkpoint.refs);
+    }
   }
 
   /**

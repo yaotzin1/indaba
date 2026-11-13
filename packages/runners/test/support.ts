@@ -1,7 +1,11 @@
+import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { ProcessOutcome, ProcessSpawner, ProcessSpec } from '../src/index.js';
 
-export const TMP = tmpdir();
+/** A working directory of its own per test file: the runners create and remove `.indaba/tmp` in it, so files must not share one. */
+export const TMP = mkdtempSync(join(tmpdir(), 'indaba-runners-'));
+process.on('exit', () => rmSync(TMP, { recursive: true, force: true }));
 
 /** Records what a runner asked for and answers with a canned outcome; never starts anything. */
 export class FakeSpawner implements ProcessSpawner {

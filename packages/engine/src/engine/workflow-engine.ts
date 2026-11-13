@@ -43,6 +43,10 @@ import { describeStallFinding } from './stall.js';
 import type { StepExecutor } from './step-executor.js';
 import { StepPool } from './step-pool.js';
 
+/** How many tampered references a failure names, and how long each name may be, so a hostile agent cannot flood the feedback. */
+const MAX_LISTED_REFS = 10;
+const MAX_REF_NAME_LENGTH = 120;
+
 /** Where the resolved limit of steps came from, written on the root span (specs/parallel-steps, AC-31). */
 export type ParallelSource = 'flag' | 'env' | 'config' | 'workflow' | 'default';
 
@@ -678,7 +682,13 @@ export class WorkflowEngine {
     // cannot be restored, or a checkpoint that cannot be taken, is found out only if an attempt stalls (restore_failed).
     const workspace = options.workspace;
     let checkpoint: WorkspaceCheckpoint | undefined;
-    if (policy !== undefined && policy.retries > 0 && workspace !== undefined && isRestorable(workspace)) {
+    const guardsRefs =
+      workspace !== undefined && isRestorable(workspace) && workspace.verifyRefs !== undefined;
+    if (
+      workspace !== undefined &&
+      isRestorable(workspace) &&
+      ((policy !== undefined && policy.retries > 0) || guardsRefs)
+    ) {
       try {
         checkpoint = await workspace.checkpoint();
       } catch {
@@ -694,6 +704,13 @@ export class WorkflowEngine {
     for (;;) {
       await this.move(state, taskId, StepStatus.Running);
       outcome = await this.executor.run(step, workflow, workdir, span, { ...options, feedback });
+      // An isolated step shares the repository's branches and tags with the person's checkout: any it moved are put back
+      // and the step fails, whatever else it did (specs/host-process-containment, AC-12).
+      const tampered = await this.tamperedRefs(step.id, workspace, checkpoint);
+      if (tampered !== undefined) {
+        outcome = tampered;
+        break;
+      }
       const silent = outcome.stalledSeconds;
       if (silent === undefined || policy === undefined) {
         break;
@@ -747,6 +764,45 @@ export class WorkflowEngine {
     await this.move(state, taskId, StepStatus.Failed, outcome.feedback);
     await this.tracer.endSpan(span, SpanStatus.Error, outcome.feedback);
     return outcome;
+  }
+
+  /**
+   * The failure of a step that changed a branch or a tag, after the references were put back; undefined when it did not.
+   * A check that cannot be made is not a reason to fail a step that did nothing wrong, but a rollback that cannot be made is.
+   */
+  private async tamperedRefs(
+    stepId: string,
+    workspace: Workspace | undefined,
+    checkpoint: WorkspaceCheckpoint | undefined,
+  ): Promise<StepOutcome | undefined> {
+    if (
+      workspace === undefined ||
+      checkpoint === undefined ||
+      !isRestorable(workspace) ||
+      workspace.verifyRefs === undefined
+    ) {
+      return undefined;
+    }
+    let names: readonly string[];
+    try {
+      names = await workspace.verifyRefs(checkpoint);
+    } catch {
+      return undefined;
+    }
+    if (names.length === 0) {
+      return undefined;
+    }
+    const listed = names.slice(0, MAX_LISTED_REFS).map((name) => name.slice(0, MAX_REF_NAME_LENGTH));
+    const more = names.length > listed.length ? `, and ${names.length - listed.length} more` : '';
+    const message = `Step "${stepId}" modified git references outside its isolated worktree (${listed.join(', ')}${more}); changes to branches and tags were rolled back.`;
+    try {
+      await workspace.restore(checkpoint);
+    } catch {
+      return StepOutcome.failed(
+        `${message} The rollback itself failed: check the branches and tags of the repository.`,
+      );
+    }
+    return StepOutcome.failed(message);
   }
 
   /**

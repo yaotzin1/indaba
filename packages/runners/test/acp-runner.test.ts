@@ -730,7 +730,7 @@ describe('AcpRunner: the agent and its environment', () => {
   });
 
   it('passes only the baseline, the preset prefixes and what was asked for', async () => {
-    const { agent } = await run(
+    const { agent, dir } = await run(
       {},
       { agent: { preset: 'claude' }, env: { FROM_REQUEST: 'r' } },
       {
@@ -748,6 +748,7 @@ describe('AcpRunner: the agent and its environment', () => {
         passEnv: ['MY_EXTRA', 'CUSTOM_*'],
       },
     );
+    const tempDir = join(dir, '.indaba', 'tmp');
     expect(agent.specs[0]?.env).toEqual({
       PATH: '/bin',
       HOME: '/home/x',
@@ -757,6 +758,9 @@ describe('AcpRunner: the agent and its environment', () => {
       CUSTOM_TWO: '2',
       XDG_CONFIG_HOME: '/c',
       FROM_REQUEST: 'r',
+      TEMP: tempDir,
+      TMP: tempDir,
+      TMPDIR: tempDir,
     });
   });
 

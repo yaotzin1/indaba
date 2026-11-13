@@ -1,5 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { RunnerUnavailableError } from '@indaba/core';
+import { buildRunnerEnvironment } from './env.js';
 
 /** How the child ran: in a pseudo-terminal (stdout and stderr merged) or on plain pipes. */
 export type ProcessMode = 'pty' | 'piped';
@@ -8,8 +9,13 @@ export interface ProcessSpec {
   /** The program followed by its arguments; handed to the OS as an argument vector, never to a shell. */
   readonly command: readonly string[];
   readonly cwd: string;
-  /** Added to the environment of this process. */
+  /**
+   * The environment of the child. With `inheritEnv: false` it is the complete environment; otherwise it is added to an
+   * allowlisted baseline of this process's (never to the whole of it).
+   */
   readonly env: Readonly<Record<string, string>>;
+  /** `false`: `env` is complete and nothing of this process's environment is merged in (the runners' default). */
+  readonly inheritEnv?: boolean;
   readonly usePty: boolean;
   readonly timeoutSeconds: number;
   /**
@@ -161,14 +167,11 @@ function outcome(exitCode: number, trip: Trip | undefined, mode: ProcessMode): P
   return { exitCode, timedOut: false, aborted: false, mode };
 }
 
-function hostEnvironment(additions: Readonly<Record<string, string>>): Record<string, string> {
-  const merged: Record<string, string> = {};
-  for (const [key, value] of Object.entries({ ...process.env, ...additions })) {
-    if (value !== undefined) {
-      merged[key] = value;
-    }
+function hostEnvironment(spec: ProcessSpec): Record<string, string> {
+  if (spec.inheritEnv === false) {
+    return { ...spec.env };
   }
-  return merged;
+  return buildRunnerEnvironment({ source: process.env, additions: spec.env });
 }
 
 function errorCode(error: unknown): string {
@@ -198,7 +201,7 @@ function runPiped(spec: ProcessSpec, signal: AbortSignal | undefined): Promise<P
     try {
       child = spawn(file, args, {
         cwd: spec.cwd,
-        env: hostEnvironment(spec.env),
+        env: hostEnvironment(spec),
         stdio: ['ignore', 'pipe', 'pipe'],
         // Own process group on POSIX so the whole tree can be signalled.
         detached: process.platform !== 'win32',
@@ -273,7 +276,7 @@ function runPty(
       cols: 200,
       rows: 50,
       cwd: spec.cwd,
-      env: hostEnvironment(spec.env),
+      env: hostEnvironment(spec),
     });
   } catch {
     return Promise.resolve(undefined);

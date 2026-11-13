@@ -34,3 +34,7 @@ The rules are in `.agents/rules/security.md` and are enforced on every commit by
 paths confined to their root; secrets absent from telemetry; TypeScript strict with no `any`, no
 non-null assertion and no suppression comment; `pnpm audit` as a required check; no install-time
 scripts in any package. Packages are published with provenance.
+
+Until an agent sandbox is on, processes Indaba starts run as the user, so they are handed little: only an allowlist of the
+environment (no unrelated key), a temporary directory inside the step's folder, `claude-code` without its own subagents, and
+the repository's branches and tags checked and restored after a step in a worktree.
