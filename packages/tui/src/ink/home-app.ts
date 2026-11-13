@@ -2,6 +2,8 @@ import type { BoardFileRecord, Logger, RunRecord, RunSummary } from '@indaba/eng
 import { buildHomeScreen } from '../home-screen.js';
 import { type HomeContext, type HomeEvent, type HomeState, initialHome, reduceHome } from '../home-state.js';
 import { computeLayout } from '../layout.js';
+import { type FlowEvent, isRunControlError, type RunControlPort } from '../run-flow.js';
+import { buildFlowScreen, isDialog } from '../run-flow-screen.js';
 import {
   h,
   type ReactElement,
@@ -22,9 +24,15 @@ export interface RunFeed {
   readonly board?: AsyncIterable<BoardFileRecord>;
 }
 
+/** How often a start or a stop is looked at while it is waited for. */
+export const DEFAULT_POLL_MS = 500;
+
 export interface HomeAppProps {
   readonly listRuns: () => Promise<readonly RunSummary[]>;
   readonly openRun?: (runId: string, signal: AbortSignal) => RunFeed;
+  /** Starts and stops runs; without it Home only lists and opens them. */
+  readonly runs?: RunControlPort;
+  readonly pollMs?: number;
   readonly attached: boolean;
   readonly ascii: boolean;
   readonly color: boolean;
@@ -43,20 +51,33 @@ interface Opened {
   readonly feed: RunFeed;
 }
 
-/** Home: the runs of the project, and the dashboard of the one the person opens. */
+const messageOf = (error: unknown): string => (error instanceof Error ? error.message : String(error));
+
+/** Home: the runs of the project, the picker that starts one, and the dashboard of the one the person opens. */
 export function HomeApp(props: HomeAppProps): ReactElement {
   const { exit } = useApp();
   const size = useWindowSize();
   const [state, dispatch] = useReducer(reducer, undefined, initialHome);
   const [opened, setOpened] = useState<Opened | undefined>(undefined);
   const reported = useRef(false);
+  const control = props.runs;
+  const pollMs = props.pollMs ?? DEFAULT_POLL_MS;
 
   const layout = computeLayout(size.columns, size.rows);
-  const context: HomeContext = {
-    attached: props.attached,
+  const isOwnedAndAlive = (runId: string): boolean =>
+    control !== undefined &&
+    state.owned.includes(runId) &&
+    !state.stopping.includes(runId) &&
+    control.isAlive(runId);
+  // Read afresh at each key: a run that ended since the last drawing must not make quitting ask about it.
+  const contextNow = (): HomeContext => ({
+    attached: props.attached || state.unsure || state.owned.some(isOwnedAndAlive),
     canOpen: props.openRun !== undefined,
     pageSize: Math.max(1, layout.listRows - 1),
-  };
+    canControl: control !== undefined,
+    canStop: isOwnedAndAlive,
+  });
+  const context = contextNow();
 
   // Fetch the list for each generation. An answer that arrives after the person left, or after a newer fetch began,
   // is dropped here and, as a second guard, by the reducer.
@@ -73,9 +94,8 @@ export function HomeApp(props: HomeAppProps): ReactElement {
         },
         (error: unknown) => {
           if (current) {
-            const failed = error instanceof Error ? error.message : String(error);
             props.logger?.info('tui.home', 'the list of runs could not be read', { generation });
-            dispatch({ event: { failed, generation }, context });
+            dispatch({ event: { failed: messageOf(error), generation }, context });
           }
         },
       );
@@ -83,6 +103,78 @@ export function HomeApp(props: HomeAppProps): ReactElement {
       current = false;
     };
   }, [state.generation]);
+
+  // Does what the dialog in front of Home asked for, once per ask. Leaving the screen, or the dialog asking for the next
+  // thing, disposes the timer and drops an answer that is late, so nothing runs after the screen is gone.
+  useEffect(() => {
+    const flow = state.flow;
+    if (flow === undefined || flow.effect === undefined || control === undefined) {
+      return undefined;
+    }
+    const effect = flow.effect;
+    let current = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const send = (event: FlowEvent): void => {
+      if (current) {
+        dispatch({ event: { flow: event }, context });
+      }
+    };
+    const later = (action: () => FlowEvent, failed: (message: string) => FlowEvent): void => {
+      timer = setTimeout(() => {
+        try {
+          send(action());
+        } catch (error) {
+          send(failed(messageOf(error)));
+        }
+      }, pollMs);
+    };
+    switch (effect.type) {
+      case 'list':
+        void Promise.resolve()
+          .then(() => control.list())
+          .then(
+            (listed) => send({ listed }),
+            (error: unknown) => send({ listFailed: messageOf(error) }),
+          );
+        break;
+      case 'start':
+        props.logger?.info('tui.home', 'a run is being started', { workflowId: effect.request.workflowId });
+        void Promise.resolve()
+          .then(() => control.start(effect.request))
+          .then(
+            (started) => send({ started }),
+            (error: unknown) =>
+              send(isRunControlError(error) ? { refused: error } : { threw: messageOf(error) }),
+          );
+        break;
+      case 'poll':
+        later(
+          () => ({ status: control.startStatus(effect.startId) }),
+          (threw) => ({ threw }),
+        );
+        break;
+      case 'stop':
+        props.logger?.info('tui.home', 'a run is being stopped', { runId: effect.runId });
+        try {
+          send({ stopped: control.stop(effect.runId) });
+        } catch (error) {
+          send({ stopThrew: messageOf(error) });
+        }
+        break;
+      case 'pollStop':
+        later(
+          () => ({ alive: control.isAlive(effect.runId) }),
+          (stopThrew) => ({ stopThrew }),
+        );
+        break;
+    }
+    return () => {
+      current = false;
+      if (timer !== undefined) {
+        clearTimeout(timer);
+      }
+    };
+  }, [state.flow?.seq]);
 
   // Open the run the person chose; leaving it stops following it.
   useEffect(() => {
@@ -108,33 +200,83 @@ export function HomeApp(props: HomeAppProps): ReactElement {
     (input, key) => {
       const press = keyName(input, key);
       if (press !== undefined) {
-        dispatch({ event: { press }, context });
+        dispatch({ event: { press }, context: contextNow() });
       }
     },
     { isActive: state.open === undefined },
   );
 
+  // Leaving: `detach` lets the runs started here go on, `cancel` stops them and waits (and stays if that fails).
   useEffect(() => {
-    if (state.quit !== 'none' && !reported.current) {
-      reported.current = true;
-      props.onFinish(state.quit);
-      exit();
+    if (state.quit === 'none' || reported.current) {
+      return;
     }
+    const quit = state.quit;
+    const finish = (): void => {
+      if (!reported.current) {
+        reported.current = true;
+        props.onFinish(quit);
+        exit();
+      }
+    };
+    if (quit === 'cancel' && control !== undefined) {
+      props.logger?.info('tui.home', 'the runs started here are being stopped');
+      void control.stopAll().then(finish, (error: unknown) => {
+        props.logger?.info('tui.home', 'the runs could not be stopped');
+        dispatch({ event: { quitFailed: `The runs could not be stopped: ${messageOf(error)}` }, context });
+      });
+      return;
+    }
+    if (control !== undefined) {
+      try {
+        control.detach();
+      } catch {
+        props.logger?.info('tui.home', 'the runs could not be released');
+      }
+    }
+    finish();
   }, [state.quit]);
 
   if (state.open !== undefined && opened !== undefined && opened.runId === state.open) {
+    const runId = opened.runId;
     return h(App, {
-      key: opened.runId,
+      key: runId,
       source: opened.feed.source,
       ...(opened.feed.board === undefined ? {} : { board: opened.feed.board }),
-      attached: false,
+      // a run started here asks what to do with it when the dashboard is left; one started elsewhere never does
+      attached: isOwnedAndAlive(runId),
       ascii: props.ascii,
       color: props.color,
       embedded: true,
       ...(props.logger === undefined ? {} : { logger: props.logger }),
-      onFinish: () => dispatch({ event: { left: true }, context }),
+      onFinish: (result) => {
+        if (result.quit === 'cancel' && control !== undefined) {
+          // asked to stop: leaving Home right after must not ask about a run that is already ending
+          dispatch({ event: { stopRequested: runId }, context });
+          try {
+            control.stop(runId);
+          } catch {
+            props.logger?.info('tui.home', 'a run could not be stopped');
+          }
+        }
+        dispatch({ event: { left: true }, context });
+      },
     });
   }
-  const screen = buildHomeScreen(state, layout, { ascii: props.ascii, canOpen: context.canOpen });
+  if (state.flow !== undefined) {
+    const screen = buildFlowScreen(state.flow, layout, { ascii: props.ascii });
+    return h(ScreenView, {
+      screen,
+      layout,
+      color: props.color,
+      ascii: props.ascii,
+      ...(isDialog(state.flow) && layout.mode !== 'too-small' ? { dialog: true } : {}),
+    });
+  }
+  const screen = buildHomeScreen(state, layout, {
+    ascii: props.ascii,
+    canOpen: context.canOpen,
+    canControl: context.canControl === true,
+  });
   return h(ScreenView, { screen, layout, color: props.color, ascii: props.ascii });
 }

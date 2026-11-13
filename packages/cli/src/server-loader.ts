@@ -86,6 +86,8 @@ export interface UiRunControl {
   stop(runId: string): StopRunResponse | undefined;
   isAlive(runId: string): boolean;
   stopAll(): Promise<void>;
+  /** Lets every live run carry on without this command and stops none (specs/tui-run-control); `indaba ui` does not use it. */
+  detach?(): void;
 }
 
 /** What the command line knows of a project's settings; the server adds their description. */

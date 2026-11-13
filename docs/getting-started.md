@@ -342,11 +342,15 @@ On a terminal, `indaba` with no arguments opens the home screen (`@indaba/tui`):
 | `Up k` | previous run |
 | `Down j` | next run |
 | `Enter` | open the run |
+| `n` | start a workflow |
+| `s` | stop a run started here |
 | `r` | refresh the list |
 | `?` | show or hide this help |
 | `q` | quit |
 
-`Enter` opens the run in the dashboard (below); leaving the dashboard brings you back to the list. Home never starts or stops a run. Without a terminal (a pipe, CI) or with `INDABA_NO_TUI=1`, bare `indaba` is what it has always been: "No command given." and the usage on stderr, exit status 2. A terminal that cannot be put in raw mode is refused with the reason and exit status 1: use `indaba watch --plain`.
+`Enter` opens the run in the dashboard (below); leaving the dashboard brings you back to the list.
+
+**Starting a run from Home.** `n` lists the workflows of the project (an invalid one is marked and cannot be started; `/` filters, `h` shows hidden ones). `Enter` asks what the workflow will use (runners, commands, what agents may change): `y` confirms and starts it. A workflow with steps at the level `full` asks again on a separate screen, with its own key (`a`), and a file that changed since you looked asks again and says so. The run starts as a program of its own and opens in the dashboard. Leaving that dashboard (`q`) asks whether to detach (`d`, the run keeps going) or cancel it (`c`). `s` on the list stops a run started from this screen, after one question. Leaving Home while such a run is going asks `d` detach, `c` stop it and wait, or `n` stay; if stopping fails, Home stays open and says so. Leaving is refused while a start is still being waited for. A workflow that needs inputs cannot be started from here yet: use `indaba run`. Without a terminal (a pipe, CI) or with `INDABA_NO_TUI=1`, bare `indaba` is what it has always been: "No command given." and the usage on stderr, exit status 2. A terminal that cannot be put in raw mode is refused with the reason and exit status 1: use `indaba watch --plain`.
 
 ## Watching a run
 

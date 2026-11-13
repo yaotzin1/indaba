@@ -68,6 +68,7 @@ export function keyName(input: string, key: Key): KeyName | undefined {
   if (key.tab) return 'tab';
   if (key.escape) return 'escape';
   if (key.return) return 'enter';
+  if (key.backspace || key.delete) return 'backspace';
   if (key.ctrl || key.meta || input === '') {
     return undefined;
   }

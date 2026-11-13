@@ -1,4 +1,4 @@
-import { mkdir, open, readdir, realpath, rm, writeFile } from 'node:fs/promises';
+import { mkdir, open, readdir, realpath, rm, stat, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import {
   type Logger,
@@ -24,7 +24,15 @@ import { type FoundWorkflow, readWorkflow, tooLarge, UnreadableWorkflow } from '
 export const MAX_CONCURRENT_RUNS = 4;
 /** How long a cancelled run has to tear down before its tree is killed. A starting value, not a measurement. */
 export const STOP_GRACE_MS = 5000;
-/** Where the confirmed bytes of a run wait for the child, under a root. Swept when `indaba ui` starts. */
+/**
+ * A confirmed copy younger than this is never swept: another process may have written it a moment ago and its child may not
+ * have read it yet. Longer than the time a start is waited for (`START_TIMEOUT_MS`), so a copy whose child is still starting
+ * is never taken from it. A starting value, not a measurement.
+ */
+export const RUN_INPUT_MAX_AGE_MS = 15 * 60 * 1000;
+/** How long a start is waited for before it is called lost. The terminal application polls for this long at most. */
+export const START_TIMEOUT_MS = 60 * 1000;
+/** Where the confirmed bytes of a run wait for the child, under a root. Swept when a run control starts. */
 export const RUN_INPUTS = join('.indaba', 'run-inputs');
 const TRACES = join('.indaba', 'traces');
 const TRACE_SUFFIX = '.events.jsonl';
@@ -66,6 +74,10 @@ export interface RunControlOptions {
   readonly graceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
   readonly maxConcurrent?: number;
+  /** The clock of the sweep, in milliseconds; injected so a test can age a copy. */
+  readonly now?: () => number;
+  /** Younger copies are kept by the sweep. */
+  readonly maxInputAgeMs?: number;
 }
 
 interface Started {
@@ -75,6 +87,8 @@ interface Started {
   readonly copy: string;
   runId: string | undefined;
   exited: boolean;
+  /** The child was let go (`detach`): it is not stopped by this control any more. */
+  released: boolean;
   /** The lookup of the trace after exit is done: a start with no trace by then has failed. */
   settled: boolean;
   lookup: Promise<void> | undefined;
@@ -121,6 +135,8 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
   const sleep = options.sleep ?? defaultSleep;
   const graceMs = options.graceMs ?? STOP_GRACE_MS;
   const maxConcurrent = options.maxConcurrent ?? MAX_CONCURRENT_RUNS;
+  const now = options.now ?? Date.now;
+  const maxAge = options.maxInputAgeMs ?? RUN_INPUT_MAX_AGE_MS;
   const store = new ConfirmationStore(options.confirmationFile, options.pid);
   const starts = new Map<string, Started>();
   /** Trace file name to the task id of its root span; a first line never changes once written. */
@@ -138,7 +154,16 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
         return;
       }
       for (const name of names.filter((n) => n.endsWith('.yml'))) {
-        await rm(join(folder, name), { force: true }).catch(() => undefined);
+        const file = join(folder, name);
+        const written = await stat(file).then(
+          (s) => s.mtimeMs,
+          () => undefined,
+        );
+        // a copy that is not old enough may be one a child, here or in another process, has yet to read
+        if (written !== undefined && now() - written < maxAge) {
+          continue;
+        }
+        await rm(file, { force: true }).catch(() => undefined);
       }
     }),
   );
@@ -291,6 +316,7 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
       copy,
       runId: undefined,
       exited: false,
+      released: false,
       settled: false,
       lookup: undefined,
       finished: Promise.resolve(),
@@ -420,8 +446,21 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
 
     isAlive: (runId: string): boolean => [...starts.values()].some((s) => s.runId === runId && !s.exited),
 
+    detach: (): void => {
+      // Only a child that is still alive is released; releasing closes its channel, so it can no longer be asked to stop
+      // from here, and it goes on without us. A second call finds nothing to release.
+      const live = [...starts.values()].filter((s) => !s.exited && !s.released);
+      for (const started of live) {
+        started.released = true;
+        started.child.release();
+      }
+      if (live.length > 0) {
+        log.info('cli.ui', 'runs detached', { count: live.length });
+      }
+    },
+
     stopAll: async (): Promise<void> => {
-      const running = [...starts.values()].filter((s) => !s.exited);
+      const running = [...starts.values()].filter((s) => !s.exited && !s.released);
       if (running.length === 0) {
         return;
       }

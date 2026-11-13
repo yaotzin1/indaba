@@ -1,6 +1,7 @@
 import { type Logger, noopLogger, type RunSummary } from '@indaba/engine';
 import { h, type RenderOptions, render } from './ink/adapter.js';
 import { HomeApp, type RunFeed } from './ink/home-app.js';
+import type { RunControlPort } from './run-flow.js';
 
 export type { RunFeed as HomeRunSource } from './ink/home-app.js';
 
@@ -9,6 +10,10 @@ export interface HomeOptions {
   readonly listRuns: () => Promise<readonly RunSummary[]>;
   /** The records of one run; `signal` aborts when the person leaves it. Without it, `Enter` does nothing and `?` does not name it. */
   readonly openRun?: (runId: string, signal: AbortSignal) => RunFeed;
+  /** Starts, stops and releases runs: with it Home offers `n` and `s`, and quitting asks what to do with a run started here. */
+  readonly runs?: RunControlPort;
+  /** How often a start or a stop is looked at while it is waited for, in milliseconds. Default 500. */
+  readonly pollMs?: number;
   /** The screen started a run, so quitting asks what to do with it. Default false. */
   readonly attached?: boolean;
   readonly ascii: boolean;
@@ -47,6 +52,8 @@ export async function run(options: HomeOptions): Promise<HomeResult> {
     h(HomeApp, {
       listRuns: options.listRuns,
       ...(options.openRun === undefined ? {} : { openRun: options.openRun }),
+      ...(options.runs === undefined ? {} : { runs: options.runs }),
+      ...(options.pollMs === undefined ? {} : { pollMs: options.pollMs }),
       attached: options.attached === true,
       ascii: options.ascii,
       color: options.color,

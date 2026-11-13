@@ -46,12 +46,22 @@ export interface ScreenViewProps {
   readonly layout: Layout;
   readonly color: boolean;
   readonly ascii: boolean;
+  /** A dialog: the header, then the detail rows over the whole width, with no panes (specs/tui-run-control). */
+  readonly dialog?: boolean;
 }
 
 /** Draws a screen model. No decisions here: what to show was decided in `buildScreen`. */
 export function ScreenView(props: ScreenViewProps): ReactElement {
   const { screen, layout, color } = props;
   const header = h(RowView, { row: screen.header, color });
+  if (props.dialog === true) {
+    return h(
+      Box,
+      { flexDirection: 'column' },
+      header,
+      h(Rows, { rows: screen.detail, color, width: layout.columns }),
+    );
+  }
   if (layout.mode === 'too-small') {
     return h(
       Box,

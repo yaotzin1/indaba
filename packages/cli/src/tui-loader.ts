@@ -1,5 +1,6 @@
 import type { Logger, LoggingSettings, SinkSettings } from '@indaba/core';
 import type { BoardFileRecord, RunRecord, RunSummary } from '@indaba/engine';
+import type { UiRunControl } from './server-loader.js';
 
 /** What the command line needs of `@indaba/tui`. The package is optional, so its types are not imported. */
 export interface TuiWatchOptions {
@@ -37,12 +38,17 @@ export interface TuiSettingsOptions {
 }
 
 /** What bare `indaba` needs of Home in `@indaba/tui` (specs/tui-home). */
+/** What Home may do with runs: the control `indaba ui` uses, plus letting go of the runs started here. */
+export type HomeRunControl = UiRunControl & { detach(): void };
+
 export interface TuiHomeOptions {
   readonly listRuns: () => Promise<readonly RunSummary[]>;
   readonly openRun?: (
     runId: string,
     signal: AbortSignal,
   ) => { readonly source: AsyncIterable<RunRecord>; readonly board?: AsyncIterable<BoardFileRecord> };
+  readonly runs?: HomeRunControl;
+  readonly pollMs?: number;
   readonly attached?: boolean;
   readonly ascii: boolean;
   readonly color: boolean;
