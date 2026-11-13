@@ -1,6 +1,6 @@
 # Specification: Passing environment variables to built-in runners (`passEnv` from the command line)
 
-> **Status**: Draft (stages 1 and 2 written; section 8 records what an Indaba debate settled on 2026-11-13, awaiting the maintainer's confirmation; Q6 settled by a second debate, also awaiting confirmation)
+> **Status**: Draft (stages 1 and 2 written; section 8 records what an Indaba debate settled on 2026-11-13, confirmed by the maintainer 2026-11-13: Q1 to Q6 stand)
 > **Stage entry**: 1
 > **Semver impact**: minor (provisional: a new, optional way to configure the CLI; nothing existing changes). Confirmed in `api-surface.md` once section 8 is settled.
 > **Builds on**: [`specs/host-process-containment`](../host-process-containment/spec.md) (the allowlist this opens a door in), [`specs/transport-priority`](../transport-priority/spec.md) (`INDABA_ACP_PASS_ENV`, the one precedent), [`specs/logging`](../logging/spec.md) (`indaba.config`).
@@ -123,7 +123,7 @@ Settled by an Indaba debate on 2026-11-13: two `claude-code` agents, one arguing
 - **Q5. Prefix patterns.** *Decided (as recommended, with conditions):* `AWS_*` is allowed, because Bedrock needs it. `plan` lists what a prefix matches and marks `SECRET`, `TOKEN` and `KEY`
   names with a warning that does not block; a bare `*` and a prefix under 3 characters are refused (AC-05).
 - **Q6. Where is the user-level file?** *Decided by a second debate (2026-11-13, `claude-code` against `antigravity`, consensus after two rounds, trace `599c795662271aa543698e2201155a62`),
-  awaiting the maintainer:* `<userConfigFolder>/indaba/indaba.config`, using `userConfigFolder()` in `packages/cli/src/config-folder.ts` (`%APPDATA%` on Windows,
+  confirmed by the maintainer:* `<userConfigFolder>/indaba/indaba.config`, using `userConfigFolder()` in `packages/cli/src/config-folder.ts` (`%APPDATA%` on Windows,
   `~/Library/Application Support` on macOS, `$XDG_CONFIG_HOME` or `~/.config` elsewhere), the folder where `indaba ui` already keeps what a person confirmed. Checked in the repository: the helper exists.
   - **No path override.** An environment variable that moved the file could point the trusted store into a cloned repository; a symlink leading out of the folder is refused.
   - **Format:** the YAML of `indaba.config`, names only, `passEnv: { <runner>: [AWS_PROFILE, AWS_*] }`, validated by AC-05. The user file's `passEnv` is a **grant**; a project's
