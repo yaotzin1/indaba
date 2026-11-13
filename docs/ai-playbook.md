@@ -35,7 +35,7 @@ index (both are rebuilt with the site, so they match the documentation).
 
 Rules: pass `-w <dir>` when the project is not the current directory. Pass `--plugin <file>` on **every** command when the
 workflow names a runner or guard a plugin registers, or `validate` will say the name is unknown. Never use `--tui`, the
-dashboard or `indaba ui` from an agent: they need a terminal and are for people.
+dashboard, bare `indaba` (the home screen) or `indaba ui` from an agent: they need a terminal and are for people.
 
 ## Reading a run without a terminal
 

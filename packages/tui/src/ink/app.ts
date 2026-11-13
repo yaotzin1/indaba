@@ -41,6 +41,11 @@ export interface AppProps {
   readonly color: boolean;
   /** How often incoming records are folded into the screen. Under 250 ms keeps a new event on screen in time. */
   readonly flushMs?: number;
+  /**
+   * Shown inside Home (specs/tui-home): quitting reports the result and leaves the Ink instance running, because it
+   * belongs to the caller. Alone, the dashboard ends the instance, as before.
+   */
+  readonly embedded?: boolean;
   /** Called once, when the person quits. */
   readonly onFinish: (result: AppResult) => void;
   /** Told when the source of records fails. */
@@ -197,7 +202,9 @@ export function App(props: AppProps): ReactElement {
     if (ui.quit !== 'none' && !reported.current) {
       reported.current = true;
       props.onFinish({ quit: ui.quit, run });
-      exit();
+      if (props.embedded !== true) {
+        exit();
+      }
     }
   }, [ui.quit]);
 

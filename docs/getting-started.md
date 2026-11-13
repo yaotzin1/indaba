@@ -169,6 +169,8 @@ Indaba reads only these from its environment, and passes only these to the runne
 | `INDABA_OPENAI_COMPAT_<NAME>_BASE_URL` | an OpenAI-compatible runner | Adds a runner named `<name>` in lower case with `_` as `-` (`LM_STUDIO` is `lm-studio`). The URL is `http` or `https`, up to the version segment, for example `http://localhost:11434/v1` |
 | `INDABA_OPENAI_COMPAT_<NAME>_KEY_ENV` | the same | The **name** of the variable that holds that endpoint's key. Without it the endpoint is treated as keyless (a local server) |
 | `INDABA_OPENAI_COMPAT_<NAME>_MODEL` | the same | The model used when a role names none |
+| `INDABA_NO_TUI` | bare `indaba` | The exact value `1` keeps bare `indaba` a usage error even on a terminal. See [The home screen](#the-home-screen-bare-indaba) |
+| `INDABA_ASCII` | bare `indaba` | The exact value `1` draws the home screen with ASCII characters only (`NO_COLOR` turns colour off, as everywhere) |
 | `INDABA_LOG_LEVEL` | every command | The log level when `--log-level` is not given: `error`, `warn`, `info` or `debug`. Anything else is a usage error |
 | `INDABA_ACP_PASS_ENV` | `acp` runner | Extra variables to pass on to an ACP agent: comma-separated names, or a prefix ending in `*`. See [ACP agents](#acp-agents) |
 | `INDABA_CODEX_CMD` | `codex` runner | Replaces the built-in Codex command line. Space-separated words; `{prompt}` and `{model}` mark where those go |
@@ -330,6 +332,21 @@ event: tokens, with the cache reads and writes counted in the input, and `total_
 unknown. `claude-code` runs on pipes, not a terminal, and gives the answer to the output stream once it is known; to get
 the previous plain-text call, construct the runner with `reportUsage: false` or pass your own `--output-format` in
 `extraArgs`.
+
+## The home screen: bare `indaba`
+
+On a terminal, `indaba` with no arguments opens the home screen (`@indaba/tui`): the runs of the project, newest first, each with a mark and a word for its state, its workflow, when it started and what it cost. From 80 columns the details of the selected run sit beside the list; below that the list fills the screen.
+
+| Key | Does |
+| :--- | :--- |
+| `Up k` | previous run |
+| `Down j` | next run |
+| `Enter` | open the run |
+| `r` | refresh the list |
+| `?` | show or hide this help |
+| `q` | quit |
+
+`Enter` opens the run in the dashboard (below); leaving the dashboard brings you back to the list. Home never starts or stops a run. Without a terminal (a pipe, CI) or with `INDABA_NO_TUI=1`, bare `indaba` is what it has always been: "No command given." and the usage on stderr, exit status 2. A terminal that cannot be put in raw mode is refused with the reason and exit status 1: use `indaba watch --plain`.
 
 ## Watching a run
 

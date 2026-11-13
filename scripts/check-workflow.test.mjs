@@ -6,6 +6,7 @@ import {
     checkEnforcement,
     checkGates,
     checkProject,
+    checkParity,
     checkSpecDirectory,
     checkStructure,
     ciJobNames,
@@ -210,6 +211,46 @@ test('the workflow YAML subset parser reads lists of mappings and refuses block 
     assert.deepEqual(parsed, { a: [{ id: 'x', n: 1 }, { id: 'y', tags: ['p', 'q:r'] }] });
     assert.throws(() => parseWorkflowYaml('a: |\n  text\n'), /block scalars/);
     assert.throws(() => parseWorkflowYaml('a: 1\na: 2\n'), /duplicate key/);
+});
+
+const epicFeature = (parity) => `# Feature
+
+> **Level**: feature of [\`tui-epic\`](../tui-epic/spec.md).
+
+${parity}`;
+const goodParity = [
+    '## 7. Parity',
+    '',
+    '| Capability | Web view | TUI | `--plain` / CLI |',
+    '| :--- | :--- | :--- | :--- |',
+    '| Home | header | this feature | `indaba --help` |',
+    '',
+    '## 8. Next',
+    '',
+].join('\n');
+
+test('checkParity accepts a full table and ignores specs that are not features of the TUI epic', () => {
+    assert.deepEqual(checkParity('tui-x', epicFeature(goodParity)), []);
+    assert.deepEqual(checkParity('other', '# Other\n\nno parity here\n'), []);
+    assert.deepEqual(checkParity('none', null), []);
+});
+
+test('checkParity fails a feature of the TUI epic without a Parity section, without rows, or with an empty cell', () => {
+    assert.match(checkParity('tui-x', epicFeature('## 1. Other\n')).join(), /no "Parity" section/);
+    const noRows = '## Parity\n\n| A | B |\n| :--- | :--- |\n';
+    assert.match(checkParity('tui-x', epicFeature(noRows)).join(), /no table rows/);
+    const empty = goodParity.replace('| header |', '|  |');
+    assert.match(checkParity('tui-x', epicFeature(empty)).join(), /empty cell/);
+});
+
+test('checkParity fails a row that is narrower or wider than the header', () => {
+    const narrow = goodParity.replace('| Home | header | this feature | `indaba --help` |', '| Home | header |');
+    assert.match(checkParity('tui-x', epicFeature(narrow)).join(), /different width/);
+});
+
+test('checkParity does not read a table past the next heading', () => {
+    const other = '## 7. Parity\n\n| A | B |\n| :--- | :--- |\n| x | y |\n\n## 8. Other\n\n| a | |\n';
+    assert.deepEqual(checkParity('tui-x', epicFeature(other)), []);
 });
 
 test('this repository passes its own checks', () => {

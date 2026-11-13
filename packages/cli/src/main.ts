@@ -54,6 +54,7 @@ import {
 import { userConfigFolder } from './config-folder.js';
 import { createEngine } from './engine-factory.js';
 import type { ExitHooks } from './exit.js';
+import { homeGate, runHome } from './home.js';
 import {
   type CommandLogger,
   chooseLevel,
@@ -414,6 +415,19 @@ async function loadPlugins(specifiers: readonly string[], cwd: string): Promise<
 export async function main(argv: readonly string[], io: Io = processIo()): Promise<number> {
   const [command, ...rest] = argv;
   if (command === undefined) {
+    const gate = await homeGate(io, io.loadTui ?? loadTui, io.env.INDABA_NO_TUI === '1');
+    if (gate.kind === 'exit') {
+      return gate.code;
+    }
+    if (gate.kind === 'open') {
+      return logged('home', io.cwd, { args: [], level: undefined, dir: undefined }, io, (logger) =>
+        runHome(io, gate, logger, {
+          ascii: io.env.INDABA_ASCII === '1',
+          color: io.env.NO_COLOR === undefined || io.env.NO_COLOR === '',
+          environment: io.env,
+        }),
+      );
+    }
     return usageError(io, 'No command given.');
   }
   if (command === '--help' || command === '-h') {
