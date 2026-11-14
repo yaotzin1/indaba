@@ -9,7 +9,8 @@ import {
 import { type BoardKeyContext, type BoardPane, boardKey } from '../board-screen.js';
 import { type BoardState, emptyBoard, reduceBoard } from '../board-state.js';
 import { computeLayout } from '../layout.js';
-import { buildScreen } from '../screen.js';
+import { runningIds } from '../panes.js';
+import { buildScreen, outputLinesOf, reasoningLinesOf, shownStep } from '../screen.js';
 import { clampUi, initialUi, type KeyName, reduceUi, type UiContext, type UiState } from '../ui-state.js';
 import {
   h,
@@ -164,15 +165,24 @@ export function App(props: AppProps): ReactElement {
     };
   }, [props.board]);
 
-  const layout = computeLayout(size.columns, size.rows, { dock: props.board !== undefined });
-  const selectedStep = run.steps[ui.selected];
+  const running = runningIds(run);
+  // an enlarged pane, the help and a board in place of the detail pane have the whole of it: the panes give their rows back
+  const overlay = ui.enlarged || ui.help || ui.board;
+  const layout = computeLayout(size.columns, size.rows, {
+    dock: props.board !== undefined,
+    panes: overlay ? 0 : running.length,
+  });
+  const selectedStep = shownStep(run, ui);
   const context: UiContext = {
     steps: run.steps.length,
-    outputLines:
-      selectedStep === undefined ? 0 : selectedStep.output.length + (selectedStep.partialLine === '' ? 0 : 1),
+    // rows as drawn (wrapped), the same count the screen scrolls by
+    outputLines: outputLinesOf(run, ui, layout.detailWidth),
     pageSize: Math.max(1, layout.detailRows - 3),
     attached: props.attached,
     docked: layout.dockWidth > 0,
+    reasoningLines: reasoningLinesOf(run, ui, layout.detailWidth),
+    panes: running,
+    paneCap: layout.paneCap,
   };
 
   useInput((input, key) => {
@@ -197,7 +207,14 @@ export function App(props: AppProps): ReactElement {
   // after the run changed, keep the selection and the scroll inside what exists
   useEffect(() => {
     dispatch({ clamp: context });
-  }, [context.steps, context.outputLines, context.docked]);
+  }, [
+    context.steps,
+    context.outputLines,
+    context.docked,
+    context.reasoningLines,
+    running.join(','),
+    layout.paneCap,
+  ]);
 
   useEffect(() => {
     if (ui.quit !== 'none' && !reported.current) {

@@ -119,7 +119,7 @@ gantt
     tui-epic the full terminal application :active, 2026-11-06, 1d
     tui-home (TUI-1)       :done, 2026-11-13, 1d
     tui-run-control (TUI-2) :done, 2026-11-13, 1d
-    tui-agent-panes (TUI-3) :active, 2026-11-06, 1d
+    tui-agent-panes (TUI-3) :done, 2026-11-14, 1d
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
@@ -222,7 +222,7 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `tui-epic` | Epic. Draft (specified; no code) | orders `TUI-1` to `TUI-6`; `@indaba/tui`, `indaba` |
 | `tui-home` | Feature `TUI-1`, epic release 1. Implemented on `feat/tui-home` (bare `indaba` on a terminal opens Home; the key map, the run list and opening a run in the dashboard; `INDABA_NO_TUI`, `INDABA_ASCII`; the parity check of `check-workflow`); settings stays a command and starting a run is `tui-run-control` | `@indaba/tui`, `indaba` |
 | `tui-run-control` | Feature `TUI-2`, epic release 1. Implemented on `feat/tui-run-control` (picker, confirmation, full-access confirmation, start, stop, detach; stacked on `tui-home`); story 2.5 (inputs) is deferred to `tui-run-inputs`, which waits for `workflow-inputs` (not started) | `@indaba/tui`, `indaba` |
-| `tui-agent-panes` | Feature `TUI-3`; slice 3a is epic release 1, slice 3b waits for `parallel-steps` and `agent-conversation`. Not started (specified; draft) | `@indaba/tui` |
+| `tui-agent-panes` | Feature `TUI-3`; slice 3a is epic release 1 and is implemented on `feat/tui-agent-panes` (reasoning view, a pane for each running step, focus and enlarge; stacked on `tui-run-control`); slice 3b waits for `parallel-steps` and `agent-conversation` | `@indaba/tui` |
 | `tui-questions` | Feature `TUI-4`. Not started (specified; draft; blocked; waits for `agent-conversation`, `question-contract`, `review-gate`, `ruling-channel`) | `@indaba/tui`, `indaba` |
 | `tui-workflows` | Feature `TUI-5`, epic release 2. Not started (specified; draft; builds on `workflow-registry`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `tui-editing` | Feature `TUI-6`; 6.1 is epic release 3, the rest deferred behind a demand check. Not started (specified; draft; builds on `workflow-editor`) | `@indaba/tui`, `@indaba/engine`, `indaba` |

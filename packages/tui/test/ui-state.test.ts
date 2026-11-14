@@ -24,6 +24,12 @@ describe('initialUi', () => {
       help: false,
       confirmQuit: false,
       quit: 'none',
+      panel: 'output',
+      reasoningScroll: 0,
+      pane: undefined,
+      paneOffset: 0,
+      enlarged: false,
+      notice: undefined,
     });
   });
 });

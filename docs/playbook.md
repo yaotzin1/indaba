@@ -138,6 +138,9 @@ left and the output of the selected one on the right; below 80 columns they stac
 | `f` | follow the newest output |
 | `tab` | move the arrow keys to the other pane |
 | `b` | open or close the board (on a wide terminal: move the arrow keys to it and back) |
+| `r` `o` | show the reasoning of the step, or its output again; each keeps its own place |
+| `[` `]` | move between the panes of the running steps |
+| `Enter` `z` | enlarge the focused pane; `Esc` puts it back |
 | `?` | list the keys |
 | `q` | quit (it asks what to do with a run it started) |
 
