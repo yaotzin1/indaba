@@ -146,6 +146,9 @@ describe('the panes of running steps in the dashboard (AC-01, AC-02)', () => {
     push({ ...status('plan', 'COMPLETED', undefined, T(9)) });
     await wait(() => lately(stdout).includes('step is no longer running'));
     expect(lately(stdout)).not.toContain('enlarged, Esc to return');
+    // The screen clamps while it draws, so the line shows at once; the state catches up in an effect a moment later. A key
+    // in that gap would be read before the line was stored and the line would outlive it, so the test lets the state settle.
+    await sleep(80);
     // the next key takes the line of news away
     stdin.type('j');
     // a picture drawn after the key has the usual key line again, so the line of news is gone
