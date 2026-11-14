@@ -54,6 +54,7 @@ export {
   PANE_ROWS,
   paneRowsFor,
   SPLIT_COLUMNS,
+  TITLE_MIN_ROWS,
 } from './layout.js';
 export type { PaneSpec, Panes, PanesInput } from './panes.js';
 export { paneBlockRows, panesFor, runningIds, stepCost, TAIL_ROWS } from './panes.js';
@@ -68,8 +69,16 @@ export type {
 } from './run-flow.js';
 export { isRunControlError, reduceFlow, visibleWorkflows } from './run-flow.js';
 export { buildFlowScreen } from './run-flow-screen.js';
-export type { Row, Screen, ScreenOptions, Tone } from './screen.js';
-export { buildScreen, reasoningLinesOf, shownStep, stepLine, stepTone, tooSmallRows } from './screen.js';
+export type { Row, Screen, ScreenOptions, Titles, Tone } from './screen.js';
+export {
+  buildScreen,
+  focusTitle,
+  reasoningLinesOf,
+  shownStep,
+  stepLine,
+  stepTone,
+  tooSmallRows,
+} from './screen.js';
 export type { SettingsActions, SettingsOptions, SettingsResult } from './settings.js';
 export { editLoggingSettings } from './settings.js';
 export type { SettingsScreenOptions } from './settings-screen.js';
@@ -85,7 +94,7 @@ export {
   selectedSinkSettings,
 } from './settings-state.js';
 export type { KeyName, UiContext, UiState } from './ui-state.js';
-export { clampUi, initialUi, reduceUi } from './ui-state.js';
+export { areaOrder, clampUi, initialUi, reduceUi } from './ui-state.js';
 
 export interface WatchOptions {
   /** `.indaba/traces` of the project. */

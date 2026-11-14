@@ -20,10 +20,17 @@ export interface Layout {
   readonly paneRows: number;
   /** How many panes of four rows fit in `paneRows`. */
   readonly paneCap: number;
+  /**
+   * 1 when each area has a title row (specs/tui-pane-focus): already taken off `listRows`, `detailRows` and `dockRows`, except
+   * that a stacked screen draws the detail title where the separator was. 0 under {@link TITLE_MIN_ROWS}.
+   */
+  readonly titleRows: number;
 }
 
 export const MIN_COLUMNS = 40;
 export const MIN_ROWS = 8;
+/** From this many rows up every area has a title; below it the footer alone names where the arrow keys are. */
+export const TITLE_MIN_ROWS = 12;
 /** At least this wide, the list and the detail sit side by side. */
 export const SPLIT_COLUMNS = 80;
 /**
@@ -53,18 +60,30 @@ export function paneRowsFor(detailRows: number, running: number): number {
 export function computeLayout(
   columns: number,
   rows: number,
-  options: { readonly dock?: boolean; readonly panes?: number } = {},
+  options: { readonly dock?: boolean; readonly panes?: number; readonly titles?: boolean } = {},
 ): Layout {
-  const base = baseLayout(columns, rows, options);
+  const plain = baseLayout(columns, rows, options);
+  const titled = options.titles !== false && plain.mode !== 'too-small' && plain.rows >= TITLE_MIN_ROWS;
+  const base = titled
+    ? {
+        ...plain,
+        listRows: plain.listRows - 1,
+        // a stacked screen draws the detail title where the separator was
+        detailRows: plain.mode === 'split' ? plain.detailRows - 1 : plain.detailRows,
+        dockRows: plain.dockWidth > 0 ? plain.dockRows - 1 : 0,
+      }
+    : plain;
+  const titleRows = titled ? 1 : 0;
   const paneRows = base.mode === 'too-small' ? 0 : paneRowsFor(base.detailRows, options.panes ?? 0);
   if (paneRows === 0) {
-    return { ...base, paneRows: 0, paneCap: 0 };
+    return { ...base, paneRows: 0, paneCap: 0, titleRows };
   }
   return {
     ...base,
     detailRows: base.detailRows - paneRows - 1,
     paneRows,
     paneCap: paneRows / PANE_ROWS,
+    titleRows,
   };
 }
 
@@ -72,7 +91,7 @@ function baseLayout(
   columns: number,
   rows: number,
   options: { readonly dock?: boolean },
-): Omit<Layout, 'paneRows' | 'paneCap'> {
+): Omit<Layout, 'paneRows' | 'paneCap' | 'titleRows'> {
   const safeColumns = Number.isFinite(columns) && columns > 0 ? Math.floor(columns) : 0;
   const safeRows = Number.isFinite(rows) && rows > 0 ? Math.floor(rows) : 0;
   const body = Math.max(0, safeRows - 2);

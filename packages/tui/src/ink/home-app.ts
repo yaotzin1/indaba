@@ -63,7 +63,7 @@ export function HomeApp(props: HomeAppProps): ReactElement {
   const control = props.runs;
   const pollMs = props.pollMs ?? DEFAULT_POLL_MS;
 
-  const layout = computeLayout(size.columns, size.rows);
+  const layout = computeLayout(size.columns, size.rows, { titles: false });
   const isOwnedAndAlive = (runId: string): boolean =>
     control !== undefined &&
     state.owned.includes(runId) &&

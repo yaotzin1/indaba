@@ -66,7 +66,7 @@ export function keyName(input: string, key: Key): KeyName | undefined {
   if (key.pageDown) return 'pagedown';
   if (key.home) return 'home';
   if (key.end) return 'end';
-  if (key.tab) return 'tab';
+  if (key.tab) return key.shift ? 'shift-tab' : 'tab';
   if (key.escape) return 'escape';
   if (key.return) return 'enter';
   if (key.backspace || key.delete) return 'backspace';
@@ -180,6 +180,7 @@ export function App(props: AppProps): ReactElement {
     pageSize: Math.max(1, layout.detailRows - 3),
     attached: props.attached,
     docked: layout.dockWidth > 0,
+    hasBoard: props.board !== undefined,
     reasoningLines: reasoningLinesOf(run, ui, layout.detailWidth),
     panes: running,
     paneCap: layout.paneCap,

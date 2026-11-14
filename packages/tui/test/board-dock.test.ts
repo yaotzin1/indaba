@@ -69,7 +69,7 @@ describe('the layout with a docked board (AC-33, C-13)', () => {
       expect(l.listWidth).toBeLessThanOrEqual(28);
       expect(l.dockWidth).toBeGreaterThanOrEqual(40);
       expect(l.detailWidth).toBeGreaterThanOrEqual(40);
-      expect(l.dockRows).toBe(28);
+      expect(l.dockRows).toBe(27);
     }
   });
 

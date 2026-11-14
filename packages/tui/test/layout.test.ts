@@ -32,8 +32,10 @@ describe('computeLayout', () => {
 
   it('takes a header and a footer off the height, and gives both panes the rest when side by side', () => {
     const l = computeLayout(100, 30);
-    expect(l.listRows).toBe(28);
-    expect(l.detailRows).toBe(28);
+    // one more row off each for its title (specs/tui-pane-focus)
+    expect(l.titleRows).toBe(1);
+    expect(l.listRows).toBe(27);
+    expect(l.detailRows).toBe(27);
   });
 
   it('divides the height between the panes when stacked, leaving a row for the divider', () => {
@@ -41,7 +43,8 @@ describe('computeLayout', () => {
     expect(l.mode).toBe('stacked');
     expect(l.listWidth).toBe(60);
     expect(l.detailWidth).toBe(60);
-    expect(l.listRows).toBe(7);
+    // the list gives a row to its title; the title of the detail takes the place of the divider
+    expect(l.listRows).toBe(6);
     expect(l.detailRows).toBe(22 - 7 - 1);
     const small = computeLayout(60, MIN_ROWS);
     expect(small.listRows).toBeGreaterThanOrEqual(2);

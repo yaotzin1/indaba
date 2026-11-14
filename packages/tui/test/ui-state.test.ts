@@ -111,7 +111,9 @@ describe('scrolling the output', () => {
     expect(ui).toMatchObject({ selected: 0, scroll: 1, follow: false });
     ui = press(ui, ch('j'));
     expect(ui).toMatchObject({ scroll: 0, follow: true });
-    expect(press(ui, 'tab').focus).toBe('list');
+    // Tab reaches the board too, and wraps to the list after it (specs/tui-pane-focus, AC-02)
+    expect(press(ui, 'tab').focus).toBe('board');
+    expect(press(ui, 'tab', ctx({ hasBoard: false })).focus).toBe('list');
   });
 });
 
@@ -214,10 +216,12 @@ describe('the board pane (b)', () => {
     expect(press(open, 'escape')).toMatchObject({ board: false, focus: 'detail' });
   });
 
-  it('moves the arrow keys between the step list and the board with tab, and not to a pane that is hidden', () => {
+  it('visits the list, the detail and the board with tab at any width (changed by specs/tui-pane-focus, AC-02)', () => {
     const open = press(initialUi(), ch('b'));
-    expect(press(open, 'tab').focus).toBe('list');
-    expect(press(press(open, 'tab'), 'tab').focus).toBe('board');
+    // leaving the board gives the detail pane back, and the next tab reaches it
+    expect(press(open, 'tab')).toMatchObject({ focus: 'list', board: false });
+    expect(press(press(open, 'tab'), 'tab').focus).toBe('detail');
+    expect(press(press(press(open, 'tab'), 'tab'), 'tab')).toMatchObject({ focus: 'board', board: true });
     expect(press(initialUi(), 'tab').focus).toBe('detail');
   });
 

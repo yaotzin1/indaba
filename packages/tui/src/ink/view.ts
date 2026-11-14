@@ -72,6 +72,11 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
   }
   const footer = h(RowView, { row: screen.footer, color });
   const separator = props.ascii ? '|' : '│';
+  const titles = screen.titles;
+  const listRows = titles === undefined ? screen.list : [titles.list, ...screen.list];
+  const middle = [...(screen.panes ?? []), ...screen.detail];
+  const detailRows = titles === undefined ? middle : [titles.detail, ...middle];
+  const dockRows = titles === undefined ? screen.dock : [titles.dock, ...screen.dock];
 
   if (layout.mode === 'split') {
     return h(
@@ -81,13 +86,13 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
       h(
         Box,
         { flexDirection: 'row' },
-        h(Rows, { rows: screen.list, color, width: layout.listWidth }),
+        h(Rows, { rows: listRows, color, width: layout.listWidth }),
         h(Text, { dimColor: true }, separator),
-        h(Rows, { rows: [...(screen.panes ?? []), ...screen.detail], color, width: layout.detailWidth }),
+        h(Rows, { rows: detailRows, color, width: layout.detailWidth }),
         ...(layout.dockWidth > 0
           ? [
               h(Text, { key: 'dock-separator', dimColor: true }, separator),
-              h(Rows, { key: 'dock', rows: screen.dock, color, width: layout.dockWidth }),
+              h(Rows, { key: 'dock', rows: dockRows, color, width: layout.dockWidth }),
             ]
           : []),
       ),
@@ -99,9 +104,12 @@ export function ScreenView(props: ScreenViewProps): ReactElement {
     Box,
     { flexDirection: 'column' },
     header,
-    h(Rows, { rows: screen.list, color, width: layout.columns }),
-    h(Text, { dimColor: true }, separator.repeat(layout.columns)),
-    h(Rows, { rows: [...(screen.panes ?? []), ...screen.detail], color, width: layout.columns }),
+    h(Rows, { rows: listRows, color, width: layout.columns }),
+    // the title of the detail takes the place of the line between the two
+    titles === undefined
+      ? h(Text, { dimColor: true }, separator.repeat(layout.columns))
+      : h(Rows, { rows: [titles.detail], color, width: layout.columns }),
+    h(Rows, { rows: middle, color, width: layout.columns }),
     footer,
   );
 }
