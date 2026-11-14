@@ -88,6 +88,8 @@ export const KEY = {
 
 export const sleep = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 
+const SETTLE_MS = 40;
+
 export async function until(check: () => boolean, timeoutMs = 2000): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (!check()) {
@@ -96,6 +98,9 @@ export async function until(check: () => boolean, timeoutMs = 2000): Promise<voi
     }
     await sleep(10);
   }
+  // A frame can show the text before Ink has bound the input handler of the new screen, and a key typed in that gap is lost
+  // under load. A person's keys always arrive a moment later, so the helper lets the state settle before the test types.
+  await sleep(SETTLE_MS);
 }
 
 /** The terminal's final picture is the last frame; Ink rewrites the whole thing on every change. */
