@@ -39,6 +39,7 @@ export type KeyName =
   | 'home'
   | 'end'
   | 'tab'
+  | 'shift-tab'
   | 'escape'
   | 'enter'
   | 'backspace'
@@ -57,6 +58,8 @@ export interface UiContext {
   readonly docked?: boolean;
   /** Lines of reasoning the shown step has, as drawn (wrapped). */
   readonly reasoningLines?: number;
+  /** The run has a board, so the board is a stop of Tab. Absent counts as true. */
+  readonly hasBoard?: boolean;
   /** The ids of the running steps, in the order of the run: the steps that have a pane. */
   readonly panes?: readonly string[];
   /** How many panes fit in the block at this size. */
@@ -111,16 +114,19 @@ export function clampUi(ui: UiState, context: UiContext): UiState {
     }
     paneOffset = clamp(paneOffset, 0, running.length - (context.paneCap ?? running.length));
   }
+  // the board is shown in place of the detail exactly while it has the keys and is not docked (a resize can leave them apart)
+  const board = context.docked === true ? false : focus === 'board';
   return selected === ui.selected &&
     scroll === ui.scroll &&
     focus === ui.focus &&
+    board === ui.board &&
     reasoningScroll === ui.reasoningScroll &&
     pane === ui.pane &&
     paneOffset === ui.paneOffset &&
     enlarged === ui.enlarged &&
     notice === ui.notice
     ? ui
-    : { ...ui, selected, scroll, focus, reasoningScroll, pane, paneOffset, enlarged, notice };
+    : { ...ui, selected, scroll, focus, board, reasoningScroll, pane, paneOffset, enlarged, notice };
 }
 
 function select(ui: UiState, to: number, context: UiContext): UiState {
@@ -161,15 +167,27 @@ function movePane(ui: UiState, by: number, context: UiContext): UiState {
   return ui.enlarged ? { ...ui, pane, paneOffset, scroll: 0, follow: true } : { ...ui, pane, paneOffset };
 }
 
-/** Tab moves the arrow keys between the step list and the other pane, which is the board while it is open. */
-function nextFocus(ui: UiState, docked: boolean): UiState['focus'] {
-  if (docked) {
-    return ui.focus === 'list' ? 'detail' : ui.focus === 'detail' ? 'board' : 'list';
-  }
-  if (ui.focus === 'list') {
-    return ui.board ? 'board' : 'detail';
-  }
-  return 'list';
+/** The areas Tab visits, in order, the same at every width (specs/tui-pane-focus, AC-02). */
+export function areaOrder(context: Pick<UiContext, 'hasBoard'>): ReadonlyArray<UiState['focus']> {
+  return context.hasBoard === false ? ['list', 'detail'] : ['list', 'detail', 'board'];
+}
+
+/**
+ * Gives the arrow keys to an area. Where the board is not docked it has no place of its own, so it is shown in place of the
+ * detail while it has the keys and the detail comes back when they leave.
+ */
+function focusOn(ui: UiState, focus: UiState['focus'], docked: boolean): UiState {
+  return docked ? { ...ui, focus } : { ...ui, focus, board: focus === 'board' };
+}
+
+/** Tab (`step` 1) and Shift-Tab (`step` -1) move the arrow keys to the next area, wrapping round. */
+function nextFocus(ui: UiState, context: UiContext, step: 1 | -1): UiState {
+  const order = areaOrder(context);
+  // the message of a run without a board (`b`) holds the keys on the board, which is not a stop: it counts as the last one
+  const found = order.indexOf(ui.focus);
+  const at = found === -1 ? order.length - 1 : found;
+  const next = order[(at + step + order.length) % order.length] ?? 'list';
+  return focusOn(ui, next, context.docked === true);
 }
 
 /** A key press and the sizes in, the next state out. A line of news lasts until the next key. */
@@ -231,8 +249,8 @@ function reduceKey(ui: UiState, press: KeyName, context: UiContext): UiState {
   if (char === 'o' && !ui.help) {
     return { ...ui, panel: 'output' };
   }
-  if (press === 'tab') {
-    return ui.enlarged ? ui : { ...ui, focus: nextFocus(ui, context.docked === true) };
+  if (press === 'tab' || press === 'shift-tab') {
+    return ui.enlarged ? ui : nextFocus(ui, context, press === 'tab' ? 1 : -1);
   }
   if (typeof press === 'object' && press.char === 'b' && !ui.help) {
     if (context.docked === true) {

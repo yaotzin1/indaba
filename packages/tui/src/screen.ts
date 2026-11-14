@@ -11,7 +11,7 @@ import {
 import { type BoardPane, boardHelpRows, boardRows } from './board-screen.js';
 import { clip, fit, type Layout, MIN_COLUMNS, MIN_ROWS, wrap } from './layout.js';
 import { flatLine, paneBlockRows, panesFor } from './panes.js';
-import type { UiState } from './ui-state.js';
+import { areaOrder, type UiState } from './ui-state.js';
 
 /** How a row is drawn when colour is on. State is never shown by tone alone: every row also has a glyph and a word. */
 export type Tone = 'normal' | 'dim' | 'good' | 'bad' | 'warn' | 'info' | 'accent';
@@ -42,6 +42,16 @@ export interface Screen {
   readonly panes?: readonly Row[];
   /** Lines of reasoning the shown step has, as drawn (wrapped), for the scroll limit. */
   readonly reasoningLines?: number;
+  /** The title row of each area, present when the layout has room for them (`layout.titleRows`). */
+  readonly titles?: Titles;
+}
+
+/** One title row for each area: its name, and the focused one marked so that colour is not needed to see it. */
+export interface Titles {
+  readonly list: Row;
+  readonly detail: Row;
+  /** Only drawn when the board is docked. */
+  readonly dock: Row;
 }
 
 const row = (text: string, tone: Tone = 'normal', selected = false): Row => ({ text, tone, selected });
@@ -309,13 +319,57 @@ function paneBlock(run: RunState, ui: UiState, layout: Layout, options: ScreenOp
     ascii: options.ascii,
   });
   const rule = options.ascii ? '-' : '─';
+  // the line under the block says what the block is and which keys move in it, so it does not look like the area focus
+  const label = `${rule}${rule} Running steps ${found.panes.length} of ${found.running}   [ ] move ${rule}${rule}`;
   return [
     ...paneBlockRows(found, layout.detailWidth, options.ascii),
-    row(rule.repeat(layout.detailWidth), 'dim'),
+    row(
+      clip(label, layout.detailWidth, options.ascii) +
+        rule.repeat(Math.max(0, layout.detailWidth - Array.from(label).length)),
+      'dim',
+    ),
   ];
 }
 
-function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
+const AREA_NAME: Readonly<Record<UiState['focus'], string>> = {
+  list: 'Steps',
+  detail: 'Detail',
+  board: 'Board',
+};
+
+/** The title of one area. The focused one is inverse and starts with a marker, the rest are dim with a blank in its place. */
+export function focusTitle(name: string, focused: boolean, width: number, ascii: boolean): Row {
+  const marker = focused ? (ascii ? '>' : '▶') : ' ';
+  return row(fit(`${marker} ${name}`, width, ascii), focused ? 'accent' : 'dim', focused);
+}
+
+function titlesFor(run: RunState, ui: UiState, layout: Layout, options: ScreenOptions): Titles {
+  const docked = layout.dockWidth > 0;
+  const boardInPlace = ui.board && !docked;
+  const step = shownStep(run, ui);
+  const detailName = ui.help
+    ? 'Help'
+    : boardInPlace
+      ? 'Board (replaces Detail)'
+      : step === undefined
+        ? 'Detail'
+        : `Detail: ${safe(step.id)}`;
+  // the middle area is the board while it replaces the detail, so the board's keys are that area's keys
+  const middleFocused = boardInPlace ? ui.focus === 'board' : ui.focus === 'detail';
+  return {
+    list: focusTitle(`Steps (${run.steps.length})`, ui.focus === 'list', layout.listWidth, options.ascii),
+    detail: focusTitle(detailName, middleFocused, layout.detailWidth, options.ascii),
+    dock: focusTitle('Board', docked && ui.focus === 'board', layout.dockWidth, options.ascii),
+  };
+}
+
+function footerRow(
+  run: RunState,
+  ui: UiState,
+  layout: Layout,
+  options: ScreenOptions,
+  hasBoard: boolean,
+): Row {
   const arrows = options.ascii ? 'up/down' : '↑↓';
   // the question about a run is never hidden by news: d and c act on it
   if (ui.confirmQuit) {
@@ -327,16 +381,24 @@ function footerRow(ui: UiState, layout: Layout, options: ScreenOptions): Row {
   if (ui.notice !== undefined) {
     return row(clip(ui.notice, layout.columns, options.ascii), 'info');
   }
+  const order = areaOrder({ hasBoard });
+  const found = order.indexOf(ui.focus);
+  const next = AREA_NAME[order[((found === -1 ? order.length - 1 : found) + 1) % order.length] ?? 'list'];
+  const marker = options.ascii ? '>' : '▶';
   const follow = ui.follow ? 'f follow*' : 'f follow';
+  const panes = run.steps.some((s) => s.status === 'RUNNING') ? '   [ ] running steps' : '';
+  // the next stop comes first: it is what a person who is lost needs, and a narrow screen cuts the line from the right
   const keys =
     ui.focus === 'board'
-      ? `${arrows} board   tab pane   b ${layout.dockWidth > 0 ? 'back to the steps' : 'close board'}   ? help   q quit`
-      : `${arrows} select   tab pane   PgUp/PgDn scroll   ${follow}   b board   ? help   q quit`;
-  return row(clip(keys, layout.columns, options.ascii), 'dim');
+      ? `Tab ${next}   ${arrows} move   b ${layout.dockWidth > 0 ? 'back to the steps' : 'close board'}   ? help   q quit`
+      : ui.focus === 'list'
+        ? `Tab ${next}   ${arrows} choose a step${panes}   b board   ? help   q quit`
+        : `Tab ${next}   ${arrows} PgUp/PgDn scroll   ${follow}${panes}   b board   ? help   q quit`;
+  return row(clip(`${marker} ${AREA_NAME[ui.focus]}   ${keys}`, layout.columns, options.ascii), 'dim');
 }
 
 /** Everything the screen shows, as rows. Pure: the same run, state and size always give the same rows. */
-export function buildScreen(
+function buildBody(
   run: RunState,
   ui: UiState,
   layout: Layout,
@@ -375,7 +437,7 @@ export function buildScreen(
         ...boardHelpRows(layout.detailWidth, options.ascii),
       ].slice(0, whole.detailRows),
       dock: [],
-      footer: footerRow(ui, layout, options),
+      footer: footerRow(run, ui, layout, options, board !== undefined),
       outputLines: 0,
     };
   }
@@ -383,7 +445,14 @@ export function buildScreen(
   const dock = docked ? boardRows(board, layout.dockWidth, layout.dockRows, { ascii: options.ascii }) : [];
   if (ui.board && !docked) {
     const rows = boardRows(board, layout.detailWidth, whole.detailRows, { ascii: options.ascii });
-    return { header, list, detail: rows, dock, footer: footerRow(ui, layout, options), outputLines: 0 };
+    return {
+      header,
+      list,
+      detail: rows,
+      dock,
+      footer: footerRow(run, ui, layout, options, board !== undefined),
+      outputLines: 0,
+    };
   }
   const { rows, outputLines, reasoningLines } = detailRows(run, ui, layout, options);
   const panes = layout.paneRows > 0 && !ui.enlarged ? paneBlock(run, ui, layout, options) : [];
@@ -392,9 +461,20 @@ export function buildScreen(
     list,
     detail: rows,
     dock,
-    footer: footerRow(ui, layout, options),
+    footer: footerRow(run, ui, layout, options, board !== undefined),
     outputLines,
     reasoningLines,
     panes,
   };
+}
+
+export function buildScreen(
+  run: RunState,
+  ui: UiState,
+  layout: Layout,
+  options: ScreenOptions,
+  board?: BoardPane,
+): Screen {
+  const screen = buildBody(run, ui, layout, options, board);
+  return layout.titleRows > 0 ? { ...screen, titles: titlesFor(run, ui, layout, options) } : screen;
 }

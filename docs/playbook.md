@@ -136,13 +136,22 @@ left and the output of the selected one on the right; below 80 columns they stac
 | `g` `G` | first or last step |
 | `PgUp` `PgDn` | scroll the output |
 | `f` | follow the newest output |
-| `tab` | move the arrow keys to the other pane |
-| `b` | open or close the board (on a wide terminal: move the arrow keys to it and back) |
+| `tab` `shift-tab` | move the arrow keys to the next or previous area: the steps, the detail and the board |
+| `b` | the board: the same as `tab` to it (below 160 columns it takes the place of the detail; on a wide terminal it is docked and `b` moves the arrow keys to it and back) |
 | `r` `o` | show the reasoning of the step, or its output again; each keeps its own place |
 | `[` `]` | move between the panes of the running steps |
 | `Enter` `z` | enlarge the focused pane; `Esc` puts it back |
 | `?` | list the keys |
 | `q` | quit (it asks what to do with a run it started) |
+
+**Where the arrow keys are.** Each area has a title row (from 12 rows up): `▶ Steps`, `▶ Detail: <step>`, `▶ Board`. The one
+with the arrow keys is inverse and starts with `▶` (`>` with `--ascii`), the others are dim, so it shows without colour. The
+bottom line names the same area, says what the arrows do there and which area `tab` goes to next. `tab` visits the steps,
+the detail and the board in that order at every width; where the board is not docked, it is shown in place of the detail
+while it has the arrow keys (the title says "Board (replaces Detail)") and the detail comes back when you leave it. Under 12
+rows there are no titles and the bottom line alone carries the `▶` and the name. The running steps' panes are a separate
+block, labelled on the line under it (`Running steps 2 of 5   [ ] move`); `[` `]` move inside it whichever area has the arrow
+keys.
 
 States are a symbol and a word, never colour alone. `--ascii` avoids box and arrow characters and `NO_COLOR` turns colour
 off.
@@ -181,13 +190,13 @@ thrown away because their step failed (`discarded`), or replaced because a retry
 
 **On a wide terminal** (160 columns or more, and a run that has a board) the board is docked on the right, beside the steps
 and their output, and you see the discussion and the step in progress without pressing anything. `b` then moves the arrow
-keys to the board and back, `tab` goes round the steps, the output and the board, and `Esc` hands the arrow keys back to
+keys to the board and back, `tab` goes round the steps, the detail and the board, and `Esc` hands the arrow keys back to
 the steps. The width is a first choice, not a measurement; below it, `b` swaps the board in for the output as described here.
 
 ![The board docked beside the steps and the output](assets/board-dock.svg)
 
-Which keys apply depends on where the arrow keys are: after `b` they are on the board, and `tab` moves them back to the
-step list. That is why `f` follows the output in the step list and shows the facts on the board.
+Which keys apply depends on where the arrow keys are, and the title marked `▶` and the bottom line say where that is: after
+`b` they are on the board, and `tab` moves them on to the step list. That is why `f` follows the output in the step list and shows the facts on the board.
 
 ![The facts view](assets/board-facts.svg)
 
