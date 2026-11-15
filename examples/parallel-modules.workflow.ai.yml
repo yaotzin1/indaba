@@ -1,0 +1,72 @@
+version: "1.0"
+name: "parallel-modules"
+
+# The "work at once, then join" pattern (docs/agent-patterns.md): one agent plans, two agents each build a
+# module in a worktree of their own at the same time, and one step checks the joined result.
+#
+# The two module steps are written out by hand. Running one step template once per item of a plan is
+# specified (specs/step-fanout) and not built, so a third module is a third step in this file.
+#
+# Steps only run at the same time when the limit is above 1, and the default is 1. Either run it with
+#   indaba run examples/parallel-modules.workflow.ai.yml --parallel 2
+# or leave `max_parallel` below as the most this workflow allows (it lowers the run's limit, never raises it).
+# With a limit above 1 each step first says what it intends to change, steps whose intentions meet wait or agree a
+# contract, and Indaba prints what that costs before the run starts. See "Steps at the same time" in
+# docs/workflow-format.md.
+
+artifacts:
+  plan: ".indaba/artifacts/plan.md"
+  patch: ".indaba/artifacts/change.patch"
+
+max_parallel: 2
+
+roles:
+  planner:
+    runner: "openrouter"
+    model: "anthropic/claude-3.7-sonnet:thinking"
+  builder:
+    runner: "claude-code"
+
+steps:
+  - id: "plan"
+    role: "planner"
+    goal: >-
+      Split the work into two modules that can be built without touching each other's files. Write the plan to
+      ${{ artifacts.plan }}: for each module, the directory it owns, what it exposes to the other and what it needs.
+    outputs: ["${{ artifacts.plan }}"]
+    guards:
+      - type: "git_diff_empty"
+        paths: ["src/", "tests/"]
+
+  - id: "module_a"
+    depends_on: ["plan"]
+    role: "builder"
+    input_artifacts: ["${{ artifacts.plan }}"]
+    goal: "Build module A as the plan describes. Change only the directory the plan gives to module A."
+    isolation: "git_worktree"
+    permissions:
+      level: "edit"
+      fs:
+        write: ["src/module-a/**", "tests/module-a/**"]
+
+  - id: "module_b"
+    depends_on: ["plan"]
+    role: "builder"
+    input_artifacts: ["${{ artifacts.plan }}"]
+    goal: "Build module B as the plan describes. Change only the directory the plan gives to module B."
+    isolation: "git_worktree"
+    permissions:
+      level: "edit"
+      fs:
+        write: ["src/module-b/**", "tests/module-b/**"]
+
+  - id: "join_check"
+    depends_on: ["module_a", "module_b"]
+    runner: "shell"
+    commands:
+      - "pnpm test"
+      - "pnpm typecheck"
+    on_failure:
+      action: "retry_step"
+      target: "module_a"
+      max_retries: 2
