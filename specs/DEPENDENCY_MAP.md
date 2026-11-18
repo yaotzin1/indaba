@@ -122,6 +122,7 @@ gantt
     tui-agent-panes (TUI-3) :done, 2026-11-14, 1d
     tui-pane-focus (TUI-3.7) :active, 2026-11-15, 1d
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
+    run-assist (RA-1, RA-2) :active, 2026-11-18, 1d
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
     host-process-containment :active, 2026-11-12, 1d
@@ -231,6 +232,28 @@ graph LR
 | `run-preview` | `PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost` | field `preview`, `indaba preview`, `indaba previews` | nothing |
 | `run-integration` | `IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator` | field `integrate`, options `--integrate`, `--integrate-target` | `review-gate`, `ruling-channel`, `step-budgets` for the full conflict options; `off`, `branch` and `stop` ship without them |
 
+### Epic `RUN-ASSIST`: Indaba tells the person what a run needs and what is left
+
+```mermaid
+graph LR
+    Epic(["RUN-ASSIST: run-assist"])
+    R1["RA-1: run-readiness (before a run)"]
+    R2["RA-2: run-handover (after a run)"]
+    Epic --> R1 & R2
+    R1 --> R2
+    R1 -.-> WI["workflow-inputs (not started)"]
+    R1 -.-> RC["tui-run-control (implemented)"]
+    R2 -.-> DF["debate-findings, step-verdicts (not started)"]
+    R2 -.-> TQ["tui-questions (blocked)"]
+```
+
+| Epic | Feature | Stories | Ships without an unimplemented spec |
+| :--- | :--- | :--- | :--- |
+| `RUN-ASSIST` | `RA-1` `run-readiness` | 1.1 to 1.6 | partly: the inferred checks need no other spec; input checks wait for `workflow-inputs` |
+| | `RA-2` `run-handover` | 2.1 to 2.6 | CLI and web yes; the TUI answers wait for `tui-questions`; finding sources wait for `debate-findings` and `step-verdicts` |
+
+Both features carry a parity table, per the epic's rule R-04.
+
 ## Feature to package
 
 | Feature (spec) | Status | Packages |
@@ -280,6 +303,9 @@ graph LR
 | `tui-questions` | Feature `TUI-4`. Not started (specified; draft; blocked; waits for `agent-conversation`, `question-contract`, `review-gate`, `ruling-channel`) | `@indaba/tui`, `indaba` |
 | `tui-workflows` | Feature `TUI-5`, epic release 2. Not started (specified; draft; builds on `workflow-registry`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `tui-editing` | Feature `TUI-6`; 6.1 is epic release 3, the rest deferred behind a demand check. Not started (specified; draft; builds on `workflow-editor`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
+| `run-assist` | Epic. Draft (specified; no code) | orders `RA-1` and `RA-2`; `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
+| `run-readiness` | Feature `RA-1`. Not started (specified; draft): a readiness report before a run, computed, shown in the start confirmation | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
+| `run-handover` | Feature `RA-2`. Not started (specified; draft): open items and human-only checks after a run, answered fix / accept / defer | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |
