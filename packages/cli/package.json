@@ -1,6 +1,6 @@
 {
   "name": "indaba",
-  "version": "0.1.0-alpha.5",
+  "version": "0.2.0-alpha.0",
   "description": "Deterministic orchestration, debate and observability engine for multi-agent AI workflows.",
   "license": "MIT",
   "repository": {
@@ -38,7 +38,7 @@
     "@indaba/tui": "workspace:*"
   },
   "peerDependencies": {
-    "@indaba/server": ">=0.1.0-alpha.2"
+    "@indaba/server": ">=0.2.0-alpha.0"
   },
   "peerDependenciesMeta": {
     "@indaba/server": {

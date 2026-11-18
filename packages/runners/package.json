@@ -1,6 +1,6 @@
 {
   "name": "@indaba/runners",
-  "version": "0.1.0-alpha.5",
+  "version": "0.2.0-alpha.0",
   "description": "Indaba runners: shell commands, OpenRouter and OpenAI-compatible APIs, ACP agents, and agent CLIs (Claude Code, Codex, Cursor, Antigravity, OpenCode).",
   "license": "MIT",
   "repository": {
