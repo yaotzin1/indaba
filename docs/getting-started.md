@@ -10,12 +10,12 @@ Indaba is a preview. What npm has today, and what only a checkout of the reposit
 
 | | npm | A checkout of `main` |
 | :--- | :--- | :--- |
-| Version | `next`: `0.1.0-alpha.3` (2026-10-26). `latest`: `0.1.0-alpha.0` | everything merged since `0.1.0-alpha.3` (the CHANGELOG's Unreleased section) |
+| Version | `next`: `0.2.0-alpha.0` (2026-11-18). `latest`: `0.1.0-alpha.0` | everything merged since `0.2.0-alpha.0` (the CHANGELOG's Unreleased section) |
 | `indaba validate`, `plan`, `run` | yes | yes |
 | `indaba watch`, `report`, `settings`, `schema`, `catalog`, `workflows` | yes | yes |
-| `indaba ui` (the web view) | the command, yes; `@indaba/server` `0.1.0-alpha.3` is on npm but cannot be installed yet, so use a checkout | yes |
+| `indaba ui` (the web view) | yes, with `@indaba/server` next to `indaba` (`npx -p indaba@next -p @indaba/server@next indaba ui`) | yes |
 | `--log-level`, `--log-dir`, `--tui`, `--permissions`, `--allow-full-access` | yes | yes |
-| `@indaba/tui` (the terminal dashboard) | `0.1.0-alpha.3` (a separate install until the next release; from then on it comes with `indaba`) | yes |
+| `@indaba/tui` (the terminal dashboard) | yes, it comes with `indaba` | yes |
 
 Always write `npx indaba@next`. Plain `npx indaba` resolves to `latest`, the older `0.1.0-alpha.0`. The rest of
 this page writes `npx indaba` for short; from a checkout, write `pnpm indaba` (see
@@ -62,7 +62,7 @@ What it left behind is under `.indaba/`: the trace of the run, the steps and the
 - give a step a `role` backed by an agent or a model: [Runners](#runners) and [workflow-format.md](workflow-format.md);
 - let two agents debate a decision: [consensus steps](workflow-format.md#consensus-steps);
 - build a whole application with agents, from an idea: [Cookbook: idea to app](cookbook-quick-start.md), or with every stage explained: [Cookbook: CRUD, step by step](cookbook-crud.md);
-- follow, start and edit runs in a browser with `indaba ui`: [The web view](#the-web-view-indaba-ui) (from a checkout for now).
+- follow, start and edit runs in a browser with `indaba ui`: [The web view](#the-web-view-indaba-ui) (`npx -p indaba@next -p @indaba/server@next indaba ui`).
 
 ## Prerequisites
 
@@ -414,9 +414,8 @@ the runs started from the page. Options: `--root <dir>` (repeatable), `--discuss
 
 `indaba ui` needs the optional `@indaba/server` next to `indaba`; the page comes inside it. Unlike the terminal
 dashboard, which comes with `indaba`, the web view is a second package, so with `npx` name both:
-`npx -p indaba@next -p @indaba/server@next indaba ui`. Version `0.1.0-alpha.3` is on
-npm but cannot be installed yet, so for now use `pnpm indaba ui` from a built checkout (below). Everything else is in
-[web-view.md](web-view.md).
+`npx -p indaba@next -p @indaba/server@next indaba ui`. From a checkout, `pnpm indaba ui` after a build does the same
+(below). Everything else is in [web-view.md](web-view.md).
 
 ## Running from a checkout
 

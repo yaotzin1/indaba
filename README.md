@@ -19,7 +19,7 @@ npx indaba@next plan workflow.ai.yml
 npx indaba@next run workflow.ai.yml
 ```
 
-> **Status.** A preview: `0.1.0-alpha.3` (2026-10-26) is the newest published version (`npx indaba@next` runs it;
+> **Status.** A preview: `0.2.0-alpha.0` (2026-11-18) is the newest published version (`npx indaba@next` runs it;
 > `latest` is still `0.1.0-alpha.0`). The API is not stable below 1.0. To work on Indaba, run from a checkout (see
 > [Development](#development)).
 
@@ -38,7 +38,7 @@ npx indaba@next run workflow.ai.yml
   `.indaba/traces/<traceId>.jsonl`.
 - **A page to watch it in.** A local web view (`indaba ui`) shows your runs and follows one live: the steps as a graph,
   what each did, where a failure leads, and what it cost. It also starts and stops runs, lists your workflows, and edits
-  a workflow as a form, a graph or text ([docs/web-view.md](docs/web-view.md); from a checkout for now).
+  a workflow as a form, a graph or text ([docs/web-view.md](docs/web-view.md)).
 - **Notes between steps.** A step can leave short notes (a result, a fact, a question) on a run board and a later step can
   read them, so agents hand work on without sharing a whole conversation. A debate's messages and outcome land on the same
   board. `indaba watch --plain` ends with it and the dashboard has a board pane
@@ -139,8 +139,8 @@ checked as you go, without losing the file's comments. Its Workflows screen list
 Settings screen changes the logging settings. A run started in a terminal it only shows.
 
 Start it in a project with `indaba ui` (`--root` for other projects, `--no-open`, `--port`, `--discussion-dir`). It needs
-the optional `@indaba/server` next to `indaba`; the page comes inside that package. `indaba ui` is in `0.1.0-alpha.3`,
-but `@indaba/server` cannot be installed from npm yet, so for now run it from a checkout:
+the optional `@indaba/server` next to `indaba`; the page comes inside that package. Both are on npm under `next`
+(`npx -p indaba@next -p @indaba/server@next indaba ui`); from a checkout:
 
 ```bash
 pnpm install && pnpm build
