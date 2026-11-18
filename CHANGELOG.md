@@ -15,6 +15,15 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Changed
+
+- **The documentation matches 0.2.0-alpha.0** (patch; track `chore`; `README.md`, `docs/`). The pages still gave
+  `0.1.0-alpha.3` as the newest preview and said `@indaba/server` could not be installed from npm and `@indaba/tui`
+  was a separate install; both have been installable together with `indaba` since `0.1.0-alpha.4`. They now give
+  `0.2.0-alpha.0`, the `npx -p indaba@next -p @indaba/server@next indaba ui` command, and no longer say that steps
+  always run one at a time or that `--parallel` is only recorded. The workflow format page names the `indaba.step.wait`
+  and `indaba.resolution` spans.
+
 ### Added
 
 - **The dashboard says where the arrow keys are, and `tab` reaches every area at every width** (minor; track `feature`; `specs/tui-pane-focus`, TUI-3.7). From 12 rows up every area has a title row (`▶ Steps`, `▶ Detail: <step>`, `▶ Board`); the focused one is inverse and starts with `▶` (`>` in ASCII), so it shows under `NO_COLOR`, and the bottom line now names the area, what the arrows do there and where `tab` goes next. `shift-tab` goes back. **Changed:** below 160 columns `tab` used to go steps to board to steps while the board was open and could never reach the board otherwise; it now visits the steps, the detail and the board at every width, and a board that is not docked is shown in place of the detail while it has the arrow keys. The line under the block of running-step panes is labelled (`Running steps 2 of 5   [ ] move`). The row counts of `computeLayout` fall by one per area at 12 rows and up. New in `@indaba/tui`: the key name `'shift-tab'`, `UiContext.hasBoard`, `Layout.titleRows`, `Screen.titles`, `areaOrder`, `focusTitle`, `TITLE_MIN_ROWS`.

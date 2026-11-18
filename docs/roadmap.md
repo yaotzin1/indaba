@@ -1,6 +1,6 @@
 # Roadmap
 
-The order in which to build the parts of Indaba, written on 2026-10-11 and updated after 0.1.0-alpha.3 (2026-10-26).
+The order in which to build the parts of Indaba, written on 2026-10-11 and updated after 0.2.0-alpha.0 (2026-11-18).
 It is a plan, not a promise: the order is the part that matters, and a phase may change after we use what the one
 before it built. What Indaba is for, and which parts exist today, is in [positioning.md](positioning.md).
 
@@ -68,8 +68,7 @@ Phase 5 is not started.
 2. Single-step run: `StepState.Skipped`, `RunOptions.only`, the input resolution and `--plan`, then the CLI options.
    *Not started* (`specs/single-step-run` is a draft).
 3. `@indaba/server`: token, header checks, `GET` endpoints for workflows, runs, board and health, the event stream over the
-   trace files. No page yet; tested over HTTP. **Built** (0.1.0-alpha.3), used from a checkout until `@indaba/server`
-   installs from npm.
+   trace files. No page yet; tested over HTTP. **Built** (0.1.0-alpha.3), installable from npm since 0.1.0-alpha.4.
 4. `@indaba/web` read-only: three sketches reviewed first, then the workflows table (`apsw-gridwright`), the graph
    and inspector, and the live run view. `indaba ui`. **Built** (0.1.0-alpha.3): the Runs and Run screens, the server,
    the run structure in the trace, `indaba ui`, the page packaged inside `@indaba/server`, and the Workflows table

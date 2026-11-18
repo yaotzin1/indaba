@@ -228,8 +228,8 @@ measured above the gate took 2.5 of 19 minutes, and about 12 of 28 when it sent 
 
 ## What you can do in parallel today, and what is planned
 
-**Today the steps of one run run one at a time**, even where the order allows two of them to overlap. What you can do
-in parallel is run **separate** workflows at once, each in its own project folder: they share nothing, and each has its own
+**By default the steps of one run run one at a time**, even where the order allows two of them to overlap (the limit is 1 until you raise it). What you can do
+in parallel without raising it is run **separate** workflows at once, each in its own project folder: they share nothing, and each has its own
 `indaba watch latest`. That is how this page was checked: two different applications built side by side.
 
 Parallel steps (independent steps of one run working at the same time, and talking before they collide) are built and
