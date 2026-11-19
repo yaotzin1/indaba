@@ -15,10 +15,10 @@ also lists and organises the workflows Indaba knows (the Workflows screen) and c
 </p>
 <p align="center"><sub>The Run screen as an earlier version showed it; the header now also has Workflows and Settings.</sub></p>
 
-> **Status.** In `indaba` `0.1.0-alpha.3`, on npm under the `next` tag: the Runs, Run, Workflows and Settings screens,
-> Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)), and the workflow editor (Form, Graph and
-> Source). `@indaba/server` `0.1.0-alpha.3` is published but cannot be installed yet, so for now run `indaba ui` from a
-> checkout (below). `pnpm try:ui -- --demo` also makes a demo project to look at.
+> **Status.** In `indaba` `0.2.0-alpha.0` and `@indaba/server` `0.2.0-alpha.0`, on npm under the `next` tag: the Runs,
+> Run, Workflows and Settings screens, Run and Stop ([`specs/web-app-actions`](../specs/web-app-actions/spec.md)), and
+> the workflow editor (Form, Graph and Source). Install both (below) or run from a checkout.
+> `pnpm try:ui -- --demo` also makes a demo project to look at.
 
 ## A debate's discussion
 
@@ -67,9 +67,9 @@ indaba ui needs the package @indaba/server, which could not be loaded (...).
 Install it next to indaba, then try again: npm install -g @indaba/server
 ```
 
-`indaba` `0.1.0-alpha.3` is on npm under the `next` tag. `@indaba/server` `0.1.0-alpha.3` is published too, but it
-cannot be installed yet, so the install above does not work for now. Until it does, use a checkout of this repository:
-with Node 22 and pnpm 9, build once and use `pnpm indaba` in place of `indaba`:
+Both packages are on npm under the `next` tag (`0.2.0-alpha.0`): `npx -p indaba@next -p @indaba/server@next indaba ui`.
+To work on Indaba itself, use a checkout of this repository: with Node 22 and pnpm 9, build once and use
+`pnpm indaba` in place of `indaba`:
 
 ```bash
 pnpm install

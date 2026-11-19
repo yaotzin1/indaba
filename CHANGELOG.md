@@ -15,6 +15,27 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+## [0.2.0-alpha.0] - 2026-11-18
+
+The sixth preview, published under the `next` tag. Its point is steps that run at the same time: with a limit above 1
+(`--parallel`, `INDABA_PARALLEL`, `max_parallel`) steps that work in a worktree each get a fork, say what they intend to
+change, negotiate a contract and have colliding landings resolved by agents. The terminal dashboard gains a home screen
+(bare `indaba` on a terminal), starts and stops runs, shows a pane for each running step and says where the arrow keys
+are. **Breaking, hence the minor: host processes are contained** (an agent or shell command no longer inherits all of
+`process.env`; see the entry below) **and bare `indaba` on a terminal opens Home instead of a usage error.** The default
+limit stays 1, so a workflow that does not ask for parallel steps behaves as before. `indaba`'s optional peer range
+for `@indaba/server` is now `>=0.2.0-alpha.0`, because a range written against `0.1.0` prereleases does not match
+`0.2.0-alpha.0`.
+
+### Changed
+
+- **The documentation matches 0.2.0-alpha.0** (patch; track `chore`; `README.md`, `docs/`). The pages still gave
+  `0.1.0-alpha.3` as the newest preview and said `@indaba/server` could not be installed from npm and `@indaba/tui`
+  was a separate install; both have been installable together with `indaba` since `0.1.0-alpha.4`. They now give
+  `0.2.0-alpha.0`, the `npx -p indaba@next -p @indaba/server@next indaba ui` command, and no longer say that steps
+  always run one at a time or that `--parallel` is only recorded. The workflow format page names the `indaba.step.wait`
+  and `indaba.resolution` spans.
+
 ### Added
 
 - **Agent patterns page and a parallel example** (track `chore`; documentation and an example only). [docs/agent-patterns.md](docs/agent-patterns.md) names the ways to arrange agents (in order, plan then execute, parallel then joined, debate with an arbiter, self-healing retry, a person deciding, supervision) with the workflow field for each and whether it works, works in part or is only specified, and is on the documentation site. [`examples/parallel-modules.workflow.ai.yml`](examples/parallel-modules.workflow.ai.yml) is a planner, two builders in separate worktrees and a check.

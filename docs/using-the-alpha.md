@@ -13,7 +13,7 @@ tests, including a test that starts a real child process and speaks ACP to it. T
 published schema, and the first run against a real agent may find differences. If you try one, a report
 is valuable (see the end).
 
-Everything on this page is in `0.1.0-alpha.3` (`npx indaba@next`); plain `npx indaba` still gives the older
+Everything on this page is in `0.2.0-alpha.0` (`npx indaba@next`); plain `npx indaba` still gives the older
 `0.1.0-alpha.0`. `pnpm try:agent` and the scripted ACP agent of step 2 need a checkout (below).
 
 ## Which transport, when

@@ -126,6 +126,11 @@ gantt
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
     host-process-containment :active, 2026-11-12, 1d
     limit-handoff            :active, 2026-11-12, 1d
+    agent-cli-runners        :active, 2026-11-19, 1d
+    diff-comments            :active, 2026-11-19, 1d
+    tracker-triggers         :active, 2026-11-19, 1d
+    run-preview              :active, 2026-11-19, 1d
+    run-integration          :active, 2026-11-19, 1d
 ```
 
 `desktop-app` was dropped and is left out of the chart.
@@ -178,6 +183,53 @@ graph LR
 | | `TUI-6` `tui-editing` | 6.1 to 6.6 | 6.1 yes (release 3); 6.2 to 6.6 deferred behind a demand check |
 
 Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI), per the epic's rule R-01. The cut line is in the epic's section 3: release 1 is `TUI-1` + `TUI-2` + slice 3a.
+
+### Specs from the comparison with Cezar (2026-11-19)
+
+Five specifications, all drafts with no code. Solid arrows are "needs before it can ship"; a dashed arrow is a dependency on a
+spec that is not implemented yet. Other points of that comparison were already covered: `limit-handoff` (continue on another
+agent when a limit is reached), `review-gate` (who decides at a stage), `web-app-editing-graph` (the node editor) and the Cursor
+and Antigravity runners.
+
+```mermaid
+graph LR
+    ACR["agent-cli-runners"]
+    DC["diff-comments"]
+    TT["tracker-triggers"]
+    RP["run-preview"]
+    RI["run-integration"]
+    ACR --> RA["runner-adapters (implemented)"]
+    ACR --> TP["transport-priority (implemented)"]
+    ACR --> AP["agent-permissions (implemented)"]
+    ACR --> HPC["host-process-containment (implemented)"]
+    ACR -.-> LH["limit-handoff (T-01 gathers each CLI's limit signal)"]
+    DC -.-> RG["review-gate (not started)"]
+    DC -.-> SV["step-verdicts (not started)"]
+    DC --> RB["run-blackboard (implemented)"]
+    DC --> PS["parallel-steps (in progress)"]
+    TT -.-> WI["workflow-inputs (not started)"]
+    TT -.-> SB["step-budgets (not started)"]
+    TT --> WAA["web-app-actions (implemented)"]
+    RP --> GW["git-workspace (implemented)"]
+    RP --> PS
+    RP --> HPC
+    RI --> PS
+    RI --> GW
+    RI -.-> RG
+    RI -.-> RC["ruling-channel (not started)"]
+    RI -.-> SB
+    RI -.-> WWG["workspace-without-git (not started)"]
+    RI -. "may follow a preview" .-> RP
+    TT -. "a listener never turns on integrate" .-> RI
+```
+
+| Spec | Adds to `@indaba/core` | Adds a command or field | Waits for |
+| :--- | :--- | :--- | :--- |
+| `agent-cli-runners` | nothing | four agent names | its own research task (C-01); nothing else |
+| `diff-comments` | `DiffComment`, `CommentStore`, a `BoardKind` member | `indaba comment`, `indaba comments` | `review-gate`, `step-verdicts` |
+| `tracker-triggers` | `TriggerSource`, `TriggerEvent`, `PluginHost.registerTriggerSource` | `indaba listen`, `indaba triggers` | `workflow-inputs`, `step-budgets` |
+| `run-preview` | `PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost` | field `preview`, `indaba preview`, `indaba previews` | nothing |
+| `run-integration` | `IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator` | field `integrate`, options `--integrate`, `--integrate-target` | `review-gate`, `ruling-channel`, `step-budgets` for the full conflict options; `off`, `branch` and `stop` ship without them |
 
 ## Feature to package
 
@@ -239,6 +291,11 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
 | `step-fanout` | Not started (specified; draft; builds on `parallel-steps` and `run-blackboard`; replaces the `workflow-engine` non-goal "dynamic graphs") | `@indaba/core` (`for_each`, `GraphExpander`, `PluginHost.registerGraphExpander`), `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `host-process-containment` | Implemented in `@indaba/runners` and `@indaba/engine` on `feat/host-process-containment` (specified; stages 1 to 7 done; builds on `runner-adapters`, `transport-priority`, `git-workspace`, `step-stalls`; hardens host runs alongside `agent-sandbox`) | `@indaba/runners` (`buildRunnerEnvironment`, confined `.indaba/tmp`, `ClaudeRunner` `--disallowedTools Task`), `@indaba/engine` (`GitWorktree.verifyRefs` and ref rollback), `indaba` |
 | `limit-handoff` | Not started (specified; stages 1 to 5 done; builds on `transport-priority`, `step-budgets`, `ruling-channel`, `git-workspace`; T-01 research on real CLI signals comes first) | `@indaba/core` (`RunLimit`, `classifyLimit`, `LimitLedger`, `decideOnLimit`, `on_limit`), `@indaba/engine` (executor, handoff note, wait), `@indaba/runners` (signal adapters), `indaba`, `@indaba/tui`, `@indaba/web` |
+| `agent-cli-runners` | Not started (specified; draft; each CLI's facts are gathered first, C-01) | `@indaba/runners` (a runner or an ACP preset for each of `copilot`, `junie`, `kimi`, `omp`), `indaba` (the composition root). No dependency added |
+| `diff-comments` | Not started (specified; draft; builds on `review-gate`, `step-verdicts` and `run-blackboard`; the first two not implemented yet) | `@indaba/core` (`DiffComment`, `CommentStore`, `BoardKind`), `@indaba/engine` (the store, the prompt block), `indaba` (`comment`, `comments`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
+| `tracker-triggers` | Not started (specified; draft; builds on `workflow-inputs` and `step-budgets`, neither implemented yet) | `@indaba/core` (`TriggerSource`, `PluginHost.registerTriggerSource`), `@indaba/engine` (matcher, handled-id store), `indaba` (`listen`, `triggers`), `@indaba/server`, `@indaba/web`, `@indaba/tui` (read-only state). No dependency added |
+| `run-preview` | Not started (specified; draft; builds on `git-workspace`, `parallel-steps` and `host-process-containment`, all implemented or in progress) | `@indaba/core` (`PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost`), `@indaba/engine` (`LocalPreviewHost`), `indaba` (`preview`, `previews`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
+| `run-integration` | Not started (specified; draft; builds on `parallel-steps` (its conflict resolution) and `git-workspace`; the conflict options `resolve` and `ask` wait for `review-gate`, `ruling-channel` and `step-budgets`) | `@indaba/core` (`IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator`), `@indaba/engine` (`GitIntegrator`), `indaba` (options), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
@@ -262,6 +319,10 @@ Every feature of the epic carries a parity table (web view, TUI, `--plain`/CLI),
   (precedent: `Isolation.copy` in `workspace-without-git`). A union whose readers are required by their own spec to
   treat an unknown member as unknown (the board's `BoardKind`, `run-blackboard` AC-30) is classified the same way:
   the reader rule protects the shipped readers, not a third party's exhaustive switch.
+- Adding a method to `PluginHost` for a new extension point (`registerTriggerSource`, `registerPreviewHost`,
+  `registerIntegrator`) is the case named above: a minor below 1.0, in the changelog.
+- `run-integration` is the only feature that changes a branch of the person's repository. Its `RunIntegrator` contract is
+  what a plugin replaces to push or open a pull request; changing the contract's outcome union breaks those plugins: a major.
 - A new runtime dependency changes every consumer's dependency tree; it is a recorded decision
   (`project.runtime_dependencies` and `project.optional_dependencies` in `workflow.ai.yml`). Today:
   `yaml` in the engine, `ink` and `react` in `@indaba/tui` (which only the optional dashboard loads), and optionally `node-pty` in the runners.
