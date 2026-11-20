@@ -14,6 +14,7 @@ All from the repository root, natively, on any OS. No container is involved.
 ```bash
 # Toolchain: needs `pnpm install` once
 pnpm qa                                  # biome, tsc strict, vitest, in that order
+pnpm e2e                                 # builds, then runs the built CLI as a user does; a change to what a command prints breaks it
 pnpm build && pnpm smoke                 # the packed install, when packaging changed
 pnpm audit --audit-level low
 

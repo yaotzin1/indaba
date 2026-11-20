@@ -9,8 +9,11 @@ PR 1
 - [x] T-06 `@indaba/engine`: the `indaba.readiness` span event and attributes on the run span (AC-17), with a test that no value is stored.
 - [x] T-07 `indaba`: `readiness-report.ts` formatter; `plan` section after the plan (AC-14).
 - [x] T-08 `indaba`: `run` prints the report as a warning and starts; `--confirm <id>` (AC-12, 14, 15); exit codes unchanged.
-- [ ] T-09 Docs (`docs/`, both playbooks, `llms.txt`), changelog, dependency map, `review.md`.
-- [ ] T-10 `pnpm qa`, the node gates, an independent review, `node scripts/check-track.mjs`.
+- [x] T-09 Docs (`docs/`, both playbooks, `llms.txt`), changelog, dependency map, `review.md`.
+- [x] T-10 `pnpm qa`, the node gates, an independent review, `node scripts/check-track.mjs`.
+
+- [x] T-10a Remediation: the probe required a host execute bit even for an injected `win32`; CI failed on Linux and macOS (`8bd2d0b`).
+- [x] T-10b Remediation: `pnpm e2e` was not run; the `plan` e2e test expected output without the report (`6859f40`).
 
 PR 2
 - [x] T-11 `@indaba/tui`: the report in the start confirmation, ready items as a count (AC-13), a key to confirm the selected item (AC-12), tests with a fake terminal.

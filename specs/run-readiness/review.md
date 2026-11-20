@@ -16,6 +16,10 @@
 | 8 | Every step got a permission item when `defaults.permissions` is set | fixed: an item only when the level differs from the workflow default |
 | 9 | An empty `how` printed "How: ." | fixed; an empty `name` is already refused by the parser |
 
+## What the first CI run found
+
+The three Verify jobs failed on the first run of slice 1, for two reasons this self-review had missed. (1) The probe required a host execute bit even when a test injected `platform: 'win32'`, so two tests failed on Linux and macOS (fixed, `8bd2d0b`). (2) `pnpm e2e` had not been run: the `plan` e2e test expected output without the readiness report (fixed, `6859f40`). The verification skill now lists `pnpm e2e`. Verification of a slice includes `pnpm qa`, `pnpm e2e` and the node gates; the other operating systems are CI's.
+
 ## 1. Boundary and layering
 
 `@indaba/core` gained `attention.ts`, `readiness.ts` and `readiness-runners.ts`: pure, no `node:` import (the architecture test passes). The machine is the `ReadinessProbe`; the real one is in `@indaba/engine`. Nothing outside the CLI names a concrete runner except the table of program names in the engine probe, which is a recorded limit (finding 2).
