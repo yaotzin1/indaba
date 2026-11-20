@@ -20,10 +20,12 @@ import {
   WorkflowValidationError,
 } from '@indaba/core';
 import {
+  analyzeReadiness,
   applyRunBounds,
   catalogOf,
   checkPermissions,
   checkStalls,
+  createReadinessProbe,
   describeStallFinding,
   effectiveGuards,
   FileWorkflowRegistry,
@@ -33,6 +35,7 @@ import {
   PROJECT_CONFIG_FILE,
   parseRunBound,
   planForStep,
+  type ReadinessReport,
   type RunBound,
   readProjectConfig,
   type WorkflowParser,
@@ -70,6 +73,7 @@ import { parallelNotice, parseParallelFlag, planGroupLines, resolveLimit } from 
 import { describePermissionFinding } from './permission-report.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
+import { readinessLines } from './readiness-report.js';
 import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
@@ -198,6 +202,7 @@ Options:
                           Lower what agents may do in this run: read, edit or full (repeatable). It never raises a level
                           and never writes the file; a step with no level takes only read.
       --allow-full-access Acknowledge the steps at the level full when there is no terminal to ask at
+      --confirm <id>      Confirm an item of the readiness report that only you can judge (repeatable); the run starts either way
 `,
 };
 
@@ -215,6 +220,7 @@ const RUN_ONLY_OPTIONS = [
   'discussion-dir',
   'permissions',
   'allow-full-access',
+  'confirm',
 ] as const;
 
 function processIo(): Io {
@@ -318,6 +324,8 @@ interface Parsed {
   readonly discussionDir: string | undefined;
   readonly permissions: readonly string[];
   readonly allowFullAccess: 'run_option' | 'page' | 'terminal' | undefined;
+  /** `--confirm <id>`: items of the readiness report the person has confirmed for this run. */
+  readonly confirm: readonly string[];
   readonly help: boolean;
 }
 
@@ -379,6 +387,7 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
     discussionDir: values['discussion-dir'],
     permissions: values.permissions ?? [],
     allowFullAccess: values['allow-full-access'] === true ? (provenance ?? 'run_option') : undefined,
+    confirm: values.confirm ?? [],
     help: values.help === true,
   };
 }
@@ -400,6 +409,7 @@ function parseWith(args: readonly string[]) {
       'discussion-dir': { type: 'string' },
       permissions: { type: 'string', multiple: true },
       'allow-full-access': { type: 'boolean' },
+      confirm: { type: 'string', multiple: true },
     },
   });
 }
@@ -906,6 +916,27 @@ async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<
   return EXIT_OK;
 }
 
+/** The readiness report of a workflow on this machine (specs/run-readiness). It informs and never stops a start (C-04). */
+function readinessReport(
+  workflow: WorkflowDefinition,
+  io: Io,
+  root: string,
+  runners: PermissionRunners & { has(name: string): boolean },
+  confirmed: ReadonlySet<string>,
+): ReadinessReport {
+  return analyzeReadiness(workflow, new Map(), createReadinessProbe(root, io.env, runners), confirmed);
+}
+
+function readinessOf(
+  workflow: WorkflowDefinition,
+  io: Io,
+  root: string,
+  runners: PermissionRunners & { has(name: string): boolean },
+  confirmed: ReadonlySet<string>,
+): readonly string[] {
+  return readinessLines(readinessReport(workflow, io, root, runners, confirmed));
+}
+
 async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { parser, planner, runners } = await createEngine({
@@ -987,6 +1018,10 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   for (const issue of planner.preflight(workflow)) {
     failed ||= issue.isError;
     io.stdout.write(`${issue.isError ? 'MCP error: ' : 'MCP warning: '}${issue.describe()}\n`);
+  }
+  // The readiness report closes the plan; it never changes the exit code (specs/run-readiness, AC-14).
+  for (const line of readinessOf(workflow, io, io.cwd, runners, new Set())) {
+    io.stdout.write(`${line}\n`);
   }
   return failed ? EXIT_FAILURE : EXIT_OK;
 }
@@ -1216,7 +1251,13 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   for (const finding of findings.filter((f) => f.code === 'full')) {
     screen.line(`  permissions: ${describePermissionFinding(finding)}\n`);
   }
+  const readiness = readinessReport(workflow, io, projectDir, runners, new Set(parsed.confirm));
+  for (const line of readinessLines(readiness, true)) {
+    screen.line(`${line}
+`);
+  }
   const result = await engine.run(workflow, {
+    readiness,
     ...(acknowledged === undefined ? {} : { fullAccessAcknowledged: acknowledged }),
     ...(io.signal === undefined ? {} : { signal: io.signal }),
     ...(parsed.taskId === undefined ? {} : { taskId: parsed.taskId }),

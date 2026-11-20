@@ -62,9 +62,12 @@ describe('the built CLI: validate and plan', () => {
 
     const plan = await runCli(['plan', example], cwd);
     expect(plan.code).toBe(0);
-    expect(
-      plan.stdout.split('\n').filter((line) => line !== '' && !line.startsWith('permissions: ')),
-    ).toEqual([
+    const lines = plan.stdout.split('\n').filter((line) => line !== '' && !line.startsWith('permissions: '));
+    // The readiness report ends the output (specs/run-readiness); what it lists depends on the machine, so only
+    // its presence is asserted here, and the exit code above is 0 whatever it finds.
+    const report = lines.findIndex((line) => line.startsWith('readiness: '));
+    expect(report).toBeGreaterThan(0);
+    expect(lines.slice(0, report)).toEqual([
       '1. rfc [architect]',
       '2. code [implementer] (after rfc)',
       '3. verify [shell: pnpm test && pnpm typecheck] (after code)',

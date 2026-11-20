@@ -88,6 +88,7 @@ step, that step's earlier notes are replaced.
   is a step whose failure nobody notices.
 - Give a step that is slower or faster than the rest its own `timeout_seconds` (1 to 86400, per call) instead of raising `--timeout` for the whole run.
 - Steps run at the same time only when the limit is above 1 (`max_parallel`, `--parallel`, `INDABA_PARALLEL`, default 1), and only those that work in a worktree; each gets a fork, tells what it intends to change, may negotiate and resolve a conflict, and lands one at a time. There is no review before landing yet (`step-verdicts`). Declare `touches` on a shell step so the others know what it changes.
+- Declare what Indaba cannot infer with a top-level `requires` list (`env`, `file`, `tool`, `account`, `decision`, `asset`, each with a `description` and, if useful, `how` and `critical`); it is shown before the run and never refuses one. `indaba plan` prints it.
 - Set `permissions` to the lowest level the step needs (`read`, then `edit`; `full` only when nothing less works). A step with
   no level takes the runner's own default, which is usually more than you want.
 - Give a step that can go quiet (a long agent call) a `stall: { after_seconds: <n> }` of 60 seconds or more, well above the longest silent
