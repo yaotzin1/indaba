@@ -33,6 +33,11 @@ Ids are stable: `<kind>:<stepId or ->:<name>`, so a confirmation survives a re-c
 | :--- | :--- | :--- | :--- |
 | run span (engine) | no readiness data | one span event `indaba.readiness`, and the same attributes on the run span: `indaba.readiness.items` (one JSON text of `[id, state]` pairs: span attributes are scalars), `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation`; `RunRecord` is the trace wire union and is not changed | additive; no value of any item is stored |
 | `StartRunRequest` (`@indaba/core` web contract) | no confirmations | optional `confirmed?: readonly string[]` | additive |
+| `ReadinessRequest`, `ReadinessResponse`, `ReadinessItemView` (`@indaba/core` web contract) | none | `{ workflowId, confirmed? }` and the report as the wire carries it, declared inside the contract folder (the page imports it, so it imports nothing outside it); a `ReadinessReport` is assignable to it | additive (slice 2) |
+| `describeAttention`, `plainText` (`@indaba/core`, re-exported by `@indaba/engine`) | none | one line of plain words for an item, and the neutraliser of control characters, so the CLI and the TUI use the same words (AC-11) | additive (slice 2) |
+| `RunControlPort.readiness?` (`@indaba/tui`), `UiRunControl.readiness?` (`indaba`) | none | `readiness(request): Promise<ReadinessResponse>`, optional: a control without it gives a start with no report | additive (slice 2) |
+| `createRunControl` (`indaba`) | `UiRunControl` | also `readiness`, and an option `readiness(workflow, root, confirmed)` that the composition root builds with the probe; a start passes `confirmed` to the child as `--confirm <id>` options (at most 50, each a printable id starting with a letter) | additive (slice 2) |
+| `RunControl` of `@indaba/server` | no readiness | unchanged in slice 2; its route and `readiness` arrive in slice 3 | none yet |
 
 ## Removed or deprecated
 

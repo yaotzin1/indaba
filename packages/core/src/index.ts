@@ -182,6 +182,9 @@ export type {
   FullAccessStep,
   JsonObject,
   JsonValue,
+  ReadinessItemView,
+  ReadinessRequest,
+  ReadinessResponse,
   RegistryAddRootRequest,
   RegistryAddRootResponse,
   RegistryAnnotateRequest,
@@ -231,6 +234,7 @@ export type {
   WorkflowSummary,
 } from './web-contract/index.js';
 export type { AttentionItem, AttentionKind, AttentionState } from './workflow/attention.js';
+export { describeAttention, plainText } from './workflow/attention.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {
   AgentSpec,

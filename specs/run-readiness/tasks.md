@@ -13,11 +13,11 @@ PR 1
 - [ ] T-10 `pnpm qa`, the node gates, an independent review, `node scripts/check-track.mjs`.
 
 PR 2
-- [ ] T-11 `@indaba/tui`: the report in the start confirmation, ready items as a count (AC-13), a key to confirm the selected item (AC-12), tests with a fake terminal.
-- [ ] T-12 Docs and `pnpm qa`.
+- [x] T-11 `@indaba/tui`: the report in the start confirmation, ready items as a count (AC-13), a key to confirm the selected item (AC-12), tests with a fake terminal.
+- [x] T-12 Docs and `pnpm qa`.
 
 PR 3
-- [ ] T-13 `@indaba/core` web contract: `StartRunRequest.confirmed`, readiness view types.
+- [x] T-13 `@indaba/core` web contract: `StartRunRequest.confirmed`, readiness view types (delivered in PR 2, which needs them).
 - [ ] T-14 `@indaba/server`: `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm`; token and `Origin` rules as the other routes.
 - [ ] T-15 `@indaba/web`: start dialog with the report, confirm buttons; the real-browser check at 320 px.
 - [ ] T-16 Docs and `pnpm qa`.

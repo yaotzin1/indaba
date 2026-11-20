@@ -29,6 +29,13 @@ const flowOf = (state: HomeState): FlowState => {
   }
   return state.flow;
 };
+/** Enter on the picked workflow, then a report with nothing to look at: the start goes ahead as it always did. */
+const entered = (state: HomeState, c: HomeContext = control): HomeState =>
+  send(
+    send(state, named('enter'), c),
+    { flow: { readiness: { items: [], criticalMissing: 0, needsConfirmation: 0 } } },
+    c,
+  );
 const withPicker = (): HomeState => {
   const open = send(loaded(), key('n'));
   return send(open, { flow: { listed: { workflows: [workflow()], truncated: false } } });
@@ -51,7 +58,7 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
   });
 
   it('opens a run the dialog started, owns it, and shows its dashboard', () => {
-    let state = send(withPicker(), named('enter'));
+    let state = entered(withPicker());
     state = send(state, {
       flow: { refused: refusal('confirmation_required', { contentHash: 'h', use: USE }) },
     });
@@ -63,7 +70,7 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
   });
 
   it('owns the run once, even when it is opened twice', () => {
-    const started = send(withPicker(), named('enter'));
+    const started = entered(withPicker());
     const step = (s: HomeState): HomeState =>
       send(s, { flow: { status: { state: 'running', runId: 'r9' } } });
     const once = step(send(started, { flow: { started: { startId: 'web-1' } } }));
@@ -77,7 +84,7 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
 
   it('says which run started and fetches the list when there is no way to open it', () => {
     const noOpen: HomeContext = { ...control, canOpen: false };
-    const started = send(withPicker(), named('enter'), noOpen);
+    const started = entered(withPicker(), noOpen);
     const running = send(
       send(started, { flow: { started: { startId: 'web-1' } } }, noOpen),
       {
@@ -99,7 +106,7 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
   });
 
   it('refuses to leave while a start is in flight or being waited for, and says so', () => {
-    const requesting = send(withPicker(), named('enter'));
+    const requesting = entered(withPicker());
     expect(flowOf(requesting).kind).toBe('requesting');
     const blocked = send(requesting, named('ctrl-c'));
     expect(blocked.quit).toBe('none');
@@ -180,7 +187,7 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
   });
 
   it('remembers that a start ended without knowing whether a run exists, so leaving can ask about it', () => {
-    let state = send(withPicker(), named('enter'));
+    let state = entered(withPicker());
     state = send(state, { flow: { started: { startId: 'web-1' } } });
     expect(state.unsure).toBe(false);
     state = send(state, { flow: { status: undefined } });
@@ -188,20 +195,20 @@ describe('Home with a control that starts and stops runs (specs/tui-run-control)
     // it stays remembered after the dialog is closed
     expect(send(state, key('x')).unsure).toBe(true);
     // a start that failed in a way the control reported is not unsure
-    let known = send(withPicker(), named('enter'));
+    let known = entered(withPicker());
     known = send(known, { flow: { started: { startId: 'web-2' } } });
     known = send(known, { flow: { status: { state: 'failed', failure: 'no' } } });
     expect(known.unsure).toBe(false);
   });
 
   it('is unsure after a start that did not appear in time, and after a poll that threw', () => {
-    let state = send(withPicker(), named('enter'));
+    let state = entered(withPicker());
     state = send(state, { flow: { started: { startId: 'web-1' } } });
     for (let i = 0; i < 120; i += 1) {
       state = send(state, { flow: { status: { state: 'starting' } } });
     }
     expect(state.unsure).toBe(true);
-    let thrown = send(withPicker(), named('enter'));
+    let thrown = entered(withPicker());
     thrown = send(thrown, { flow: { started: { startId: 'web-3' } } });
     expect(send(thrown, { flow: { threw: 'EBUSY' } }).unsure).toBe(true);
   });
