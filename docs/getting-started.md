@@ -129,6 +129,8 @@ from are in [`examples/`](../examples/), from `hello.workflow.ai.yml` (shell onl
 | `--discussion-dir <dir>` | Where the messages of each debate are kept for the web view (default `.indaba/discussions`) |
 | `--permissions [<step>=]<level>` | Lower what agents may do in this run: `read`, `edit` or `full` (repeatable). It never raises a level and never writes the file; a step with no level takes only `read`. See [Permission levels](#permission-levels) |
 | `--allow-full-access` | Acknowledge the steps at the level `full` when there is no terminal to ask at |
+| `--input <name>=<value>` | A value for an input the workflow asks for (repeatable; repeat it for a list). An input left out is asked for at a terminal; with none, the run does not start and exits 2. Also accepted by `validate` and `plan`, which need no values. See [What a run asks of the person](workflow-format.md#what-a-run-asks-of-the-person-inputs) |
+| `--input-file <name>=<path>` | The value of a `text` input, read from a file inside the project |
 | `--confirm <id>` | Confirm an item of the readiness report that only you can judge (repeatable). The report is printed before every run and never stops it |
 | `--log-level <level>` | `error`, `warn`, `info` (default) or `debug`; every command accepts it. See [Logs](#logs) |
 | `--log-dir <dir>` | Folder of the log files (default `.indaba/logs`); every command accepts it |

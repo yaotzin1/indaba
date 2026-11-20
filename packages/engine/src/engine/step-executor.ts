@@ -6,6 +6,7 @@ import type {
   ConsensusResult,
   EventDispatcher,
   Intent,
+  ResolvedInputs,
   RulingRequest,
   RunBoard,
   Runner,
@@ -54,6 +55,7 @@ import { type DiscussionStore, discussionOf } from '../arbiter/discussions.js';
 import type { DecisionLedger, MemoKey } from '../arbiter/ledger.js';
 import { rulingMarkdown, transcriptMarkdown, writeDebateArtifact } from '../arbiter/records.js';
 import type { GuardRegistry } from '../guard/registry.js';
+import { buildInputsSection } from '../inputs/section.js';
 import { SystemClock } from '../observability/system.js';
 import { sanitize } from '../trace/sanitize.js';
 import type { RunnerPlan } from './chain.js';
@@ -84,6 +86,8 @@ export interface StepExecutorOptions {
   readonly redact?: (text: string) => string;
   /** Keeps the messages of each debate under its run, for a viewer. Without one, only the transcript artifact is written. */
   readonly discussions?: DiscussionStore;
+  /** The checked inputs of the run (specs/workflow-inputs): a step whose goal names a text or path input gets them as data in its prompt. */
+  readonly inputs?: ResolvedInputs;
 }
 
 /**
@@ -141,6 +145,7 @@ export class StepExecutor {
   private readonly adjudicators: AdjudicatorRegistry | undefined;
   private readonly ledger: DecisionLedger | undefined;
   private readonly discussions: DiscussionStore | undefined;
+  private readonly inputs: ResolvedInputs | undefined;
   private readonly clock: Clock;
   private readonly redact: (text: string) => string;
   private readonly dag = new DagBuilder();
@@ -154,6 +159,7 @@ export class StepExecutor {
     this.adjudicators = options.adjudicators;
     this.ledger = options.ledger;
     this.discussions = options.discussions;
+    this.inputs = options.inputs;
     this.clock = options.clock ?? new SystemClock();
     this.redact = options.redact ?? ((text) => text);
     this.timeoutSeconds = options.timeoutSeconds ?? DEFAULT_TIMEOUT_SECONDS;
@@ -344,9 +350,11 @@ export class StepExecutor {
         options.signal,
       );
       const digest = this.digestFor(step, workflow, span, options);
+      const inputsSection = this.inputsSection(step, workflow);
       const prompt = [
         `# Role: ${step.role ?? 'agent'}`,
         `## Goal\n${step.goal}`,
+        ...(inputsSection === undefined ? [] : [inputsSection]),
         ...(digest === undefined ? [] : [`## The board: notes from earlier steps\n${digest}`]),
         `## Before you start\n${INTENT_INSTRUCTION}`,
       ].join('\n\n');
@@ -413,6 +421,7 @@ ${this.prompts.tail(result.failureText())}`),
         options.feedback,
         this.digestFor(step, workflow, span, options),
         options.contract,
+        this.inputsSection(step, workflow),
       ),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
@@ -463,6 +472,15 @@ ${this.prompts.tail(result.failureText())}`,
    * with `board.post` is scanned, and only the runner's own output; the entries stay pending until the step settles.
    * The span gets counts, never text.
    */
+  /** The Inputs section of a step's prompt, when its goal names a text or path input and the run has values. */
+  private inputsSection(step: StepDefinition, workflow: WorkflowDefinition): string | undefined {
+    if (this.inputs === undefined || step.goalInputs === undefined || workflow.inputs === undefined) {
+      return undefined;
+    }
+    const section = buildInputsSection(workflow.inputs, this.inputs, step.goalInputs);
+    return section === '' ? undefined : section;
+  }
+
   private postFromReply(step: StepDefinition, output: string, span: Span, options: StepRunOptions): void {
     const post = step.board?.post;
     if (post === undefined || post.length === 0 || options.board === undefined) {
@@ -709,6 +727,10 @@ ${this.prompts.tail(result.failureText())}`,
         : 'Review the work produced so far and decide whether it should be accepted.';
     if (step.inputArtifacts.length > 0) {
       topic += `\n\nRelevant artifacts:\n- ${step.inputArtifacts.join('\n- ')}`;
+    }
+    const debateInputs = this.inputsSection(step, workflow);
+    if (debateInputs !== undefined) {
+      topic += `\n\n${debateInputs}`;
     }
 
     const arbiterName = step.arbiter;

@@ -102,10 +102,23 @@ function problem(input: string, code: InputProblem['code'], message: string): In
   return { input, code, message };
 }
 
+/** Text from the workflow file, for a terminal: control and text-direction characters become spaces. */
+function shown(text: string): string {
+  return Array.from(text, (char) => {
+    const code = char.codePointAt(0) ?? 0;
+    return code < 0x20 ||
+      (code >= 0x7f && code <= 0x9f) ||
+      (code >= 0x202a && code <= 0x202e) ||
+      (code >= 0x2066 && code <= 0x2069)
+      ? ' '
+      : char;
+  }).join('');
+}
+
 function missingMessage(input: InputDefinition): string {
   const { hint } = nouns(input);
   const repeat = 'list' in input && input.list ? ' (repeat it for more than one)' : '';
-  return `The workflow needs a value for "${input.name}": ${input.description}. Add --input ${input.name}=${hint}${repeat}, or run it in a terminal to be asked.`;
+  return `The workflow needs a value for "${input.name}": ${shown(input.description)}. Add --input ${input.name}=${hint}${repeat}, or run it in a terminal to be asked.`;
 }
 
 /** A default as the raw strings the checks take. */
@@ -305,9 +318,10 @@ export async function resolveInputs(
     for (const raw of raws) {
       const result = await checkOne(input, raw, options.workDir, root, fileSystem);
       if (!result.ok) {
+        // Every element is looked at, so one message lists each that is wrong (AC-15).
         problems.push(result.problem);
         bad = true;
-        break;
+        continue;
       }
       checked.push(result.value);
     }

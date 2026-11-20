@@ -47,6 +47,10 @@ npx indaba@next run workflow.ai.yml
   missing (names only, never values), which files a workflow declares under `requires`, and what needs your
   confirmation (`indaba run --confirm <id>`). It informs and never blocks a run
   ([docs/workflow-format.md](docs/workflow-format.md#what-a-run-needs-requires)).
+- **Ask before it runs.** A workflow can declare `inputs` (a folder, a topic, a choice, a number, a yes/no, or a list of them),
+  and `indaba run --input specs=specs/billing` or a plain-words question at the terminal supplies them. A folder that
+  does not exist or lies outside the project is refused before anything starts, and a typed value never reaches a shell
+  command ([docs/workflow-format.md](docs/workflow-format.md#what-a-run-asks-of-the-person-inputs)).
 - **Not only for code.** A step is an agent, an API call or a command, so a workflow can drive any
   tool reachable by `shell` or an MCP server: for example a media pipeline. Indaba ships no integration
   with any particular application.

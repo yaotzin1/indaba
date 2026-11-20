@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, realpath, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import type { Clock, IdGenerator, Runner, RunRequest } from '@indaba/core';
+import type { Clock, IdGenerator, ResolvedInputs, Runner, RunRequest } from '@indaba/core';
 import { RunnerError, type RunResult, SimpleEventDispatcher, StepStatusChanged, Tracer } from '@indaba/core';
 import { afterEach } from 'vitest';
 import {
@@ -112,6 +112,7 @@ export function harness(
   repo: string,
   runners: readonly Runner[],
   onListenerError?: (e: unknown) => void,
+  inputs?: ResolvedInputs,
 ): Harness {
   const events = new SimpleEventDispatcher(onListenerError);
   const transitions: StepStatusChanged[] = [];
@@ -121,7 +122,12 @@ export function harness(
   const ids = new SequenceIds();
   const tracer = new Tracer(new FixedClock(), events, ids);
   const registry = new FakeRegistry(runners);
-  const executor = new StepExecutor({ runners: registry, guards: GuardRegistry.withDefaults(), tracer });
+  const executor = new StepExecutor({
+    runners: registry,
+    guards: GuardRegistry.withDefaults(),
+    tracer,
+    ...(inputs === undefined ? {} : { inputs }),
+  });
   const engine = new WorkflowEngine({
     executor,
     tracer,
@@ -129,6 +135,7 @@ export function harness(
     workspaces: new GitWorktreeManager(repo),
     projectDir: repo,
     ids,
+    ...(inputs === undefined ? {} : { inputs }),
   });
   return { engine, events, transitions };
 }
