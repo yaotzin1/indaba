@@ -8,6 +8,9 @@
  * application, which may only import the engine, takes them from the one place the web view's contract defines them.
  */
 export type {
+  AttentionItem,
+  AttentionKind,
+  AttentionState,
   FullAccessStep,
   LogContext,
   LogFields,
@@ -16,6 +19,9 @@ export type {
   LogLevel,
   LogRecord,
   LogSink,
+  ReadinessProbe,
+  ReadinessReport,
+  Requirement,
   RunSummaryOfUse,
   SettingDescription,
   SinkSettings,
@@ -28,6 +34,7 @@ export type {
   WorkflowSummary,
 } from '@indaba/core';
 export {
+  analyzeReadiness,
   createLogger,
   defaultLoggingSettings,
   isLogLevel,
@@ -115,6 +122,8 @@ export { ErrorBag } from './parser/error-bag.js';
 export { Interpolator } from './parser/interpolator.js';
 export { parseWorkflow, WorkflowParser } from './parser/parser.js';
 export { WorkflowValidator } from './parser/validator.js';
+export type { ReadinessProbeOptions, RunnerPresence } from './readiness/index.js';
+export { createReadinessProbe, readinessAttributes } from './readiness/index.js';
 export type { FileWorkflowRegistryOptions } from './registry/file-registry.js';
 export { FileWorkflowRegistry } from './registry/file-registry.js';
 export type { WorkflowFile, WorkflowFileScan } from './registry/files.js';

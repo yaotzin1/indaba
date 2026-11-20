@@ -1,14 +1,14 @@
 # Tasks: run-readiness
 
 PR 1
-- [ ] T-01 `@indaba/core`: `AttentionKind`, `AttentionState`, `AttentionItem`, `ReadinessProbe`, `ReadinessReport` and the exports.
-- [ ] T-02 `@indaba/core`: `Requirement`, `WorkflowDefinition.requires`, `defineWorkflow` default.
-- [ ] T-03 `@indaba/core`: `analyzeReadiness` and its test (AC-01, 02, 04 to 06, 08, 10, 11, 16; `unknown`; order; no secret in the report).
-- [ ] T-04 `@indaba/engine`: parse and validate `requires` (AC-07, 09), with tests; schema and catalog description.
-- [ ] T-05 `@indaba/engine`: `createReadinessProbe`, the runner-to-variables table, tests on a temporary folder (spec section 5 rows).
-- [ ] T-06 `@indaba/engine`: the `indaba.readiness` span event and attributes on the run span (AC-17), with a test that no value is stored.
-- [ ] T-07 `indaba`: `readiness-report.ts` formatter; `plan` section after the plan (AC-14).
-- [ ] T-08 `indaba`: `run` prints the report as a warning and starts; `--confirm <id>` (AC-12, 14, 15); exit codes unchanged.
+- [x] T-01 `@indaba/core`: `AttentionKind`, `AttentionState`, `AttentionItem`, `ReadinessProbe`, `ReadinessReport` and the exports.
+- [x] T-02 `@indaba/core`: `Requirement`, `WorkflowDefinition.requires`, `defineWorkflow` default.
+- [x] T-03 `@indaba/core`: `analyzeReadiness` and its test (AC-01, 02, 04 to 06, 08, 10, 11, 16; `unknown`; order; no secret in the report).
+- [x] T-04 `@indaba/engine`: parse and validate `requires` (AC-07, 09), with tests; schema and catalog description.
+- [x] T-05 `@indaba/engine`: `createReadinessProbe`, the runner-to-variables table, tests on a temporary folder (spec section 5 rows).
+- [x] T-06 `@indaba/engine`: the `indaba.readiness` span event and attributes on the run span (AC-17), with a test that no value is stored.
+- [x] T-07 `indaba`: `readiness-report.ts` formatter; `plan` section after the plan (AC-14).
+- [x] T-08 `indaba`: `run` prints the report as a warning and starts; `--confirm <id>` (AC-12, 14, 15); exit codes unchanged.
 - [ ] T-09 Docs (`docs/`, both playbooks, `llms.txt`), changelog, dependency map, `review.md`.
 - [ ] T-10 `pnpm qa`, the node gates, an independent review, `node scripts/check-track.mjs`.
 

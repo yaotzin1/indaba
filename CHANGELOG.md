@@ -15,6 +15,10 @@ port". The PHP prototype that preceded them was never published.
 
 ## [Unreleased]
 
+### Added
+
+- **Readiness report before a run** (`specs/run-readiness`, RA-1, minor). `indaba plan` prints, and `indaba run` prints as a warning, what the run needs and what is missing on this machine: runners and their programs, the variables a runner reads (by name, never by value), input files, the workspace. A new optional top-level `requires` list declares what Indaba cannot infer (`env`, `file`, `tool`, `account`, `decision`, `asset`); `indaba run --confirm <id>` confirms an item for one run. The report never changes the exit code or stops a start. `@indaba/core` exports `analyzeReadiness`, `ReadinessProbe`, `ReadinessReport`, `AttentionItem` and `Requirement`; `@indaba/engine` exports `createReadinessProbe`; the run span records `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation` and `indaba.readiness.items`. Input checks wait for `workflow-inputs`; the TUI and web start dialogs are the next slices.
+
 ## [0.2.0-alpha.0] - 2026-11-18
 
 The sixth preview, published under the `next` tag. Its point is steps that run at the same time: with a limit above 1

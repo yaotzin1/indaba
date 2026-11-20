@@ -84,6 +84,7 @@ This is `examples/task-pipeline.workflow.ai.yml`; `examples/mcp.workflow.ai.yml`
 | `mcp_servers` | no | Map of server name to a Model Context Protocol server |
 | `max_parallel` | no | A whole number of at least 1. The most steps this workflow lets run at once; it lowers the limit of the run and never raises it. See [Steps at the same time](#steps-at-the-same-time-max_parallel). **Steps that work in a worktree then run in forks of the run's worktree** |
 | `max_waits` | no | A whole number of at least 1. How many times a step may be put back to wait for another before it is admitted alone; it lowers the configured value and never raises it |
+| `requires` | no | A list of what a run needs that Indaba cannot infer: `kind`, `name`, `description`, optional `how` and `critical`. Shown before the run, never a reason to refuse it. See [What a run needs](#what-a-run-needs-requires) |
 | `defaults` | no | `defaults.mcp_policy` (`required`, the default, or `optional`) and `defaults.permissions` (see [Permissions](#permissions)). Nothing else under `defaults` is read |
 
 ### `artifacts` and interpolation
@@ -534,6 +535,36 @@ attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.sta
 `indaba.step.stalled` event per stalled attempt with `indaba.stall.attempt`, `indaba.stall.silent_seconds` and
 `indaba.stall.retry` (`restored`, `exhausted` or `restore_failed`). None of them holds a prompt or anything the agent printed.
 `indaba plan` shows `stall 300s` and `stall retries 1` beside the step.
+
+### What a run needs: `requires`
+
+Before a run starts, `indaba plan` and `indaba run` print a readiness report: what the run needs and what this machine and you have. Indaba infers part of it with no field at all: each step's runner is registered and its program is on the `PATH`; the variable an OpenRouter step reads (`OPENROUTER_API_KEY`) is set, by name and never by value; an `input_artifacts` file that no earlier step produces exists inside the project; a step that asks for a git worktree is in a git repository.
+
+What Indaba cannot infer, the author declares:
+
+```yaml
+requires:
+  - kind: env
+    name: GITHUB_TOKEN
+    description: Lets the release step open the pull request
+    how: Create a token in your GitHub settings and export it
+    critical: true
+  - kind: account
+    name: Google OAuth client
+    description: The client the login step uses exists
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `kind` | `env`, `file`, `tool`, `account`, `decision` or `asset` |
+| `name` | The variable, a path relative to the project (no absolute path, no `..`), a program, or the thing needed |
+| `description` | Required, at most 300 characters, shown to the person |
+| `how` | Optional, at most 500 characters: where to get it |
+| `critical` | Optional, default `false`: the run will probably fail without it. It only orders the list and marks the item |
+
+`env`, `file` and `tool` are checked on this machine. `account`, `decision` and `asset` cannot be, so they show as *needs your confirmation* until you pass `--confirm <id>` to `indaba run` (the id is `<kind>:-:<name>`, for example `account:-:Google OAuth client`). A confirmation belongs to that run: the next run asks again, and it is never written to the workflow file.
+
+**The report informs and never blocks.** A missing item does not change the exit code and `indaba run` starts exactly as before. A check that could not be made is shown as "could not be checked", never as ready. The run's trace records the id and state of each item (the span attribute `indaba.readiness.items`), never a value.
 
 ### Steps at the same time: `max_parallel`
 

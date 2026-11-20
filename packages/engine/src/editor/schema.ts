@@ -329,6 +329,36 @@ export function workflowJsonSchema(): Readonly<Record<string, unknown>> {
         description:
           'How many times a step may be put back to wait for another before it is admitted alone. It lowers the configured value, never raises it.',
       }),
+      requires: orNull({
+        type: 'array',
+        description:
+          'What a run needs that Indaba cannot infer: shown to the person before the run starts, never a reason to refuse it. env, file and tool are checked on this machine; account, decision and asset are confirmed by the person.',
+        items: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['kind', 'name', 'description'],
+          properties: {
+            kind: {
+              enum: ['env', 'file', 'tool', 'account', 'decision', 'asset'],
+              description: 'What sort of need it is.',
+            },
+            name: {
+              type: 'string',
+              description: 'The variable, project-relative path, program or thing needed.',
+            },
+            description: {
+              type: 'string',
+              maxLength: 300,
+              description: 'Why it is needed, in words the person reads.',
+            },
+            how: orNull({ type: 'string', maxLength: 500, description: 'Where to get it.' }),
+            critical: orNull({
+              type: 'boolean',
+              description: 'The run will probably fail without it. Default false.',
+            }),
+          },
+        },
+      }),
       artifacts: orNull({
         ...STRING_MAP,
         description: 'Map of name to a path string. Names a path once so steps can refer to it.',

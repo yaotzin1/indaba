@@ -85,6 +85,7 @@ describe('the fields of the form, from the schema (AC-06, AC-07)', () => {
       ['name', 'text'],
       ['max_parallel', 'integer'],
       ['max_waits', 'integer'],
+      ['requires', 'source'],
       ['artifacts', 'source'],
       ['mcp_servers', 'source'],
       ['defaults', 'group'],
