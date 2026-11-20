@@ -1,6 +1,6 @@
 # Self-review: run-readiness
 
-> **Status**: slice 1 of 3 reviewed (core, engine, `indaba plan`, `indaba run`, `--confirm`). Slices 2 (TUI) and 3 (server, web) are not built and not reviewed. An independent review (a fresh agent that read the diff and the spec, 2026-11-20) found nine defects; the ones below marked fixed are fixed with tests.
+> **Status**: slices 1 and 2 of 3 reviewed (slice 2 below). Slice 1 of 3 reviewed (core, engine, `indaba plan`, `indaba run`, `--confirm`). Slices 2 (TUI) and 3 (server, web) are not built and not reviewed. An independent review (a fresh agent that read the diff and the spec, 2026-11-20) found nine defects; the ones below marked fixed are fixed with tests.
 
 ## Independent review findings
 
@@ -36,6 +36,20 @@ A variable is read only to say set or not set; a test greps the serialised repor
 
 The run span records the two counts and the id and state of each item. A check that cannot be made is `unknown`, never ready. **Not done:** AC-03 (input checks), because `workflow-inputs` is not implemented; the `ReadinessChecked` event beyond the span event; the real-terminal check of the output on Windows Terminal.
 
+## Slice 2: the terminal start dialog (independent review, 2026-11-20)
+
+A fresh agent read the uncommitted diff and the spec. It found no way to block a start for good, no option injection into the child, and no contract break; it found two important and three minor defects. Each was read in the code before it was acted on.
+
+| # | Finding | State |
+| :--- | :--- | :--- |
+| 1 | While the report was being had, only Esc was taken: a slow or stuck check (the probe scans PATH synchronously) left no way to start, against AC-15 | fixed: Enter starts from `checking`; the late answer is dropped; the run control yields before the synchronous probe so the "checking" frame is drawn first. **Open, accepted:** the probe itself is synchronous, so a pathological PATH entry (an unreachable network share) can still hold the event loop for as long as the operating system takes to answer |
+| 2 | `c` on the last open item made the answer empty, so the dialog started the run: the person had pressed confirm, not start | fixed: after a confirmation the report is shown again ("Nothing is left to look at"), and only Enter starts. The automatic start remains for the first look only |
+| 3 | The selection could move to an item that was not drawn (ten rows, more items) | fixed: a window over the items follows the selection, with "above" and "more below" |
+| 4 | The Enter hint was clipped away at 40 columns; a long report could push the key line off a short terminal | fixed: Enter is first in the line, and the number of items drawn follows the terminal's height |
+| 5 | The id filter let C1 controls through | fixed: refused (the ids are only ever argv entries and a set lookup today, but AC-17 or a later view may print them) |
+
+Verification: `pnpm qa` and `pnpm e2e` run on the host before the commit. Windows, macOS and Linux are CI's.
+
 ## What this slice does not deliver
 
-AC-12 (confirm in the TUI and web), AC-13 (the start dialogs), AC-15 for the TUI and web, the two HTTP routes. They are slices 2 and 3.
+AC-12, AC-13 and AC-15 for the web view, and the two HTTP routes. They are slice 3. The confirmations are recorded with the run by the engine (slice 1); a view of them in the run record is not built in the TUI or web yet.

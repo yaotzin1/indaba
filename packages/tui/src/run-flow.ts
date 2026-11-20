@@ -1,5 +1,8 @@
 import type {
   FullAccessStep,
+  ReadinessItemView,
+  ReadinessRequest,
+  ReadinessResponse,
   RunSummaryOfUse,
   StartRunRequest,
   StartRunResponse,
@@ -17,6 +20,8 @@ import type { KeyName } from './ui-state.js';
 export interface RunControlPort {
   list(): Promise<WorkflowListResponse>;
   start(request: StartRunRequest): Promise<StartRunResponse>;
+  /** What a start would find missing on this machine (specs/run-readiness). Optional: without it a start has no report. */
+  readiness?(request: ReadinessRequest): Promise<ReadinessResponse>;
   startStatus(startId: string): StartStatusResponse | undefined;
   stop(runId: string): StopRunResponse | undefined;
   isAlive(runId: string): boolean;
@@ -53,6 +58,7 @@ export const MAX_STOP_POLLS = 40;
 /** What the component must do once for a state: the state is pure, the doing is not. */
 export type FlowEffect =
   | { readonly type: 'list' }
+  | { readonly type: 'readiness'; readonly request: ReadinessRequest }
   | { readonly type: 'start'; readonly request: StartRunRequest }
   | { readonly type: 'poll'; readonly startId: string }
   | { readonly type: 'stop'; readonly runId: string }
@@ -76,6 +82,28 @@ export interface Picking extends Base {
   readonly showHidden: boolean;
   readonly selected: number;
 }
+/** Asking what the run needs, before the person is shown anything (specs/run-readiness, AC-13). */
+export interface Checking extends Base {
+  readonly kind: 'checking';
+  readonly workflowId: string;
+  readonly name: string;
+  /** Ids the person confirmed for this run; they travel on the start and are never remembered. */
+  readonly confirmed: readonly string[];
+  /** Which open item the list had selected, restored after a confirmation asks again. */
+  readonly selected: number;
+}
+/** What the run needs, with a start that is always available (AC-15). */
+export interface Readiness extends Base {
+  readonly kind: 'readiness';
+  readonly workflowId: string;
+  readonly name: string;
+  readonly report: ReadinessResponse;
+  readonly confirmed: readonly string[];
+  /** Index into the open items of the report. */
+  readonly selected: number;
+  /** The report could not be had; the start is still offered. */
+  readonly error: string | undefined;
+}
 export interface Requesting extends Base {
   readonly kind: 'requesting';
   readonly workflowId: string;
@@ -89,6 +117,7 @@ export interface Confirming extends Base {
   readonly name: string;
   readonly hash: string;
   readonly use: RunSummaryOfUse;
+  readonly confirmed: readonly string[];
   /** The file changed after an earlier confirmation, so this one is asked again. */
   readonly changed: boolean;
 }
@@ -98,6 +127,7 @@ export interface FullAccess extends Base {
   readonly name: string;
   readonly hash: string;
   readonly steps: readonly FullAccessStep[];
+  readonly confirmed: readonly string[];
   readonly changed: boolean;
 }
 export interface Starting extends Base {
@@ -122,6 +152,8 @@ export interface Stopping extends Base {
 
 export type FlowState =
   | Picking
+  | Checking
+  | Readiness
   | Requesting
   | Confirming
   | FullAccess
@@ -134,6 +166,8 @@ export type FlowEvent =
   | { readonly press: KeyName }
   | { readonly listed: WorkflowListResponse }
   | { readonly listFailed: string }
+  | { readonly readiness: ReadinessResponse }
+  | { readonly readinessFailed: string }
   | { readonly started: StartRunResponse }
   | { readonly refused: RunControlRefusal }
   | { readonly threw: string }
@@ -293,6 +327,35 @@ function asSteps(value: unknown): readonly FullAccessStep[] {
   });
 }
 
+/** A start request carrying the confirmations, and no empty list. */
+function startRequest(base: StartRunRequest, confirmed: readonly string[]): StartRunRequest {
+  return confirmed.length === 0 ? base : { ...base, confirmed };
+}
+
+/** Whether an item needs the person to look: everything but what is ready or already confirmed. */
+export function isOpen(item: ReadinessItemView): boolean {
+  return item.state !== 'ready' && item.state !== 'confirmed';
+}
+
+/** The items to look at, in the report's order (critical first). */
+export function openItems(report: ReadinessResponse): readonly ReadinessItemView[] {
+  return report.items.filter(isOpen);
+}
+
+function check(
+  previous: FlowState,
+  workflowId: string,
+  name: string,
+  confirmed: readonly string[],
+  selected: number,
+): Checking {
+  return doing<Checking>(
+    previous,
+    { kind: 'checking', workflowId, name, confirmed, selected },
+    { type: 'readiness', request: { workflowId, ...(confirmed.length === 0 ? {} : { confirmed }) } },
+  );
+}
+
 function request(previous: FlowState, workflowId: string, name: string, sent: StartRunRequest): Requesting {
   return doing<Requesting>(
     previous,
@@ -333,6 +396,7 @@ function answerToStart(state: Requesting, event: FlowEvent): FlowStep {
           name: state.name,
           hash,
           use,
+          confirmed: state.sent.confirmed ?? [],
           // we had sent a confirmation and the control still asks: what was confirmed is not what is there now
           changed: state.sent.confirmedHash !== undefined,
         }),
@@ -347,6 +411,7 @@ function answerToStart(state: Requesting, event: FlowEvent): FlowStep {
         name: state.name,
         hash,
         steps: asSteps(refusal.detail?.steps),
+        confirmed: state.sent.confirmed ?? [],
         changed: state.sent.fullAccessConfirmedHash !== undefined,
       }),
     };
@@ -405,7 +470,7 @@ function pressInPicker(state: Picking, press: KeyName): FlowStep {
     if (!chosen.valid) {
       return { state: { ...state, error: `${plain(chosen.name, 60)} is not valid and cannot be started` } };
     }
-    return { state: request(state, chosen.id, plain(chosen.name, 60), { workflowId: chosen.id }) };
+    return { state: check(state, chosen.id, plain(chosen.name, 60), [], 0) };
   }
   return { state };
 }
@@ -432,6 +497,93 @@ export function reduceFlow(state: FlowState, event: FlowEvent): FlowStep {
       }
       return 'press' in event ? pressInPicker(state, event.press) : { state };
     }
+    case 'checking': {
+      if ('press' in event) {
+        if (event.press === 'escape') {
+          return { state: undefined };
+        }
+        // The start is always available (AC-15), even while the report is still being had: a slow or stuck check never
+        // holds a person up. Changing state drops the answer when it arrives.
+        if (event.press === 'enter') {
+          return {
+            state: request(
+              state,
+              state.workflowId,
+              state.name,
+              startRequest({ workflowId: state.workflowId }, state.confirmed),
+            ),
+          };
+        }
+        return { state };
+      }
+      if ('readiness' in event || 'readinessFailed' in event) {
+        const report: ReadinessResponse =
+          'readiness' in event ? event.readiness : { items: [], criticalMissing: 0, needsConfirmation: 0 };
+        const error = 'readinessFailed' in event ? plain(event.readinessFailed) : undefined;
+        if (error === undefined && openItems(report).length === 0 && state.confirmed.length === 0) {
+          // Nothing to look at on the first look: the start goes ahead as it always did. After a confirmation the report
+          // is shown again even when nothing is left, because the person pressed confirm, not start.
+          return {
+            state: request(
+              state,
+              state.workflowId,
+              state.name,
+              startRequest({ workflowId: state.workflowId }, state.confirmed),
+            ),
+          };
+        }
+        return {
+          state: resting<Readiness>(state, {
+            kind: 'readiness',
+            workflowId: state.workflowId,
+            name: state.name,
+            report,
+            confirmed: state.confirmed,
+            selected: clampIndex(state.selected, openItems(report).length),
+            error,
+          }),
+        };
+      }
+      return { state };
+    }
+    case 'readiness': {
+      if (!('press' in event)) {
+        return { state };
+      }
+      const char = typeof event.press === 'object' ? event.press.char : undefined;
+      const open = openItems(state.report);
+      const move = (to: number): FlowStep => ({
+        state: { ...state, selected: clampIndex(to, open.length) },
+      });
+      if (event.press === 'up' || char === 'k') {
+        return move(state.selected - 1);
+      }
+      if (event.press === 'down' || char === 'j') {
+        return move(state.selected + 1);
+      }
+      if (event.press === 'enter') {
+        // never disabled, whatever is missing (C-04, AC-15)
+        return {
+          state: request(
+            state,
+            state.workflowId,
+            state.name,
+            startRequest({ workflowId: state.workflowId }, state.confirmed),
+          ),
+        };
+      }
+      if (char === 'c') {
+        const item = open[clampIndex(state.selected, open.length)];
+        if (item !== undefined && item.state === 'needs-confirmation') {
+          const confirmed = state.confirmed.includes(item.id)
+            ? state.confirmed
+            : [...state.confirmed, item.id];
+          return { state: check(state, state.workflowId, state.name, confirmed, state.selected) };
+        }
+        return { state };
+      }
+      return event.press === 'escape' || char === 'n' ? { state: undefined } : { state };
+    }
     case 'requesting':
       // a second Enter while a start is in flight is ignored: the answer decides what happens next
       return answerToStart(state, event);
@@ -442,10 +594,12 @@ export function reduceFlow(state: FlowState, event: FlowEvent): FlowStep {
       const char = typeof event.press === 'object' ? event.press.char : undefined;
       if (char === 'y') {
         return {
-          state: request(state, state.workflowId, state.name, {
-            workflowId: state.workflowId,
-            confirmedHash: state.hash,
-          }),
+          state: request(
+            state,
+            state.workflowId,
+            state.name,
+            startRequest({ workflowId: state.workflowId, confirmedHash: state.hash }, state.confirmed),
+          ),
         };
       }
       return event.press === 'escape' || char === 'n' ? { state: undefined } : { state };
@@ -457,11 +611,19 @@ export function reduceFlow(state: FlowState, event: FlowEvent): FlowStep {
       const char = typeof event.press === 'object' ? event.press.char : undefined;
       if (char === 'a') {
         return {
-          state: request(state, state.workflowId, state.name, {
-            workflowId: state.workflowId,
-            confirmedHash: state.hash,
-            fullAccessConfirmedHash: state.hash,
-          }),
+          state: request(
+            state,
+            state.workflowId,
+            state.name,
+            startRequest(
+              {
+                workflowId: state.workflowId,
+                confirmedHash: state.hash,
+                fullAccessConfirmedHash: state.hash,
+              },
+              state.confirmed,
+            ),
+          ),
         };
       }
       return event.press === 'escape' || char === 'n' ? { state: undefined } : { state };

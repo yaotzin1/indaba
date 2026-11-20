@@ -3,6 +3,9 @@ import { basename, join } from 'node:path';
 import {
   type Logger,
   noopLogger,
+  type ReadinessReport,
+  type ReadinessRequest,
+  type ReadinessResponse,
   type StartRunRequest,
   type StartRunResponse,
   type StartStatusResponse,
@@ -70,6 +73,15 @@ export interface RunControlOptions {
   readonly ids: () => string;
   /** Parses a workflow as `indaba validate` does; throws {@link WorkflowValidationError} with its problems. */
   readonly parse: (source: string) => WorkflowDefinition;
+  /**
+   * The readiness of a parsed workflow in a project folder on this machine (specs/run-readiness); the command line builds it
+   * with the probe and the runners. Without it every report is empty.
+   */
+  readonly readiness?: (
+    workflow: WorkflowDefinition,
+    root: string,
+    confirmed: ReadonlySet<string>,
+  ) => ReadinessReport;
   readonly logger?: Logger;
   readonly graceMs?: number;
   readonly sleep?: (ms: number) => Promise<void>;
@@ -130,7 +142,9 @@ async function taskOfTrace(file: string): Promise<string | undefined> {
  * Runs workflows of the served roots for the page (specs/web-app-actions): one `indaba run` child per run, started
  * from the confirmed bytes, stopped as Ctrl+C stops it, killed with its tree only when it does not stop in time.
  */
-export function createRunControl(options: RunControlOptions): UiRunControl {
+export function createRunControl(
+  options: RunControlOptions,
+): UiRunControl & Required<Pick<UiRunControl, 'readiness'>> {
   const log = options.logger ?? noopLogger;
   const sleep = options.sleep ?? defaultSleep;
   const graceMs = options.graceMs ?? STOP_GRACE_MS;
@@ -261,10 +275,30 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
     }
   };
 
+  /**
+   * What a start carries as confirmations is never trusted as it came: strings only, at most 50, each bounded and
+   * printable and starting with a letter, so one can never read as an option of the child it is handed to.
+   */
+  const confirmedIds = (ids: readonly string[] | undefined): readonly string[] =>
+    (ids ?? [])
+      .filter(
+        (id) =>
+          typeof id === 'string' &&
+          id.length >= 1 &&
+          id.length <= 300 &&
+          /^[A-Za-z]/.test(id) &&
+          !Array.from(id).some((char) => {
+            const code = char.codePointAt(0) ?? 0;
+            return code < 0x20 || (code >= 0x7f && code <= 0x9f);
+          }),
+      )
+      .slice(0, 50);
+
   const launch = async (
     found: FoundWorkflow,
     buffer: Buffer,
     fullAccessPage: boolean,
+    confirmed: readonly string[],
   ): Promise<StartRunResponse> => {
     const startId = `web-${options.ids()}`;
     if (!START_ID.test(startId)) {
@@ -296,6 +330,8 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
           startId,
           // Only after the person saw the `full` steps listed for this content (specs/agent-permissions, AC-05).
           ...(fullAccessPage ? ['--allow-full-access=page'] : []),
+          // Confirmed for this run only (specs/run-readiness, AC-12); one option per id, so no id is split or joined.
+          ...confirmed.flatMap((id) => ['--confirm', id]),
           '--',
           `${RUN_INPUTS.split('\\').join('/')}/${startId}.yml`,
         ],
@@ -405,10 +441,38 @@ export function createRunControl(options: RunControlOptions): UiRunControl {
             steps: fullSteps,
           });
         }
-        return await launch(found, buffer, fullSteps.length > 0);
+        return await launch(found, buffer, fullSteps.length > 0, confirmedIds(request.confirmed));
       } finally {
         reserved -= 1;
       }
+    },
+
+    readiness: async (request: ReadinessRequest): Promise<ReadinessResponse> => {
+      const found = await finder.find(request.workflowId);
+      if (found === undefined) {
+        return refuse('workflow_not_found', 'no workflow has this id');
+      }
+      let workflow: WorkflowDefinition;
+      try {
+        workflow = options.parse((await readWorkflow(found)).toString('utf8'));
+      } catch (error) {
+        if (error instanceof WorkflowValidationError) {
+          return refuse('workflow_invalid', 'the workflow is invalid', {
+            problems: error.problems.map((p) => sanitize(p)),
+          });
+        }
+        return refuse('workflow_not_found', 'the workflow could not be read');
+      }
+      const confirmed = new Set(confirmedIds(request.confirmed));
+      // The probe reads the file system in one go; yielding first lets the screen draw its "checking" frame before that.
+      await new Promise<void>((resolve) => setImmediate(resolve));
+      return (
+        options.readiness?.(workflow, found.root, confirmed) ?? {
+          items: [],
+          criticalMissing: 0,
+          needsConfirmation: 0,
+        }
+      );
     },
 
     startStatus: (startId: string): StartStatusResponse | undefined => {

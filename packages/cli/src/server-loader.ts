@@ -4,6 +4,8 @@ import type {
   Logger,
   LoggingSettings,
   LoggingSettingsResponse,
+  ReadinessRequest,
+  ReadinessResponse,
   RegistryAddRootRequest,
   RegistryAddRootResponse,
   RegistryAnnotateRequest,
@@ -82,6 +84,8 @@ export interface UiWorkflowStore {
 export interface UiRunControl {
   list(): Promise<WorkflowListResponse>;
   start(request: StartRunRequest): Promise<StartRunResponse>;
+  /** What a start of this workflow would find missing on this machine (specs/run-readiness); informs, never blocks. */
+  readiness?(request: ReadinessRequest): Promise<ReadinessResponse>;
   startStatus(startId: string): StartStatusResponse | undefined;
   stop(runId: string): StopRunResponse | undefined;
   isAlive(runId: string): boolean;

@@ -276,3 +276,53 @@ describe('a released run is never cancelled by its channel closing (AC-05)', () 
     expect(bin).toMatch(/CANCEL_MESSAGE/);
   });
 });
+
+describe('readiness through the screen’s guard (specs/run-readiness, AC-13)', () => {
+  it('passes the readiness of a workflow on, and clears a credential from every string of it', async () => {
+    const asked: object[] = [];
+    const control = fakeControl({
+      readiness: async (request) => {
+        asked.push(request);
+        return {
+          items: [
+            {
+              id: 'env:-:TOKEN',
+              kind: 'env',
+              state: 'missing',
+              critical: false,
+              message: `TOKEN is not set (${SECRET})`,
+              how: `Set it: ${SECRET}`,
+            },
+          ],
+          criticalMissing: 0,
+          needsConfirmation: 0,
+        };
+      },
+    });
+    const port = homeRunControl(control, ENV);
+    const answer = await port.readiness?.({ workflowId: 'w1', confirmed: ['env:-:TOKEN'] });
+    expect(asked).toEqual([{ workflowId: 'w1', confirmed: ['env:-:TOKEN'] }]);
+    expect(JSON.stringify(answer)).not.toContain(SECRET);
+    expect(answer?.items[0]?.message).toContain('[redacted]');
+  });
+
+  it('has no readiness when the control has none, so the screen starts as it always did', () => {
+    expect(homeRunControl(fakeControl(), ENV).readiness).toBeUndefined();
+  });
+
+  it('makes a refusal of the readiness again, with its message cleared', async () => {
+    const control = fakeControl({
+      readiness: async () => {
+        throw Object.assign(new Error(`failed with ${SECRET}`), {
+          name: 'RunControlError',
+          code: 'workflow_invalid',
+        });
+      },
+    });
+    const error = await homeRunControl(control, ENV)
+      .readiness?.({ workflowId: 'w1' })
+      .catch((e: unknown) => e);
+    expect(error).toMatchObject({ name: 'RunControlError', code: 'workflow_invalid' });
+    expect((error as Error).message).not.toContain(SECRET);
+  });
+});

@@ -33,3 +33,30 @@ export interface AttentionItem {
   /** One sentence on how to fix it, when known. */
   readonly how?: string;
 }
+
+const STATE_WORDS: Readonly<Record<AttentionState, string>> = {
+  ready: 'ready',
+  missing: 'missing',
+  'needs-confirmation': 'needs your confirmation',
+  confirmed: 'confirmed',
+  unknown: 'could not be checked',
+};
+
+/** Workflow text reaches a terminal: control characters (escape sequences) become spaces (specs/run-readiness, section 6). */
+export function plainText(text: string): string {
+  return [...text]
+    .map((char) => {
+      const code = char.charCodeAt(0);
+      return code < 32 || (code >= 127 && code <= 159) ? ' ' : char;
+    })
+    .join('');
+}
+
+/** One line for an item in plain words, the same in every view (specs/run-readiness, AC-11). */
+export function describeAttention(
+  item: Pick<AttentionItem, 'state' | 'critical' | 'message' | 'how'>,
+): string {
+  const mark = item.critical && item.state === 'missing' ? 'CRITICAL ' : '';
+  const how = item.how === undefined || item.how === '' ? '' : ` How: ${plainText(item.how)}`;
+  return `${mark}${STATE_WORDS[item.state]}: ${plainText(item.message)}.${how}`;
+}

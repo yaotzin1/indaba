@@ -8,6 +8,7 @@ import {
   MAX_FILTER,
   MAX_START_POLLS,
   MAX_STOP_POLLS,
+  openItems,
   openPicker,
   openStop,
   plain,
@@ -34,8 +35,12 @@ function picker(list: readonly WorkflowSummary[] = [workflow()]): FlowState {
   return step(openPicker(), { listed: { workflows: list, truncated: false } }).state;
 }
 
+/** A report with nothing to look at: the start goes ahead as it always did. */
+export const NOTHING_OPEN = { items: [], criticalMissing: 0, needsConfirmation: 0 };
+
 function requesting(): FlowState {
-  return step(picker(), named('enter')).state;
+  const checking = step(picker(), named('enter')).state;
+  return step(checking, { readiness: NOTHING_OPEN }).state;
 }
 
 describe('isRunControlError', () => {
@@ -491,11 +496,215 @@ describe('what a known refusal does not say', () => {
   it.each(['workflow_not_found', 'not_saved', 'start_failed'])(
     '%s uses the words of the screen, never the control',
     (code) => {
-      const failed = reduceFlow(reduceFlow(picker(), { press: 'enter' }).state as FlowState, {
+      const failed = reduceFlow(requesting(), {
         refused: refusal(code, {}, 'a raw detail text with /home/someone/secret.yml'),
       }).state as { message: string };
       expect(failed.message).not.toContain('raw detail text');
       expect(failed.message).not.toContain('/home/someone');
     },
   );
+});
+
+/** An attention item as the report carries it. */
+function item(
+  id: string,
+  state: 'ready' | 'missing' | 'needs-confirmation' | 'confirmed' | 'unknown',
+  extra: { critical?: boolean; how?: string } = {},
+) {
+  return {
+    id,
+    kind: 'env' as const,
+    state,
+    critical: extra.critical ?? false,
+    message: id,
+    ...(extra.how === undefined ? {} : { how: extra.how }),
+  };
+}
+
+const report = (...items: ReturnType<typeof item>[]) => ({
+  items,
+  criticalMissing: items.filter((i) => i.critical && i.state === 'missing').length,
+  needsConfirmation: items.filter((i) => i.state === 'needs-confirmation').length,
+});
+
+/** The picker, Enter, and a report with something to look at. */
+function reading(items: ReturnType<typeof item>[]): FlowState {
+  const checking = step(picker(), named('enter')).state;
+  return step(checking, { readiness: report(...items) }).state;
+}
+
+describe('the readiness step (specs/run-readiness, AC-12, 13, 15)', () => {
+  it('asks what the run needs when a workflow is picked, with no confirmations yet', () => {
+    const checking = step(picker(), named('enter')).state;
+    expect(checking).toMatchObject({
+      kind: 'checking',
+      workflowId: 'w1',
+      confirmed: [],
+      effect: { type: 'readiness', request: { workflowId: 'w1' } },
+    });
+    expect((checking.effect as { request: object }).request).not.toHaveProperty('confirmed');
+  });
+
+  it('starts at once, as it always did, when nothing needs a look', () => {
+    const checking = step(picker(), named('enter')).state;
+    const started = step(checking, {
+      readiness: report(item('env:-:A', 'ready'), item('env:-:B', 'confirmed')),
+    }).state;
+    expect(started).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1' },
+      effect: { type: 'start' },
+    });
+    expect((started as { sent: object }).sent).not.toHaveProperty('confirmed');
+  });
+
+  it('shows what needs a look, ready items counted and not listed', () => {
+    const state = reading([
+      item('env:-:A', 'ready'),
+      item('env:-:B', 'missing', { critical: true }),
+      item('decision:-:C', 'needs-confirmation'),
+    ]);
+    expect(state).toMatchObject({ kind: 'readiness', selected: 0, effect: undefined });
+    if (state.kind !== 'readiness') {
+      throw new Error('not the report');
+    }
+    expect(openItems(state.report).map((i) => i.id)).toEqual(['env:-:B', 'decision:-:C']);
+  });
+
+  it('always lets the person start, whatever is missing (C-04, AC-15)', () => {
+    const state = reading([item('env:-:B', 'missing', { critical: true })]);
+    const started = step(state, named('enter')).state;
+    expect(started).toMatchObject({ kind: 'requesting', sent: { workflowId: 'w1' } });
+  });
+
+  it('confirms the selected item for this run, asks again, and starts with it', () => {
+    const state = reading([item('env:-:B', 'missing'), item('decision:-:C', 'needs-confirmation')]);
+    const down = step(state, key('j')).state;
+    expect(down).toMatchObject({ selected: 1 });
+    const asking = step(down, key('c')).state;
+    expect(asking).toMatchObject({
+      kind: 'checking',
+      confirmed: ['decision:-:C'],
+      selected: 1,
+      effect: { type: 'readiness', request: { workflowId: 'w1', confirmed: ['decision:-:C'] } },
+    });
+    // the control answers with the item confirmed; one item is left to look at
+    const again = step(asking, {
+      readiness: report(item('env:-:B', 'missing'), item('decision:-:C', 'confirmed')),
+    }).state;
+    expect(again).toMatchObject({ kind: 'readiness', selected: 0, confirmed: ['decision:-:C'] });
+    const started = step(again, named('enter')).state;
+    expect(started).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1', confirmed: ['decision:-:C'] },
+    });
+  });
+
+  it('does not confirm what cannot be confirmed: a missing item, or an unknown one', () => {
+    const state = reading([item('env:-:B', 'missing'), item('env:-:U', 'unknown')]);
+    expect(step(state, key('c')).state).toBe(state);
+    expect(step(step(state, key('j')).state, key('c')).state).toMatchObject({ kind: 'readiness' });
+  });
+
+  it('confirms an id once, even when c is pressed again after the answer', () => {
+    const state = reading([item('decision:-:C', 'needs-confirmation')]);
+    const first = step(state, key('c')).state;
+    const asked = step(first, { readiness: report(item('decision:-:C', 'needs-confirmation')) }).state;
+    expect(step(asked, key('c')).state).toMatchObject({ confirmed: ['decision:-:C'] });
+  });
+
+  it('keeps the selection inside the list when it shrinks', () => {
+    const asking = step(
+      step(reading([item('env:-:A', 'missing'), item('decision:-:C', 'needs-confirmation')]), key('j')).state,
+      key('c'),
+    ).state;
+    expect(asking).toMatchObject({ selected: 1 });
+    expect(
+      step(asking, { readiness: report(item('decision:-:C', 'confirmed'), item('env:-:A', 'missing')) })
+        .state,
+    ).toMatchObject({ selected: 0 });
+  });
+
+  it('shows a report that could not be had, and still offers the start', () => {
+    const checking = step(picker(), named('enter')).state;
+    const failed = step(checking, { readinessFailed: 'the probe broke\u001b[2J' }).state;
+    expect(failed).toMatchObject({ kind: 'readiness', error: 'the probe broke [2J' });
+    expect(step(failed, named('enter')).state).toMatchObject({ kind: 'requesting' });
+  });
+
+  it('closes on Escape while checking and from the report, and takes no other key while checking', () => {
+    const checking = step(picker(), named('enter')).state;
+    expect(step(checking, key('x')).state).toBe(checking);
+    expect(reduceFlow(checking, named('escape')).state).toBeUndefined();
+    expect(reduceFlow(reading([item('env:-:A', 'missing')]), named('escape')).state).toBeUndefined();
+    expect(reduceFlow(reading([item('env:-:A', 'missing')]), key('n')).state).toBeUndefined();
+  });
+
+  it('ignores an answer that arrives out of turn', () => {
+    const state = reading([item('env:-:A', 'missing')]);
+    expect(step(state, { listed: { workflows: [], truncated: false } }).state).toBe(state);
+    const checking = step(picker(), named('enter')).state;
+    expect(step(checking, { listFailed: 'x' }).state).toBe(checking);
+  });
+
+  it('starts on Enter while the report is still being had, so a slow check never holds a start back (AC-15)', () => {
+    const checking = step(picker(), named('enter')).state;
+    const started = step(checking, named('enter')).state;
+    expect(started).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1' },
+      effect: { type: 'start' },
+    });
+    // the answer that arrives late is ignored: the flow is no longer waiting for it
+    expect(step(started, { readiness: report(item('env:-:A', 'missing')) }).state).toBe(started);
+  });
+
+  it('keeps the confirmations when Enter starts while a confirmation is being checked again', () => {
+    const asking = step(reading([item('decision:-:C', 'needs-confirmation')]), key('c')).state;
+    expect(step(asking, named('enter')).state).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1', confirmed: ['decision:-:C'] },
+    });
+  });
+
+  it('shows the report again after the last item was confirmed, and does not start by itself', () => {
+    const asking = step(reading([item('decision:-:C', 'needs-confirmation')]), key('c')).state;
+    const again = step(asking, { readiness: report(item('decision:-:C', 'confirmed')) }).state;
+    expect(again).toMatchObject({ kind: 'readiness', confirmed: ['decision:-:C'], effect: undefined });
+    const started = step(again, named('enter')).state;
+    expect(started).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1', confirmed: ['decision:-:C'] },
+    });
+  });
+
+  it('carries the confirmations through the confirmation of what the file uses, and the full access one', () => {
+    const state = reading([item('decision:-:C', 'needs-confirmation')]);
+    const confirmed = step(step(state, key('c')).state, {
+      readiness: report(item('decision:-:C', 'confirmed'), item('env:-:A', 'missing')),
+    }).state;
+    const requested = step(confirmed, named('enter')).state;
+    const asked = step(requested, {
+      refused: refusal('confirmation_required', { contentHash: 'h1', use: USE }),
+    }).state;
+    expect(asked).toMatchObject({ kind: 'confirming', confirmed: ['decision:-:C'] });
+    const yes = step(asked, key('y')).state;
+    expect(yes).toMatchObject({
+      kind: 'requesting',
+      sent: { workflowId: 'w1', confirmedHash: 'h1', confirmed: ['decision:-:C'] },
+    });
+    const full = step(yes, {
+      refused: refusal('full_access_required', {
+        contentHash: 'h1',
+        steps: [{ stepId: 's', runners: ['claude-code'] }],
+      }),
+    }).state;
+    expect(step(full, key('a')).state).toMatchObject({
+      sent: {
+        confirmedHash: 'h1',
+        fullAccessConfirmedHash: 'h1',
+        confirmed: ['decision:-:C'],
+      },
+    });
+  });
 });

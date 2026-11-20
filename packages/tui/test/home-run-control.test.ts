@@ -657,3 +657,109 @@ describe('logging and secrets', () => {
     expect(logged).not.toContain('npm test');
   });
 });
+
+describe('the readiness step from Home (specs/run-readiness, AC-12, 13, 15)', () => {
+  const decision = (state: 'needs-confirmation' | 'confirmed') => ({
+    id: 'decision:-:ok',
+    kind: 'decision' as const,
+    state,
+    critical: false,
+    message: 'Someone approved the spend',
+  });
+  const missing = {
+    id: 'env:-:TOKEN',
+    kind: 'env' as const,
+    state: 'missing' as const,
+    critical: false,
+    message: 'TOKEN is not set',
+  };
+
+  it('shows what the run needs, confirms an item for this run, and starts with it', async () => {
+    const asked: Array<{ workflowId: string; confirmed?: readonly string[] }> = [];
+    const control = fakeControl({
+      readiness: async (request) => {
+        asked.push(request);
+        const confirmed = request.confirmed?.includes('decision:-:ok') === true;
+        return {
+          items: [missing, decision(confirmed ? 'confirmed' : 'needs-confirmation')],
+          criticalMissing: 0,
+          needsConfirmation: confirmed ? 0 : 1,
+        };
+      },
+    });
+    control.alive.add('r1');
+    const { stdout, stdin, done } = start(control);
+    await until(() => stdout.text.includes('review'));
+    stdin.type('n');
+    await until(() => seen(stdout, 'app / review'));
+    stdin.type('\r');
+    await until(() => seen(stdout, 'review: what this run needs'));
+    expect(stdout.frames.join('')).toContain('0 ready, 2 to look at');
+    // the first item is the missing one: there is nothing to confirm on it
+    expect(stdout.frames.slice(typedAt.get(stdout) ?? 0).join('')).not.toContain('c confirm');
+    stdin.type('j');
+    await until(() => seen(stdout, 'c confirm for this run'));
+    stdin.type('c');
+    await until(() => seen(stdout, '1 ready, 1 to look at'));
+    stdin.type('\r');
+    await until(() => stdout.text.includes('line two'));
+    expect(asked).toEqual([{ workflowId: 'w1' }, { workflowId: 'w1', confirmed: ['decision:-:ok'] }]);
+    // the confirmation travels on the start of this run only, and nothing else was asked of the control
+    expect(control.requests).toEqual([{ workflowId: 'w1', confirmed: ['decision:-:ok'] }]);
+    stdin.type('q');
+    await until(() => seen(stdout, 'cancel the run'));
+    stdin.type('d');
+    await until(() => seen(stdout, 'earlier'));
+    stdin.type('q');
+    await until(() => seen(stdout, 'stop the run'));
+    stdin.type('d');
+    await done;
+  });
+
+  it('starts as it always did when nothing needs a look, and never shows the report', async () => {
+    const control = fakeControl({
+      readiness: async () => ({ items: [], criticalMissing: 0, needsConfirmation: 0 }),
+    });
+    control.alive.add('r1');
+    const { stdout, stdin, done } = start(control);
+    await until(() => stdout.text.includes('review'));
+    stdin.type('n');
+    await until(() => seen(stdout, 'app / review'));
+    stdin.type('\r');
+    await until(() => stdout.text.includes('line two'));
+    expect(stdout.text).not.toContain('review: what this run needs');
+    expect(control.requests).toEqual([{ workflowId: 'w1' }]);
+    stdin.type('q');
+    await until(() => seen(stdout, 'cancel the run'));
+    stdin.type('d');
+    await until(() => seen(stdout, 'earlier'));
+    stdin.type('q');
+    await until(() => seen(stdout, 'stop the run'));
+    stdin.type('d');
+    await done;
+  });
+
+  it('says the readiness could not be checked, and the person can still start', async () => {
+    const control = fakeControl({
+      readiness: () => Promise.reject(new Error('the probe broke')),
+    });
+    control.alive.add('r1');
+    const { stdout, stdin, done } = start(control);
+    await until(() => stdout.text.includes('review'));
+    stdin.type('n');
+    await until(() => seen(stdout, 'app / review'));
+    stdin.type('\r');
+    await until(() => seen(stdout, 'The readiness could not be checked: the probe broke'));
+    stdin.type('\r');
+    await until(() => stdout.text.includes('line two'));
+    expect(control.requests).toEqual([{ workflowId: 'w1' }]);
+    stdin.type('q');
+    await until(() => seen(stdout, 'cancel the run'));
+    stdin.type('d');
+    await until(() => seen(stdout, 'earlier'));
+    stdin.type('q');
+    await until(() => seen(stdout, 'stop the run'));
+    stdin.type('d');
+    await done;
+  });
+});
