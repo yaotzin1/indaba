@@ -1,5 +1,6 @@
 import { IndabaError } from '../errors/index.js';
 import type { BoardKind } from '../mesh/board.js';
+import type { InputDefinition } from './inputs.js';
 
 export const DecisionType = {
   /** Every participant must agree. */
@@ -125,6 +126,8 @@ export interface StepBoard {
 
 export interface StepDefinition {
   readonly id: string;
+  /** The text and path inputs the goal refers to, in order of first reference; the prompt lists exactly these (AC-10). Absent when none. */
+  readonly goalInputs?: readonly string[];
   readonly role?: string;
   readonly runner?: string;
   readonly fallbackRunners?: readonly string[];
@@ -201,6 +204,10 @@ export interface WorkflowDefinition {
   readonly maxWaits?: number;
   /** `requires`: what a run needs that Indaba cannot infer (specs/run-readiness, AC-07). */
   readonly requires?: readonly Requirement[];
+  /** `inputs`: what the workflow asks of the person who runs it (specs/workflow-inputs, AC-01); absent when the file has none. */
+  readonly inputs?: Readonly<Record<string, InputDefinition>>;
+  /** The declared inputs no step refers to, in declaration order (AC-08): `validate` and `plan` warn about them. */
+  readonly unusedInputs?: readonly string[];
 }
 
 /** One declared need of a workflow. Shown to the person before the run; it never stops a start. */

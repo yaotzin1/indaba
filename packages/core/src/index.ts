@@ -237,6 +237,35 @@ export type { AttentionItem, AttentionKind, AttentionState } from './workflow/at
 export { describeAttention, plainText } from './workflow/attention.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {
+  BooleanInput,
+  ChoiceInput,
+  InputCheck,
+  InputDefinition,
+  InputDescription,
+  InputProblem,
+  InputValue,
+  NumberInput,
+  PathInput,
+  ResolvedInputs,
+  TextInput,
+} from './workflow/inputs.js';
+export {
+  canonicalInputs,
+  checkBooleanValue,
+  checkChoiceValue,
+  checkNumberValue,
+  checkTextValue,
+  describeInputs,
+  INPUT_LIMITS,
+  InputProblemCode,
+  InputType,
+  isInputName,
+  normalizeInputPath,
+  numberFits,
+  PathKind,
+  quoteValue,
+} from './workflow/inputs.js';
+export type {
   AgentSpec,
   GuardDefinition,
   McpServerDefinition,

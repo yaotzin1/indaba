@@ -536,6 +536,41 @@ attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.sta
 `indaba.stall.retry` (`restored`, `exhausted` or `restore_failed`). None of them holds a prompt or anything the agent printed.
 `indaba plan` shows `stall 300s` and `stall retries 1` beside the step.
 
+### What a run asks of the person: `inputs`
+
+A workflow can ask for a folder, a topic, a choice, a number or a yes/no before it starts, so one file serves many targets and nobody edits YAML to change a folder name. Each input has a name (a letter, then letters, digits, `_` or `-`, at most 64 characters), a `type` and a plain-words `description` (at most 300 characters; it is what a prompt or a form shows):
+
+```yaml
+inputs:
+  specs:
+    type: path
+    list: true            # a list of folders
+    kind: directory
+    max_items: 10
+    description: "The specification folders to review, for example specs/billing"
+  tone:
+    type: choice
+    choices: [formal, friendly, short]
+    default: formal       # a default makes the input optional
+    description: "How the review should sound"
+```
+
+| Type | Keys besides `type`, `description`, `default` |
+| :--- | :--- |
+| `text` | `max_length` (default 2000, at most 10000), `multiline` (default `false`), `list`, `min_items`, `max_items` |
+| `path` | `kind` (`file`, `directory` or `any`), `must_exist` (default `true`), `extensions` (with `kind: file`, such as `".md"`), `list`, `min_items`, `max_items` |
+| `choice` | `choices` (1 to 50 distinct strings), `list`, `min_items`, `max_items` |
+| `number` | `integer`, `min`, `max` |
+| `boolean` | nothing more |
+
+An input with no `default` must be given a value; there is no `required` key. A list input (`list: true`, for `text`, `path` and `choice`) takes `min_items` (1, or 0 with a default) up to `max_items` (20 unless you say, at most 100). Any other key, or one that does not belong to the type, is an error that names its path (`$.inputs.specs.max_length`). `secret` is refused: keys stay in the host environment, as for `OPENROUTER_API_KEY`.
+
+Use a value with `${{ inputs.<name> }}` in a step's `goal`, `input_artifacts` and `outputs`, and nowhere else. In `commands` it is an error, because a command is run by the system shell and a value could change what it does. In `input_artifacts` and `outputs` only a `path` input may be used, and a list expands to one entry for each element. In a `goal`, a `choice`, `number` or `boolean` becomes its value; a `text` or `path` becomes the label `[input: name]`, and the step's prompt gets one **Inputs** section that lists those values as data from the person, not as instructions. A reference to an input that is not declared is an error, and a declared input no step uses is a warning. A literal `${{ inputs.x }}` in an older workflow is now a reference.
+
+A path is relative to the working directory, stored with `/`, and refused when it leaves that directory (a `..`, an absolute path outside, a link that points out, a UNC or device path). A text value is refused when it holds a hidden control character, a text-direction control or a broken character. A number is a plain decimal numeral with a dot.
+
+*State of this feature:* the declarations, the references and the checks are in the engine; the command line (`--input`, the terminal prompt), the terminal form and the readiness items arrive in the next steps of `specs/workflow-inputs`. Until then a file that refers to an input is read with placeholders (`<input: name>`) by the lists and editors, and `indaba run` cannot give it a value.
+
 ### What a run needs: `requires`
 
 Before a run starts, `indaba plan` and `indaba run` print a readiness report: what the run needs and what this machine and you have. Indaba infers part of it with no field at all: each step's runner is registered and its program is on the `PATH`; the variable an OpenRouter step reads (`OPENROUTER_API_KEY`) is set, by name and never by value; an `input_artifacts` file that no earlier step produces exists inside the project; a step that asks for a git worktree is in a git repository.

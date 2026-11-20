@@ -227,7 +227,7 @@ describe('no field without the schema (AC-10)', () => {
     const read = new Set(
       [
         ...source.matchAll(
-          /\.(?:string|int|stringList|stringOrList|stringOrMap|map|nodeList|nodeMap|stringMap|boundedInt|bool)\('([a-z_]+)'/g,
+          /\.(?:string|int|stringList|stringOrList|stringOrMap|goalText|map|nodeList|nodeMap|stringMap|boundedInt|bool)\('([a-z_]+)'/g,
         ),
       ].map((m) => m[1] ?? ''),
     );

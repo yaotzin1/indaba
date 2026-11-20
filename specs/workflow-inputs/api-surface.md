@@ -230,6 +230,15 @@ interface Io {
 // packages/tui:  collectInputs(declarations: readonly InputDescription[], missing: readonly string[]): Promise<SuppliedInputs | undefined>
 ```
 
+## Deviations found while implementing slice 1
+
+Small, additive, and listed here because this file is the contract.
+
+- `normalizeInputPath(input, raw, base?)` takes an optional third argument, the working directory as a string. An absolute path can be accepted only by comparing it with that directory, and the core has no file system, so the engine passes it. Without `base` an absolute path is refused (T-04). The comparison ignores case when `base` has a drive letter.
+- `WorkflowDefinition.unusedInputs?` (the declared inputs no step refers to) is a new optional member: the validator sees only the expanded definition, so the parser, which sees the references, records it for the warning of AC-08.
+- `@indaba/core` also exports `INPUT_LIMITS`, `isInputName`, `numberFits`, `quoteValue` and `InputProblemCode`; `@indaba/engine` also exports `nodeInputFileSystem` (the default `InputFileSystem`, used by `--input-file`).
+- A `choice` list in a goal expands to its values joined with `, `: the choices are the author's closed vocabulary (C-03), not a typed value.
+
 ## Workflow fields
 
 | Field | Where | Meaning |
