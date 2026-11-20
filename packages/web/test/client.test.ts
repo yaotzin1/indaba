@@ -473,6 +473,61 @@ describe('the client: Run and Stop (T-15)', () => {
     });
   });
 
+  it('asks what a workflow needs, with the confirmations in the query, and keeps only items it can read', async () => {
+    const item = { id: 'env:-:A', kind: 'env', state: 'missing', critical: true, message: 'm', how: 'h' };
+    const replies = fakeFetch([
+      json({
+        items: [item, { id: 3 }, { ...item, state: 'bogus' }],
+        criticalMissing: 9,
+        needsConfirmation: 9,
+      }),
+      json({ items: [] }),
+      json({ code: 'readiness_unavailable', message: 'm' }, 404),
+      json({ code: 'workflow_not_found', message: 'm' }, 404),
+      new Response('nope', { status: 500 }),
+      json({ nothing: true }),
+      new Response('not json', { status: 200 }),
+      json({ code: 'unauthorized', message: 'm' }, 401),
+      new TypeError('offline'),
+    ]);
+    const client = createClient({ token: TOKEN, fetch: replies.fetch });
+    // the counts come from the items that can be read, never from the wire
+    expect(await client.readiness('w1', ['decision:-:go', 'a b'])).toEqual({
+      items: [item],
+      criticalMissing: 1,
+      needsConfirmation: 0,
+    });
+    expect(replies.calls[0]?.url).toBe(
+      '/api/v1/workflows/w1/readiness?confirm=decision%3A-%3Ago&confirm=a%20b',
+    );
+    expect(await client.readiness('w1')).toEqual({ items: [], criticalMissing: 0, needsConfirmation: 0 });
+    expect(replies.calls[1]?.url).toBe('/api/v1/workflows/w1/readiness');
+    // it never blocks a start: whatever is not a lost connection or a refused token is "cannot say"
+    expect(await client.readiness('w1')).toBeUndefined();
+    expect(await client.readiness('w1')).toBeUndefined();
+    expect(await client.readiness('w1')).toBeUndefined();
+    expect(await client.readiness('w1')).toBeUndefined();
+    expect(await client.readiness('w1')).toBeUndefined();
+    await expect(client.readiness('w1')).rejects.toMatchObject({ failure: { kind: 'unauthorized' } });
+    await expect(client.readiness('w1')).rejects.toMatchObject({ failure: { kind: 'unreachable' } });
+  });
+
+  it('sends the confirmations of a start, and leaves the field out when there are none', async () => {
+    const bodies: string[] = [];
+    const replies = [json({ startId: 'web-1' }, 202), json({ startId: 'web-2' }, 202)];
+    const client = createClient({
+      token: TOKEN,
+      fetch: (async (_input: RequestInfo | URL, init?: RequestInit) => {
+        bodies.push(String(init?.body));
+        return replies.shift() as Response;
+      }) as typeof fetch,
+    });
+    await client.startRun('w1', undefined, undefined, ['decision:-:go']);
+    await client.startRun('w1', undefined, undefined, []);
+    expect(JSON.parse(bodies[0] ?? '')).toEqual({ workflowId: 'w1', confirmed: ['decision:-:go'] });
+    expect(JSON.parse(bodies[1] ?? '')).toEqual({ workflowId: 'w1' });
+  });
+
   it('sends the hash of the full-access confirmation, and reads the 409 that asks for it (AC-05)', async () => {
     const bodies: string[] = [];
     const steps = [{ stepId: 'build', runners: ['claude-code', 'codex'] }];

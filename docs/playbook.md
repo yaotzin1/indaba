@@ -266,7 +266,7 @@ echo $?
 ```
 
 Everything is arguments and exit statuses: 0 completed, 1 failed, 2 escalated, 130 cancelled. A step at permission level
-`full` needs a terminal to ask at, or `--allow-full-access` when there is none. `indaba plan` and `indaba run` print a readiness report first (missing programs and keys by name, files, and what the workflow lists under `requires`); it never changes the exit status, and `--confirm <id>` confirms an item only a person can judge. Keep keys in the environment
+`full` needs a terminal to ask at, or `--allow-full-access` when there is none. `indaba plan` and `indaba run` print a readiness report first (missing programs and keys by name, files, and what the workflow lists under `requires`); it never changes the exit status, and `--confirm <id>` confirms an item only a person can judge. The terminal Home and the web page's Run panel show the same report before a start, with a key or a button to confirm for that run; they never stop a start either. Keep keys in the environment
 (`OPENROUTER_API_KEY` and the like) and never in the workflow file. A step's agent or command sees only the basics and its own
 provider's variables, not the rest of your environment, and its `TEMP` is inside the step's folder; a step in a worktree that
 changes a branch or tag of the repository fails and the change is undone. `indaba schema` prints the JSON Schema of the file for

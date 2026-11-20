@@ -1,4 +1,6 @@
 import type {
+  ReadinessRequest,
+  ReadinessResponse,
   StartRunRequest,
   StartRunResponse,
   StartStatusResponse,
@@ -19,6 +21,12 @@ export interface RunControl {
    * use), `full_access_required` (detail: contentHash, steps), `too_many_runs`, `not_saved` or `start_failed`.
    */
   start(request: StartRunRequest): Promise<StartRunResponse>;
+  /**
+   * What the workflow `request.workflowId` names needs before it runs (specs/run-readiness). Optional: a control that
+   * cannot say leaves it out and the route answers 404. Rejects with a {@link RunControlError} whose `code` is
+   * `workflow_not_found` or `workflow_invalid`. It never blocks a start.
+   */
+  readiness?(request: ReadinessRequest): Promise<ReadinessResponse>;
   /** `undefined` for an id this control never issued. */
   startStatus(startId: string): StartStatusResponse | undefined;
   /** `undefined` when this server did not start the run `runId` (a trace id). Idempotent. */
