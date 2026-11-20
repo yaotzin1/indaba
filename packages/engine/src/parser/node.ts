@@ -65,6 +65,19 @@ export class Node {
     return value;
   }
 
+  /** True or false; absent is undefined. Anything else records an error. */
+  bool(key: string): boolean | undefined {
+    const value = this.present(key);
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'boolean') {
+      this.errors.add(`${this.path}.${key} must be true or false`);
+      return undefined;
+    }
+    return value;
+  }
+
   /** A whole number in `min`..`max`, or undefined when absent. Anything else records `message` and gives undefined. */
   boundedInt(key: string, min: number, max: number, message: string): number | undefined {
     const value = this.present(key);

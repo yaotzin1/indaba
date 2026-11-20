@@ -24,8 +24,7 @@ The deferral goes in `review.md` and in the dependency map.
    `INDABA_ACP_PASS_ENV`. Agent CLIs that sign in on their own (claude-code, codex) get no `secret` item: Indaba cannot know. A
    plugin runner adds its own through the probe (C-06).
 2. **The snapshot is a span event, not a new trace record.** `RunRecord` is the wire union of `<traceId>.events.jsonl`; a new
-   `type` would reach every reader. The run span gets one event `indaba.readiness` whose attributes are `items` (an array of
-   `"<id>=<state>"` strings), `critical_missing` and `needs_confirmation`. Ids contain names and never values (AC-17).
+   `type` would reach every reader. The run span gets one event `indaba.readiness` with the attributes `indaba.readiness.items` (one JSON text of `[id, state]` pairs, because span attributes are scalars), `indaba.readiness.critical_missing` and `indaba.readiness.needs_confirmation`, also set on the run span. Ids contain names and never values (AC-17).
 3. **Confirmations travel on the start request.** `StartRunRequest` (web contract, `@indaba/core`) gets `confirmed?: readonly string[]`;
    the CLI maps `--confirm <id>` to the same list. The engine receives them as the `confirmed` set of `analyzeReadiness`.
 4. **`requires` of kind `tool` and the `runner` item use the same `hasExecutable`**, a directory scan of `PATH` with `PATHEXT` on

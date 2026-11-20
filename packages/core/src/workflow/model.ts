@@ -199,7 +199,21 @@ export interface WorkflowDefinition {
   readonly maxParallel?: number;
   /** `max_waits`: how often a step may be put back before it is admitted alone; lowers the configured value (AC-03). */
   readonly maxWaits?: number;
+  /** `requires`: what a run needs that Indaba cannot infer (specs/run-readiness, AC-07). */
+  readonly requires?: readonly Requirement[];
 }
+
+/** One declared need of a workflow. Shown to the person before the run; it never stops a start. */
+export interface Requirement {
+  readonly kind: 'env' | 'file' | 'tool' | 'account' | 'decision' | 'asset';
+  readonly name: string;
+  readonly description: string;
+  readonly how?: string;
+  readonly critical?: boolean;
+}
+
+export const MAX_REQUIREMENT_DESCRIPTION = 300;
+export const MAX_REQUIREMENT_HOW = 500;
 
 /** Fills every collection and scalar default so callers only state what differs. */
 export function defineStep(init: Partial<StepDefinition> & { readonly id: string }): StepDefinition {

@@ -129,6 +129,7 @@ from are in [`examples/`](../examples/), from `hello.workflow.ai.yml` (shell onl
 | `--discussion-dir <dir>` | Where the messages of each debate are kept for the web view (default `.indaba/discussions`) |
 | `--permissions [<step>=]<level>` | Lower what agents may do in this run: `read`, `edit` or `full` (repeatable). It never raises a level and never writes the file; a step with no level takes only `read`. See [Permission levels](#permission-levels) |
 | `--allow-full-access` | Acknowledge the steps at the level `full` when there is no terminal to ask at |
+| `--confirm <id>` | Confirm an item of the readiness report that only you can judge (repeatable). The report is printed before every run and never stops it |
 | `--log-level <level>` | `error`, `warn`, `info` (default) or `debug`; every command accepts it. See [Logs](#logs) |
 | `--log-dir <dir>` | Folder of the log files (default `.indaba/logs`); every command accepts it |
 | `-h, --help`, `-V, --version` | Help and version |

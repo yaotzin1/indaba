@@ -18,7 +18,8 @@ default changes: the report never stops a run (spec C-04).
 | `@indaba/core` `readiness` | interface | `ReadinessProbe { isEnvSet(name: string): boolean; fileState(relativePath: string): 'file' \| 'directory' \| 'missing' \| 'outside'; hasExecutable(name: string): boolean; isRunnerRegistered(type: string, preset?: string): boolean; workspaceKind(): 'git' \| 'plain' }` |
 | `@indaba/core` `readiness` | function | `analyzeReadiness(workflow: WorkflowDefinition, inputs: ReadonlyMap<string, unknown>, probe: ReadinessProbe, confirmed: ReadonlySet<string>): ReadinessReport` |
 | `@indaba/core` `workflow` | type | `Requirement { readonly kind: 'env' \| 'file' \| 'tool' \| 'account' \| 'decision' \| 'asset'; readonly name: string; readonly description: string; readonly how?: string; readonly critical?: boolean }` and `WorkflowDefinition.requires?: readonly Requirement[]` |
-| `@indaba/engine` `readiness` | function | `createReadinessProbe(root: string, env: Readonly<Record<string, string \| undefined>>, registry: RunnerLookup): ReadinessProbe` |
+| `@indaba/engine` `readiness` | function | `createReadinessProbe(root: string, env: Readonly<Record<string, string | undefined>>, registry: RunnerPresence, options?: ReadinessProbeOptions): ReadinessProbe` and `readinessAttributes(report: ReadinessReport): SpanAttributes` |
+| `@indaba/engine` `RunOptions` | field | `readiness?: ReadinessReport`, recorded on the run span |
 | `@indaba/engine` | re-export | every `@indaba/core` type above (the TUI's rule R-02) |
 
 Ids are stable: `<kind>:<stepId or ->:<name>`, so a confirmation survives a re-computation.
@@ -30,7 +31,7 @@ Ids are stable: `<kind>:<stepId or ->:<name>`, so a confirmation survives a re-c
 
 | Name | Before | After | Impact |
 | :--- | :--- | :--- | :--- |
-| run span (engine) | no readiness data | one span event `indaba.readiness` with attributes `items` (`"<id>=<state>"` strings), `critical_missing`, `needs_confirmation`; `RunRecord` is the trace wire union and is not changed | additive; no value of any item is stored |
+| run span (engine) | no readiness data | one span event `indaba.readiness`, and the same attributes on the run span: `indaba.readiness.items` (one JSON text of `[id, state]` pairs: span attributes are scalars), `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation`; `RunRecord` is the trace wire union and is not changed | additive; no value of any item is stored |
 | `StartRunRequest` (`@indaba/core` web contract) | no confirmations | optional `confirmed?: readonly string[]` | additive |
 
 ## Removed or deprecated
@@ -44,7 +45,7 @@ None.
 | workflow schema | `requires` | new optional top-level list (spec AC-07 to AC-09) |
 | CLI | `indaba plan` | prints a readiness section after the plan |
 | CLI | `indaba run --confirm <id>` (repeatable) | new option |
-| event | `ReadinessChecked` | new, the span event `indaba.readiness`; counts and `"<id>=<state>"` strings only |
+| event | `ReadinessChecked` | new, the span event `indaba.readiness`; counts and `[id, state]` pairs only |
 | span attribute | `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation` | new, on the run span; not part of the GenAI conventions, so namespaced `indaba.` |
 | HTTP (server) | `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm` | new, token-protected like the others |
 

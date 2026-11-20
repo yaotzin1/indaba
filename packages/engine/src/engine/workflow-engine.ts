@@ -6,6 +6,7 @@ import type {
   IdGenerator,
   Intent,
   NegotiationDecider,
+  ReadinessReport,
   Span,
   StepDefinition,
   Tracer,
@@ -26,6 +27,7 @@ import {
   StepStatus,
   StepStatusChanged,
 } from '@indaba/core';
+import { readinessAttributes } from '../readiness/attributes.js';
 import { describeStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from '../trace/structure.js';
 import {
   type ForkableWorkspace,
@@ -87,6 +89,8 @@ export interface RunOptions {
   readonly onStepOutput?: (stepId: string, chunk: string) => void;
   /** How the person acknowledged the steps at the level `full`, recorded on the task span (specs/agent-permissions, AC-05). */
   readonly fullAccessAcknowledged?: 'terminal' | 'run_option' | 'page';
+  /** The readiness report computed before the start; its counts and the id and state of each item are recorded (specs/run-readiness, AC-17). */
+  readonly readiness?: ReadinessReport;
 }
 
 /**
@@ -190,7 +194,11 @@ export class WorkflowEngine {
       ...(options.fullAccessAcknowledged !== undefined
         ? { 'indaba.permissions.full_acknowledged': options.fullAccessAcknowledged }
         : {}),
+      ...(options.readiness !== undefined ? readinessAttributes(options.readiness) : {}),
     });
+    if (options.readiness !== undefined) {
+      root.addEvent('indaba.readiness', readinessAttributes(options.readiness));
+    }
 
     // Every record of the board reaches the listeners in order; `delivered` is awaited before the run ends.
     let delivered: Promise<void> = Promise.resolve();

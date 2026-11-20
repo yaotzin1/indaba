@@ -20,6 +20,8 @@ import {
   FailureAction,
   Isolation,
   isConsensusStep,
+  MAX_REQUIREMENT_DESCRIPTION,
+  MAX_REQUIREMENT_HOW,
   MAX_STALL_RETRIES,
   MAX_STALL_SECONDS,
   MAX_TIMEOUT_SECONDS,
@@ -27,6 +29,7 @@ import {
   MIN_STALL_SECONDS,
   PermissionLevel,
   PermissionMode,
+  type Requirement,
   resolvePermissions,
   SHELL_RUNNER,
   WorkflowValidationError,
@@ -42,10 +45,27 @@ import { WorkflowValidator } from './validator.js';
 const BOARD_KEYS = ['read', 'post', 'digest_chars'] as const;
 const STALL_KEYS = ['after_seconds', 'retries'] as const;
 const BOARD_READ_KEYS = ['steps', 'kinds'] as const;
+const REQUIRES_KEYS = ['kind', 'name', 'description', 'how', 'critical'] as const;
+const REQUIRES_KINDS: readonly Requirement['kind'][] = [
+  'env',
+  'file',
+  'tool',
+  'account',
+  'decision',
+  'asset',
+];
 /** The digest bounds of spec C-08: design choices, not measurements. */
 const DEFAULT_DIGEST_CHARS = 4000;
 const MIN_DIGEST_CHARS = 200;
 const MAX_DIGEST_CHARS = 20000;
+
+/** A relative path with no `..` segment (the confinement of an artifact path, applied at parse time). */
+function isProjectRelative(path: string): boolean {
+  if (path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:/.test(path)) {
+    return false;
+  }
+  return !path.split(/[\\/]/).includes('..');
+}
 
 /** Own, enumerable properties only: a key such as `__proto__` stays data. */
 function record<T>(entries: readonly (readonly [string, T])[]): Record<string, T> {
@@ -188,6 +208,7 @@ export class WorkflowParser {
     const maxParallel = root.boundedInt('max_parallel', 1, Number.MAX_SAFE_INTEGER, parallelMessage);
     const waitsMessage = 'max_waits must be a whole number of at least 1';
     const maxWaits = root.boundedInt('max_waits', 1, Number.MAX_SAFE_INTEGER, waitsMessage);
+    const requires = this.parseRequires(root, errors);
     const roles = record(roleEntries);
     for (const step of steps) {
       const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
@@ -218,6 +239,7 @@ export class WorkflowParser {
       ...(defaultPermissions !== undefined ? { defaultPermissions } : {}),
       ...(maxParallel !== undefined ? { maxParallel } : {}),
       ...(maxWaits !== undefined ? { maxWaits } : {}),
+      ...(requires.length > 0 ? { requires } : {}),
     };
 
     const problems = errors.isEmpty() ? this.validator.validate(workflow) : errors.all();
@@ -524,6 +546,46 @@ export class WorkflowParser {
       errors.add(`${block.path}.level "${name}" must be "read", "edit" or "full"`);
     }
     return level;
+  }
+
+  /** The `requires` list (specs/run-readiness, AC-07 and AC-09): what a run needs that Indaba cannot infer. */
+  private parseRequires(root: Node, errors: ErrorBag): Requirement[] {
+    const found: Requirement[] = [];
+    for (const node of root.nodeList('requires')) {
+      for (const key of node.unknownKeys(REQUIRES_KEYS)) {
+        errors.add(`${node.path}.${key} is not a requires setting`);
+      }
+      const kindName = node.string('kind');
+      const kind = REQUIRES_KINDS.find((candidate) => candidate === kindName);
+      if (kindName !== undefined && kind === undefined) {
+        errors.add(`${node.path}.kind must be one of ${REQUIRES_KINDS.join(', ')}`);
+      }
+      const name = node.string('name');
+      const description = node.string('description');
+      const how = node.string('how', false);
+      const critical = node.bool('critical');
+      if (description !== undefined && description.length > MAX_REQUIREMENT_DESCRIPTION) {
+        errors.add(`${node.path}.description must be at most ${MAX_REQUIREMENT_DESCRIPTION} characters`);
+      }
+      if (how !== undefined && how.length > MAX_REQUIREMENT_HOW) {
+        errors.add(`${node.path}.how must be at most ${MAX_REQUIREMENT_HOW} characters`);
+      }
+      if (kind === 'file' && name !== undefined && !isProjectRelative(name)) {
+        errors.add(
+          `${node.path}.name must be a path inside the project: no absolute path and no ".." segment`,
+        );
+      }
+      if (kind !== undefined && name !== undefined && description !== undefined) {
+        found.push({
+          kind,
+          name,
+          description,
+          ...(how !== undefined ? { how } : {}),
+          ...(critical !== undefined ? { critical } : {}),
+        });
+      }
+    }
+    return found;
   }
 
   /** The `board` field (specs/run-blackboard): shape and kinds here, what needs other steps in the validator. */
