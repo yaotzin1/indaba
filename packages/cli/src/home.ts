@@ -122,6 +122,12 @@ export function homeRunControl(control: UiRunControl, environment: Environment):
   return {
     list: () => guarded(() => control.list()),
     start: (request) => guarded(() => control.start(request)),
+    ...(control.readiness === undefined
+      ? {}
+      : {
+          readiness: (request: Parameters<NonNullable<HomeRunControl['readiness']>>[0]) =>
+            guarded(async () => (await control.readiness?.(request)) ?? EMPTY_READINESS),
+        }),
     startStatus: (startId) => guardedNow(() => control.startStatus(startId)),
     stop: (runId) => guardedNow(() => control.stop(runId)),
     isAlive: (runId) => guardedNow(() => control.isAlive(runId)),
@@ -129,6 +135,8 @@ export function homeRunControl(control: UiRunControl, environment: Environment):
     detach: () => guardedNow(() => control.detach?.()),
   };
 }
+
+const EMPTY_READINESS = { items: [], criticalMissing: 0, needsConfirmation: 0 };
 
 /** Opens Home on the runs of the project and returns the command's exit status. */
 export async function runHome(

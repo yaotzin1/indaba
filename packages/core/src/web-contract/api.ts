@@ -109,6 +109,37 @@ export interface StartRunRequest {
    * a `full` step and no matching value is refused with `full_access_required`.
    */
   readonly fullAccessConfirmedHash?: string;
+  /**
+   * Ids of readiness items the person confirmed for this run (specs/run-readiness, AC-12). They belong to the run: they
+   * are passed to it and recorded with it, never written to the workflow file or remembered for the next start.
+   */
+  readonly confirmed?: readonly string[];
+}
+
+/** What the readiness of a workflow is asked with: the same ids a start would carry in `confirmed`. */
+export interface ReadinessRequest {
+  readonly workflowId: string;
+  readonly confirmed?: readonly string[];
+}
+
+/** One line of the readiness report as the wire carries it: names and states, never a value (specs/run-readiness, AC-16). */
+export interface ReadinessItemView {
+  /** `<kind>:<stepId or ->:<name>`: what a confirmation names. */
+  readonly id: string;
+  readonly kind: string;
+  readonly state: 'ready' | 'missing' | 'needs-confirmation' | 'confirmed' | 'unknown';
+  /** The run would probably fail without it. It orders and marks the item; it never blocks a start. */
+  readonly critical: boolean;
+  readonly stepId?: string;
+  readonly message: string;
+  readonly how?: string;
+}
+
+/** The readiness report of a workflow on this machine; it informs and never blocks a start (specs/run-readiness, C-04). */
+export interface ReadinessResponse {
+  readonly items: readonly ReadinessItemView[];
+  readonly criticalMissing: number;
+  readonly needsConfirmation: number;
 }
 
 export interface StartRunResponse {

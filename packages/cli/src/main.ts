@@ -764,6 +764,13 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
         pid,
         ids: () => randomBytes(12).toString('hex'),
         parse,
+        readiness: (workflow, root, confirmed) =>
+          analyzeReadiness(
+            workflow,
+            new Map(),
+            createReadinessProbe(root, io.env, bundle.runners),
+            confirmed,
+          ),
         logger,
       }),
   };

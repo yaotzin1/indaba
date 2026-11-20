@@ -137,6 +137,21 @@ export function HomeApp(props: HomeAppProps): ReactElement {
             (error: unknown) => send({ listFailed: messageOf(error) }),
           );
         break;
+      case 'readiness': {
+        // A control with no readiness has nothing to report; the start goes ahead as it always did (C-04).
+        const ask = control.readiness;
+        if (ask === undefined) {
+          send({ readiness: { items: [], criticalMissing: 0, needsConfirmation: 0 } });
+          break;
+        }
+        void Promise.resolve()
+          .then(() => ask.call(control, effect.request))
+          .then(
+            (report) => send({ readiness: report }),
+            (error: unknown) => send({ readinessFailed: messageOf(error) }),
+          );
+        break;
+      }
       case 'start':
         props.logger?.info('tui.home', 'a run is being started', { workflowId: effect.request.workflowId });
         void Promise.resolve()
