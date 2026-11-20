@@ -111,6 +111,7 @@ function fake(initial: readonly RegistryEntryView[], options: { unavailable?: bo
     discussion: never,
     workflows: async () => undefined,
     startRun: never,
+    readiness: never,
     startStatus: never,
     stopRun: never,
     workflowSource: never,

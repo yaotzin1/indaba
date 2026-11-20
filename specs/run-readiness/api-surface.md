@@ -37,7 +37,8 @@ Ids are stable: `<kind>:<stepId or ->:<name>`, so a confirmation survives a re-c
 | `describeAttention`, `plainText` (`@indaba/core`, re-exported by `@indaba/engine`) | none | one line of plain words for an item, and the neutraliser of control characters, so the CLI and the TUI use the same words (AC-11) | additive (slice 2) |
 | `RunControlPort.readiness?` (`@indaba/tui`), `UiRunControl.readiness?` (`indaba`) | none | `readiness(request): Promise<ReadinessResponse>`, optional: a control without it gives a start with no report | additive (slice 2) |
 | `createRunControl` (`indaba`) | `UiRunControl` | also `readiness`, and an option `readiness(workflow, root, confirmed)` that the composition root builds with the probe; a start passes `confirmed` to the child as `--confirm <id>` options (at most 50, each a printable id starting with a letter) | additive (slice 2) |
-| `RunControl` of `@indaba/server` | no readiness | unchanged in slice 2; its route and `readiness` arrive in slice 3 | none yet |
+| `RunControl` of `@indaba/server` | no readiness | optional `readiness(request)` | minor (optional member); a control without it answers 404 `readiness_unavailable` |
+| `Client` of `@indaba/web` (private) | no readiness | `readiness(workflowId, confirmed?)`, and `startRun` takes `confirmed` | none (the package is never published) |
 
 ## Removed or deprecated
 
@@ -52,7 +53,7 @@ None.
 | CLI | `indaba run --confirm <id>` (repeatable) | new option |
 | event | `ReadinessChecked` | new, the span event `indaba.readiness`; counts and `[id, state]` pairs only |
 | span attribute | `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation` | new, on the run span; not part of the GenAI conventions, so namespaced `indaba.` |
-| HTTP (server) | `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm` | new, token-protected like the others |
+| HTTP (server) | `GET /api/v1/workflows/:id/readiness[?confirm=<id>...]`; optional `confirmed` in the body of `POST /api/v1/runs` | new, token-protected like the others. At most 50 ids of 1 to 300 characters; a longer list is 400. The planned `POST /api/runs/:id/confirm` is not built: a confirmation travels with its start |
 
 ## Defaults introduced or changed
 

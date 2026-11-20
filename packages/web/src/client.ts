@@ -9,6 +9,8 @@ import type {
   JsonObject,
   JsonValue,
   LoggingSettingsResponse,
+  ReadinessItemView,
+  ReadinessResponse,
   RegistryAddRootResponse,
   RegistryAnnotateRequest,
   RegistryCopyRequest,
@@ -143,7 +145,14 @@ export interface Client {
     workflowId: string,
     confirmedHash?: string,
     fullAccessConfirmedHash?: string,
+    confirmed?: readonly string[],
   ): Promise<StartAnswer>;
+  /**
+   * What the workflow needs before it runs, with the items the person confirmed for this run, or undefined when the
+   * server cannot say (specs/run-readiness). It informs and never blocks a start (AC-15), so a failure that is not
+   * a lost connection or a refused token is also undefined.
+   */
+  readiness(workflowId: string, confirmed?: readonly string[]): Promise<ReadinessResponse | undefined>;
   /** Where a start is: starting, running with its trace id, or failed with its reason. */
   startStatus(startId: string): Promise<StartStatusResponse>;
   /** Asks a run this server started to stop, as Ctrl+C would. */
@@ -485,6 +494,35 @@ function isSource(value: unknown): value is WorkflowSourceResponse {
   );
 }
 
+const READINESS_STATES = ['ready', 'missing', 'needs-confirmation', 'confirmed', 'unknown'];
+
+function isReadinessItem(value: unknown): value is ReadinessItemView {
+  return (
+    isRecord(value) &&
+    typeof value.id === 'string' &&
+    typeof value.kind === 'string' &&
+    typeof value.state === 'string' &&
+    READINESS_STATES.includes(value.state) &&
+    typeof value.critical === 'boolean' &&
+    typeof value.message === 'string' &&
+    (value.how === undefined || typeof value.how === 'string')
+  );
+}
+
+function isReadiness(value: unknown): value is ReadinessResponse {
+  return isRecord(value) && Array.isArray(value.items);
+}
+
+/** The items of a report that can be read, and the counts from them: the wire is not trusted for either. */
+function readReadiness(value: ReadinessResponse): ReadinessResponse {
+  const items = value.items.filter(isReadinessItem);
+  return {
+    items,
+    criticalMissing: items.filter((item) => item.critical && item.state === 'missing').length,
+    needsConfirmation: items.filter((item) => item.state === 'needs-confirmation').length,
+  };
+}
+
 function isStartStatus(value: unknown): value is StartStatusResponse {
   return (
     isRecord(value) &&
@@ -732,9 +770,31 @@ export function createClient(options: ClientOptions): Client {
       };
     },
 
-    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash) {
+    async readiness(workflowId, confirmed = []) {
+      const query = confirmed.map((id) => `confirm=${encodeURIComponent(id)}`).join('&');
+      const path = `/workflows/${encodeURIComponent(workflowId)}/readiness${query === '' ? '' : `?${query}`}`;
+      let body: unknown;
+      try {
+        body = await (await request(path)).json();
+      } catch (error) {
+        if (
+          error instanceof ApiFailure &&
+          (error.failure.kind === 'not_found' || error.failure.kind === 'server')
+        ) {
+          return undefined;
+        }
+        if (error instanceof ApiFailure) {
+          throw error;
+        }
+        return undefined;
+      }
+      return isReadiness(body) ? readReadiness(body) : undefined;
+    },
+
+    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash, confirmed) {
       const answer = await post('/runs', {
         workflowId,
+        ...(confirmed === undefined || confirmed.length === 0 ? {} : { confirmed }),
         ...(confirmedHash === undefined ? {} : { confirmedHash }),
         ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
       });

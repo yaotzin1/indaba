@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 import type {
   DiscussionView,
+  ReadinessResponse,
   RunSnapshot,
   RunSummary,
   ServerStreamEvent,
@@ -42,6 +43,7 @@ interface FakeClient extends Client {
   fail(failure: Failure): void;
   runCalls: number;
   starts: StartRunRequest[];
+  looks: { id: string; confirmed: readonly string[] }[];
   statuses: string[];
   stops: string[];
   saves: { text: string; baseHash: string }[];
@@ -60,6 +62,10 @@ function fakeClient(options: {
     confirmedHash: string | undefined,
     fullAccessConfirmedHash: string | undefined,
   ) => StartAnswer | undefined;
+  /** The report a look gives: `undefined` is a server that cannot say; a function sees what was confirmed. */
+  readonly readiness?: (
+    confirmed: readonly string[],
+  ) => ReadinessResponse | undefined | Promise<ReadinessResponse | undefined>;
   readonly startStatus?: (call: number) => StartStatusResponse;
   readonly stopRun?: StopAnswer;
   readonly source?: WorkflowSourceResponse | Failure;
@@ -71,6 +77,7 @@ function fakeClient(options: {
   const client: FakeClient = {
     runCalls: 0,
     starts: [],
+    looks: [],
     statuses: [],
     stops: [],
     saves: [],
@@ -92,9 +99,14 @@ function fakeClient(options: {
     async workflows() {
       return options.workflows;
     },
-    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash) {
+    async readiness(workflowId, confirmed = []) {
+      client.looks.push({ id: workflowId, confirmed });
+      return options.readiness?.(confirmed);
+    },
+    async startRun(workflowId, confirmedHash, fullAccessConfirmedHash, confirmed) {
       client.starts.push({
         workflowId,
+        ...(confirmed === undefined || confirmed.length === 0 ? {} : { confirmed }),
         ...(confirmedHash === undefined ? {} : { confirmedHash }),
         ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
       });
@@ -1045,6 +1057,150 @@ describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
     expect(client.statuses.length).toBe(3);
   });
 
+  describe('what the run needs (run-readiness T-15)', () => {
+    const item = (id: string, state: ReadinessResponse['items'][number]['state'], extra = {}) => ({
+      id,
+      kind: id.split(':')[0] ?? 'env',
+      state,
+      critical: false,
+      message: `message of ${id}`,
+      ...extra,
+    });
+    const report = (...items: ReadinessResponse['items'][number][]): ReadinessResponse => ({
+      items,
+      criticalMissing: items.filter((i) => i.critical && i.state === 'missing').length,
+      needsConfirmation: items.filter((i) => i.state === 'needs-confirmation').length,
+    });
+
+    it('starts at once when nothing is open, and never shows the report (AC-13)', async () => {
+      const client = runnable({ readiness: () => report(item('env:-:A', 'ready')) });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+    });
+
+    it('starts at once when the server cannot say what the run needs (AC-15)', async () => {
+      const client = runnable({ readiness: () => undefined });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+    });
+
+    it('shows the open items with the critical one marked, collapses the ready ones, and starts anyway (AC-13, AC-15)', async () => {
+      const client = runnable({
+        readiness: () =>
+          report(
+            item('env:s1:KEY', 'missing', { critical: true, how: 'Export it in your shell' }),
+            item('tool:s2:git', 'missing'),
+            item('env:-:OK', 'ready'),
+          ),
+      });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      const title = await within(dialog).findByRole('heading', { name: 'demo: what this run needs' });
+      await waitFor(() => expect(document.activeElement).toBe(title));
+      expect(within(dialog).getByText('1 ready, 2 to look at')).toBeTruthy();
+      expect(within(dialog).getByText('Critical').closest('li')?.textContent).toContain(
+        'message of env:s1:KEY',
+      );
+      expect(within(dialog).getByText('Missing').closest('li')?.textContent).toContain(
+        'message of tool:s2:git',
+      );
+      expect(within(dialog).getByText('How: Export it in your shell')).toBeTruthy();
+      expect(within(dialog).queryByText(/message of env:-:OK/)).toBeNull();
+      expect(client.starts).toEqual([]);
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Start anyway' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+    });
+
+    it('draws the text of an item as text, never as markup', async () => {
+      const client = runnable({
+        readiness: () =>
+          report(item('decision:-:x', 'needs-confirmation', { message: '<img src=x onerror=boom>' })),
+      });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      await within(dialog).findByRole('heading', { name: 'demo: what this run needs' });
+      expect(dialog.querySelector('img')).toBeNull();
+      expect(within(dialog).getByText(/<img src=x onerror=boom>/)).toBeTruthy();
+    });
+
+    it('confirms an item for this run, looks again, and sends the confirmation with the start (AC-12)', async () => {
+      const client = runnable({
+        readiness: (confirmed) =>
+          confirmed.includes('decision:-:go')
+            ? report(item('decision:-:go', 'confirmed'))
+            : report(item('decision:-:go', 'needs-confirmation')),
+      });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      fireEvent.click(
+        await within(dialog).findByRole('button', { name: /Confirm for this run: message of/ }),
+      );
+      // The last open item was confirmed: the report is shown again, and only Start starts the run.
+      expect(await within(dialog).findByText('Nothing is left to look at.')).toBeTruthy();
+      expect(client.looks).toEqual([
+        { id: 'w1', confirmed: [] },
+        { id: 'w1', confirmed: ['decision:-:go'] },
+      ]);
+      expect(client.starts).toEqual([]);
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Start' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      expect(client.starts).toEqual([{ workflowId: 'w1', confirmed: ['decision:-:go'] }]);
+    });
+
+    it('carries the confirmations through the confirmation of what the file uses', async () => {
+      const client = runnable({
+        readiness: (confirmed) =>
+          report(item('decision:-:go', confirmed.length > 0 ? 'confirmed' : 'needs-confirmation')),
+        startRun: (_id, hash) =>
+          hash === undefined ? { kind: 'confirm', contentHash: HASH, use: USE } : undefined,
+      });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      fireEvent.click(await within(dialog).findByRole('button', { name: /Confirm for this run/ }));
+      await within(dialog).findByText('Nothing is left to look at.');
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Start' }));
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run it' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      expect(client.starts).toEqual([
+        { workflowId: 'w1', confirmed: ['decision:-:go'] },
+        { workflowId: 'w1', confirmed: ['decision:-:go'], confirmedHash: HASH },
+      ]);
+    });
+
+    it('lets the person start while the look is still out, and drops the late answer (AC-15)', async () => {
+      let release: (value: ReadinessResponse) => void = () => undefined;
+      const client = runnable({
+        readiness: () =>
+          new Promise<ReadinessResponse>((resolve) => {
+            release = resolve;
+          }),
+      });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      await within(dialog).findByRole('heading', { name: 'Looking at what demo needs...' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Start' }));
+      await waitFor(() => expect(window.location.pathname).toBe('/runs/newer0000000000'));
+      act(() => release(report(item('env:-:A', 'missing'))));
+      expect(screen.queryByRole('heading', { name: 'demo: what this run needs' })).toBeNull();
+      expect(client.starts).toEqual([{ workflowId: 'w1' }]);
+    });
+
+    it('goes back to the list from the report', async () => {
+      const client = runnable({ readiness: () => report(item('env:-:A', 'missing')) });
+      const { dialog } = await openPanel(client);
+      fireEvent.click(await within(dialog).findByRole('button', { name: 'Run demo' }));
+      await within(dialog).findByRole('heading', { name: 'demo: what this run needs' });
+      fireEvent.click(within(dialog).getByRole('button', { name: 'Back to the list' }));
+      expect(await within(dialog).findByRole('button', { name: 'Run demo' })).toBeTruthy();
+      expect(client.starts).toEqual([]);
+    });
+  });
+
   it('lists the steps with full access every time, and sends the hash only after they were shown (AC-05)', async () => {
     const steps = [{ stepId: 'build', runners: ['claude-code', 'codex'] }];
     const client = runnable({
@@ -1099,6 +1255,9 @@ describe('Run a workflow (T-16, AC-07, AC-13, AC-14)', () => {
     const { dialog } = await openPanel(client);
     const run = await within(dialog).findByRole('button', { name: 'Run demo' });
     fireEvent.click(run);
+    fireEvent.click(run);
+    // the press goes through a look at the report first; a second one meanwhile sends nothing more (AC-07)
+    await waitFor(() => expect(client.starts).toHaveLength(1));
     fireEvent.click(run);
     expect(client.starts).toHaveLength(1);
     await act(async () => release({ kind: 'refused', code: 'too_many_runs', problems: [] }));

@@ -1,4 +1,11 @@
-import type { FullAccessStep, RunSummaryOfUse, WorkflowListResponse, WorkflowSummary } from '@indaba/core';
+import type {
+  FullAccessStep,
+  ReadinessItemView,
+  ReadinessResponse,
+  RunSummaryOfUse,
+  WorkflowListResponse,
+  WorkflowSummary,
+} from '@indaba/core';
 import {
   createElement as h,
   type KeyboardEvent,
@@ -40,26 +47,57 @@ export interface RunPanelProps {
 
 type View =
   | { readonly name: 'list' }
+  | { readonly name: 'checking'; readonly workflow: WorkflowSummary; readonly confirmed: readonly string[] }
+  | {
+      readonly name: 'readiness';
+      readonly workflow: WorkflowSummary;
+      readonly report: ReadinessResponse;
+      readonly confirmed: readonly string[];
+    }
   | {
       readonly name: 'confirm';
       readonly workflow: WorkflowSummary;
       readonly contentHash: string;
       readonly use: RunSummaryOfUse;
+      readonly confirmed: readonly string[];
     }
   | {
       readonly name: 'full_access';
       readonly workflow: WorkflowSummary;
       readonly contentHash: string;
       readonly steps: readonly FullAccessStep[];
+      readonly confirmed: readonly string[];
     }
-  | { readonly name: 'starting'; readonly workflow: WorkflowSummary; readonly startId: string }
-  | { readonly name: 'failed'; readonly workflow: WorkflowSummary; readonly reason: string }
+  | {
+      readonly name: 'starting';
+      readonly workflow: WorkflowSummary;
+      readonly startId: string;
+      readonly confirmed: readonly string[];
+    }
+  | {
+      readonly name: 'failed';
+      readonly workflow: WorkflowSummary;
+      readonly reason: string;
+      readonly confirmed: readonly string[];
+    }
   | {
       readonly name: 'refused';
       readonly workflow: WorkflowSummary;
       readonly code: string;
       readonly problems: readonly string[];
     };
+
+/** An item the person could still look at: everything but ready and confirmed (the same rule as the terminal). */
+const isOpen = (item: ReadinessItemView): boolean => item.state !== 'ready' && item.state !== 'confirmed';
+
+function readinessWord(item: ReadinessItemView): string {
+  if (item.state === 'missing') {
+    return item.critical ? messages.actions.readinessCritical : messages.actions.readinessMissing;
+  }
+  return item.state === 'needs-confirmation'
+    ? messages.actions.readinessNeedsYou
+    : messages.actions.readinessUnsure;
+}
 
 const FOCUSABLE = 'button:not([disabled]), [href], input:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -277,7 +315,12 @@ export function RunPanel(props: RunPanelProps): ReactElement {
             return;
           }
           if (status.state === 'failed') {
-            setView({ name: 'failed', workflow: view.workflow, reason: status.failure ?? '' });
+            setView({
+              name: 'failed',
+              workflow: view.workflow,
+              reason: status.failure ?? '',
+              confirmed: view.confirmed,
+            });
             return;
           }
           timer = setTimeout(ask, pollMs);
@@ -298,27 +341,44 @@ export function RunPanel(props: RunPanelProps): ReactElement {
     };
   }, [view, client, pollMs, onOpenRun, fail]);
 
+  /** Which look at the report is the one the person is waiting for; a late answer to an older one is dropped. */
+  const lookToken = useRef(0);
+
   const start = (
     workflow: WorkflowSummary,
     confirmedHash?: string,
     fullAccessConfirmedHash?: string,
+    confirmed: readonly string[] = [],
   ): void => {
     if (busy) {
       return;
     }
+    lookToken.current += 1;
     setBusy(true);
-    client.startRun(workflow.id, confirmedHash, fullAccessConfirmedHash).then(
+    client.startRun(workflow.id, confirmedHash, fullAccessConfirmedHash, confirmed).then(
       (answer) => {
         if (!mounted.current) {
           return;
         }
         setBusy(false);
         if (answer.kind === 'confirm') {
-          setView({ name: 'confirm', workflow, contentHash: answer.contentHash, use: answer.use });
+          setView({
+            name: 'confirm',
+            workflow,
+            contentHash: answer.contentHash,
+            use: answer.use,
+            confirmed,
+          });
           return;
         }
         if (answer.kind === 'full_access') {
-          setView({ name: 'full_access', workflow, contentHash: answer.contentHash, steps: answer.steps });
+          setView({
+            name: 'full_access',
+            workflow,
+            contentHash: answer.contentHash,
+            steps: answer.steps,
+            confirmed,
+          });
           return;
         }
         if (answer.kind === 'refused') {
@@ -326,13 +386,43 @@ export function RunPanel(props: RunPanelProps): ReactElement {
           return;
         }
         onNoticeSeen();
-        setView({ name: 'starting', workflow, startId: answer.startId });
+        setView({ name: 'starting', workflow, startId: answer.startId, confirmed });
       },
       (error: unknown) => {
         if (mounted.current) {
           setBusy(false);
         }
         fail(error);
+      },
+    );
+  };
+
+  /**
+   * Looks at what the workflow needs, then starts when nothing is open (the first look only) or shows the report. The
+   * report never blocks: Start is there while the look is out, and again beside the report (AC-15).
+   */
+  const check = (workflow: WorkflowSummary, confirmed: readonly string[] = []): void => {
+    if (busy) {
+      return;
+    }
+    lookToken.current += 1;
+    const mine = lookToken.current;
+    setView({ name: 'checking', workflow, confirmed });
+    client.readiness(workflow.id, confirmed).then(
+      (report) => {
+        if (!mounted.current || lookToken.current !== mine) {
+          return;
+        }
+        if (report === undefined || (confirmed.length === 0 && !report.items.some(isOpen))) {
+          start(workflow, undefined, undefined, confirmed);
+          return;
+        }
+        setView({ name: 'readiness', workflow, report, confirmed });
+      },
+      (error: unknown) => {
+        if (mounted.current && lookToken.current === mine) {
+          fail(error);
+        }
       },
     );
   };
@@ -344,11 +434,12 @@ export function RunPanel(props: RunPanelProps): ReactElement {
   useEffect(() => {
     if (startWith !== undefined && !started.current) {
       started.current = true;
-      start(startWith);
+      check(startWith);
     }
   });
 
   const backToList = (): void => {
+    lookToken.current += 1;
     setView({ name: 'list' });
     load();
   };
@@ -421,7 +512,12 @@ export function RunPanel(props: RunPanelProps): ReactElement {
             disabled: busy,
             // What was listed above, full access included, is what the person confirms (AC-05).
             onClick: () =>
-              start(workflow, contentHash, use.fullAccessSteps.length > 0 ? contentHash : undefined),
+              start(
+                workflow,
+                contentHash,
+                use.fullAccessSteps.length > 0 ? contentHash : undefined,
+                view.confirmed,
+              ),
           },
           messages.actions.confirmRun,
         ),
@@ -444,9 +540,98 @@ export function RunPanel(props: RunPanelProps): ReactElement {
             type: 'button',
             className: 'primary',
             disabled: busy,
-            onClick: () => start(workflow, undefined, contentHash),
+            onClick: () => start(workflow, undefined, contentHash, view.confirmed),
           },
           messages.actions.fullRun,
+        ),
+        h('button', { type: 'button', onClick: backToList, disabled: busy }, messages.actions.back),
+      ),
+    );
+  } else if (view.name === 'checking') {
+    const { workflow, confirmed } = view;
+    body = h(
+      'div',
+      { role: 'status' },
+      h('h3', { tabIndex: -1, 'data-autofocus': 'checking' }, messages.actions.checkingTitle(workflow.name)),
+      h('p', { className: 'muted' }, messages.actions.checkingNote),
+      h(
+        'div',
+        { className: 'dialog-actions' },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'primary',
+            disabled: busy,
+            onClick: () => start(workflow, undefined, undefined, confirmed),
+          },
+          messages.actions.readinessStart,
+        ),
+        h('button', { type: 'button', onClick: backToList, disabled: busy }, messages.actions.back),
+      ),
+    );
+  } else if (view.name === 'readiness') {
+    const { workflow, report, confirmed } = view;
+    const items = report.items.filter(isOpen);
+    const ready = report.items.length - items.length;
+    body = h(
+      'div',
+      null,
+      h(
+        'h3',
+        { tabIndex: -1, 'data-autofocus': 'readiness' },
+        messages.actions.readinessTitle(workflow.name),
+      ),
+      h('p', null, messages.actions.readinessLead),
+      h('p', { className: 'muted' }, messages.actions.readinessCount(ready, items.length)),
+      items.length === 0
+        ? h('p', { role: 'status' }, messages.actions.readinessNothing)
+        : h(
+            'ul',
+            { className: 'needs', 'aria-label': messages.actions.readinessListLabel },
+            ...items.map((item) =>
+              h(
+                'li',
+                {
+                  key: item.id,
+                  className: `need ${item.state === 'missing' && item.critical ? 'bad' : 'warn'}`,
+                },
+                h('b', null, readinessWord(item)),
+                `: ${item.message}`,
+                item.how === undefined || item.how === ''
+                  ? null
+                  : h('div', { className: 'how' }, `${messages.actions.readinessHow}${item.how}`),
+                item.state === 'needs-confirmation'
+                  ? h(
+                      'button',
+                      {
+                        type: 'button',
+                        disabled: busy,
+                        'aria-label': messages.actions.readinessConfirmLabel(item.message),
+                        onClick: () =>
+                          check(workflow, confirmed.includes(item.id) ? confirmed : [...confirmed, item.id]),
+                      },
+                      messages.actions.readinessConfirm,
+                    )
+                  : null,
+              ),
+            ),
+          ),
+      items.some((item) => item.state === 'needs-confirmation')
+        ? h('p', { className: 'note' }, messages.actions.readinessConfirmNote)
+        : null,
+      h(
+        'div',
+        { className: 'dialog-actions' },
+        h(
+          'button',
+          {
+            type: 'button',
+            className: 'primary',
+            disabled: busy,
+            onClick: () => start(workflow, undefined, undefined, confirmed),
+          },
+          items.length === 0 ? messages.actions.readinessStart : messages.actions.readinessStartAnyway,
         ),
         h('button', { type: 'button', onClick: backToList, disabled: busy }, messages.actions.back),
       ),
@@ -470,7 +655,11 @@ export function RunPanel(props: RunPanelProps): ReactElement {
         { className: 'dialog-actions' },
         h(
           'button',
-          { type: 'button', className: 'primary', onClick: () => start(workflow) },
+          {
+            type: 'button',
+            className: 'primary',
+            onClick: () => start(workflow, undefined, undefined, view.confirmed),
+          },
           messages.actions.tryAgain,
         ),
         h('button', { type: 'button', onClick: backToList }, messages.actions.back),
@@ -519,7 +708,7 @@ export function RunPanel(props: RunPanelProps): ReactElement {
                     workflow,
                     clock: props.clock,
                     busy,
-                    onRun: (w) => start(w),
+                    onRun: (w) => check(w),
                     onEdit: props.onEdit,
                   }),
                 ),

@@ -234,6 +234,34 @@ async function readJson(req: IncomingMessage, limit: number = MAX_BODY_BYTES): P
   }
 }
 
+/** The most confirmations one request carries, and the longest id: the control checks the rest. */
+const MAX_CONFIRMED = 50;
+const MAX_CONFIRMED_ID = 300;
+
+function isConfirmedList(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) &&
+    value.length <= MAX_CONFIRMED &&
+    value.every((id) => typeof id === 'string' && id.length >= 1 && id.length <= MAX_CONFIRMED_ID)
+  );
+}
+
+/** The `confirm` entries of a query, or undefined when there are too many or one is too long. */
+function confirmedFrom(url: string | undefined): readonly string[] | undefined {
+  let ids: string[];
+  try {
+    ids = new URL(url ?? '/', 'http://localhost').searchParams.getAll('confirm');
+  } catch {
+    return undefined;
+  }
+  return isConfirmedList(ids) ? ids : undefined;
+}
+
+const READINESS_UNAVAILABLE: ApiError = {
+  code: 'readiness_unavailable',
+  message: 'This server cannot say what a run needs.',
+};
+
 function fieldOf(body: unknown, key: string): unknown {
   return typeof body === 'object' && body !== null && !Array.isArray(body)
     ? (body as Readonly<Record<string, unknown>>)[key]
@@ -607,6 +635,10 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       await handleSource(req, res, runId);
       return;
     }
+    if (head === 'workflows' && parts.length === 3 && tail === 'readiness' && runId !== undefined) {
+      await handleReadiness(req, res, runId);
+      return;
+    }
     if ((head === 'workflows' && parts.length === 1) || (head === 'starts' && parts.length === 2)) {
       await handleRunControl(req, res, head, runId);
       return;
@@ -978,6 +1010,32 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     sendJson(res, 200, status);
   };
 
+  const handleReadiness = async (req: IncomingMessage, res: ServerResponse, id: string): Promise<void> => {
+    const runs = options.runs;
+    if (runs?.readiness === undefined) {
+      missing(req, res, READINESS_UNAVAILABLE);
+      return;
+    }
+    const confirmed = confirmedFrom(req.url);
+    if (!START_ID.test(id) || confirmed === undefined) {
+      refuse(req, res, 400, { code: 'bad_request', message: 'The request does not name a workflow.' });
+      return;
+    }
+    try {
+      sendJson(res, 200, await runs.readiness({ workflowId: id, confirmed }));
+    } catch (error) {
+      if (!isRunControlError(error)) {
+        throw error;
+      }
+      const answer = startRefusal(error);
+      if (answer === undefined) {
+        throw error;
+      }
+      log.info('server.runs', 'readiness refused', { code: error.code });
+      sendError(res, answer.status, answer.error);
+    }
+  };
+
   const handleStart = async (req: IncomingMessage, res: ServerResponse): Promise<void> => {
     const runs = options.runs;
     if (runs === undefined) {
@@ -998,6 +1056,7 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
     const workflowId = fieldOf(body, 'workflowId');
     const confirmedHash = fieldOf(body, 'confirmedHash');
     const fullAccessConfirmedHash = fieldOf(body, 'fullAccessConfirmedHash');
+    const confirmed = fieldOf(body, 'confirmed');
     if (typeof workflowId !== 'string' || workflowId === '' || workflowId.length > MAX_WORKFLOW_ID) {
       refuse(req, res, 400, { code: 'bad_request', message: 'The request does not name a workflow.' });
       return;
@@ -1022,8 +1081,16 @@ export async function startServer(options: ServerOptions): Promise<ServerHandle>
       });
       return;
     }
+    if (confirmed !== undefined && !isConfirmedList(confirmed)) {
+      refuse(req, res, 400, {
+        code: 'bad_request',
+        message: 'The confirmations sent are not ones this server gave.',
+      });
+      return;
+    }
     const request: StartRunRequest = {
       workflowId,
+      ...(confirmed === undefined || confirmed.length === 0 ? {} : { confirmed }),
       ...(confirmedHash === undefined ? {} : { confirmedHash }),
       ...(fullAccessConfirmedHash === undefined ? {} : { fullAccessConfirmedHash }),
     };

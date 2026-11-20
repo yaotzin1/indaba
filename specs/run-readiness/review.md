@@ -54,6 +54,12 @@ A fresh agent read the uncommitted diff and the spec. It found no way to block a
 
 Verification: `pnpm qa` and `pnpm e2e` run on the host before the commit. Windows, macOS and Linux are CI's.
 
+## Slice 3: the server route and the web start dialog (independent review, 2026-11-20)
+
+A fresh agent read the uncommitted diff and the spec (reading the code, not running it). It found no defect in: a report that blocks or loses a start (AC-15), a late answer starting twice or dropping a confirmation, confirmations lost between the dialog's views, hostile ids in the query or body, markup from an item's text, the token and method rules of the new route, or the layer rules. Two notes, neither acted on: after the automatic start fires, `busy` reads false in a stale closure until the next render (the same pattern as before this slice, no practical window); and the route runs a file-system probe per GET without a rate limit (loopback, token-gated).
+
+Verification: `pnpm qa` and `pnpm e2e` on the host; the real `indaba ui` in a browser showed the report with the critical item first, the item that needs a person and its confirm button, and Start anyway. **Not proven:** the page at a real 320 px viewport (the browser window could not be made that narrow and the server refuses to be framed); only the dialog's CSS (width `min(44rem, 100%)`, wrapping buttons) and the absence of overflow at a forced 320 px width were checked.
+
 ## What this slice does not deliver
 
-AC-12, AC-13 and AC-15 for the web view, and the two HTTP routes. They are slice 3. The confirmations are recorded with the run by the engine (slice 1); a view of them in the run record is not built in the TUI or web yet.
+The planned `POST /api/runs/:id/confirm` (a confirmation travels with its start instead). The confirmations are recorded with the run by the engine (slice 1); a view of them in the run record is not built in the TUI or web yet.

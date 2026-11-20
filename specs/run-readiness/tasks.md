@@ -21,8 +21,8 @@ PR 2
 
 PR 3
 - [x] T-13 `@indaba/core` web contract: `StartRunRequest.confirmed`, readiness view types (delivered in PR 2, which needs them).
-- [ ] T-14 `@indaba/server`: `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm`; token and `Origin` rules as the other routes.
-- [ ] T-15 `@indaba/web`: start dialog with the report, confirm buttons; the real-browser check at 320 px.
+- [x] T-14 `@indaba/server`: `GET /api/v1/workflows/:id/readiness` (confirmations as repeated `confirm` query entries) and `confirmed` on `POST /api/v1/runs`; token and `Origin` rules as the other routes. There is no `POST /api/runs/:id/confirm`: a confirmation belongs to one start (C-05) and travels with it, as in the terminal.
+- [x] T-15 `@indaba/web`: start dialog with the report, confirm buttons; the real-browser check at 320 px.
 - [ ] T-16 Docs and `pnpm qa`.
 
 Deferred: AC-03 (input items) until `workflow-inputs` is implemented.
