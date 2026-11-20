@@ -85,7 +85,8 @@ export function createReadinessProbe(
         const candidate = join(dir.replace(/^"(.*)"$/, '$1'), file);
         try {
           const info = statSync(candidate);
-          if (info.isFile() && (process.platform === 'win32' || (info.mode & 0o111) !== 0)) {
+          // Windows has no execute bit (the suffix says what runs); a POSIX file system does.
+          if (info.isFile() && (windows || process.platform === 'win32' || (info.mode & 0o111) !== 0)) {
             return true;
           }
         } catch {
