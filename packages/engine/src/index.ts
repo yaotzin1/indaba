@@ -110,6 +110,7 @@ export type {
   SuppliedInputs,
 } from './inputs/resolve.js';
 export { nodeInputFileSystem, resolveInputs } from './inputs/resolve.js';
+export { buildInputsSection, INPUTS_NOTICE } from './inputs/section.js';
 export type { FileLogSinkOptions } from './observability/file-log-sink.js';
 export { FileLogSink } from './observability/file-log-sink.js';
 export type { GelfLogSinkOptions } from './observability/gelf-log-sink.js';

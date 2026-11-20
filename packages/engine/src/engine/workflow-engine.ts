@@ -7,6 +7,7 @@ import type {
   Intent,
   NegotiationDecider,
   ReadinessReport,
+  ResolvedInputs,
   Span,
   StepDefinition,
   Tracer,
@@ -27,6 +28,7 @@ import {
   StepStatus,
   StepStatusChanged,
 } from '@indaba/core';
+import { inputsAttributes, inputsEvent } from '../inputs/section.js';
 import { readinessAttributes } from '../readiness/attributes.js';
 import { describeStructure, WORKFLOW_STRUCTURE_ATTRIBUTE } from '../trace/structure.js';
 import {
@@ -63,6 +65,8 @@ export interface WorkflowEngineOptions {
   readonly ids: IdGenerator;
   readonly dag?: DagBuilder;
   /** How many steps may run at once (specs/parallel-steps, AC-02). A workflow's `max_parallel` can lower it. Default 1. */
+  /** The checked inputs of the run (specs/workflow-inputs): the root span records their count, digest and what was asked, never a value. */
+  readonly inputs?: ResolvedInputs;
   readonly maxParallelSteps?: number;
   /** Where `maxParallelSteps` came from, for the root span. Absent means the default. */
   readonly maxParallelSource?: Exclude<ParallelSource, 'workflow'>;
@@ -108,6 +112,7 @@ export class WorkflowEngine {
   private readonly projectDir: string;
   private readonly ids: IdGenerator;
   private readonly dag: DagBuilder;
+  private readonly inputs: ResolvedInputs | undefined;
   private readonly boardOptions: NonNullable<WorkflowEngineOptions['board']>;
   private readonly maxParallelSteps: number;
   private readonly maxParallelSource: ParallelSource;
@@ -122,6 +127,7 @@ export class WorkflowEngine {
     this.projectDir = options.projectDir;
     this.ids = options.ids;
     this.dag = options.dag ?? new DagBuilder();
+    this.inputs = options.inputs;
     this.boardOptions = options.board ?? {};
     this.maxParallelSteps = options.maxParallelSteps ?? 1;
     this.maxParallelSource = options.maxParallelSource ?? 'default';
@@ -195,7 +201,11 @@ export class WorkflowEngine {
         ? { 'indaba.permissions.full_acknowledged': options.fullAccessAcknowledged }
         : {}),
       ...(options.readiness !== undefined ? readinessAttributes(options.readiness) : {}),
+      ...(this.inputs !== undefined ? inputsAttributes(this.inputs) : {}),
     });
+    if (this.inputs !== undefined) {
+      root.addEvent('inputs_resolved', inputsEvent(workflow.inputs ?? {}, this.inputs));
+    }
     if (options.readiness !== undefined) {
       root.addEvent('indaba.readiness', readinessAttributes(options.readiness));
     }

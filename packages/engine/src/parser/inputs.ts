@@ -41,7 +41,12 @@ const EXTENSION = /^\.[A-Za-z0-9][A-Za-z0-9._-]{0,19}$/;
 const hasControl = (value: string): boolean =>
   Array.from(value).some((char) => {
     const code = char.codePointAt(0) ?? 0;
-    return code < 0x20 || (code >= 0x7f && code <= 0x9f);
+    return (
+      code < 0x20 ||
+      (code >= 0x7f && code <= 0x9f) ||
+      (code >= 0x202a && code <= 0x202e) ||
+      (code >= 0x2066 && code <= 0x2069)
+    );
   });
 
 interface ListBounds {

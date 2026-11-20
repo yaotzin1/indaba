@@ -9,6 +9,7 @@ import {
   noopLogger,
   type Plugin,
   PricingTable,
+  type ResolvedInputs,
   SimpleEventDispatcher,
   type Span,
   SpanEnded,
@@ -98,6 +99,8 @@ export interface CreateEngineOptions {
    * one a plugin's sink is not added.
    */
   readonly logSinks?: LogSinkRegistry;
+  /** The checked inputs of the run (specs/workflow-inputs): the executor gives them to the steps that name them, and the root span records their digest. */
+  readonly inputs?: ResolvedInputs;
 }
 
 export interface EngineBundle {
@@ -225,6 +228,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     ),
     clock,
     redact: (text) => redact(text, secrets),
+    ...(options.inputs === undefined ? {} : { inputs: options.inputs }),
     ...(options.stepTimeoutSeconds === undefined ? {} : { timeoutSeconds: options.stepTimeoutSeconds }),
   });
   const negotiationDecider = host.registeredNegotiationDecider();
@@ -236,6 +240,7 @@ export async function createEngine(options: CreateEngineOptions): Promise<Engine
     projectDir: options.projectDir,
     ids,
     board: { redact: (text) => redact(text, secrets) },
+    ...(options.inputs === undefined ? {} : { inputs: options.inputs }),
     ...(negotiationDecider === undefined ? {} : { negotiationDecider }),
     ...(options.maxParallelSteps === undefined ? {} : { maxParallelSteps: options.maxParallelSteps }),
     ...(options.maxParallelSource === undefined ? {} : { maxParallelSource: options.maxParallelSource }),
