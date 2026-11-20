@@ -1,6 +1,6 @@
 import { IndabaError } from '@indaba/core';
 import type { ErrorBag } from './error-bag.js';
-import type { Interpolator } from './interpolator.js';
+import { InputReferenceError, type InterpolationField, type Interpolator } from './interpolator.js';
 
 /** A decoded YAML mapping. `yaml` is asked for Maps so key order and odd keys (`__proto__`, `1`) survive. */
 export type YamlMap = ReadonlyMap<unknown, unknown>;
@@ -38,7 +38,16 @@ export class Node {
     return this.data.get(key) ?? undefined;
   }
 
-  string(key: string, required = true, interpolate = false): string | undefined {
+  /** The raw decoded value of a key (absent and null are `undefined`), for a reader that checks it itself. */
+  rawValue(key: string): unknown {
+    return this.present(key);
+  }
+
+  string(
+    key: string,
+    required = true,
+    interpolate: boolean | InterpolationField = false,
+  ): string | undefined {
     const value = this.present(key);
     if (value === undefined) {
       if (required) {
@@ -50,7 +59,24 @@ export class Node {
       this.errors.add(`${this.path}.${key} must be a non-empty string`);
       return undefined;
     }
-    return interpolate ? this.resolve(value, key) : value;
+    return interpolate === false
+      ? value
+      : this.resolve(value, key, interpolate === true ? 'plain' : interpolate);
+  }
+
+  /** A goal's text and the text and path inputs it refers to (specs/workflow-inputs, AC-10). */
+  goalText(key: string): { readonly text: string | undefined; readonly inputs: readonly string[] } {
+    const value = this.present(key);
+    if (value === undefined || typeof value !== 'string' || this.interpolator === undefined) {
+      return { text: this.string(key, false, false), inputs: [] };
+    }
+    try {
+      const { text, inputs } = this.interpolator.interpolateGoal(value);
+      return { text, inputs };
+    } catch (error) {
+      this.report(error, key, undefined);
+      return { text: undefined, inputs: [] };
+    }
   }
 
   int(key: string, fallback: number): number {
@@ -91,7 +117,7 @@ export class Node {
     return value;
   }
 
-  stringList(key: string, interpolate = false): string[] {
+  stringList(key: string, interpolate: boolean | InterpolationField = false): string[] {
     const value = this.present(key);
     if (value === undefined) {
       return [];
@@ -106,7 +132,15 @@ export class Node {
         this.errors.add(`${this.path}.${key}[${i}] must be a string`);
         return;
       }
-      out.push(interpolate ? (this.resolve(item, key) ?? item) : item);
+      if (interpolate === 'paths') {
+        out.push(...this.expand(item, key, i));
+      } else {
+        out.push(
+          interpolate === false
+            ? item
+            : (this.resolve(item, key, interpolate === true ? 'plain' : interpolate, i) ?? item),
+        );
+      }
     });
     return out;
   }
@@ -228,18 +262,41 @@ export class Node {
     return new Node(value, path, this.errors, this.interpolator);
   }
 
-  private resolve(value: string, key: string): string | undefined {
+  private resolve(value: string, key: string, field: InterpolationField, index?: number): string | undefined {
     if (this.interpolator === undefined) {
       return value;
     }
     try {
-      return this.interpolator.interpolate(value);
+      return this.interpolator.interpolate(value, field);
     } catch (error) {
-      if (error instanceof IndabaError) {
-        this.errors.add(`${this.path}.${key}: ${error.message}`);
-        return undefined;
-      }
-      throw error;
+      this.report(error, key, index);
+      return undefined;
     }
+  }
+
+  /** One entry of `input_artifacts` or `outputs`, which a list input may turn into several. */
+  private expand(value: string, key: string, index: number): readonly string[] {
+    if (this.interpolator === undefined) {
+      return [value];
+    }
+    try {
+      return this.interpolator.expand(value);
+    } catch (error) {
+      this.report(error, key, index);
+      return [value];
+    }
+  }
+
+  private report(error: unknown, key: string, index: number | undefined): void {
+    const place = `${this.path}.${key}${index === undefined ? '' : `[${index}]`}`;
+    if (error instanceof InputReferenceError) {
+      this.errors.add(`${place} ${error.tail}`);
+      return;
+    }
+    if (error instanceof IndabaError) {
+      this.errors.add(`${this.path}.${key}: ${error.message}`);
+      return;
+    }
+    throw error;
   }
 }

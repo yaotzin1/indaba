@@ -558,7 +558,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
               bundle.workflowRegistry ??
               new FileWorkflowRegistry({
                 roots,
-                parse: (source) => bundle.parser.parse(source),
+                parse: (source) => bundle.parser.parse(source, { placeholders: true }),
                 clock: io.clock ?? (() => new Date()),
                 ids: () => randomBytes(8).toString('hex'),
                 logger,
@@ -697,7 +697,8 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
     humanAdjudicator: LISTED_HUMAN_ARBITER,
   });
   const { parser } = bundle;
-  const parse = (source: string) => parser.parse(source);
+  // Listing and checking a workflow needs no values: a file that asks for inputs is valid, and `indaba run` asks (spec workflow-inputs, C-16).
+  const parse = (source: string) => parser.parse(source, { placeholders: true });
   const pid = io.pid ?? process.pid;
   const diagnose = (source: string) => parser.diagnose(source);
   // One registry hub per set of served roots, shared by the store, the run control and the registry's screens, so they

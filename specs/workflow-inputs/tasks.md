@@ -5,36 +5,36 @@ checkable. Tests are written with each task, not after (qa skill).
 
 ## Domain (`@indaba/core`)
 
-- [ ] **T-01** `workflow/inputs.ts`: the types, `InputType`, `PathKind`, `InputProblemCode`; no `node:` import
-- [ ] **T-02** `checkTextValue`: control characters, NUL, bidirectional controls, unpaired surrogates, line endings,
+- [x] **T-01** `workflow/inputs.ts`: the types, `InputType`, `PathKind`, `InputProblemCode`; no `node:` import
+- [x] **T-02** `checkTextValue`: control characters, NUL, bidirectional controls, unpaired surrogates, line endings,
   `max_length`, `multiline`; hostile-string tests built from fragments (security gate)
-- [ ] **T-03** `checkChoiceValue`, `checkNumberValue` (no locale, no exponent, no `NaN`), `checkBooleanValue`
-- [ ] **T-04** `normalizeInputPath`: `/` separators, `..`, drive letter without root, UNC and device prefixes, control
+- [x] **T-03** `checkChoiceValue`, `checkNumberValue` (no locale, no exponent, no `NaN`), `checkBooleanValue`
+- [x] **T-04** `normalizeInputPath`: `/` separators, `..`, drive letter without root, UNC and device prefixes, control
   characters, an absolute path with no prefix to compare against is refused; tests for Windows and POSIX spellings on
   every platform (it is pure)
-- [ ] **T-05** `describeInputs` and `canonicalInputs`; a test pins the example in `data-model.md` and that declaration
+- [x] **T-05** `describeInputs` and `canonicalInputs`; a test pins the example in `data-model.md` and that declaration
   order does not change the text
-- [ ] **T-06** `WorkflowDefinition.inputs?`, `StepDefinition.goalInputs?`; exports; the architecture test is green
+- [x] **T-06** `WorkflowDefinition.inputs?`, `StepDefinition.goalInputs?`; exports; the architecture test is green
 
 ## Engine, parse side
 
-- [ ] **T-07** `readInputDeclarations`: keys per type, defaults checked, every problem with its path; an unknown key,
+- [x] **T-07** `readInputDeclarations`: keys per type, defaults checked, every problem with its path; an unknown key,
   `secret`, `list` on a number, `extensions` without `kind: file`
-- [ ] **T-08** interpolator: `${{ inputs.<name> }}`; value, label or placeholder; undeclared is an error naming the
+- [x] **T-08** interpolator: `${{ inputs.<name> }}`; value, label or placeholder; undeclared is an error naming the
   field; `commands` refused with the C-02 message; `input_artifacts` and `outputs` take path inputs only and expand a
   list to one entry each
-- [ ] **T-09** parser: `ParseOptions`, `goalInputs`, "needs a value" without options, the unused-input warning in the
+- [x] **T-09** parser: `ParseOptions`, `goalInputs`, "needs a value" without options, the unused-input warning in the
   validator; a workflow without `inputs` parses identically (a golden test over the existing examples)
-- [ ] **T-10** the literal `${{ inputs.x }}` edge case: a test pins the new error message (C-14)
+- [x] **T-10** the literal `${{ inputs.x }}` edge case: a test pins the new error message (C-14)
 
 ## Engine, resolve side
 
-- [ ] **T-11** `resolveInputs` with a fake `InputFileSystem`: defaults, missing, unknown, duplicates, list bounds, every
+- [x] **T-11** `resolveInputs` with a fake `InputFileSystem`: defaults, missing, unknown, duplicates, list bounds, every
   problem reported at once, the digest is stable across two orders of the same options
-- [ ] **T-12** confinement against a temporary directory: `realpath` of a link or junction that leaves the directory is
+- [x] **T-12** confinement against a temporary directory: `realpath` of a link or junction that leaves the directory is
   refused; case-insensitive comparison on Windows; `kind` and `extensions` on the real entry
-- [ ] **T-13** `--input-file`: UTF-8, the size limit, a path outside the directory, a missing file
-- [ ] **T-14** the digest uses `node:crypto` and nothing else; no new dependency in `package.json` (security-guard
+- [x] **T-13** `--input-file`: UTF-8, the size limit, a path outside the directory, a missing file
+- [x] **T-14** the digest uses `node:crypto` and nothing else; no new dependency in `package.json` (security-guard
   skill)
 
 ## Engine, run side

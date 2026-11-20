@@ -103,6 +103,13 @@ export { WorkflowEngine } from './engine/workflow-engine.js';
 export { DiffWithinScopeGuard } from './guard/diff-within-scope-guard.js';
 export { GitDiffEmptyGuard } from './guard/git-diff-empty-guard.js';
 export { GuardRegistry } from './guard/registry.js';
+export type {
+  InputFileSystem,
+  ResolveInputsOptions,
+  ResolveInputsResult,
+  SuppliedInputs,
+} from './inputs/resolve.js';
+export { nodeInputFileSystem, resolveInputs } from './inputs/resolve.js';
 export type { FileLogSinkOptions } from './observability/file-log-sink.js';
 export { FileLogSink } from './observability/file-log-sink.js';
 export type { GelfLogSinkOptions } from './observability/gelf-log-sink.js';
@@ -124,7 +131,10 @@ export { RandomIdGenerator, SystemClock } from './observability/system.js';
 export type { Path, Problem } from './parser/diagnose.js';
 export { pathText } from './parser/diagnose.js';
 export { ErrorBag } from './parser/error-bag.js';
+export type { InputDeclarations } from './parser/inputs.js';
+export { readInputDeclarations } from './parser/inputs.js';
 export { Interpolator } from './parser/interpolator.js';
+export type { ParseOptions } from './parser/parser.js';
 export { parseWorkflow, WorkflowParser } from './parser/parser.js';
 export { WorkflowValidator } from './parser/validator.js';
 export type { ReadinessProbeOptions, RunnerPresence } from './readiness/index.js';
