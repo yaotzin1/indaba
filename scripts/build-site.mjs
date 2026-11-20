@@ -35,6 +35,7 @@ export const PAGES = [
             { file: 'cookbook-quick-start.md', label: 'Cookbook: idea to app', blurb: 'Write a few sentences; agents debate them and build a tested app with its spec, skills and AGENTS.md' },
             { file: 'cookbook-crud.md', label: 'Cookbook: CRUD, step by step', blurb: 'Every stage explained: spec-kit, AGENTS.md, a project skill, tests first, three gates, review' },
             { file: 'cookbook-stages.md', label: 'Cookbook: what each stage produces', blurb: 'The files that appear after each stage of a run, with real excerpts, where your code is, and how to watch the run' },
+            { file: 'agent-patterns.md', label: 'Agent patterns', blurb: 'How to arrange agents: in order, at once, in debate, self-healing, with a person; which work today and which are only specified' },
             { file: 'sdd-patterns.md', label: 'SDD a year on: patterns and a choice matrix', blurb: 'Four pattern families of spec-driven frameworks, what was measured, a matrix by kind of change, and how Indaba supports each' },
             { file: 'cookbook-spec-first.md', label: 'Cookbook: you write the specs', blurb: 'Spec-driven by hand: agents review each spec and its code, then the process is kept as a workflow.ai.yml' },
             { file: 'cookbook-spec-first-tutorial.md', label: 'Tutorial: every spec, step by step', blurb: 'The constitution, AGENTS.md and four specs word for word (login, list, contact window, export), with the commands' },
