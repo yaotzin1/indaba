@@ -1,6 +1,6 @@
 # API surface contract: run-readiness
 
-> **Immutable during stage 6.** Provisional until the maintainer confirms section 8 of the spec.
+> **Immutable during stage 6.** Section 8 of the spec was confirmed on 2026-11-20. Stage 5 corrected the names below (see `plan.md`).
 
 ## Semver classification
 
@@ -16,8 +16,8 @@ default changes: the report never stops a run (spec C-04).
 | `@indaba/core` `attention` | interface | `AttentionItem { readonly id: string; readonly kind: AttentionKind; readonly state: AttentionState; readonly critical: boolean; readonly stepId?: string; readonly message: string; readonly how?: string }` |
 | `@indaba/core` `readiness` | interface | `ReadinessReport { readonly items: readonly AttentionItem[]; readonly criticalMissing: number; readonly needsConfirmation: number }` |
 | `@indaba/core` `readiness` | interface | `ReadinessProbe { isEnvSet(name: string): boolean; fileState(relativePath: string): 'file' \| 'directory' \| 'missing' \| 'outside'; hasExecutable(name: string): boolean; isRunnerRegistered(type: string, preset?: string): boolean; workspaceKind(): 'git' \| 'plain' }` |
-| `@indaba/core` `readiness` | function | `analyzeReadiness(workflow: Workflow, inputs: ReadonlyMap<string, unknown>, probe: ReadinessProbe, confirmed: ReadonlySet<string>): ReadinessReport` |
-| `@indaba/core` `workflow` | type | `Requirement { readonly kind: 'env' \| 'file' \| 'tool' \| 'account' \| 'decision' \| 'asset'; readonly name: string; readonly description: string; readonly how?: string; readonly critical?: boolean }` and `Workflow.requires?: readonly Requirement[]` |
+| `@indaba/core` `readiness` | function | `analyzeReadiness(workflow: WorkflowDefinition, inputs: ReadonlyMap<string, unknown>, probe: ReadinessProbe, confirmed: ReadonlySet<string>): ReadinessReport` |
+| `@indaba/core` `workflow` | type | `Requirement { readonly kind: 'env' \| 'file' \| 'tool' \| 'account' \| 'decision' \| 'asset'; readonly name: string; readonly description: string; readonly how?: string; readonly critical?: boolean }` and `WorkflowDefinition.requires?: readonly Requirement[]` |
 | `@indaba/engine` `readiness` | function | `createReadinessProbe(root: string, env: Readonly<Record<string, string \| undefined>>, registry: RunnerLookup): ReadinessProbe` |
 | `@indaba/engine` | re-export | every `@indaba/core` type above (the TUI's rule R-02) |
 
@@ -30,8 +30,8 @@ Ids are stable: `<kind>:<stepId or ->:<name>`, so a confirmation survives a re-c
 
 | Name | Before | After | Impact |
 | :--- | :--- | :--- | :--- |
-| `RunRecord` (engine) | no readiness data | optional `readiness?: { items: readonly { id: string; state: AttentionState }[]}` | additive; no value of any item is stored |
-| `StartRequest` (engine run control) | no confirmations | optional `confirmed?: readonly string[]` | additive |
+| run span (engine) | no readiness data | one span event `indaba.readiness` with attributes `items` (`"<id>=<state>"` strings), `critical_missing`, `needs_confirmation`; `RunRecord` is the trace wire union and is not changed | additive; no value of any item is stored |
+| `StartRunRequest` (`@indaba/core` web contract) | no confirmations | optional `confirmed?: readonly string[]` | additive |
 
 ## Removed or deprecated
 
@@ -44,7 +44,7 @@ None.
 | workflow schema | `requires` | new optional top-level list (spec AC-07 to AC-09) |
 | CLI | `indaba plan` | prints a readiness section after the plan |
 | CLI | `indaba run --confirm <id>` (repeatable) | new option |
-| event | `ReadinessChecked` | new; fields `criticalMissing`, `needsConfirmation`, counts only |
+| event | `ReadinessChecked` | new, the span event `indaba.readiness`; counts and `"<id>=<state>"` strings only |
 | span attribute | `indaba.readiness.critical_missing`, `indaba.readiness.needs_confirmation` | new, on the run span; not part of the GenAI conventions, so namespaced `indaba.` |
 | HTTP (server) | `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm` | new, token-protected like the others |
 

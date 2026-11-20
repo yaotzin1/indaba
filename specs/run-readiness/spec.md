@@ -1,7 +1,7 @@
 # Feature RA-1: readiness of a run (`run-readiness`)
 
 > **Level**: feature of [`run-assist`](../run-assist/spec.md) (RA-1). **Status**: Draft, specification only: nothing here is implemented.
-> **Stage entry**: 1 (the decisions in section 8 are recommended; the maintainer confirms them)
+> **Stage entry**: 3 (section 8 confirmed by the maintainer on 2026-11-20; AC-03 is deferred until `workflow-inputs` is implemented)
 > **Semver impact**: minor (one optional workflow field, new optional exports and CLI output; below 1.0). No default changes:
 > a report never stops a run (section 8, C-04).
 > **Builds on**: [`specs/workflow-inputs`](../workflow-inputs/spec.md) (declared inputs), [`specs/agent-permissions`](../agent-permissions/spec.md)
@@ -155,8 +155,6 @@ All three ship in this feature.
 
 ## Artifacts not written
 
-- `events.md`: stage 3 adds one event (`ReadinessChecked`, counts only); until then `api-surface.md` names it
-- `plan.md`: written at stage 3 or 4, when the feature is scheduled; the contract is in `api-surface.md`
-- `research.md`: written at stage 3 or 4, when the feature is scheduled; the contract is in `api-surface.md`
-- `data-model.md`: written at stage 3 or 4, when the feature is scheduled; the contract is in `api-surface.md`
-- `tasks.md`: written at stage 3 or 4, when the feature is scheduled; the contract is in `api-surface.md`
+- `events.md`: the one event is `indaba.readiness`, named in `api-surface.md`
+- `research.md`: no open question needed research
+- `data-model.md`: the types are in `api-surface.md`

@@ -1,0 +1,25 @@
+# Tasks: run-readiness
+
+PR 1
+- [ ] T-01 `@indaba/core`: `AttentionKind`, `AttentionState`, `AttentionItem`, `ReadinessProbe`, `ReadinessReport` and the exports.
+- [ ] T-02 `@indaba/core`: `Requirement`, `WorkflowDefinition.requires`, `defineWorkflow` default.
+- [ ] T-03 `@indaba/core`: `analyzeReadiness` and its test (AC-01, 02, 04 to 06, 08, 10, 11, 16; `unknown`; order; no secret in the report).
+- [ ] T-04 `@indaba/engine`: parse and validate `requires` (AC-07, 09), with tests; schema and catalog description.
+- [ ] T-05 `@indaba/engine`: `createReadinessProbe`, the runner-to-variables table, tests on a temporary folder (spec section 5 rows).
+- [ ] T-06 `@indaba/engine`: the `indaba.readiness` span event and attributes on the run span (AC-17), with a test that no value is stored.
+- [ ] T-07 `indaba`: `readiness-report.ts` formatter; `plan` section after the plan (AC-14).
+- [ ] T-08 `indaba`: `run` prints the report as a warning and starts; `--confirm <id>` (AC-12, 14, 15); exit codes unchanged.
+- [ ] T-09 Docs (`docs/`, both playbooks, `llms.txt`), changelog, dependency map, `review.md`.
+- [ ] T-10 `pnpm qa`, the node gates, an independent review, `node scripts/check-track.mjs`.
+
+PR 2
+- [ ] T-11 `@indaba/tui`: the report in the start confirmation, ready items as a count (AC-13), a key to confirm the selected item (AC-12), tests with a fake terminal.
+- [ ] T-12 Docs and `pnpm qa`.
+
+PR 3
+- [ ] T-13 `@indaba/core` web contract: `StartRunRequest.confirmed`, readiness view types.
+- [ ] T-14 `@indaba/server`: `GET /api/workflows/:id/readiness`, `POST /api/runs/:id/confirm`; token and `Origin` rules as the other routes.
+- [ ] T-15 `@indaba/web`: start dialog with the report, confirm buttons; the real-browser check at 320 px.
+- [ ] T-16 Docs and `pnpm qa`.
+
+Deferred: AC-03 (input items) until `workflow-inputs` is implemented.
