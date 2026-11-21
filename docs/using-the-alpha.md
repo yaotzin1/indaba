@@ -22,7 +22,7 @@ An agent can be reached three ways. Use the first that fits, and list the others
 
 | | API | ACP | CLI |
 | :--- | :--- | :--- | :--- |
-| Runners | `openrouter`, or an endpoint you configure | `acp` + `agent:` | `claude-code`, `codex`, `antigravity`, `cursor`, `opencode` |
+| Runners | `openrouter`, or an endpoint you configure | `acp` + `agent:`, or `openclaw` | `claude-code`, `codex`, `antigravity`, `cursor`, `opencode` |
 | Use it for | text work: specs, reviews, debate, consensus | an agent that **edits code** | a last resort |
 | Needs | a key (or a local server) | the agent program, logged in | the CLI, logged in |
 | Edits files itself | no, it returns text | yes, inside a worktree you scope | yes; the scope guard checks after the step |
