@@ -117,8 +117,9 @@ type Trip = 'timeout' | 'abort';
  * start, speaks another protocol version, or needs a login). From then on every outcome is a result.
  */
 export class AcpRunner implements Runner, McpCapable, PermissionCapable {
-  readonly name = 'acp';
-  readonly description =
+  /** Typed `string` so a runner built on this one may name itself (the OpenClaw runner does). */
+  readonly name: string = 'acp';
+  readonly description: string =
     'An agent over the Agent Client Protocol (claude, codex, gemini, opencode or your own): structured events and a permission gate.';
   private readonly spawner: StreamingProcessSpawner;
   private readonly presets: Readonly<Record<string, AcpAgentPreset>>;
