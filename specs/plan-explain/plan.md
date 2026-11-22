@@ -1,7 +1,7 @@
 # Plan: Explaining a plan
 
-Stage 3. Section 8 of [`spec.md`](spec.md): C-01 and C-07 are confirmed, C-08 was adopted at the maintainer's suggestion; C-02 to
-C-06 are recommended and stand unless the maintainer says otherwise.
+Stage 3. Section 8 of [`spec.md`](spec.md): C-01 to C-07 are confirmed by the maintainer and C-08 was adopted at his suggestion (2026-11-22).
+Nothing is left open.
 
 ## Modules touched
 

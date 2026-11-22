@@ -1,7 +1,7 @@
 # Specification: Explaining a plan (`indaba plan --explain`, with `--json`)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; the rest recommended and awaiting confirmation
+> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; C-02 to C-06 confirmed unchanged on 2026-11-22; all decisions of section 8 are settled
 > **Semver impact**: minor (two new optional options of `plan`, new optional exports; below 1.0). **No default changes**:
 > `indaba plan` without the new options prints exactly what it prints today. Provisional; confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/agent-permissions`](../agent-permissions/spec.md) (the permission report is the precedent for a
@@ -161,24 +161,24 @@ calling the same function (AC-04, AC-14). A runner a plugin registered takes par
 
 ## 8. Clarifications
 
-Recommended; the maintainer confirms.
+All decisions below are confirmed by the maintainer (2026-11-22).
 
 - **C-01. `--json` implies `--explain`. Confirmed 2026-11-22.** `plan` has no `--json` today, so nothing existing is broken.
   Two options that must be given together are a usage error waiting to happen. A person who asks for JSON of the plan gets the
   explanation, which is the only JSON `plan` has.
-- **C-02. Origins by reading the document, not by changing the parser.** The parser merges a role's and `defaults`'s permissions
+- **C-02. Origins by reading the document, not by changing the parser. Confirmed 2026-11-22.** The parser merges a role's and `defaults`'s permissions
   into the step and drops where they came from. Recording origins in the parser would change `StepDefinition`, a public type (a
   major for those who build it). Reading the YAML document again with a line counter, as `diagnose` does, adds nothing to the
-  model. The cost is a second read of a file that is already in memory. Recommended.
-- **C-03. Gaps are facts, not findings.** `plan` already fails only on errors. A gap that failed `plan` would turn a short, valid
-  file into a failing one, which is the opposite of the aim. Recommended.
-- **C-04. `preset` is reserved, nothing emits it in this spec.** A preset that `indaba init` writes into a file is `file` from then
+  model. The cost is a second read of a file that is already in memory.
+- **C-03. Gaps are facts, not findings. Confirmed 2026-11-22.** `plan` already fails only on errors. A gap that failed `plan` would turn a short, valid
+  file into a failing one, which is the opposite of the aim.
+- **C-04. `preset` is reserved, nothing emits it in this spec. Confirmed 2026-11-22.** A preset that `indaba init` writes into a file is `file` from then
   on, because the values are in the file. `preset` is for the day a workflow is run from a preset held in memory (no file), which
-  needs its own spec. The contract names the kind now so a reader written today does not break then. Recommended.
-- **C-05. Not printed by `run`.** `run` already repeats the full-access sentence at its start; adding a block there changes what a
-  run prints (a major by the repository's rule for output a person reads). A later spec may print a short form. Recommended.
-- **C-06. What `no_check_on_result` does not claim.** A later shell step may check the result well, badly or not at all, and the
-  engine cannot tell. The gap says what is true (this step has no guard) and lists the steps that might cover it. Recommended.
+  needs its own spec. The contract names the kind now so a reader written today does not break then.
+- **C-05. Not printed by `run`. Confirmed 2026-11-22.** `run` already repeats the full-access sentence at its start; adding a block there changes what a
+  run prints (a major by the repository's rule for output a person reads). A later spec may print a short form.
+- **C-06. What `no_check_on_result` does not claim. Confirmed 2026-11-22.** A later shell step may check the result well, badly or not at all, and the
+  engine cannot tell. The gap says what is true (this step has no guard) and lists the steps that might cover it.
 - **C-07. Debates. Confirmed 2026-11-22 as "honest `unknown` over an invented number"; refined by the code.** The number of rounds is
   not read from the workflow file or the command line. It is `ConsensusArbiter`'s constructor default, written inline
   (`options.maxRounds ?? 4`), and `StepExecutor` builds `new ConsensusArbiter()` unless an embedder passes its own arbiter. So the
