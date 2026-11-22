@@ -1,7 +1,7 @@
 # Specification: Workflow supervisor (an optional model that advises on a workflow file, before a run and after a failure)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 and 2 written; the decisions in section 8 are recommended and the maintainer confirms them
+> **Stage entry**: 1 and 2 written; every decision of section 8 (C-01 to C-12) confirmed by the maintainer on 2026-11-22, as recommended, C-06 kept strict
 > **Semver impact**: minor (one new command, new optional exports, new span attributes; below 1.0). No default changes: nothing
 > calls the supervisor unless a person runs the new command. Provisional; confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/plan-explain`](../plan-explain/spec.md) (the deterministic JSON this model reads; specification only, so this
@@ -247,38 +247,37 @@ failure, **phase 3** a retrospective (not in this version, AC-26).
 
 ## 8. Clarifications
 
-All recommended; the maintainer confirms. The decisions that stay open are listed at the end of the specification's hand-over, in the reply that
-presents it.
+All confirmed by the maintainer on 2026-11-22, as recommended. Two of them leave a check for stage 3 and are marked.
 
-- **C-01. A separate command that shares the assistant's contracts, not a mode of `plan` and not a second assistant.** `plan` is
+- **C-01. A separate command that shares the assistant's contracts, not a mode of `plan` and not a second assistant. Confirmed 2026-11-22.** `plan` is
   offline and model-free by the spec of `plan-explain`; putting a model call behind a flag there would break that. The assistant is a
   conversation in the edit view; the supervisor is a batch report on a command line. The two share the profile, the edit shape, the
-  classification and the validation, so the code is written once. Recommended.
-- **C-02. The name.** `workflow-supervisor` is the maintainer's. It suggests watching a run, which AC-03 forbids; `workflow-advisor`
-  would say what it does, but `review-gate` already uses "advisor" for a different thing. Recommended: keep the maintainer's name for the
+  classification and the validation, so the code is written once.
+- **C-02. The name. Confirmed 2026-11-22.** `workflow-supervisor` is the maintainer's. It suggests watching a run, which AC-03 forbids; `workflow-advisor`
+  would say what it does, but `review-gate` already uses "advisor" for a different thing. Decided: keep the maintainer's name for the
   spec and the command `indaba supervise`, and say in the first line of the documentation that it never touches a running workflow.
-- **C-03. Phases.** Phase 1 and phase 2 are specified and may be delivered as two releases of the same feature; phase 2 depends on
-  `attempt-history` (implemented) and on a way to name a finished run. Phase 3 is out (AC-26). Recommended: phase 1 first.
-- **C-04. `stepText` goes beyond "only the contract".** A review of "the test step calls the wrong tool" needs the command text, and
+- **C-03. Phases. Confirmed 2026-11-22.** Phase 1 and phase 2 are specified and may be delivered as two releases of the same feature; phase 2 depends on
+  `attempt-history` (implemented) and on a way to name a finished run. Phase 3 is out (AC-26). Decided: phase 1 first.
+- **C-04. `stepText` goes beyond "only the contract". Confirmed 2026-11-22.** A review of "the test step calls the wrong tool" needs the command text, and
   `plan-explain` leaves text out on purpose. The supervisor adds a separate, labelled block of goals and commands (inputs unresolved)
-  instead of widening `plan --explain`, so that the offline command stays text-free. Recommended.
-- **C-05. Rules first, model second.** A fact a program can decide (a step's write scope does not include the manifest its command names;
+  instead of widening `plan --explain`, so that the offline command stays text-free.
+- **C-05. Rules first, model second. Confirmed 2026-11-22.** A fact a program can decide (a step's write scope does not include the manifest its command names;
   a command names a binary no manifest declares) should be a deterministic gap or readiness item, tested and free. The model is for what
-  needs the goal. AC-14 drops a duplicate of an existing gap; a later spec may add such rules. Recommended.
-- **C-06. Evidence or silence.** A finding without a resolvable pointer is dropped. This costs some true remarks (an observation with no
-  field to point to) and removes the failure that makes advisers worthless: a confident remark that is not about this file. Recommended.
-- **C-07. No `--yes`.** The one place a model's words become a file is a person's yes; a flag that skips it would be the first thing a
-  scheduled job, a script or a prompt-injected instruction reaches for. Recommended.
-- **C-08. The digest of the workflow text in the run record.** Phase 2 should refuse a file that changed since the run. If the run record
+  needs the goal. AC-14 drops a duplicate of an existing gap; a later spec may add such rules.
+- **C-06. Evidence or silence. Confirmed 2026-11-22, kept strict: evidence or rejection, no guessing and no generalities.** A finding without a resolvable pointer is dropped. This costs some true remarks (an observation with no
+  field to point to) and removes the failure that makes advisers worthless: a confident remark that is not about this file.
+- **C-07. No `--yes`. Confirmed 2026-11-22.** The one place a model's words become a file is a person's yes; a flag that skips it would be the first thing a
+  scheduled job, a script or a prompt-injected instruction reaches for.
+- **C-08. The digest of the workflow text in the run record. Confirmed 2026-11-22.** Phase 2 should refuse a file that changed since the run. If the run record
   does not carry a digest of the workflow text today, adding it is an additive attribute of the run's root span; stage 3 checks this and,
-  if it is missing, lists it as a task. Until then phase 2 says it cannot tell. To confirm.
-- **C-09. One stack detection.** `repoFacts` and the detection `indaba init` needs read the same manifests. They should be one module, with
-  `init` using the facts and not the other way round. To confirm when `init` is specified.
-- **C-10. Resume.** There is no resume of a run or a step in the engine today. After an accepted patch the person starts a new run. When
-  `step-budgets` ships its resume, "resume with the changed file" is a candidate for a follow-up with its own confirmation. Recommended.
-- **C-11. The profile is the user's.** Reusing `workflow-assistant`'s per-user profile file means a project cannot carry a model choice and
+  if it is missing, lists it as a task. Until then phase 2 says it cannot tell. **Stage 3 verifies this in the code first and lists the digest as a task if it is missing.**
+- **C-09. One stack detection. Confirmed 2026-11-22.** `repoFacts` and the detection `indaba init` needs read the same manifests. They are one module, with
+  `init` using the facts and not the other way round; `init`'s own specification names it as a dependency.
+- **C-10. Resume. Confirmed 2026-11-22.** There is no resume of a run or a step in the engine today. After an accepted patch the person starts a new run. When
+  `step-budgets` ships its resume, "resume with the changed file" is a candidate for a follow-up with its own confirmation.
+- **C-11. The profile is the user's. Confirmed 2026-11-22.** Reusing `workflow-assistant`'s per-user profile file means a project cannot carry a model choice and
   a CI job has none. If a team wants a supervisor in CI, that is a different design (a service account, no apply) and not this spec.
-- **C-12. Numbers.** The bounds of AC-19 are named constants whose values are fixed at stage 3 from the sizes of real inputs; this spec
+- **C-12. Numbers. Confirmed 2026-11-22.** The bounds of AC-19 are named constants whose values are fixed at stage 3 from the sizes of real inputs; this spec
   states none, because none has been measured.
 
 ## Artifacts not written
