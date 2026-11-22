@@ -1,7 +1,7 @@
 # Specification: Explaining a plan (`indaba plan --explain`, with `--json`)
 
 > **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 and 2 written; the decisions in section 8 are recommended and the maintainer confirms them
+> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; the rest recommended and awaiting confirmation
 > **Semver impact**: minor (two new optional options of `plan`, new optional exports; below 1.0). **No default changes**:
 > `indaba plan` without the new options prints exactly what it prints today. Provisional; confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/agent-permissions`](../agent-permissions/spec.md) (the permission report is the precedent for a
@@ -57,11 +57,11 @@ AC-10 are two renderings of it.
 - [ ] AC-02. **Settings.** For each step the explanation gives, when the step has the setting at all, the effective value of:
   `runner` (the chain, in order), `permissions.level`, `permissions.fs.write` (what the step may change), `permissions.terminal`,
   `isolation`, `timeout_seconds`, `stall`, `on_failure` (action, target, `max_retries`), the guards in force (the step's own and the
-  one a write scope adds), `mcp_policy`, and for a debate the `decision_type` and the `arbiter`. A setting that does not apply to
+  one a write scope adds), `mcp_policy`, and for a debate the `decision_type`, the `arbiter` and the number of rounds it is given. A setting that does not apply to
   the kind of step (a shell step has no permissions block; a shell step is not run again by a stall) is left out, not shown empty.
 - [ ] AC-03. **Origin.** Every value carries one origin of these kinds: `file` (the step wrote it; with its line and column when the
-  source is known), `role` (the step's role wrote it; the role's name and line), `defaults` (the workflow's `defaults` block wrote
-  it; with its line), `default` (nothing in the file wrote it; `by` names who decided: `engine`, `runner:<name>`, `flag:<option>`,
+  source is known), `role` (the step's role wrote it; the role's name and line), `workflow_defaults` (the workflow's `defaults` block wrote
+  it; with its line), `fallback` (nothing in the file wrote it; `by` names who decided: `engine`, `runner:<name>`, `flag:<option>`,
   `env:<NAME>`, `config:<key>`, as `indaba.workflow.max_parallel.source` does), and `preset` (reserved, see C-04). A merged value
   (permissions are taken whole from the first block that has one, never merged) has the origin of the block it came from.
 - [ ] AC-04. **No copy of a default.** Where a built-in value is shown, it is the value the engine or the runner would use, read
@@ -92,7 +92,7 @@ AC-10 are two renderings of it.
   runners (section 7). It is deterministic: the same inputs give the same value; the order of steps is the order of `plan`; the
   settings of a step are in the fixed order of AC-02.
 - [ ] AC-09. **Text.** The text rendering is one block per step under the step's line of `plan`, one setting per line, the origin at
-  the end of the line (`<- file, line 6`, `<- default, claude-code`), and a mark and a sentence for each gap. It writes no
+  the end of the line (`<- file, line 6`, `<- fallback, claude-code`), and a mark and a sentence for each gap. It writes no
   control character or escape sequence from the file (the sanitizer of the event stream is used). `NO_COLOR` and `INDABA_ASCII`
   are honoured as everywhere else; meaning is never carried by colour alone.
 - [ ] AC-10. **JSON.** The JSON rendering carries `schema: "indaba.plan-explain"` and `version: 1`, the workflow's name, and the
@@ -102,7 +102,7 @@ AC-10 are two renderings of it.
 - [ ] AC-11. **Inputs are not shown.** The value of a workflow input is never part of an explanation, and neither is a goal or a
   command's text beyond what `plan` already prints. Origins of `${{ inputs.x }}` references are not followed.
 - [ ] AC-12. **Unknown source.** When the workflow is given without its source (an embedder that holds only the parsed value),
-  `file`, `role` and `defaults` origins have no line and the explanation still works. With the source, the lines are those of the
+  `file`, `role` and `workflow_defaults` origins have no line and the explanation still works. With the source, the lines are those of the
   YAML document, found by reading the document, not by changing the parser (section 7).
 - [ ] AC-13. **Exit code.** `plan --explain` exits as `plan` does: 1 where `plan` would fail (an error finding, an invalid file) and
   0 otherwise. With `--json` and an invalid file, stdout stays empty and the problems go to stderr, as today.
@@ -163,8 +163,9 @@ calling the same function (AC-04, AC-14). A runner a plugin registered takes par
 
 Recommended; the maintainer confirms.
 
-- **C-01. `--json` implies `--explain`.** Two options that must be given together are a usage error waiting to happen. A person
-  who asks for JSON of the plan gets the explanation, which is the only JSON `plan` has. Recommended.
+- **C-01. `--json` implies `--explain`. Confirmed 2026-11-22.** `plan` has no `--json` today, so nothing existing is broken.
+  Two options that must be given together are a usage error waiting to happen. A person who asks for JSON of the plan gets the
+  explanation, which is the only JSON `plan` has.
 - **C-02. Origins by reading the document, not by changing the parser.** The parser merges a role's and `defaults`'s permissions
   into the step and drops where they came from. Recording origins in the parser would change `StepDefinition`, a public type (a
   major for those who build it). Reading the YAML document again with a line counter, as `diagnose` does, adds nothing to the
@@ -178,14 +179,20 @@ Recommended; the maintainer confirms.
   run prints (a major by the repository's rule for output a person reads). A later spec may print a short form. Recommended.
 - **C-06. What `no_check_on_result` does not claim.** A later shell step may check the result well, badly or not at all, and the
   engine cannot tell. The gap says what is true (this step has no guard) and lists the steps that might cover it. Recommended.
-- **C-07. Debates.** A debate step shows `decision_type`, `arbiter` and the participants. A limit on the number of rounds is shown
-  only if the model carries one; if it does not, T-01 of the plan records that and the explanation says `unknown` rather than
-  naming a number. To confirm during planning.
+- **C-07. Debates. Confirmed 2026-11-22 as "honest `unknown` over an invented number"; refined by the code.** The number of rounds is
+  not read from the workflow file or the command line. It is `ConsensusArbiter`'s constructor default, written inline
+  (`options.maxRounds ?? 4`), and `StepExecutor` builds `new ConsensusArbiter()` unless an embedder passes its own arbiter. So the
+  explanation shows the number for the default arbiter, with origin `fallback` by `engine`, **read from one exported constant**
+  (`DEFAULT_MAX_ROUNDS`) that the arbiter itself uses (AC-04): not a second copy of `4`. An embedder who injects another arbiter
+  supplies its bound through `ExplainFacts`; where it supplies none the value is `unknown`. Exporting the constant changes no
+  behaviour.
+- **C-08. Origin names that cannot be confused. Proposed by the maintainer 2026-11-22; adopted.** `defaults` and `default` differ by
+  one letter and would be misread and mistyped in a filter. The kinds are `file`, `role`, `workflow_defaults` (the `defaults` block
+  of the file), `fallback` (a value nothing in the file wrote; `by` says who chose it) and `preset` (reserved, C-04). The word
+  `defaults` stays where it names the YAML block; it is no longer an origin kind.
 
 ## Artifacts not written
 
-- `plan.md`: stage 3 follows the maintainer's confirmation of section 8.
-- `tasks.md`: stage 4 follows the maintainer's confirmation of section 8.
 - `research.md`: nothing is researched outside this repository; the facts are in the code named in section 7.
 - `data-model.md`: the structure is small and is specified in AC-08 to AC-10 and in `api-surface.md`.
 - `events.md`: the feature emits no event and adds no span or attribute.

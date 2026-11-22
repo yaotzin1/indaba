@@ -20,11 +20,12 @@ required member. A reader of the JSON is told to ignore keys it does not know, s
 | `@indaba/core`, workflow/explain | interface | `ExplainedStep { readonly id: string; readonly kind: 'shell' \| 'agent' \| 'debate'; readonly settings: readonly ExplainedSetting[]; readonly gaps: readonly ExplainedGap[] }` |
 | `@indaba/core`, workflow/explain | interface | `ExplainedSetting { readonly key: SettingKey; readonly value: SettingValue; readonly origin: Origin }` (`value` may be `{ unknown: reason }`) |
 | `@indaba/core`, workflow/explain | union | `SettingKey` (the keys of AC-02) |
-| `@indaba/core`, workflow/explain | interface | `Origin { readonly kind: 'file' \| 'role' \| 'defaults' \| 'default' \| 'preset'; readonly by?: string; readonly ref?: string; readonly line?: number; readonly column?: number }` |
+| `@indaba/core`, workflow/explain | interface | `Origin { readonly kind: 'file' \| 'role' \| 'workflow_defaults' \| 'fallback' \| 'preset'; readonly by?: string; readonly ref?: string; readonly line?: number; readonly column?: number }` |
 | `@indaba/core`, workflow/explain | interface | `ExplainedGap { readonly code: GapCode; readonly text: string; readonly mitigatedBy: readonly string[] }` |
 | `@indaba/core`, workflow/explain | union | `GapCode`: `no_permission_level`, `no_write_scope`, `no_check_on_result`, `failure_stops_run`, `full_access` |
-| `@indaba/core`, workflow/explain | interface | `ExplainFacts`, the read-only facts core cannot hold (a runner's default in words, the run's timeout and limits, with their origin) |
+| `@indaba/core`, workflow/explain | interface | `ExplainFacts`, the read-only facts core cannot hold (a runner's default in words, the run's timeout and limits, the rounds bound of a non-default arbiter, each with its origin) |
 | `@indaba/core`, workflow/explain | type | `OriginMap`, a read-only map from a path in the document (`$.steps[0].isolation`) to where it was written |
+| `@indaba/core`, mesh/consensus | constant | `DEFAULT_MAX_ROUNDS` (the value `ConsensusArbiter` uses when no `maxRounds` is given; C-07) |
 | `@indaba/engine`, editor | function | `readOrigins(source: string, workflow: WorkflowDefinition): OriginMap` |
 | `indaba`, plan rendering | functions (internal to the package) | `renderExplanationText`, `renderExplanationJson`; not exported from the package index |
 
@@ -32,6 +33,7 @@ required member. A reader of the JSON is told to ignore keys it does not know, s
 
 | Name | Before | After | Impact |
 | :--- | :--- | :--- | :--- |
+| `ConsensusArbiter` constructor | `options.maxRounds ?? 4` (literal in the file) | `options.maxRounds ?? DEFAULT_MAX_ROUNDS`, the same value | none: behaviour is identical; the number is now readable by the explanation (AC-04) |
 | functions that resolve a default today and are private (the permission chain, the timeout chain, `effectiveGuards`) | not exported | exported from `@indaba/engine` where the explanation needs them; the run keeps calling the same function | none for consumers; this is what keeps the explanation equal to the run (AC-04, AC-14) |
 
 ## Removed or deprecated
