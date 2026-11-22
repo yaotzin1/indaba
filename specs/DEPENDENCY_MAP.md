@@ -15,7 +15,7 @@ graph BT
 
     Engine["@indaba/engine: parser (yaml), guards, WorkflowEngine, git workspaces, span exporter, log sinks, indaba.config"]
     Runners["@indaba/runners: ShellRunner, OpenAiCompatibleRunner, AcpRunner (presets: claude, codex, gemini, opencode), agent CLI runners incl. OpenCodeRunner (node-pty optional)"]
-    Cli["indaba: run, plan, validate, watch, report, settings, plugin loading, composition root"]
+    Cli["indaba: run, plan, validate, watch, report, settings, ui, workflows, schema, catalog, plugin loading, composition root"]
     Tui["@indaba/tui: the Ink dashboard of a run (a run monitor today; the full terminal application is TUI-EPIC, not started)"]
     Server["@indaba/server: the local server of indaba ui, HTTP and SSE over the traces; starts and stops runs through the CLI (optional)"]
     Web["@indaba/web: the page indaba ui serves; private, bundled into static files"]
@@ -30,7 +30,6 @@ graph BT
     Cli --> Engine
     Cli --> Runners
     Cli --> Domain
-    Cli --> Tui
     Tui --> Engine
     Server --> Engine
     Server --> Domain
@@ -38,6 +37,8 @@ graph BT
     Server -. "serves the built files, no import" .-> Web
     Plugin --> Contracts
     Cli -. "loads at run time (--plugin)" .-> Plugin
+    Cli -. "dynamic import at run time; a dependency of the package, never a static import" .-> Tui
+    Cli -. "dynamic import at run time; optional peer, installed separately" .-> Server
 ```
 
 Arrows point toward the package depended on, so `@indaba/core` sits at the bottom and imports
@@ -63,9 +64,10 @@ and a test change second.
 
 ## Progress
 
-What is done and what is not, from the first day a spec was written to its last change, or to today
-(2026-10-16) when nothing has shipped. Every date is a commit date from git; a bar is the time the spec
-directory was being worked on, not an estimate. Grey is implemented; blue is specified and waiting.
+What is done and what is not, from the first day a spec was written to its last change. Last checked against
+`main` on 2026-11-22 (commit `686280e`). Every date is a commit date from git; a bar is the time the spec
+directory was being worked on, not an estimate. Grey is implemented, at least in part (the Status column of the
+next table gives the exceptions); blue is specified and waiting.
 The Status column of the next table gives the same facts with the exceptions.
 
 ```mermaid
@@ -88,44 +90,51 @@ gantt
     attempt-history        :done, 2026-10-14, 1d
     watch-workflow-name    :done, 2026-10-14, 1d
     logging                :done, 2026-10-20, 2026-10-21
-    tui-default dashboard comes with indaba :done, 2026-11-06, 1d
-    step-stalls            :done, 2026-11-05, 2026-11-06
-    section Specified, not started
-    web-app                :active, 2026-10-04, 2026-10-16
     web-app-actions        :done, 2026-10-22, 1d
     web-app-editing-core   :done, 2026-10-22, 1d
     web-app-editing-forms  :done, 2026-10-23, 1d
     web-app-editing-graph  :done, 2026-10-24, 1d
-    web-app-registry       :active, 2026-10-24, 1d
+    web-app-registry       :done, 2026-10-24, 1d
+    workflow-editor        :done, 2026-10-22, 2d
+    workflow-registry      :done, 2026-10-23, 1d
+    agent-permissions      :done, 2026-10-23, 2026-10-24
+    run-blackboard         :done, 2026-10-11, 2026-10-16
+    agent-reasoning        :done, 2026-11-01, 2026-11-04
+    claude-code-usage      :done, 2026-11-02, 1d
+    step-stalls            :done, 2026-11-05, 2026-11-06
+    tui-default dashboard comes with indaba :done, 2026-11-06, 1d
+    tui-home (TUI-1)       :done, 2026-11-13, 1d
+    tui-run-control (TUI-2) :done, 2026-11-13, 1d
+    tui-agent-panes (TUI-3) :done, 2026-11-14, 1d
+    tui-pane-focus (TUI-3.7) :done, 2026-11-15, 1d
+    host-process-containment :done, 2026-11-12, 1d
+    section Implemented in part
+    web-app                :active, 2026-10-04, 2026-10-16
+    parallel-steps (slices 1 to 4 on main) :active, 2026-10-27, 2026-11-07
+    workflow-inputs (slices 1 and 2 of 3) :active, 2026-10-11, 2026-10-16
+    run-readiness (all but AC-03) :active, 2026-11-20, 1d
+    section Specified, not started
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
     ruling-channel         :active, 2026-10-10, 2026-10-16
     step-verdicts          :active, 2026-10-10, 2026-10-16
     step-budgets           :active, 2026-10-10, 2026-10-16
-    workflow-editor        :done, 2026-10-22, 2d
-    run-blackboard         :active, 2026-10-11, 2026-10-16
-    workflow-inputs        :active, 2026-10-11, 2026-10-16
     workspace-without-git  :active, 2026-10-11, 2026-10-16
-    workflow-registry      :done, 2026-10-23, 1d
     question-contract      :active, 2026-10-23, 2026-10-24
     review-gate            :active, 2026-10-23, 2026-10-24
-    agent-permissions      :active, 2026-10-23, 2026-10-24
+    workflow-assistant     :active, 2026-10-23, 2026-10-25
     single-step-run        :active, 2026-10-12, 2026-10-16
     agent-sandbox          :active, 2026-10-12, 2026-10-16
     agent-conversation     :active, 2026-10-22, 2026-10-23
-    parallel-steps (slice 1 under way) :active, 2026-10-27, 2026-11-07
     path-ownership         :active, 2026-10-27, 1d
     step-fanout            :active, 2026-10-27, 1d
     tui-epic the full terminal application :active, 2026-11-06, 1d
-    tui-home (TUI-1)       :done, 2026-11-13, 1d
-    tui-run-control (TUI-2) :done, 2026-11-13, 1d
-    tui-agent-panes (TUI-3) :done, 2026-11-14, 1d
-    tui-pane-focus (TUI-3.7) :active, 2026-11-15, 1d
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
-    run-assist (RA-1, RA-2) :active, 2026-11-18, 1d
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
-    host-process-containment :active, 2026-11-12, 1d
+    run-assist (RA-1, RA-2) :active, 2026-11-18, 1d
+    run-handover (RA-2)    :active, 2026-11-20, 1d
+    runner-env-passthrough :active, 2026-11-13, 1d
     limit-handoff            :active, 2026-11-12, 1d
     agent-cli-runners        :active, 2026-11-19, 1d
     diff-comments            :active, 2026-11-19, 1d
@@ -162,11 +171,11 @@ graph LR
     T2 --> T4 & T5
     T3B --> T4
     T5 --> T6
-    T2 -.-> WAA["web-app-actions, workflow-inputs (implemented)"]
+    T2 -.-> WAA["web-app-actions (implemented), workflow-inputs (slices 1 and 2 implemented)"]
     T3A -.-> RB["run-blackboard, agent-reasoning (implemented)"]
     T5 -.-> WR["workflow-registry (implemented)"]
     T6 -.-> WE["workflow-editor (implemented)"]
-    T3B -.-> PS["parallel-steps (not started)"]
+    T3B -.-> PS["parallel-steps (in progress)"]
     T3B -.-> AC["agent-conversation (not started)"]
     T4 -.-> AC
     T4 -.-> QC["question-contract (not started)"]
@@ -208,7 +217,7 @@ graph LR
     DC -.-> SV["step-verdicts (not started)"]
     DC --> RB["run-blackboard (implemented)"]
     DC --> PS["parallel-steps (in progress)"]
-    TT -.-> WI["workflow-inputs (not started)"]
+    TT -.-> WI["workflow-inputs (slices 1 and 2 implemented)"]
     TT -.-> SB["step-budgets (not started)"]
     TT --> WAA["web-app-actions (implemented)"]
     RP --> GW["git-workspace (implemented)"]
@@ -228,7 +237,7 @@ graph LR
 | :--- | :--- | :--- | :--- |
 | `agent-cli-runners` | nothing | four agent names | its own research task (C-01); nothing else |
 | `diff-comments` | `DiffComment`, `CommentStore`, a `BoardKind` member | `indaba comment`, `indaba comments` | `review-gate`, `step-verdicts` |
-| `tracker-triggers` | `TriggerSource`, `TriggerEvent`, `PluginHost.registerTriggerSource` | `indaba listen`, `indaba triggers` | `workflow-inputs`, `step-budgets` |
+| `tracker-triggers` | `TriggerSource`, `TriggerEvent`, `PluginHost.registerTriggerSource` | `indaba listen`, `indaba triggers` | `step-budgets`; `workflow-inputs` slices 1 and 2 are implemented |
 | `run-preview` | `PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost` | field `preview`, `indaba preview`, `indaba previews` | nothing |
 | `run-integration` | `IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator` | field `integrate`, options `--integrate`, `--integrate-target` | `review-gate`, `ruling-channel`, `step-budgets` for the full conflict options; `off`, `branch` and `stop` ship without them |
 
@@ -241,7 +250,7 @@ graph LR
     R2["RA-2: run-handover (after a run)"]
     Epic --> R1 & R2
     R1 --> R2
-    R1 -.-> WI["workflow-inputs (not started)"]
+    R1 -.-> WI["workflow-inputs (slices 1 and 2 implemented)"]
     R1 -.-> RC["tui-run-control (implemented)"]
     R2 -.-> DF["debate-findings, step-verdicts (not started)"]
     R2 -.-> TQ["tui-questions (blocked)"]
@@ -249,7 +258,7 @@ graph LR
 
 | Epic | Feature | Stories | Ships without an unimplemented spec |
 | :--- | :--- | :--- | :--- |
-| `RUN-ASSIST` | `RA-1` `run-readiness` | 1.1 to 1.6 | partly: the inferred checks need no other spec; input checks wait for `workflow-inputs` |
+| `RUN-ASSIST` | `RA-1` `run-readiness` | 1.1 to 1.6 | partly: the inferred checks need no other spec; the readiness items for inputs wait for slice 3 of `workflow-inputs` |
 | | `RA-2` `run-handover` | 2.1 to 2.6 | CLI and web yes; the TUI answers wait for `tui-questions`; finding sources wait for `debate-findings` and `step-verdicts` |
 
 Both features carry a parity table, per the epic's rule R-04.
@@ -304,7 +313,7 @@ Both features carry a parity table, per the epic's rule R-04.
 | `tui-workflows` | Feature `TUI-5`, epic release 2. Not started (specified; draft; builds on `workflow-registry`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `tui-editing` | Feature `TUI-6`; 6.1 is epic release 3, the rest deferred behind a demand check. Not started (specified; draft; builds on `workflow-editor`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `run-assist` | Epic. Draft (specified; no code) | orders `RA-1` and `RA-2`; `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
-| `run-readiness` | Feature `RA-1`. Slice 1 implemented on `feat/run-readiness` (core, engine, `plan`, `run`, `--confirm`); the TUI and web start dialogs and AC-03 (inputs, waits for `workflow-inputs`) are not done (specified; draft): a readiness report before a run, computed, shown in the start confirmation | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
+| `run-readiness` | Feature `RA-1`. Implemented (core, engine, `plan`, `run`, `--confirm`, the TUI Home start confirmation, the web Run panel and `GET /api/v1/workflows/{id}/readiness`), except AC-03 (the items for inputs; waits for slice 3 of `workflow-inputs`) (specified; draft): a readiness report before a run, computed, shown in the start confirmation | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
 | `run-handover` | Feature `RA-2`. Not started (specified; draft): open items and human-only checks after a run, answered fix / accept / defer | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
@@ -315,11 +324,13 @@ Both features carry a parity table, per the epic's rule R-04.
 | `parallel-steps` | In progress, on `main` (a limit above 1 runs steps at the same time): slice 1 (#125), slice 2 (forks and landing, T-08 to T-10, #128 to #130) and slice 3 engine side (intents, contracts, negotiation, T-11 and T-12, #131 and #132); T-13 (the views show waiting steps; intents and contracts are in the dashboard board pane, the web view has no board) in review on `feat/parallel-steps-wait-views`; slice 4: T-14 (resolution of a conflicting landing, #136) and T-15 (the release cap is lifted, #137) are on `main`; T-16 (review, docs, positioning row) is in review on `feat/parallel-steps-review` (#138); only AC-21 (review before landing, waits for `step-verdicts`) is open. Specified; plan and tasks written, decisions C-01 to C-11 confirmed; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
 | `path-ownership` | Not started (specified; decisions C-01 to C-04 confirmed; builds on `parallel-steps` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
 | `step-fanout` | Not started (specified; draft; builds on `parallel-steps` and `run-blackboard`; replaces the `workflow-engine` non-goal "dynamic graphs") | `@indaba/core` (`for_each`, `GraphExpander`, `PluginHost.registerGraphExpander`), `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |
+| `claude-code-usage` | Implemented (the `claude-code` runner reports tokens and `total_cost_usd` from `--output-format stream-json`; follow-up T-27 of `step-budgets`) | `@indaba/runners` (`ClaudeRunner`, `parseClaudeStream`, internal). No dependency added |
+| `runner-env-passthrough` | Not started (specified; draft; section 8 confirmed 2026-11-13; builds on `host-process-containment`, `transport-priority` and `logging`): the composition root never sets `passEnv`; names would come from the user-level `indaba.config` | `@indaba/runners` (`RunnerRegistry.withDefaults`), `@indaba/core` or `@indaba/runners` (`parsePassEnv`), `indaba` (the composition root, `indaba.config`). No dependency added |
 | `host-process-containment` | Implemented in `@indaba/runners` and `@indaba/engine` on `feat/host-process-containment` (specified; stages 1 to 7 done; builds on `runner-adapters`, `transport-priority`, `git-workspace`, `step-stalls`; hardens host runs alongside `agent-sandbox`) | `@indaba/runners` (`buildRunnerEnvironment`, confined `.indaba/tmp`, `ClaudeRunner` `--disallowedTools Task`), `@indaba/engine` (`GitWorktree.verifyRefs` and ref rollback), `indaba` |
 | `limit-handoff` | Not started (specified; stages 1 to 5 done; builds on `transport-priority`, `step-budgets`, `ruling-channel`, `git-workspace`; T-01 research on real CLI signals comes first) | `@indaba/core` (`RunLimit`, `classifyLimit`, `LimitLedger`, `decideOnLimit`, `on_limit`), `@indaba/engine` (executor, handoff note, wait), `@indaba/runners` (signal adapters), `indaba`, `@indaba/tui`, `@indaba/web` |
 | `agent-cli-runners` | Not started (specified; draft; each CLI's facts are gathered first, C-01) | `@indaba/runners` (a runner or an ACP preset for each of `copilot`, `junie`, `kimi`, `omp`), `indaba` (the composition root). No dependency added |
 | `diff-comments` | Not started (specified; draft; builds on `review-gate`, `step-verdicts` and `run-blackboard`; the first two not implemented yet) | `@indaba/core` (`DiffComment`, `CommentStore`, `BoardKind`), `@indaba/engine` (the store, the prompt block), `indaba` (`comment`, `comments`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
-| `tracker-triggers` | Not started (specified; draft; builds on `workflow-inputs` and `step-budgets`, neither implemented yet) | `@indaba/core` (`TriggerSource`, `PluginHost.registerTriggerSource`), `@indaba/engine` (matcher, handled-id store), `indaba` (`listen`, `triggers`), `@indaba/server`, `@indaba/web`, `@indaba/tui` (read-only state). No dependency added |
+| `tracker-triggers` | Not started (specified; draft; builds on `workflow-inputs` (slices 1 and 2 implemented) and `step-budgets` (not implemented)) | `@indaba/core` (`TriggerSource`, `PluginHost.registerTriggerSource`), `@indaba/engine` (matcher, handled-id store), `indaba` (`listen`, `triggers`), `@indaba/server`, `@indaba/web`, `@indaba/tui` (read-only state). No dependency added |
 | `run-preview` | Not started (specified; draft; builds on `git-workspace`, `parallel-steps` and `host-process-containment`, all implemented or in progress) | `@indaba/core` (`PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost`), `@indaba/engine` (`LocalPreviewHost`), `indaba` (`preview`, `previews`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
 | `run-integration` | Not started (specified; draft; builds on `parallel-steps` (its conflict resolution) and `git-workspace`; the conflict options `resolve` and `ask` wait for `review-gate`, `ruling-channel` and `step-budgets`) | `@indaba/core` (`IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator`), `@indaba/engine` (`GitIntegrator`), `indaba` (options), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
 | `desktop-app` | Dropped | kept for history |
@@ -351,7 +362,7 @@ Both features carry a parity table, per the epic's rule R-04.
   what a plugin replaces to push or open a pull request; changing the contract's outcome union breaks those plugins: a major.
 - A new runtime dependency changes every consumer's dependency tree; it is a recorded decision
   (`project.runtime_dependencies` and `project.optional_dependencies` in `workflow.ai.yml`). Today:
-  `yaml` in the engine, `ink` and `react` in `@indaba/tui` (which only the optional dashboard loads), and optionally `node-pty` in the runners.
+  `yaml` in the engine, `ink` and `react` in `@indaba/tui` (a dependency of `indaba` since `tui-default`, but only loaded at run time by the dashboard), and optionally `node-pty` in the runners.
 
 ## Runtime state, not code
 
