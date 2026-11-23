@@ -5,6 +5,8 @@ import { join } from 'node:path';
 import {
   createLogger,
   type LogRecord,
+  type ReadinessRequest,
+  type ReadinessResponse,
   type StartRunRequest,
   type StartRunResponse,
   type StartStatusResponse,
@@ -46,6 +48,7 @@ const rootStart = (traceId: string): Record_ => ({
 /** What the fake was asked; every request body field that reached it is recorded here and nowhere else. */
 interface Calls {
   starts: StartRunRequest[];
+  readiness: ReadinessRequest[];
   statuses: string[];
   stops: string[];
   stopAll: number;
@@ -76,6 +79,25 @@ function fakeControl(): RunControl {
         throw refusal;
       }
       return { startId: START };
+    },
+    readiness: async (req): Promise<ReadinessResponse> => {
+      calls.readiness.push(req);
+      if (refusal !== undefined) {
+        throw refusal;
+      }
+      return {
+        items: [
+          {
+            id: 'env:s1:OPENROUTER_API_KEY',
+            kind: 'env',
+            state: 'missing',
+            critical: true,
+            message: 'OPENROUTER_API_KEY is not set.',
+          },
+        ],
+        criticalMissing: 1,
+        needsConfirmation: 0,
+      };
     },
     startStatus: (startId): StartStatusResponse | undefined => {
       calls.statuses.push(startId);
@@ -109,7 +131,7 @@ beforeEach(async () => {
     );
   }
   logged = [];
-  calls = { starts: [], statuses: [], stops: [], stopAll: 0 };
+  calls = { starts: [], readiness: [], statuses: [], stops: [], stopAll: 0 };
   refusal = undefined;
   alive = new Set([MINE]);
 });
@@ -389,6 +411,71 @@ describe('the run resources over HTTP', () => {
     await server.close();
     server = undefined;
     expect(logged.map((r) => r.message)).toContain('the runs could not all be stopped');
+  });
+});
+
+function withoutReadiness(control: RunControl): RunControl {
+  const { readiness: _readiness, ...rest } = control;
+  return rest;
+}
+
+describe('readiness (run-readiness T-14)', () => {
+  it('answers the report of a workflow, and passes the confirmations of the query to the control', async () => {
+    await start();
+    const answer = await send(
+      '/api/v1/workflows/w1/readiness?confirm=decision%3A-%3Ago&confirm=account%3A-%3Ax',
+    );
+    expect(answer.status).toBe(200);
+    expect(answer.body).toMatchObject({ criticalMissing: 1, items: [{ state: 'missing' }] });
+    expect(calls.readiness).toEqual([{ workflowId: 'w1', confirmed: ['decision:-:go', 'account:-:x'] }]);
+  });
+
+  it('refuses a bad id, too many confirmations or one too long, before the control sees them', async () => {
+    await start();
+    expect((await send('/api/v1/workflows/a%20b/readiness')).status).toBe(400);
+    const many = Array.from({ length: 51 }, (_, i) => `confirm=c${i}`).join('&');
+    expect((await send(`/api/v1/workflows/w1/readiness?${many}`)).status).toBe(400);
+    expect((await send(`/api/v1/workflows/w1/readiness?confirm=${'x'.repeat(301)}`)).status).toBe(400);
+    expect(calls.readiness).toEqual([]);
+  });
+
+  it('maps the control’s refusals to plain words, and takes only a GET', async () => {
+    await start();
+    refusal = new RunControlError('workflow_not_found', 'secret path /etc');
+    const gone = await send('/api/v1/workflows/w1/readiness');
+    expect(gone.status).toBe(404);
+    expect(JSON.stringify(gone.body)).not.toContain('/etc');
+    refusal = new RunControlError('workflow_invalid', 'x', { problems: ['bad'] });
+    expect((await send('/api/v1/workflows/w1/readiness')).status).toBe(422);
+    refusal = new Error('boom');
+    expect((await send('/api/v1/workflows/w1/readiness')).status).toBe(500);
+    expect((await post('/api/v1/workflows/w1/readiness', json({}))).status).toBe(405);
+  });
+
+  it('needs the token, and is 404 for a control that cannot say', async () => {
+    await start();
+    expect((await send('/api/v1/workflows/w1/readiness', { auth: false })).status).toBe(401);
+    await server?.close();
+    server = await startServer({
+      roots: [root],
+      staticDir: site,
+      token: TOKEN,
+      runs: withoutReadiness(fakeControl()),
+    });
+    const none = await send('/api/v1/workflows/w1/readiness');
+    expect(none.status).toBe(404);
+    expect(none.body).toMatchObject({ code: 'readiness_unavailable' });
+  });
+
+  it('hands the confirmations of a start to the control, drops an empty list, and refuses a bad one', async () => {
+    await start();
+    await post('/api/v1/runs', json({ workflowId: 'w1', confirmed: ['decision:-:go'] }));
+    await post('/api/v1/runs', json({ workflowId: 'w1', confirmed: [] }));
+    expect(calls.starts).toEqual([{ workflowId: 'w1', confirmed: ['decision:-:go'] }, { workflowId: 'w1' }]);
+    for (const bad of ['x', [1], [''], Array.from({ length: 51 }, (_, i) => `c${i}`)]) {
+      expect((await post('/api/v1/runs', json({ workflowId: 'w1', confirmed: bad }))).status).toBe(400);
+    }
+    expect(calls.starts).toHaveLength(2);
   });
 });
 

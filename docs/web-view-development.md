@@ -42,7 +42,7 @@ Nothing imports `@indaba/web`, and `@indaba/web` imports no `node:` module and n
 | `ui/App.ts` | Header, theme switch, the screen the address names, the messages that replace a screen |
 | `form-model.ts`, `registry-model.ts`, `settings-model.ts` | The form's fields read from the schema, the rows of the Workflows screen, the state of the Settings screen. No React |
 | `ui/RunsScreen.ts`, `ui/RunScreen.ts`, `ui/WorkflowsScreen.ts`, `ui/SettingsScreen.ts` | The Runs, Run, Workflows and Settings screens |
-| `ui/RunPanel.ts` | The Run a workflow panel: the list, the confirmation, full access, starting |
+| `ui/RunPanel.ts` | The Run a workflow panel: the list, what the run needs (the readiness report, with confirm buttons), the confirmation, full access, starting |
 | `ui/WorkflowDialogs.ts`, `ui/Modal.ts` | The Workflows screen's dialogs (details, copy, import, remove) and the dialog that keeps focus inside |
 | `ui/RunGraph.ts`, `ui/StepPanel.ts`, `ui/StepsGrid.ts` | The graph (view mode for a run, edit mode for a workflow draft), the selected step, the step list |
 | `ui/FormView.ts`, `ui/GraphView.ts`, `ui/SourceScreen.ts` | The three views of a workflow draft (Form, Graph, Source) and the shared edit queue |

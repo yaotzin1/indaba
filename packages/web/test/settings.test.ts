@@ -105,6 +105,7 @@ function settingsClient(options: {
     discussion: never,
     workflows: async () => undefined,
     startRun: never,
+    readiness: never,
     startStatus: never,
     stopRun: never,
     registry: never,

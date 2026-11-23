@@ -1,6 +1,6 @@
 # Self-review: Workflow inputs
 
-> **Status**: pending self-review
+> **Status**: slices 1 and 2 of 3 reviewed (below); the seven-question self-review is written when the last slice lands
 
 Answer all seven. See [`.agents/rules/review.md`](../../.agents/rules/review.md). Do not write
 answers for a review that has not happened: leave the status above and the sections empty until it
@@ -23,3 +23,39 @@ has.
 ```
 <paste the actual output of: pnpm qa>
 ```
+
+## Slice 1: core, the parse side and `resolveInputs` (independent review, 2026-11-20)
+
+A fresh agent read the uncommitted diff against the spec and the contract. Each finding was read in the code before it was acted on.
+
+| # | Finding | State |
+| :--- | :--- | :--- |
+| 1 | With `must_exist: false` a path that did not exist was accepted without looking where it led: `link/new.txt` through a link to outside passed (AC-18, section 6) | fixed: the nearest folder that exists is resolved and confined; tests with a fake link, and a failing look. **Open, accepted:** a dangling link that points out cannot be told from a name nobody made yet without an `lstat`, which the file-system port does not have; the check runs once at the start and the step's permissions and isolation are what hold afterwards |
+| 2 | `extensions` was not checked on a path that does not exist | fixed: checked on the name |
+| 3 | A tab was accepted in a path (AC-18 has no tab exception; AC-19's is for text) | fixed |
+| 4 | A numeral that loses precision (`9007199254740993`, a long fraction for a whole number) or is written with an exponent (`1e21`, `0.0000001`) was accepted | fixed: at most 15 significant digits and no exponent when written back; a default is held to the same rule |
+| 5 | A numeric default such as `0.0000001` was refused with a confusing message | fixed by the same rule (it is a number the format does not write); the message is the common one |
+| 6 | Text-direction controls were echoed back in a message (`quoteValue`) | fixed: shown as spaces |
+
+No defect was found in: lexical path handling (UNC, device, drive-relative, mixed separators, `..`, case), the interpolator (no input reaches `commands` or another field, `__proto__` and `constructor` are safe, the pattern is linear, a list expands only as a whole entry), the digest and the canonical text, or a workflow without inputs (its definition is the same; the only change is the literal `${{ inputs.x }}` of C-14). Not refused, because the spec does not list them: U+2028, U+200E, U+FEFF.
+
+Verification: `pnpm qa` and `pnpm e2e` on the host before the commit.
+
+## Slice 2: the prompt section, the run record and the command line (independent review, 2026-11-21)
+
+A fresh agent read the uncommitted diff against the spec; each finding was read in the code before it was acted on.
+
+| # | Finding | State |
+| :--- | :--- | :--- |
+| 1 | `--input constructor=x` (also `__proto__`, `toString`) crashed with "given.push is not a function" and exit 1: the options were collected in a plain object | fixed: a Map; the name is refused as not declared, exit 2 |
+| 2 | `run --tui` handed the child what the person typed as `--input` options: visible in the process list, and the 200-option cap was not counted for the answers | the spec's design (AC-17; the exposure is the one section 6 names for `--input`); fixed what could be: the parent counts the answers with the options and refuses before the dashboard. **Open, accepted:** a very long typed text can exceed the command-line limit of Windows (about 32,000 characters) and the child then does not start; the terminal form (slice 3) and `--input-file` are the way around it |
+| 3 | The terminal questions read one line for a multiline text, so pasted lines went to the next question | fixed: a multiline text is read until an empty line and joined with line feeds. A line pasted beyond the empty line that finishes an answer is not kept for the next round of questions |
+| 4 | The description from the workflow file reached stderr with control characters (`resolve.ts`) | fixed: control and text-direction characters are shown as spaces; a choice with a text-direction character is refused at parse |
+| 5 | With a declaration that has problems, `--input x=1` said "this workflow takes no inputs" instead of the real problems | fixed: such a file is left to the parse, which says what is wrong |
+| 6 | `validate` printed the usage of `plan` after a bad option | fixed |
+
+Noted, not changed: the 50000-character limit of AC-21 is checked when a step starts, so a later step can fail after earlier work is done, and a retry repeats the same failure. It is a clean step failure (the message names the largest inputs), and checking every step at the start would need the values of all steps before the first runs; the limit is a design choice (C-13) and an author who sees it lowers `max_length`.
+
+No defect was found in: the fence and the section content (longer than any backtick run, only for a step that names the input, kept on a retry, in a debate topic and the intent call), the trace content (counts, the digest, names, types; a text as a length only), that nothing is created before the inputs resolve (run and `run --tui`), the first-`=` split, the cap, `--input-file` confinement and size, `gatherInputs` (it ends, three tries, an option's value is never asked again, the exit codes 2 and 130), or a workflow without inputs.
+
+Verification: `pnpm qa` and `pnpm e2e` on the host before the commit.

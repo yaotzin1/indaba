@@ -84,6 +84,7 @@ This is `examples/task-pipeline.workflow.ai.yml`; `examples/mcp.workflow.ai.yml`
 | `mcp_servers` | no | Map of server name to a Model Context Protocol server |
 | `max_parallel` | no | A whole number of at least 1. The most steps this workflow lets run at once; it lowers the limit of the run and never raises it. See [Steps at the same time](#steps-at-the-same-time-max_parallel). **Steps that work in a worktree then run in forks of the run's worktree** |
 | `max_waits` | no | A whole number of at least 1. How many times a step may be put back to wait for another before it is admitted alone; it lowers the configured value and never raises it |
+| `requires` | no | A list of what a run needs that Indaba cannot infer: `kind`, `name`, `description`, optional `how` and `critical`. Shown before the run, never a reason to refuse it. See [What a run needs](#what-a-run-needs-requires) |
 | `defaults` | no | `defaults.mcp_policy` (`required`, the default, or `optional`) and `defaults.permissions` (see [Permissions](#permissions)). Nothing else under `defaults` is read |
 
 ### `artifacts` and interpolation
@@ -534,6 +535,73 @@ attempt has stalled; each stalled attempt's `invoke_agent` span gets `indaba.sta
 `indaba.step.stalled` event per stalled attempt with `indaba.stall.attempt`, `indaba.stall.silent_seconds` and
 `indaba.stall.retry` (`restored`, `exhausted` or `restore_failed`). None of them holds a prompt or anything the agent printed.
 `indaba plan` shows `stall 300s` and `stall retries 1` beside the step.
+
+### What a run asks of the person: `inputs`
+
+A workflow can ask for a folder, a topic, a choice, a number or a yes/no before it starts, so one file serves many targets and nobody edits YAML to change a folder name. Each input has a name (a letter, then letters, digits, `_` or `-`, at most 64 characters), a `type` and a plain-words `description` (at most 300 characters; it is what a prompt or a form shows):
+
+```yaml
+inputs:
+  specs:
+    type: path
+    list: true            # a list of folders
+    kind: directory
+    max_items: 10
+    description: "The specification folders to review, for example specs/billing"
+  tone:
+    type: choice
+    choices: [formal, friendly, short]
+    default: formal       # a default makes the input optional
+    description: "How the review should sound"
+```
+
+| Type | Keys besides `type`, `description`, `default` |
+| :--- | :--- |
+| `text` | `max_length` (default 2000, at most 10000), `multiline` (default `false`), `list`, `min_items`, `max_items` |
+| `path` | `kind` (`file`, `directory` or `any`), `must_exist` (default `true`), `extensions` (with `kind: file`, such as `".md"`), `list`, `min_items`, `max_items` |
+| `choice` | `choices` (1 to 50 distinct strings), `list`, `min_items`, `max_items` |
+| `number` | `integer`, `min`, `max` |
+| `boolean` | nothing more |
+
+An input with no `default` must be given a value; there is no `required` key. A list input (`list: true`, for `text`, `path` and `choice`) takes `min_items` (1, or 0 with a default) up to `max_items` (20 unless you say, at most 100). Any other key, or one that does not belong to the type, is an error that names its path (`$.inputs.specs.max_length`). `secret` is refused: keys stay in the host environment, as for `OPENROUTER_API_KEY`.
+
+Use a value with `${{ inputs.<name> }}` in a step's `goal`, `input_artifacts` and `outputs`, and nowhere else. In `commands` it is an error, because a command is run by the system shell and a value could change what it does. In `input_artifacts` and `outputs` only a `path` input may be used, and a list expands to one entry for each element. In a `goal`, a `choice`, `number` or `boolean` becomes its value; a `text` or `path` becomes the label `[input: name]`, and the step's prompt gets one **Inputs** section that lists those values as data from the person, not as instructions. A reference to an input that is not declared is an error, and a declared input no step uses is a warning. A literal `${{ inputs.x }}` in an older workflow is now a reference.
+
+A path is relative to the working directory, stored with `/`, and refused when it leaves that directory (a `..`, an absolute path outside, a link that points out, a UNC or device path). A text value is refused when it holds a hidden control character, a text-direction control or a broken character. A number is a plain decimal numeral with a dot.
+
+**Giving the values.** `indaba run`, `plan` and `validate` take `--input <name>=<value>` (repeatable; the value is everything after the first `=`, and a list input is given by repeating the option). `indaba run` also takes `--input-file <name>=<path>` for a `text` input, read as UTF-8 from a file inside the project (not longer than the input's `max_length`); giving one name by both options is a usage error. An input you leave out is asked for in plain words when you are at a terminal (its description, what an answer looks like, and for a list "one per line, an empty line to finish"); with nothing to ask at, the run does not start: it exits 2 and prints each missing input with a line to copy (`--input specs=<folder>`). Every input is checked before a task, a worktree, a trace or a ledger entry exists, and one message lists every problem. `validate` and `plan` need no values: a reference shows as `<input: name>`, `plan` prints an **Inputs** block (set, default or missing) and a warning for an input no step uses, and values you do give are checked as `run` would check them. `run --tui` asks first, before the dashboard takes the screen, and hands the child each answer as `--input`. A run records, on its root span, `indaba.inputs.count`, `indaba.inputs.digest` (SHA-256 of the canonical inputs) and `indaba.inputs.asked`, and an `inputs_resolved` event with the names, the types, the digest, the `choice`, `number`, `boolean` and `path` values and, for a `text` input, only its length: no typed text is written to a trace, an event or a log.
+
+*State of this feature:* the declarations, the references, the checks, the command line and the questions are in. The terminal form, the readiness items for inputs and the web view come in the next steps of `specs/workflow-inputs`. A workflow started from the terminal Home or the web page that asks for an input fails with the message above until those arrive; start it with `indaba run`.
+
+### What a run needs: `requires`
+
+Before a run starts, `indaba plan` and `indaba run` print a readiness report: what the run needs and what this machine and you have. Indaba infers part of it with no field at all: each step's runner is registered and its program is on the `PATH`; the variable an OpenRouter step reads (`OPENROUTER_API_KEY`) is set, by name and never by value; an `input_artifacts` file that no earlier step produces exists inside the project; a step that asks for a git worktree is in a git repository.
+
+What Indaba cannot infer, the author declares:
+
+```yaml
+requires:
+  - kind: env
+    name: GITHUB_TOKEN
+    description: Lets the release step open the pull request
+    how: Create a token in your GitHub settings and export it
+    critical: true
+  - kind: account
+    name: Google OAuth client
+    description: The client the login step uses exists
+```
+
+| Field | Meaning |
+| :--- | :--- |
+| `kind` | `env`, `file`, `tool`, `account`, `decision` or `asset` |
+| `name` | The variable, a path relative to the project (no absolute path, no `..`), a program, or the thing needed |
+| `description` | Required, at most 300 characters, shown to the person |
+| `how` | Optional, at most 500 characters: where to get it |
+| `critical` | Optional, default `false`: the run will probably fail without it. It only orders the list and marks the item |
+
+`env`, `file` and `tool` are checked on this machine. `account`, `decision` and `asset` cannot be, so they show as *needs your confirmation* until you pass `--confirm <id>` to `indaba run` (the id is `<kind>:-:<name>`, for example `account:-:Google OAuth client`). A confirmation belongs to that run: the next run asks again, and it is never written to the workflow file.
+
+**The report informs and never blocks.** A missing item does not change the exit code and `indaba run` starts exactly as before. A check that could not be made is shown as "could not be checked", never as ready. The run's trace records the id and state of each item (the span attribute `indaba.readiness.items`), never a value.
 
 ### Steps at the same time: `max_parallel`
 

@@ -1,7 +1,7 @@
 # Specification: Workflow inputs
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 (the decisions in section 8 are open for the maintainer)
+> **Status**: Draft. Section 8 was confirmed as written by the maintainer on 2026-11-20. Slices 1 and 2 of 3 are implemented (core, the parse side and `resolveInputs`: T-01 to T-14; the prompt section, the run record and the command line: T-15 to T-22); the terminal form, the readiness items and the documentation are slice 3; the channel (T-24) waits for `specs/ruling-channel`.
+> **Stage entry**: 3
 > **Semver impact**: minor (a new optional workflow field, new optional parse and CLI arguments, new records; below 1.0).
 > One literal-text edge case is a behaviour change and is listed in section 8, C-14.
 > **Builds on**: [`specs/workflow-editor`](../workflow-editor/spec.md) (the schema and catalog describe `inputs`) and

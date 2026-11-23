@@ -182,6 +182,9 @@ export type {
   FullAccessStep,
   JsonObject,
   JsonValue,
+  ReadinessItemView,
+  ReadinessRequest,
+  ReadinessResponse,
   RegistryAddRootRequest,
   RegistryAddRootResponse,
   RegistryAnnotateRequest,
@@ -230,12 +233,44 @@ export type {
   WorkflowSourceResponse,
   WorkflowSummary,
 } from './web-contract/index.js';
+export type { AttentionItem, AttentionKind, AttentionState } from './workflow/attention.js';
+export { describeAttention, plainText } from './workflow/attention.js';
 export { DagBuilder } from './workflow/dag-builder.js';
+export type {
+  BooleanInput,
+  ChoiceInput,
+  InputCheck,
+  InputDefinition,
+  InputDescription,
+  InputProblem,
+  InputValue,
+  NumberInput,
+  PathInput,
+  ResolvedInputs,
+  TextInput,
+} from './workflow/inputs.js';
+export {
+  canonicalInputs,
+  checkBooleanValue,
+  checkChoiceValue,
+  checkNumberValue,
+  checkTextValue,
+  describeInputs,
+  INPUT_LIMITS,
+  InputProblemCode,
+  InputType,
+  isInputName,
+  normalizeInputPath,
+  numberFits,
+  PathKind,
+  quoteValue,
+} from './workflow/inputs.js';
 export type {
   AgentSpec,
   GuardDefinition,
   McpServerDefinition,
   OnFailure,
+  Requirement,
   RoleDefinition,
   StallPolicy,
   StepBoard,
@@ -251,6 +286,8 @@ export {
   Isolation,
   isConsensusStep,
   isShellStep,
+  MAX_REQUIREMENT_DESCRIPTION,
+  MAX_REQUIREMENT_HOW,
   MAX_STALL_RETRIES,
   MAX_STALL_SECONDS,
   MAX_TIMEOUT_SECONDS,
@@ -262,6 +299,8 @@ export {
   SHELL_RUNNER,
   stepOf,
 } from './workflow/model.js';
+export type { ReadinessProbe, ReadinessReport } from './workflow/readiness.js';
+export { analyzeReadiness, attentionId } from './workflow/readiness.js';
 export type { Admission, AdmitInput } from './workflow/schedule.js';
 export { admit, meets, mustWait, parallelGroups, runsInProject } from './workflow/schedule.js';
 export {

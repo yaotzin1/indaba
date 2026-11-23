@@ -1,6 +1,6 @@
-import type { WorkflowSummary } from '@indaba/engine';
+import { describeAttention, type ReadinessItemView, type WorkflowSummary } from '@indaba/engine';
 import { clip, type Layout } from './layout.js';
-import { type FlowState, type Picking, plain, visibleWorkflows } from './run-flow.js';
+import { type FlowState, isOpen, openItems, type Picking, plain, visibleWorkflows } from './run-flow.js';
 import { type Row, type Screen, type Tone, tooSmallRows } from './screen.js';
 
 export interface FlowScreenOptions {
@@ -133,6 +133,75 @@ function listed(label: string, items: readonly string[], width: number, ascii: b
   ];
 }
 
+/** Breaks one line of words into lines of at most `width` characters, at spaces, at most `max` lines. */
+function wrap(text: string, width: number, max: number): string[] {
+  const out: string[] = [];
+  let line = '';
+  for (const word of text.split(' ').filter((w) => w !== '')) {
+    const next = line === '' ? word : `${line} ${word}`;
+    if (Array.from(next).length <= width || line === '') {
+      line = next;
+    } else {
+      out.push(line);
+      line = word;
+    }
+  }
+  if (line !== '') {
+    out.push(line);
+  }
+  return out.slice(0, max);
+}
+
+const toneOf = (item: ReadinessItemView): Tone =>
+  item.critical && item.state === 'missing'
+    ? 'bad'
+    : item.state === 'missing' || item.state === 'needs-confirmation'
+      ? 'warn'
+      : 'dim';
+
+/** The report as rows: ready items one count, then what is open with the selected item's words in full (AC-13). */
+function readinessRows(
+  state: Extract<FlowState, { kind: 'readiness' }>,
+  width: number,
+  ascii: boolean,
+  height: number,
+): Row[] {
+  const open = openItems(state.report);
+  const ready = state.report.items.filter((item) => !isOpen(item)).length;
+  const out: Row[] = [row(`${ready} ready, ${open.length} to look at`, 'dim')];
+  if (state.error !== undefined) {
+    out.push(
+      row(clip(`The readiness could not be checked: ${safe(state.error, ascii)}`, width, ascii), 'warn'),
+    );
+  }
+  if (open.length === 0 && state.error === undefined) {
+    out.push(row('Nothing is left to look at.', 'good'));
+  }
+  // The items drawn fit the terminal: the header, the count, the keys and the words of how to fix take the rest, so the
+  // selected item is always one of the rows drawn and the key line is never pushed off the screen.
+  const room = Math.max(1, Math.min(10, height - 12));
+  const start = Math.max(0, Math.min(state.selected - Math.floor(room / 2), open.length - room));
+  if (start > 0) {
+    out.push(row(`...${start} above`, 'dim'));
+  }
+  open.slice(start, start + room).forEach((item, index) => {
+    const full = safe(describeAttention(item), ascii, 400);
+    const head = full.split(' How: ')[0] ?? full;
+    out.push(row(clip(head, width, ascii), toneOf(item), start + index === state.selected));
+  });
+  if (start + room < open.length) {
+    out.push(row(`...and ${open.length - start - room} more below`, 'dim'));
+  }
+  const chosen = open[state.selected];
+  if (chosen?.how !== undefined && chosen.how !== '') {
+    out.push(row(''));
+    for (const line of wrap(`How: ${safe(chosen.how, ascii, 400)}`, width, 3)) {
+      out.push(row(line, 'normal'));
+    }
+  }
+  return out;
+}
+
 export function buildFlowScreen(state: FlowState, layout: Layout, options: FlowScreenOptions): Screen {
   const { ascii } = options;
   if (layout.mode === 'too-small') {
@@ -159,6 +228,28 @@ export function buildFlowScreen(state: FlowState, layout: Layout, options: FlowS
         ),
         outputLines: 0,
       };
+    }
+    case 'checking':
+      return lines(
+        `Starting ${safe(state.name, ascii, 60)}`,
+        'info',
+        [row('looking at what this run needs...', 'dim')],
+        'Esc cancel',
+        width,
+        ascii,
+      );
+    case 'readiness': {
+      const open = openItems(state.report);
+      const selected = open[state.selected];
+      const canConfirm = selected?.state === 'needs-confirmation';
+      return lines(
+        `${safe(state.name, ascii, 60)}: what this run needs`,
+        state.report.criticalMissing > 0 ? 'bad' : open.length > 0 ? 'warn' : 'info',
+        readinessRows(state, width, ascii, layout.rows),
+        `Enter start${open.length > 0 ? ' anyway' : ''}   ${open.length > 1 ? 'j k move   ' : ''}${canConfirm ? 'c confirm for this run   ' : ''}n cancel`,
+        width,
+        ascii,
+      );
     }
     case 'requesting':
       return lines(

@@ -8,8 +8,18 @@ export class PromptBuilder {
   static readonly FEEDBACK_LIMIT = 4000;
 
   /** `digest` is the board's notes from earlier steps (specs/run-blackboard); absent, the prompt is as it always was. */
-  build(step: StepDefinition, feedback?: string, digest?: string, contract?: string): string {
+  build(
+    step: StepDefinition,
+    feedback?: string,
+    digest?: string,
+    contract?: string,
+    inputs?: string,
+  ): string {
     const parts = [`# Role: ${step.role ?? 'agent'}`, `## Goal\n${step.goal}`];
+    // The text and path inputs the goal names, as data (specs/workflow-inputs, AC-10 and AC-11); absent, the prompt is as it was.
+    if (inputs !== undefined) {
+      parts.push(inputs);
+    }
 
     if (step.inputArtifacts.length > 0) {
       parts.push(`## Input artifacts (read these first)\n${this.bullets(step.inputArtifacts)}`);

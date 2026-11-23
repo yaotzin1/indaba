@@ -1522,3 +1522,29 @@ button.brick:hover:not(:disabled) {
     padding: 14px 16px;
   }
 }
+.dialog .needs {
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.dialog .need {
+  margin-top: 8px;
+  padding: 8px 12px;
+  border-radius: var(--r-item);
+  border-left: 4px solid var(--muted);
+  background: var(--esc-bg);
+  overflow-wrap: anywhere;
+}
+.dialog .need.warn {
+  border-left-color: var(--esc);
+}
+.dialog .need.bad {
+  border-left-color: var(--bad, var(--esc));
+}
+.dialog .need .how {
+  margin-top: 4px;
+  color: var(--muted);
+}
+.dialog .need button {
+  margin-top: 8px;
+}

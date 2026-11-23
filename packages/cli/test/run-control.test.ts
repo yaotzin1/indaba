@@ -987,3 +987,152 @@ describe('detach (specs/tui-run-control, AC-05, AC-11)', () => {
     });
   });
 });
+
+describe('readiness in the run control (specs/run-readiness, AC-12, 13)', () => {
+  const report = (confirmed: ReadonlySet<string>) => ({
+    items: [
+      {
+        id: 'decision:-:ok',
+        kind: 'decision' as const,
+        state: confirmed.has('decision:-:ok') ? ('confirmed' as const) : ('needs-confirmation' as const),
+        critical: false,
+        message: 'Someone approved the spend',
+      },
+    ],
+    criticalMissing: 0,
+    needsConfirmation: confirmed.has('decision:-:ok') ? 0 : 1,
+  });
+
+  it('gives the readiness of a workflow, with the root it lives in and the confirmations of this ask', async () => {
+    const root = await project();
+    const seen: Array<{ name: string; root: string; confirmed: string[] }> = [];
+    const { control } = await controlFor([root], fakeStarter().starter, {
+      readiness: (workflow, at, confirmed) => {
+        seen.push({ name: workflow.name, root: at, confirmed: [...confirmed] });
+        return report(confirmed);
+      },
+    });
+    const listed = (await control.list()).workflows[0];
+    if (listed === undefined) {
+      throw new Error('no workflow listed');
+    }
+    expect((await control.readiness({ workflowId: listed.id })).needsConfirmation).toBe(1);
+    expect(
+      (await control.readiness({ workflowId: listed.id, confirmed: ['decision:-:ok'] })).needsConfirmation,
+    ).toBe(0);
+    expect(seen.map((s) => [s.name, s.confirmed])).toEqual([
+      ['demo', []],
+      ['demo', ['decision:-:ok']],
+    ]);
+    expect(seen[0]?.root).toBe(root);
+  });
+
+  it('reports nothing when no readiness was supplied, and writes nothing to the project', async () => {
+    const root = await project();
+    const { control } = await controlFor([root], fakeStarter().starter);
+    const listed = (await control.list()).workflows[0];
+    if (listed === undefined) {
+      throw new Error('no workflow listed');
+    }
+    expect(await control.readiness({ workflowId: listed.id })).toEqual({
+      items: [],
+      criticalMissing: 0,
+      needsConfirmation: 0,
+    });
+    await expect(readdir(join(root, '.indaba'))).rejects.toThrow();
+  });
+
+  it('refuses an unknown workflow and an invalid one, in the words of a start', async () => {
+    const root = await project({ 'bad.workflow.ai.yml': 'version: "1.0"\nsteps: []\n' });
+    const { control } = await controlFor([root], fakeStarter().starter);
+    await expect(control.readiness({ workflowId: 'nope' })).rejects.toMatchObject({
+      code: 'workflow_not_found',
+    });
+    const bad = (await control.list()).workflows[0];
+    if (bad === undefined) {
+      throw new Error('no workflow listed');
+    }
+    await expect(control.readiness({ workflowId: bad.id })).rejects.toMatchObject({
+      code: 'workflow_invalid',
+    });
+  });
+
+  it('hands the confirmations of a start to the child as one option each, before the file', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const listed = (await control.list()).workflows[0];
+    if (listed === undefined) {
+      throw new Error('no workflow listed');
+    }
+    const asked = await control.start({ workflowId: listed.id }).catch((error: unknown) => error);
+    const hash = (asked as RunControlError).detail?.contentHash;
+    await control.start({
+      workflowId: listed.id,
+      confirmedHash: String(hash),
+      confirmed: ['decision:-:ok', 'file:-:docs/brief.md'],
+    });
+    const args = runs[0]?.args ?? [];
+    expect(args.slice(args.indexOf('--confirm'), args.indexOf('--'))).toEqual([
+      '--confirm',
+      'decision:-:ok',
+      '--confirm',
+      'file:-:docs/brief.md',
+    ]);
+  });
+
+  it('drops a confirmation that could read as an option, hold a control character, or is too long', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const listed = (await control.list()).workflows[0];
+    if (listed === undefined) {
+      throw new Error('no workflow listed');
+    }
+    const asked = await control.start({ workflowId: listed.id }).catch((error: unknown) => error);
+    const hash = String((asked as RunControlError).detail?.contentHash);
+    await control.start({
+      workflowId: listed.id,
+      confirmedHash: hash,
+      confirmed: [
+        '--workdir',
+        '-x',
+        `decision:-:c1${String.fromCharCode(0x9b)}2J`,
+        `decision:-:del${String.fromCharCode(0x7f)}x`,
+        `decision:-:line${String.fromCharCode(10)}break`,
+        '',
+        `decision:-:${'a'.repeat(400)}`,
+        'decision:-:fine',
+      ],
+    });
+    const args = runs[0]?.args ?? [];
+    expect(args.filter((a, i) => args[i - 1] === '--confirm')).toEqual(['decision:-:fine']);
+  });
+
+  it('keeps at most fifty confirmations', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    const listed = (await control.list()).workflows[0];
+    if (listed === undefined) {
+      throw new Error('no workflow listed');
+    }
+    const asked = await control.start({ workflowId: listed.id }).catch((error: unknown) => error);
+    const hash = String((asked as RunControlError).detail?.contentHash);
+    await control.start({
+      workflowId: listed.id,
+      confirmedHash: hash,
+      confirmed: Array.from({ length: 80 }, (_, i) => `env:-:V${i}`),
+    });
+    const args = runs[0]?.args ?? [];
+    expect(args.filter((a) => a === '--confirm')).toHaveLength(50);
+  });
+
+  it('starts a run with no confirmation option when none was given', async () => {
+    const root = await project();
+    const { starter, runs } = fakeStarter();
+    const { control } = await controlFor([root], starter);
+    await confirmAndStart(control);
+    expect(runs[0]?.args).not.toContain('--confirm');
+  });
+});

@@ -18,6 +18,9 @@ export class WorkflowValidator {
   /** Things that are legal but probably not what the author meant. They never block a run. */
   warnings(workflow: WorkflowDefinition): string[] {
     const warnings: string[] = [];
+    for (const name of workflow.unusedInputs ?? []) {
+      warnings.push(`the input "${name}" is declared but no step uses it.`);
+    }
     for (const step of workflow.steps) {
       const at = `step "${step.id}"`;
       // At the level `full` no scope guard is added, so the isolation advice does not apply (specs/agent-permissions, AC-04).

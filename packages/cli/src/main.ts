@@ -1,6 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { realpath } from 'node:fs/promises';
+import { readFile, realpath } from 'node:fs/promises';
 import { homedir, hostname } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
@@ -8,6 +8,7 @@ import { parseArgs } from 'node:util';
 import {
   type Adjudicator,
   DagBuilder,
+  INPUT_LIMITS,
   IndabaError,
   isConsensusStep,
   isShellStep,
@@ -20,20 +21,25 @@ import {
   WorkflowValidationError,
 } from '@indaba/core';
 import {
+  analyzeReadiness,
   applyRunBounds,
   catalogOf,
   checkPermissions,
   checkStalls,
+  createReadinessProbe,
   describeStallFinding,
   effectiveGuards,
   FileWorkflowRegistry,
   fullAccessSteps,
+  type ParseOptions,
   type PermissionFinding,
   type PermissionRunners,
   PROJECT_CONFIG_FILE,
   parseRunBound,
   planForStep,
+  type ReadinessReport,
   type RunBound,
+  readInputDeclarations,
   readProjectConfig,
   type WorkflowParser,
   WorkflowStatus,
@@ -55,6 +61,7 @@ import { userConfigFolder } from './config-folder.js';
 import { createEngine } from './engine-factory.js';
 import type { ExitHooks } from './exit.js';
 import { homeGate, runHome } from './home.js';
+import { terminalInputAsker } from './input-prompt.js';
 import {
   type CommandLogger,
   chooseLevel,
@@ -70,6 +77,7 @@ import { parallelNotice, parseParallelFlag, planGroupLines, resolveLimit } from 
 import { describePermissionFinding } from './permission-report.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
+import { readinessLines } from './readiness-report.js';
 import { redact } from './redact.js';
 import { report } from './report.js';
 import type { RunStarter } from './run-child.js';
@@ -79,6 +87,15 @@ import type { WorkflowFinder } from './run-control/finder.js';
 import { createRunControl } from './run-control/index.js';
 import { createRegistryHub, type RegistryHub } from './run-control/registry.js';
 import { createWorkflowStore } from './run-control/source.js';
+import {
+  type AskInputs,
+  checkInputs,
+  type Gathered,
+  gatherInputs,
+  inputLines,
+  suppliedFromOptions,
+  tooManyOptions,
+} from './run-inputs.js';
 import { runWithDashboard } from './run-tui.js';
 import type {
   ServerLoad,
@@ -113,6 +130,11 @@ export interface Io {
   readonly chooseAuthMethod?: AuthChooser;
   /** Present only when a person is at a terminal: lets them rule on a debate that failed (the arbiter "human"). */
   readonly humanAdjudicator?: Adjudicator;
+  /**
+   * Asks for the inputs a run still lacks (specs/workflow-inputs, AC-16). Defaults to the plain questions of
+   * `terminalInputAsker` when a person is at a terminal; tests replace it. Without either, a missing input ends the run.
+   */
+  readonly askInputs?: AskInputs;
   /** Present only when a person is at a terminal: where the dashboard of `indaba watch` is drawn and read from. */
   readonly terminal?: { readonly stdin: NodeJS.ReadableStream; readonly stdout: NodeJS.WritableStream };
   /** Loads the optional dashboard package. Defaults to importing `@indaba/tui`; tests replace it. */
@@ -171,13 +193,14 @@ const COMMAND_USAGE: Readonly<Record<string, string>> = {
 Print the JSON Schema (draft 2020-12) of the workflow file, for an editor or a form. It states the structure only:
 rules across fields (a role must exist, no cycle, a runner must be registered) are what indaba validate checks.
 `,
-  validate: `Usage: indaba validate [file] [--plugin <specifier>]...
+  validate: `Usage: indaba validate [file] [--input <name>=<value>]... [--plugin <specifier>]...
 
-Validate a workflow file and print every problem found.
+Validate a workflow file and print every problem found. A workflow that asks for inputs needs no values to be
+checked; values given with --input are checked as indaba run would check them.
 `,
-  plan: `Usage: indaba plan [file] [--plugin <specifier>]...
+  plan: `Usage: indaba plan [file] [--input <name>=<value>]... [--plugin <specifier>]...
 
-Show the execution order of a workflow without running it.
+Show the execution order of a workflow without running it, and which inputs it asks for and which are still missing.
 `,
   run: `Usage: indaba run [file] [options]
 
@@ -198,6 +221,12 @@ Options:
                           Lower what agents may do in this run: read, edit or full (repeatable). It never raises a level
                           and never writes the file; a step with no level takes only read.
       --allow-full-access Acknowledge the steps at the level full when there is no terminal to ask at
+      --confirm <id>      Confirm an item of the readiness report that only you can judge (repeatable); the run starts either way
+      --input <name>=<value>
+                          A value for an input the workflow asks for (repeatable; a list input is given by repeating it).
+                          An input left out is asked for at a terminal; with none, the run does not start (exit 2).
+      --input-file <name>=<path>
+                          The value of a text input, read from a file inside the project
 `,
 };
 
@@ -215,6 +244,8 @@ const RUN_ONLY_OPTIONS = [
   'discussion-dir',
   'permissions',
   'allow-full-access',
+  'confirm',
+  'input-file',
 ] as const;
 
 function processIo(): Io {
@@ -318,6 +349,11 @@ interface Parsed {
   readonly discussionDir: string | undefined;
   readonly permissions: readonly string[];
   readonly allowFullAccess: 'run_option' | 'page' | 'terminal' | undefined;
+  /** `--confirm <id>`: items of the readiness report the person has confirmed for this run. */
+  readonly confirm: readonly string[];
+  /** `--input <name>=<value>` and `--input-file <name>=<path>` (specs/workflow-inputs, AC-12 and AC-13). */
+  readonly input: readonly string[];
+  readonly inputFile: readonly string[];
   readonly help: boolean;
 }
 
@@ -379,6 +415,9 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
     discussionDir: values['discussion-dir'],
     permissions: values.permissions ?? [],
     allowFullAccess: values['allow-full-access'] === true ? (provenance ?? 'run_option') : undefined,
+    confirm: values.confirm ?? [],
+    input: values.input ?? [],
+    inputFile: values['input-file'] ?? [],
     help: values.help === true,
   };
 }
@@ -400,6 +439,9 @@ function parseWith(args: readonly string[]) {
       'discussion-dir': { type: 'string' },
       permissions: { type: 'string', multiple: true },
       'allow-full-access': { type: 'boolean' },
+      confirm: { type: 'string', multiple: true },
+      input: { type: 'string', multiple: true },
+      'input-file': { type: 'string', multiple: true },
     },
   });
 }
@@ -548,7 +590,7 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
               bundle.workflowRegistry ??
               new FileWorkflowRegistry({
                 roots,
-                parse: (source) => bundle.parser.parse(source),
+                parse: (source) => bundle.parser.parse(source, { placeholders: true }),
                 clock: io.clock ?? (() => new Date()),
                 ids: () => randomBytes(8).toString('hex'),
                 logger,
@@ -687,7 +729,8 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
     humanAdjudicator: LISTED_HUMAN_ARBITER,
   });
   const { parser } = bundle;
-  const parse = (source: string) => parser.parse(source);
+  // Listing and checking a workflow needs no values: a file that asks for inputs is valid, and `indaba run` asks (spec workflow-inputs, C-16).
+  const parse = (source: string) => parser.parse(source, { placeholders: true });
   const pid = io.pid ?? process.pid;
   const diagnose = (source: string) => parser.diagnose(source);
   // One registry hub per set of served roots, shared by the store, the run control and the registry's screens, so they
@@ -754,6 +797,13 @@ async function uiBackendsFor(io: Io, logger: Logger): Promise<UiBackends> {
         pid,
         ids: () => randomBytes(12).toString('hex'),
         parse,
+        readiness: (workflow, root, confirmed) =>
+          analyzeReadiness(
+            workflow,
+            new Map(),
+            createReadinessProbe(root, io.env, bundle.runners),
+            confirmed,
+          ),
         logger,
       }),
   };
@@ -840,10 +890,75 @@ async function reportCommand(
   }
 }
 
-/** Reads the workflow file; when none was named and the default is missing, says what to do about it. */
-async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Promise<WorkflowDefinition> {
+/**
+ * What a command knows of the workflow's inputs before it has parsed it (specs/workflow-inputs): the declarations, read
+ * from the file's text alone. A file that cannot be read, or whose declarations have problems, gives none: the parse
+ * that follows reports it as it always did.
+ */
+async function declaredInputs(
+  parsed: Parsed,
+  io: Io,
+): Promise<ReturnType<typeof readInputDeclarations>['declarations'] | undefined> {
+  let source: string;
   try {
-    return await parser.parseFile(resolve(io.cwd, parsed.file));
+    source = await readFile(resolve(io.cwd, parsed.file), 'utf8');
+  } catch {
+    return undefined;
+  }
+  const found = readInputDeclarations(source);
+  return found.problems.length === 0 ? found.declarations : undefined;
+}
+
+/**
+ * Resolves the inputs of a run before anything exists (AC-15): the options, the defaults, and the person's answers.
+ * A number is an exit code. A file that cannot be read or whose declarations have problems has no inputs here: the
+ * parse that follows says what is wrong with it, rather than "this workflow takes no inputs".
+ */
+async function inputsForRun(
+  parsed: Parsed,
+  io: Io,
+  projectDir: string,
+): Promise<number | Extract<Gathered, { ok: true }>> {
+  const declarations = await declaredInputs(parsed, io);
+  if (declarations === undefined) {
+    return { ok: true, inputs: undefined, supplied: { values: {} }, asked: [] };
+  }
+  const supplied = await suppliedFromOptions(parsed.input, parsed.inputFile, declarations, projectDir);
+  if (!supplied.ok) {
+    return usageError(io, supplied.message, 'run');
+  }
+  const gathered = await gatherInputs({
+    declarations,
+    supplied: supplied.supplied,
+    workDir: projectDir,
+    ask: inputAsker(io),
+  });
+  return gathered.ok ? gathered : refuseInputs(io, gathered);
+}
+
+/** The questions of a run: the plain ones at a terminal, unless a test or a front end supplied its own. */
+function inputAsker(io: Io): AskInputs | undefined {
+  return (
+    io.askInputs ??
+    (io.terminal === undefined ? undefined : terminalInputAsker(io.terminal.stdin, io.terminal.stdout))
+  );
+}
+
+/** An input that cannot be used ends the command as a usage error: nothing has been created yet (AC-15). */
+function refuseInputs(io: Io, gathered: Extract<Gathered, { ok: false }>): number {
+  io.stderr.write(gathered.message);
+  return gathered.code;
+}
+
+/** Reads the workflow file; when none was named and the default is missing, says what to do about it. */
+async function loadWorkflow(
+  parser: WorkflowParser,
+  parsed: Parsed,
+  io: Io,
+  options?: ParseOptions,
+): Promise<WorkflowDefinition> {
+  try {
+    return await parser.parseFile(resolve(io.cwd, parsed.file), options);
   } catch (error) {
     if (
       error instanceof WorkflowValidationError &&
@@ -859,6 +974,44 @@ async function loadWorkflow(parser: WorkflowParser, parsed: Parsed, io: Io): Pro
   }
 }
 
+/**
+ * What `validate` and `plan` make of `--input`: they need no values and read the file with placeholders; values given
+ * are checked as a run would check them, a missing one is no problem (C-16), and a bad one is a usage error (AC-14).
+ */
+async function checkedInputs(
+  parsed: Parsed,
+  declarations: Awaited<ReturnType<typeof declaredInputs>>,
+  io: Io,
+  command: 'plan' | 'validate',
+): Promise<
+  | number
+  | {
+      readonly options: ParseOptions;
+      readonly supplied: { readonly values: Readonly<Record<string, readonly string[]>> };
+    }
+> {
+  if (declarations === undefined) {
+    return { options: { placeholders: true }, supplied: { values: {} } };
+  }
+  const workDir = resolve(io.cwd);
+  const supplied = await suppliedFromOptions(parsed.input, parsed.inputFile, declarations, workDir);
+  if (!supplied.ok) {
+    return usageError(io, supplied.message, command);
+  }
+  if (Object.keys(supplied.supplied.values).length === 0) {
+    return { options: { placeholders: true }, supplied: supplied.supplied };
+  }
+  const result = await checkInputs({ declarations, supplied: supplied.supplied, workDir });
+  if (!result.ok) {
+    io.stderr.write(result.message);
+    return EXIT_USAGE;
+  }
+  return {
+    options: result.inputs === undefined ? { placeholders: true } : { inputs: result.inputs },
+    supplied: supplied.supplied,
+  };
+}
+
 async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { parser, runners } = await createEngine({
@@ -868,9 +1021,14 @@ async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<
     logger,
     logSinks: logger,
   });
+  const declarations = await declaredInputs(parsed, io);
+  const checked = await checkedInputs(parsed, declarations, io, 'validate');
+  if (typeof checked === 'number') {
+    return checked;
+  }
   let workflow: WorkflowDefinition;
   try {
-    workflow = await loadWorkflow(parser, parsed, io);
+    workflow = await loadWorkflow(parser, parsed, io, checked.options);
   } catch (error) {
     if (!(error instanceof WorkflowValidationError)) {
       throw error;
@@ -906,6 +1064,27 @@ async function validate(parsed: Parsed, io: Io, logger: CommandLogger): Promise<
   return EXIT_OK;
 }
 
+/** The readiness report of a workflow on this machine (specs/run-readiness). It informs and never stops a start (C-04). */
+function readinessReport(
+  workflow: WorkflowDefinition,
+  io: Io,
+  root: string,
+  runners: PermissionRunners & { has(name: string): boolean },
+  confirmed: ReadonlySet<string>,
+): ReadinessReport {
+  return analyzeReadiness(workflow, new Map(), createReadinessProbe(root, io.env, runners), confirmed);
+}
+
+function readinessOf(
+  workflow: WorkflowDefinition,
+  io: Io,
+  root: string,
+  runners: PermissionRunners & { has(name: string): boolean },
+  confirmed: ReadonlySet<string>,
+): readonly string[] {
+  return readinessLines(readinessReport(workflow, io, root, runners, confirmed));
+}
+
 async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<number> {
   const plugins = await loadPlugins(parsed.plugins, io.cwd);
   const { parser, planner, runners } = await createEngine({
@@ -915,7 +1094,12 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     logger,
     logSinks: logger,
   });
-  const workflow = await loadWorkflow(parser, parsed, io);
+  const declarations = await declaredInputs(parsed, io);
+  const checked = await checkedInputs(parsed, declarations, io, 'plan');
+  if (typeof checked === 'number') {
+    return checked;
+  }
+  const workflow = await loadWorkflow(parser, parsed, io, checked.options);
   const order = new DagBuilder().build(workflow);
 
   order.forEach((step, n) => {
@@ -956,6 +1140,12 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     }
   });
 
+  for (const line of inputLines(declarations ?? {}, checked.supplied)) {
+    io.stdout.write(`${line}\n`);
+  }
+  for (const name of workflow.unusedInputs ?? []) {
+    io.stdout.write(`warning: the input "${name}" is declared but no step uses it.\n`);
+  }
   // The groups for the limit that would run: variable, file, then the workflow, (specs/parallel-steps, AC-32).
   const configured = await readProjectConfig(io.cwd);
   const asked = resolveLimit({
@@ -987,6 +1177,10 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   for (const issue of planner.preflight(workflow)) {
     failed ||= issue.isError;
     io.stdout.write(`${issue.isError ? 'MCP error: ' : 'MCP warning: '}${issue.describe()}\n`);
+  }
+  // The readiness report closes the plan; it never changes the exit code (specs/run-readiness, AC-14).
+  for (const line of readinessOf(workflow, io, io.cwd, runners, new Set())) {
+    io.stdout.write(`${line}\n`);
   }
   return failed ? EXIT_FAILURE : EXIT_OK;
 }
@@ -1120,6 +1314,23 @@ async function runInDashboard(
 ): Promise<number> {
   // The child has no terminal, so the parent asks about steps at `full` and hands the child the acknowledgement (AC-05).
   const forwarded = args.filter((arg) => arg !== '--tui');
+  // The child has no terminal and never asks: what is missing is asked here, before the dashboard takes the screen, and
+  // handed on as `--input` (specs/workflow-inputs, AC-17).
+  const gathered = await inputsForRun(parsed, io, projectDir);
+  if (typeof gathered === 'number') {
+    return gathered;
+  }
+  let handedOn = 0;
+  for (const name of gathered.asked) {
+    for (const raw of gathered.supplied.values[name] ?? []) {
+      forwarded.push('--input', `${name}=${raw}`);
+      handedOn += 1;
+    }
+  }
+  // The answers travel as options, so the child counts them with the ones given (AC-12): refuse here, not after the dashboard is up.
+  if (parsed.input.length + parsed.inputFile.length + handedOn > INPUT_LIMITS.options) {
+    return usageError(io, tooManyOptions(parsed.input.length + parsed.inputFile.length + handedOn), 'run');
+  }
   // Only a workflow that cannot be read is left to the run itself, which reports it; a refused or unconfirmed gate stops here.
   let loaded: { workflow: WorkflowDefinition; runners: PermissionRunners } | undefined;
   try {
@@ -1131,7 +1342,10 @@ async function runInDashboard(
       logger,
       logSinks: logger,
     });
-    loaded = { workflow: await loadWorkflow(parser, parsed, io), runners };
+    loaded = {
+      workflow: await loadWorkflow(parser, parsed, io, { placeholders: true }),
+      runners,
+    };
   } catch {
     loaded = undefined;
   }
@@ -1165,7 +1379,13 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   for (const warning of limit.warnings) {
     io.stderr.write(`${warning}\n`);
   }
+  // Every input is resolved before a task, a worktree, a trace or a ledger entry exists (specs/workflow-inputs, AC-15).
+  const gathered = await inputsForRun(parsed, io, projectDir);
+  if (typeof gathered === 'number') {
+    return gathered;
+  }
   const { engine, parser, events, runners } = await createEngine({
+    ...(gathered.inputs === undefined ? {} : { inputs: gathered.inputs }),
     maxParallelSteps: limit.limit,
     maxParallelSource: limit.source,
     maxWaits: configured.parallel.maxWaits,
@@ -1185,7 +1405,12 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
       io.stderr.write(`Listener failed: ${redact(reason, io.env)}\n`);
     },
   });
-  const loaded = await loadWorkflow(parser, parsed, io);
+  const loaded = await loadWorkflow(
+    parser,
+    parsed,
+    io,
+    gathered.inputs === undefined ? undefined : { inputs: gathered.inputs },
+  );
 
   const gate = await permissionGate(parsed, loaded, runners, io);
   if (typeof gate === 'number') {
@@ -1216,7 +1441,13 @@ async function run(parsed: Parsed, projectDir: string, io: Io, logger: CommandLo
   for (const finding of findings.filter((f) => f.code === 'full')) {
     screen.line(`  permissions: ${describePermissionFinding(finding)}\n`);
   }
+  const readiness = readinessReport(workflow, io, projectDir, runners, new Set(parsed.confirm));
+  for (const line of readinessLines(readiness, true)) {
+    screen.line(`${line}
+`);
+  }
   const result = await engine.run(workflow, {
+    readiness,
     ...(acknowledged === undefined ? {} : { fullAccessAcknowledged: acknowledged }),
     ...(io.signal === undefined ? {} : { signal: io.signal }),
     ...(parsed.taskId === undefined ? {} : { taskId: parsed.taskId }),

@@ -122,6 +122,7 @@ gantt
     tui-agent-panes (TUI-3) :done, 2026-11-14, 1d
     tui-pane-focus (TUI-3.7) :active, 2026-11-15, 1d
     tui-questions (TUI-4)  :active, 2026-11-06, 1d
+    run-assist (RA-1, RA-2) :active, 2026-11-18, 1d
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
     host-process-containment :active, 2026-11-12, 1d
@@ -231,6 +232,28 @@ graph LR
 | `run-preview` | `PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost` | field `preview`, `indaba preview`, `indaba previews` | nothing |
 | `run-integration` | `IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator` | field `integrate`, options `--integrate`, `--integrate-target` | `review-gate`, `ruling-channel`, `step-budgets` for the full conflict options; `off`, `branch` and `stop` ship without them |
 
+### Epic `RUN-ASSIST`: Indaba tells the person what a run needs and what is left
+
+```mermaid
+graph LR
+    Epic(["RUN-ASSIST: run-assist"])
+    R1["RA-1: run-readiness (before a run)"]
+    R2["RA-2: run-handover (after a run)"]
+    Epic --> R1 & R2
+    R1 --> R2
+    R1 -.-> WI["workflow-inputs (not started)"]
+    R1 -.-> RC["tui-run-control (implemented)"]
+    R2 -.-> DF["debate-findings, step-verdicts (not started)"]
+    R2 -.-> TQ["tui-questions (blocked)"]
+```
+
+| Epic | Feature | Stories | Ships without an unimplemented spec |
+| :--- | :--- | :--- | :--- |
+| `RUN-ASSIST` | `RA-1` `run-readiness` | 1.1 to 1.6 | partly: the inferred checks need no other spec; input checks wait for `workflow-inputs` |
+| | `RA-2` `run-handover` | 2.1 to 2.6 | CLI and web yes; the TUI answers wait for `tui-questions`; finding sources wait for `debate-findings` and `step-verdicts` |
+
+Both features carry a parity table, per the epic's rule R-04.
+
 ## Feature to package
 
 | Feature (spec) | Status | Packages |
@@ -280,11 +303,14 @@ graph LR
 | `tui-questions` | Feature `TUI-4`. Not started (specified; draft; blocked; waits for `agent-conversation`, `question-contract`, `review-gate`, `ruling-channel`) | `@indaba/tui`, `indaba` |
 | `tui-workflows` | Feature `TUI-5`, epic release 2. Not started (specified; draft; builds on `workflow-registry`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
 | `tui-editing` | Feature `TUI-6`; 6.1 is epic release 3, the rest deferred behind a demand check. Not started (specified; draft; builds on `workflow-editor`) | `@indaba/tui`, `@indaba/engine`, `indaba` |
+| `run-assist` | Epic. Draft (specified; no code) | orders `RA-1` and `RA-2`; `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
+| `run-readiness` | Feature `RA-1`. Slice 1 implemented on `feat/run-readiness` (core, engine, `plan`, `run`, `--confirm`); the TUI and web start dialogs and AC-03 (inputs, waits for `workflow-inputs`) are not done (specified; draft): a readiness report before a run, computed, shown in the start confirmation | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
+| `run-handover` | Feature `RA-2`. Not started (specified; draft): open items and human-only checks after a run, answered fix / accept / defer | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/web`, `@indaba/server` |
 | `question-contract` | Not started (specified; draft; builds on `agent-conversation` and `run-blackboard`, neither implemented yet, and ships with or before the question loop) | `@indaba/core`, `@indaba/engine`, `indaba` |
 | `review-gate` | Not started (specified; draft; builds on `step-verdicts`, `agent-conversation`, `run-blackboard` and `workspace-without-git`, none implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `workflow-assistant` | Not started (specified; draft; free (MIT); builds on `workflow-editor`, `web-app-editing-core`, `web-app-editing-forms`, `question-contract` and `agent-permissions`, the last two not implemented yet) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/server`, `@indaba/web` |
 | `agent-permissions` | Implemented in `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server` and `@indaba/web` (the catalog map, the `full` confirmation of the page, the editor presets; web contract 1.5.0) (specified; draft; the level `ask` is reserved for a later spec; removing the runners' hard-coded defaults is a later labelled minor) | `@indaba/core`, `@indaba/engine`, `@indaba/runners`, `indaba`, `@indaba/server`, `@indaba/web` |
-| `workflow-inputs` | Not started (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
+| `workflow-inputs` | Slices 1 and 2 implemented (declarations, references, checks, `resolveInputs`, the prompt section, the run record, `--input`, `--input-file`, the terminal questions); the terminal form, the readiness items and the channel are not done (specified) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `agent-conversation` | Not started (specified; draft, awaiting maintainer confirmation of the section 8 decisions) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui` |
 | `parallel-steps` | In progress, on `main` (a limit above 1 runs steps at the same time): slice 1 (#125), slice 2 (forks and landing, T-08 to T-10, #128 to #130) and slice 3 engine side (intents, contracts, negotiation, T-11 and T-12, #131 and #132); T-13 (the views show waiting steps; intents and contracts are in the dashboard board pane, the web view has no board) in review on `feat/parallel-steps-wait-views`; slice 4: T-14 (resolution of a conflicting landing, #136) and T-15 (the release cap is lifted, #137) are on `main`; T-16 (review, docs, positioning row) is in review on `feat/parallel-steps-review` (#138); only AC-21 (review before landing, waits for `step-verdicts`) is open. Specified; plan and tasks written, decisions C-01 to C-11 confirmed; replaces the `workflow-engine` non-goal "one step at a time") | `@indaba/core` (scheduling), `@indaba/engine` (run loop, step worktrees, landing), `indaba` (`--parallel`, `plan`), `@indaba/tui`, `@indaba/server`, `@indaba/web` (several running steps) |
 | `path-ownership` | Not started (specified; decisions C-01 to C-04 confirmed; builds on `parallel-steps` and `run-blackboard`) | `@indaba/core`, `@indaba/engine`, `indaba`, `@indaba/tui`, `@indaba/server`, `@indaba/web` |

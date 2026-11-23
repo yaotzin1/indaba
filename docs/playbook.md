@@ -123,7 +123,7 @@ indaba watch latest --replay    # play a finished run back with its original tim
 indaba watch latest --plain     # lines, not the dashboard
 ```
 
-**The home screen**: bare `indaba` on a terminal lists the runs of the project (`j` `k` to move, `Enter` to open one in the dashboard, `n` to start a workflow after confirming what it uses, `s` to stop a run started there, `r` to refresh, `?` for the keys, `q` to quit). Without a terminal, or with `INDABA_NO_TUI=1`, it is the usage error it always was.
+**The home screen**: bare `indaba` on a terminal lists the runs of the project (`j` `k` to move, `Enter` to open one in the dashboard, `n` to start a workflow (it shows what the run needs first when something is missing, and `c` confirms an item for that run) after confirming what it uses, `s` to stop a run started there, `r` to refresh, `?` for the keys, `q` to quit). Without a terminal, or with `INDABA_NO_TUI=1`, it is the usage error it always was.
 
 **The dashboard** (`@indaba/tui`, installed with `indaba`) opens on a terminal. The steps are on the
 left and the output of the selected one on the right; below 80 columns they stack.
@@ -266,7 +266,7 @@ echo $?
 ```
 
 Everything is arguments and exit statuses: 0 completed, 1 failed, 2 escalated, 130 cancelled. A step at permission level
-`full` needs a terminal to ask at, or `--allow-full-access` when there is none. Keep keys in the environment
+`full` needs a terminal to ask at, or `--allow-full-access` when there is none. `indaba plan` and `indaba run` print a readiness report first (missing programs and keys by name, files, and what the workflow lists under `requires`); it never changes the exit status, and `--confirm <id>` confirms an item only a person can judge. A workflow can ask for a folder, a topic or a choice with `inputs`: give each with `--input name=value`, or `indaba run` asks at a terminal; `plan` shows which are still missing, and a bad or missing one stops the run before anything is created (exit 2). The terminal Home and the web page's Run panel show the same report before a start, with a key or a button to confirm for that run; they never stop a start either. Keep keys in the environment
 (`OPENROUTER_API_KEY` and the like) and never in the workflow file. A step's agent or command sees only the basics and its own
 provider's variables, not the rest of your environment, and its `TEMP` is inside the step's folder; a step in a worktree that
 changes a branch or tag of the repository fails and the change is undone. `indaba schema` prints the JSON Schema of the file for

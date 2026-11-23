@@ -170,6 +170,15 @@ project and tags you gave it with `indaba workflows annotate`, and its last run 
 is behind **Show the hidden workflows**. The list is read again when you come back to the window, and the folders are
 looked at again at most every 30 seconds; a file that was deleted is not offered.
 
+**What the run needs.** Pressing **Run** first looks at what the workflow needs on this machine: a runner program that is
+not installed, a key that is not set (by name, never by value), a file that is not there, and what the workflow lists under
+`requires` that only you can judge. When something needs a look the panel shows it before the run, the critical items
+first, and counts the items that are ready instead of listing them. **Confirm for this run** on an item that only you can
+judge confirms it for this run alone; you are asked again next time, and nothing is written to the workflow file. **Start
+anyway** is always there, with the report above it: the report informs and never stops a run. With nothing to look at, or
+when the server cannot say, the panel skips the report and goes on. The panel offers **Start** while it is still looking, so
+a slow check never holds a run back.
+
 **The first run asks first.** Before a workflow runs from the page for the first time, the panel shows what its file says
 it will use: the runner of every step, the commands it runs (shell commands, an agent's own command, local MCP servers),
 what each step may read and write, and the steps that need a person. Press **Run it** to go ahead. The page remembers
@@ -347,6 +356,7 @@ Messages in the Run a workflow panel:
 | :--- | :--- |
 | **This workflow has problems, so it cannot run** | Fix the problems listed, then try again |
 | **The most runs started here at once are already going** | Wait for one to end, or stop one |
+| **Missing**, **Critical**, **Needs you** in the list of what the run needs | The run would probably fail without it (Critical), a program, key or file is not there (Missing), or only you can say whether it is so (Needs you; press **Confirm for this run**). Fix it and press Run again, or start anyway |
 | **Your confirmation could not be saved** | Your user configuration folder cannot be written; the run does not start until it can |
 | **The run did not start** | It shows the first line the run printed; run the workflow with `indaba run` in a terminal to see the rest |
 | **This run was recorded before Indaba wrote down which step waits for which** | A run from an earlier version: its steps are shown in the order they ran, with no arrows, and what a failure does is unknown |

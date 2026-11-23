@@ -20,6 +20,8 @@ import {
   FailureAction,
   Isolation,
   isConsensusStep,
+  MAX_REQUIREMENT_DESCRIPTION,
+  MAX_REQUIREMENT_HOW,
   MAX_STALL_RETRIES,
   MAX_STALL_SECONDS,
   MAX_TIMEOUT_SECONDS,
@@ -27,14 +29,18 @@ import {
   MIN_STALL_SECONDS,
   PermissionLevel,
   PermissionMode,
+  type Requirement,
+  type ResolvedInputs,
   resolvePermissions,
   SHELL_RUNNER,
   WorkflowValidationError,
 } from '@indaba/core';
 import { parseAllDocuments } from 'yaml';
 import { GuardRegistry } from '../guard/registry.js';
+import { decodeWorkflow, YAML_OPTIONS } from './decode.js';
 import { LineCounter, type Problem, place } from './diagnose.js';
 import { ErrorBag } from './error-bag.js';
+import { parseInputDeclarations } from './inputs.js';
 import { Interpolator } from './interpolator.js';
 import { isYamlMap, Node } from './node.js';
 import { WorkflowValidator } from './validator.js';
@@ -42,10 +48,27 @@ import { WorkflowValidator } from './validator.js';
 const BOARD_KEYS = ['read', 'post', 'digest_chars'] as const;
 const STALL_KEYS = ['after_seconds', 'retries'] as const;
 const BOARD_READ_KEYS = ['steps', 'kinds'] as const;
+const REQUIRES_KEYS = ['kind', 'name', 'description', 'how', 'critical'] as const;
+const REQUIRES_KINDS: readonly Requirement['kind'][] = [
+  'env',
+  'file',
+  'tool',
+  'account',
+  'decision',
+  'asset',
+];
 /** The digest bounds of spec C-08: design choices, not measurements. */
 const DEFAULT_DIGEST_CHARS = 4000;
 const MIN_DIGEST_CHARS = 200;
 const MAX_DIGEST_CHARS = 20000;
+
+/** A relative path with no `..` segment (the confinement of an artifact path, applied at parse time). */
+function isProjectRelative(path: string): boolean {
+  if (path.startsWith('/') || path.startsWith('\\') || /^[A-Za-z]:/.test(path)) {
+    return false;
+  }
+  return !path.split(/[\\/]/).includes('..');
+}
 
 /** Own, enumerable properties only: a key such as `__proto__` stays data. */
 function record<T>(entries: readonly (readonly [string, T])[]): Record<string, T> {
@@ -57,8 +80,13 @@ function lookup<T extends string>(values: Readonly<Record<string, T>>, name: str
 }
 
 /** Parses and validates a workflow file. Every problem found is reported at once. */
-/** The options every read of a workflow uses, so `parse` and `diagnose` see the same document. */
-const YAML_OPTIONS = { schema: 'core', uniqueKeys: true, strict: true, logLevel: 'silent' } as const;
+/** What a parse is given about the workflow's inputs (specs/workflow-inputs, AC-25). */
+export interface ParseOptions {
+  /** Resolved values: references expand as AC-10 says. */
+  readonly inputs?: ResolvedInputs;
+  /** Render every input reference as `<input: name>`; for `validate`, `plan` and lists. Ignored when `inputs` is given. */
+  readonly placeholders?: boolean;
+}
 
 /**
  * AC-01: an agent step's effective block is the step's, else its role's, else `defaults`'s, whole. A shell step and a
@@ -94,18 +122,18 @@ export class WorkflowParser {
     private readonly runners?: { has(name: string): boolean },
   ) {}
 
-  async parseFile(path: string): Promise<WorkflowDefinition> {
+  async parseFile(path: string, options?: ParseOptions): Promise<WorkflowDefinition> {
     let contents: string;
     try {
       contents = await readFile(path, 'utf8');
     } catch {
       throw new WorkflowValidationError([`cannot read workflow file "${path}"`]);
     }
-    return this.parse(contents);
+    return this.parse(contents, options);
   }
 
-  parse(source: string): WorkflowDefinition {
-    const data = this.decode(source);
+  parse(source: string, options?: ParseOptions): WorkflowDefinition {
+    const data = decodeWorkflow(source);
     if (!isYamlMap(data)) {
       throw new WorkflowValidationError(['the document root must be a mapping']);
     }
@@ -114,7 +142,13 @@ export class WorkflowParser {
     const plain = new Node(data, '$', errors);
 
     const artifacts = record(plain.stringMap('artifacts'));
-    const root = new Node(data, '$', errors, new Interpolator(artifacts));
+    const declarations = parseInputDeclarations(plain, errors);
+    const interpolator = new Interpolator(artifacts, {
+      declarations,
+      resolved: options?.inputs,
+      placeholders: options?.placeholders,
+    });
+    const root = new Node(data, '$', errors, interpolator);
 
     const version = root.string('version') ?? '';
     if (version !== '' && version !== WorkflowParser.SUPPORTED_VERSION) {
@@ -188,6 +222,8 @@ export class WorkflowParser {
     const maxParallel = root.boundedInt('max_parallel', 1, Number.MAX_SAFE_INTEGER, parallelMessage);
     const waitsMessage = 'max_waits must be a whole number of at least 1';
     const maxWaits = root.boundedInt('max_waits', 1, Number.MAX_SAFE_INTEGER, waitsMessage);
+    const requires = this.parseRequires(root, errors);
+    const unusedInputs = Object.keys(declarations).filter((name) => !interpolator.referenced.has(name));
     const roles = record(roleEntries);
     for (const step of steps) {
       const role = step.role !== undefined && Object.hasOwn(roles, step.role) ? roles[step.role] : undefined;
@@ -218,6 +254,9 @@ export class WorkflowParser {
       ...(defaultPermissions !== undefined ? { defaultPermissions } : {}),
       ...(maxParallel !== undefined ? { maxParallel } : {}),
       ...(maxWaits !== undefined ? { maxWaits } : {}),
+      ...(requires.length > 0 ? { requires } : {}),
+      ...(Object.keys(declarations).length > 0 ? { inputs: declarations } : {}),
+      ...(unusedInputs.length > 0 ? { unusedInputs } : {}),
     };
 
     const problems = errors.isEmpty() ? this.validator.validate(workflow) : errors.all();
@@ -237,7 +276,7 @@ export class WorkflowParser {
     const [doc, second] = docs;
     let workflow: WorkflowDefinition;
     try {
-      workflow = this.parse(source);
+      workflow = this.parse(source, { placeholders: true });
     } catch (error) {
       if (!(error instanceof WorkflowValidationError)) {
         throw error;
@@ -267,23 +306,6 @@ export class WorkflowParser {
     return doc === undefined
       ? []
       : this.validator.warnings(workflow).map((m) => place(doc, lines, m, 'warning'));
-  }
-
-  /** Core schema, one document, unique keys; a warning (an unknown tag, say) is as fatal as an error. */
-  private decode(source: string): unknown {
-    const docs = parseAllDocuments(source, YAML_OPTIONS);
-    const [doc, ...rest] = Array.from(docs);
-    if (doc === undefined) {
-      return undefined;
-    }
-    const problem = doc.errors[0] ?? doc.warnings[0];
-    if (problem !== undefined) {
-      throw new WorkflowValidationError([`invalid YAML: ${problem.message}`]);
-    }
-    if (rest.length > 0) {
-      throw new WorkflowValidationError(['invalid YAML: a workflow file holds exactly one document']);
-    }
-    return doc.toJS({ mapAsMap: true });
   }
 
   private parseStep(node: Node, errors: ErrorBag): StepDefinition | undefined {
@@ -350,8 +372,10 @@ export class WorkflowParser {
       worktree: isolation === Isolation.GitWorktree,
     });
 
+    const goal = node.goalText('goal');
     return {
       id,
+      ...(goal.inputs.length > 0 ? { goalInputs: goal.inputs } : {}),
       ...(role !== undefined ? { role } : {}),
       ...(chain !== undefined ? { runner: chain.runner } : {}),
       ...(chain !== undefined && chain.fallbackRunners.length > 0
@@ -359,11 +383,11 @@ export class WorkflowParser {
         : {}),
       ...(agent !== undefined ? { agent } : {}),
       ...(permissions !== undefined ? { permissions } : {}),
-      goal: node.string('goal', false, true) ?? '',
+      goal: goal.text ?? '',
       dependsOn: node.stringList('depends_on'),
-      inputArtifacts: node.stringList('input_artifacts', true),
-      outputs: node.stringList('outputs', true),
-      commands: node.stringList('commands', true),
+      inputArtifacts: node.stringList('input_artifacts', 'paths'),
+      outputs: node.stringList('outputs', 'paths'),
+      commands: node.stringList('commands', 'commands'),
       guards,
       isolation,
       ...(onFailure !== undefined ? { onFailure } : {}),
@@ -526,6 +550,46 @@ export class WorkflowParser {
     return level;
   }
 
+  /** The `requires` list (specs/run-readiness, AC-07 and AC-09): what a run needs that Indaba cannot infer. */
+  private parseRequires(root: Node, errors: ErrorBag): Requirement[] {
+    const found: Requirement[] = [];
+    for (const node of root.nodeList('requires')) {
+      for (const key of node.unknownKeys(REQUIRES_KEYS)) {
+        errors.add(`${node.path}.${key} is not a requires setting`);
+      }
+      const kindName = node.string('kind');
+      const kind = REQUIRES_KINDS.find((candidate) => candidate === kindName);
+      if (kindName !== undefined && kind === undefined) {
+        errors.add(`${node.path}.kind must be one of ${REQUIRES_KINDS.join(', ')}`);
+      }
+      const name = node.string('name');
+      const description = node.string('description');
+      const how = node.string('how', false);
+      const critical = node.bool('critical');
+      if (description !== undefined && description.length > MAX_REQUIREMENT_DESCRIPTION) {
+        errors.add(`${node.path}.description must be at most ${MAX_REQUIREMENT_DESCRIPTION} characters`);
+      }
+      if (how !== undefined && how.length > MAX_REQUIREMENT_HOW) {
+        errors.add(`${node.path}.how must be at most ${MAX_REQUIREMENT_HOW} characters`);
+      }
+      if (kind === 'file' && name !== undefined && !isProjectRelative(name)) {
+        errors.add(
+          `${node.path}.name must be a path inside the project: no absolute path and no ".." segment`,
+        );
+      }
+      if (kind !== undefined && name !== undefined && description !== undefined) {
+        found.push({
+          kind,
+          name,
+          description,
+          ...(how !== undefined ? { how } : {}),
+          ...(critical !== undefined ? { critical } : {}),
+        });
+      }
+    }
+    return found;
+  }
+
   /** The `board` field (specs/run-blackboard): shape and kinds here, what needs other steps in the validator. */
   private parseBoard(node: Node | undefined, errors: ErrorBag): StepBoard | undefined {
     if (node === undefined) {
@@ -631,6 +695,6 @@ export class WorkflowParser {
   }
 }
 
-export function parseWorkflow(source: string): WorkflowDefinition {
-  return new WorkflowParser().parse(source);
+export function parseWorkflow(source: string, options?: ParseOptions): WorkflowDefinition {
+  return new WorkflowParser().parse(source, options);
 }

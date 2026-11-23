@@ -230,6 +230,23 @@ interface Io {
 // packages/tui:  collectInputs(declarations: readonly InputDescription[], missing: readonly string[]): Promise<SuppliedInputs | undefined>
 ```
 
+## Deviations found while implementing slice 1
+
+Small, additive, and listed here because this file is the contract.
+
+- `normalizeInputPath(input, raw, base?)` takes an optional third argument, the working directory as a string. An absolute path can be accepted only by comparing it with that directory, and the core has no file system, so the engine passes it. Without `base` an absolute path is refused (T-04). The comparison ignores case when `base` has a drive letter.
+- `WorkflowDefinition.unusedInputs?` (the declared inputs no step refers to) is a new optional member: the validator sees only the expanded definition, so the parser, which sees the references, records it for the warning of AC-08.
+- `@indaba/core` also exports `INPUT_LIMITS`, `isInputName`, `numberFits`, `quoteValue` and `InputProblemCode`; `@indaba/engine` also exports `nodeInputFileSystem` (the default `InputFileSystem`, used by `--input-file`).
+- A `choice` list in a goal expands to its values joined with `, `: the choices are the author's closed vocabulary (C-03), not a typed value.
+
+Found while implementing slice 2:
+
+- `inputs_resolved` is a span event of the root span with flat attributes, the way `indaba.readiness` is recorded, not a new record type of the event stream: a record type would need every trace reader changed, and the span event is what `watch` and the views already read. Its attributes: `names`, `types`, `digest`, `asked` (comma-joined), and for each input `value.<name>` (a list as JSON text) or, for a `text` input, `length.<name>`.
+- `StepExecutorOptions.inputs` is added beside `WorkflowEngineOptions.inputs`: the executor builds the prompts, and the composition root hands the same resolved inputs to both. The declarations come from the `WorkflowDefinition`.
+- `PromptBuilder.build` takes the Inputs section as an optional fifth argument; the section is also placed in a debate step's topic and in the intent call. The prompt of a conflict resolution (`parallel-steps`) does not carry it: it works from the goal's label and the conflicting text.
+- `run --tui` asks in the parent before the dashboard (the plain questions of `terminalInputAsker`) until the form of T-23 exists, and the child it starts records `indaba.inputs.asked` as 0, because it was given the values as options.
+- `gatherInputs`, `suppliedFromOptions`, `checkInputs`, `inputLines` and `AskInputs` live in `packages/cli/src/run-inputs.ts`, `terminalInputAsker` in `input-prompt.ts`; none is exported from the package.
+
 ## Workflow fields
 
 | Field | Where | Meaning |
