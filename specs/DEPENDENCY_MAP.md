@@ -278,6 +278,7 @@ Both features carry a parity table, per the epic's rule R-04.
 | `cli` | Implemented | `indaba` |
 | `tui` | Implemented as the read-only dashboard (`TUI-0` of `tui-epic`), except one manual run on Windows Terminal | `@indaba/engine` (event stream, run view model, sanitizer), `@indaba/tui` (the dashboard), `indaba` (`watch`) |
 | `mcp-support` | Implemented | `@indaba/core` (capability contracts), `@indaba/engine`, `@indaba/runners` |
+| `openclaw` | Implemented; builds on `acp` (`transport-priority`), `agent-permissions` and `mcp-support`; no dependency added. Written from the documentation of its ACP bridge, not run against a live Gateway | `@indaba/runners` (`OpenClawRunner`), `@indaba/engine` (the readiness program), `indaba`, `@indaba/web` (words) |
 | `opencode` | Implemented | `@indaba/runners` (`OpenCodeRunner`, the `opencode` ACP preset) |
 | `attempt-history` | Implemented | `@indaba/engine` (`AttemptView`, `StepView.history`, plain output), `@indaba/tui` (detail pane) |
 | `watch-workflow-name` | Implemented | `@indaba/engine` (`RunSummary.workflow`), `indaba` (`watch`) |

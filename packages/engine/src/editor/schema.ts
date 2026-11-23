@@ -105,7 +105,7 @@ const ROLE: Schema = {
     runner: {
       ...RUNNER_CHAIN,
       description:
-        'The runner that executes the role, or a list of runners in priority order: an API runner such as openrouter, acp, claude-code, codex, antigravity, cursor, opencode, or the name of a runner a plugin registers.',
+        'The runner that executes the role, or a list of runners in priority order: an API runner such as openrouter, acp, claude-code, codex, antigravity, cursor, opencode, openclaw, or the name of a runner a plugin registers.',
     },
     agent: orNull(AGENT),
     model: orNull({

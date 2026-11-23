@@ -19,6 +19,7 @@ const CLI_EXECUTABLES: Readonly<Record<string, string>> = {
   antigravity: 'agy',
   opencode: 'opencode',
   cursor: 'cursor-agent',
+  openclaw: 'openclaw',
 };
 
 /** Names a pass-through list gives exactly; a prefix ending in `*` names no single variable. */
@@ -155,9 +156,11 @@ export function createReadinessProbe(
     isEnvSet,
     fileState,
     hasExecutable,
-    isRunnerRegistered(type: string): boolean {
+    isRunnerRegistered(type: string, _preset?: string, command?: readonly string[]): boolean {
       const runnerProgramFound = (name: string): boolean => {
-        const program = programOf(name);
+        // The program the author wrote for an OpenClaw agent replaces `openclaw` (a native executable on Windows, specs/openclaw, AC-04).
+        const written = name === 'openclaw' ? command?.[0] : undefined;
+        const program = written !== undefined && written !== '' ? written : programOf(name);
         return program === undefined ? true : isAbsolute(program) ? isFile(program) : hasExecutable(program);
       };
       if (!registry.has(type)) {
@@ -169,7 +172,7 @@ export function createReadinessProbe(
       if (type === 'openrouter') {
         return ['OPENROUTER_API_KEY'];
       }
-      if (type === 'acp') {
+      if (type === 'acp' || type === 'openclaw') {
         return exactNames(envValue(env, 'INDABA_ACP_PASS_ENV', false));
       }
       const compat = Object.keys(env)
