@@ -34,7 +34,7 @@ required member. A reader of the JSON is told to ignore keys it does not know, s
 | Name | Before | After | Impact |
 | :--- | :--- | :--- | :--- |
 | `ConsensusArbiter` constructor | `options.maxRounds ?? 4` (literal in the file) | `options.maxRounds ?? DEFAULT_MAX_ROUNDS`, the same value | none: behaviour is identical; the number is now readable by the explanation (AC-04) |
-| functions that resolve a default today and are private (the permission chain, the timeout chain, `effectiveGuards`) | not exported | exported from `@indaba/engine` where the explanation needs them; the run keeps calling the same function | none for consumers; this is what keeps the explanation equal to the run (AC-04, AC-14) |
+| `effectiveGuards` and the other resolvers of a default that the explanation shares with the run (the permission, timeout and retry resolution) | in `@indaba/engine`, `effectiveGuards` exported there, the others private | the pure ones move to `@indaba/core` (`workflow/resolve.ts`) and are exported from it; the engine imports them and keeps re-exporting `effectiveGuards` | new public symbols of `@indaba/core` (a minor, to be listed here with signatures before stage 6; the engine's export is unchanged); this is what keeps the explanation equal to the run (AC-04, AC-14). A resolver that needs a fact core cannot hold stays in the engine and arrives through `ExplainFacts` |
 
 ## Removed or deprecated
 

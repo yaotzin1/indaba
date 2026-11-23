@@ -16,7 +16,7 @@ PR 1
 
 ## Infrastructure
 
-- [ ] **T-06** `@indaba/engine`: export the timeout and retry resolution and any other private function the explanation shares with the run, and make the run call the same export; tests unchanged and green (AC-04).
+- [ ] **T-06** `@indaba/core` and `@indaba/engine`: move the pure resolvers the explanation shares with the run (`effectiveGuards` and the timeout and retry resolution) into `@indaba/core`, import them in the engine, and make the run call the same function (core cannot import the engine); tests unchanged and green (AC-04).
 - [ ] **T-07** `@indaba/engine`: `readOrigins(source, workflow)` with line and column; origin of permissions by step, role, `defaults`; a missing line instead of a wrong one (AC-03, AC-12).
 - [ ] **T-08** `@indaba/engine`: tests for T-07 against `resolvePermissions` for every combination of written, absent and empty blocks; anchors, merge keys, flow style, CRLF, a multi-document file (AC-03, AC-12).
 - [ ] **T-09** `@indaba/engine`: a test that, for every workflow in `examples/`, the explanation equals what `StepExecutor` resolves for each step: permissions, write scope, isolation, timeout, retry bound, guards (AC-14).

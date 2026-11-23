@@ -19,6 +19,8 @@ const NOTES: Readonly<Record<string, string>> = {
   auto_approve: 'the agent approves every permission itself',
   commands_not_limited: 'commands the agent runs are not limited',
   no_read_only_argument: 'it has no read-only mode, so a command could not be stopped',
+  no_client_methods:
+    'its bridge does not use the file and terminal requests Indaba answers, so nothing would hold the step to this level',
   argument_unconfirmed: 'Indaba has not confirmed the argument that sets this level',
   gate: 'Indaba answers each request of the agent as it is made',
   gate_allows_all: 'Indaba allows every request of the agent',

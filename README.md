@@ -180,6 +180,7 @@ roles:
 | `codex` | `codex exec --sandbox workspace-write` | the `codex` CLI | last resort |
 | `antigravity` | `agy -p` | the `agy` CLI | last resort |
 | `cursor` | `cursor-agent -p` | the `cursor-agent` CLI | last resort |
+| `openclaw` | `openclaw acp`: OpenClaw through its ACP bridge; no `read` or `edit` level, no MCP from the workflow | the `openclaw` program and the OpenClaw Gateway | an OpenClaw you already run |
 | `opencode` | `opencode run` | the `opencode` CLI | last resort; prefer `acp` with `agent: "opencode"` |
 
 A step's `permissions.level` (`read`, `edit`, `full`) is passed to each runner in its own terms; `indaba catalog` lists

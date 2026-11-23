@@ -1,7 +1,7 @@
 # Plan: Explaining a plan
 
-Stage 3. Section 8 of [`spec.md`](spec.md): C-01 and C-07 are confirmed, C-08 was adopted at the maintainer's suggestion; C-02 to
-C-06 are recommended and stand unless the maintainer says otherwise.
+Stage 3. Section 8 of [`spec.md`](spec.md): C-01 to C-07 are confirmed by the maintainer and C-08 was adopted at his suggestion (2026-11-22).
+Nothing is left open.
 
 ## Modules touched
 
@@ -10,7 +10,8 @@ C-06 are recommended and stand unless the maintainer says otherwise.
 | `packages/core/src/workflow/explain.ts` (new) | `PlanExplanation`, `ExplainedStep`, `ExplainedSetting`, `SettingKey`, `Origin`, `OriginMap`, `ExplainedGap`, `GapCode`, `ExplainFacts` and `explainPlan` (AC-02 to AC-08). Pure: it imports only `@indaba/core` itself and reuses `resolvePermissions`, `effectiveLevel`, `runnerChain` and the permission wording table that `agent-permissions` already has |
 | `packages/core/src/mesh/consensus.ts` | export `DEFAULT_MAX_ROUNDS` and use it in the constructor; no behaviour change (C-07) |
 | `packages/core/src/index.ts` | export the new symbols |
-| `packages/engine/src/engine/chain.ts` and the file that holds the timeout and retry resolution | export the functions the explanation must share with the run (`effectiveGuards` is already in this file); the run keeps calling them (AC-04, AC-14) |
+| `packages/core/src/workflow/resolve.ts` (new) | the pure resolvers the explanation shares with the run, moved out of `packages/engine/src/engine/chain.ts` and the file that holds the timeout and retry resolution: `effectiveGuards` first; each other function is either moved or passed in through `ExplainFacts`, one choice each, named in `api-surface.md` (AC-04, AC-14) |
+| `packages/engine/src/engine/chain.ts` and the file that holds the timeout and retry resolution | import the moved resolvers from `@indaba/core` and re-export them where the engine's index already exports them; the run calls the same function (AC-04, AC-14) |
 | `packages/engine/src/editor/origins.ts` (new) | `readOrigins(source, workflow)`: parse the document with a `LineCounter` as `parser/diagnose.ts` does, and for each setting say whether the step, its role or `defaults` wrote it, at which line and column (AC-03, AC-12) |
 | `packages/engine/src/index.ts` | export `readOrigins` |
 | `packages/cli/src/plan-explain.ts` (new) | `renderExplanationText` and `renderExplanationJson`; sanitising of file text; the fixed key order (AC-09, AC-10) |
