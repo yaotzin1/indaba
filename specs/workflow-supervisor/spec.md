@@ -240,7 +240,7 @@ failure, **phase 3** a retrospective (not in this version, AC-26).
 | Part | Package | Kind |
 | :--- | :--- | :--- |
 | `AdvisorInput`, `FailureDigest`, `SupervisorReport`, `Finding`, `Severity`, `EvidencePointer`; the pure checks `verifyEvidence`, `orderFindings`, `findingId`, `isDuplicateOfGap`; the size bounds | `@indaba/core` | pure domain |
-| `ProposedEdit` and `classifyEdit` | `@indaba/core` | shared with `workflow-assistant`; whichever of the two features is implemented first adds them and the other reuses them |
+| `ProposedEdit` and `classifyEdit` | `@indaba/core` | owned by `workflow-assistant` (its `api-surface.md` defines them); this feature only depends on them. If the supervisor is built first, a precursor chore extracts them as specified there, and this spec adds no definition of its own. *Proposed in a review on 2026-11-23, awaiting the maintainer's confirmation.* |
 | `buildRepoFacts`, `buildAdvisorInput`, `buildFailureDigest`, `parseSupervisorReply`, `applyPatchToCopy`, `renderUnifiedDiff`, the call through a `Runner` at `read` | `@indaba/engine` | infrastructure |
 | `indaba supervise`, the confirmation prompts, the text rendering, the JSON output, the acceptance | `indaba` (CLI) | composition root and rendering |
 | the profile file and its parsing | already specified by `workflow-assistant` | reused, not re-specified |

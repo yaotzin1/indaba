@@ -28,7 +28,7 @@ the report carries `schema` and `version`; a reader is told to ignore keys it do
 | `@indaba/core`, supervisor/model | interface | `SupervisorPatch { readonly edits: readonly ProposedEdit[]; readonly diff: string }` (the diff is computed by the program) |
 | `@indaba/core`, supervisor/check | functions | `verifyEvidence`, `orderFindings`, `findingId`, `isDuplicateOfGap` (pure) |
 | `@indaba/core`, supervisor/model | constants | `MAX_SUPERVISOR_INPUT_CHARS`, `MAX_TASK_CHARS`, `MAX_FINDINGS`, `MAX_MESSAGE_CHARS`, `MAX_PATCH_EDITS`, `MAX_REPO_TOP_LEVEL`, `MAX_REPAIR_CALLS` (values fixed at stage 3; not measured) |
-| `@indaba/core`, assistant | interface and function | `ProposedEdit` and `classifyEdit`, **shared with `workflow-assistant`**: whichever feature is implemented first adds them, the other reuses them; neither redefines them |
+| `@indaba/core`, assistant | interface and function | `ProposedEdit` and `classifyEdit` are **owned by `workflow-assistant`** (its `api-surface.md` is their only definition); this feature depends on them and lists them here as a dependency, not as an addition. If it is built first, a precursor chore extracts them from the assistant's contract |
 | `@indaba/engine`, supervisor | functions | `buildRepoFacts(root)`, `buildAdvisorInput(...)`, `buildFailureDigest(record, stepId)`, `parseSupervisorReply(text)`, `applyPatchToCopy(text, edits)`, `renderUnifiedDiff(before, after)`, `superviseOnce(input, runner, options)` |
 | `indaba`, supervise | functions (internal to the package) | `renderReportText`, `renderReportJson`, the confirmation prompts; not exported from the package index |
 
