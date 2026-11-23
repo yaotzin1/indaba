@@ -93,6 +93,34 @@ describe('createReadinessProbe', () => {
     expect(probe.isRunnerRegistered('shell')).toBe(true);
   });
 
+  it('looks for openclaw on the PATH, or for the program the author wrote for its agent (specs/openclaw, AC-04, AC-07)', () => {
+    const bare = createReadinessProbe(root, { PATH: bin }, registry('openclaw'), { platform: 'linux' });
+    expect(bare.isRunnerRegistered('openclaw')).toBe(false);
+    program(join(bin, 'openclaw'));
+    expect(bare.isRunnerRegistered('openclaw')).toBe(true);
+    // a native executable named by the author stands in for `openclaw`, absolute or on the PATH
+    const own = join(root, 'tools', 'openclaw-native');
+    mkdirSync(join(root, 'tools'));
+    program(own);
+    const empty = mkdtempSync(join(tmpdir(), 'indaba-ready-empty-'));
+    try {
+      const none = createReadinessProbe(root, { PATH: empty }, registry('openclaw'), { platform: 'linux' });
+      expect(none.isRunnerRegistered('openclaw')).toBe(false);
+      expect(none.isRunnerRegistered('openclaw', undefined, [own, 'acp'])).toBe(true);
+      expect(none.isRunnerRegistered('openclaw', undefined, [join(root, 'tools', 'missing'), 'acp'])).toBe(
+        false,
+      );
+      expect(none.isRunnerRegistered('openclaw', undefined, [])).toBe(false);
+    } finally {
+      rmSync(empty, { recursive: true, force: true });
+    }
+  });
+
+  it('applies INDABA_ACP_PASS_ENV to openclaw as it does to acp', () => {
+    const probe = createReadinessProbe(root, { INDABA_ACP_PASS_ENV: 'GATEWAY_EXTRA' }, registry('openclaw'));
+    expect(probe.envNamesOf('openclaw')).toEqual(['GATEWAY_EXTRA']);
+  });
+
   it('names the variables a runner reads and never lists a value', () => {
     const env = {
       INDABA_ACP_PASS_ENV: 'GEMINI_API_KEY, HOME_*',
