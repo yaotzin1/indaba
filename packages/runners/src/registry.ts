@@ -7,6 +7,7 @@ import { CodexRunner } from './codex-runner.js';
 import { CommandRunner } from './command-runner.js';
 import { CursorRunner } from './cursor-runner.js';
 import { LoggingProcessSpawner, LoggingStreamingSpawner, loggingFetch } from './logging.js';
+import { OpenClawRunner } from './openclaw-runner.js';
 import { OpenCodeRunner } from './opencode-runner.js';
 import { type FetchFunction, OpenRouterRunner } from './openrouter-runner.js';
 import { NodeProcessSpawner, type ProcessSpawner } from './process.js';
@@ -76,7 +77,7 @@ export class RunnerRegistry {
   }
 
   /**
-   * Built-in runners: shell, claude-code, codex, antigravity, cursor, opencode, openrouter and acp.
+   * Built-in runners: shell, claude-code, codex, antigravity, cursor, opencode, openrouter, acp and openclaw.
    *
    * @param env INDABA_CODEX_CMD and INDABA_ANTIGRAVITY_CMD replace the built-in command line
    *   (space separated, `{prompt}` and `{model}` mark where those go); OPENROUTER_API_KEY is the
@@ -103,6 +104,15 @@ export class RunnerRegistry {
         : loggingFetch(options.fetch ?? ((input, init) => fetch(input, init)), logger);
     const cli = spawner === undefined ? {} : { spawner };
     const registry = new RunnerRegistry();
+    const acpOptions = {
+      env: options.hostEnv ?? env,
+      ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
+      passEnv: (env.INDABA_ACP_PASS_ENV ?? '')
+        .split(',')
+        .map((name) => name.trim())
+        .filter((name) => name !== ''),
+      ...(streamingSpawner === undefined ? {} : { spawner: streamingSpawner }),
+    };
     return registry
       .register(new ShellRunner(cli))
       .register(new ClaudeRunner(cli))
@@ -116,17 +126,8 @@ export class RunnerRegistry {
           ...(fetchFn === undefined ? {} : { fetch: fetchFn }),
         }),
       )
-      .register(
-        new AcpRunner({
-          env: options.hostEnv ?? env,
-          ...(options.chooseAuthMethod === undefined ? {} : { chooseAuthMethod: options.chooseAuthMethod }),
-          passEnv: (env.INDABA_ACP_PASS_ENV ?? '')
-            .split(',')
-            .map((name) => name.trim())
-            .filter((name) => name !== ''),
-          ...(streamingSpawner === undefined ? {} : { spawner: streamingSpawner }),
-        }),
-      );
+      .register(new AcpRunner(acpOptions))
+      .register(new OpenClawRunner(acpOptions));
   }
 }
 
