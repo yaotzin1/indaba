@@ -126,6 +126,10 @@ gantt
     tui-workflows (TUI-5)  :active, 2026-11-06, 1d
     tui-editing (TUI-6)    :active, 2026-11-06, 1d
     host-process-containment :active, 2026-11-12, 1d
+    plan-explain             :active, 2026-11-22, 1d
+    workflow-supervisor      :active, 2026-11-22, 1d
+    arbiter-send-back        :active, 2026-11-22, 1d
+    landing-recheck          :active, 2026-11-22, 1d
     limit-handoff            :active, 2026-11-12, 1d
     agent-cli-runners        :active, 2026-11-19, 1d
     diff-comments            :active, 2026-11-19, 1d
@@ -322,6 +326,10 @@ Both features carry a parity table, per the epic's rule R-04.
 | `tracker-triggers` | Not started (specified; draft; builds on `workflow-inputs` and `step-budgets`, neither implemented yet) | `@indaba/core` (`TriggerSource`, `PluginHost.registerTriggerSource`), `@indaba/engine` (matcher, handled-id store), `indaba` (`listen`, `triggers`), `@indaba/server`, `@indaba/web`, `@indaba/tui` (read-only state). No dependency added |
 | `run-preview` | Not started (specified; draft; builds on `git-workspace`, `parallel-steps` and `host-process-containment`, all implemented or in progress) | `@indaba/core` (`PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost`), `@indaba/engine` (`LocalPreviewHost`), `indaba` (`preview`, `previews`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
 | `run-integration` | Not started (specified; draft; builds on `parallel-steps` (its conflict resolution) and `git-workspace`; the conflict options `resolve` and `ask` wait for `review-gate`, `ruling-channel` and `step-budgets`) | `@indaba/core` (`IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator`), `@indaba/engine` (`GitIntegrator`), `indaba` (options), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
+| `plan-explain` | Not started (specified; draft; decisions confirmed 2026-11-22; builds on `workflow-engine`, `transport-priority`, `agent-permissions`, `step-stalls`). Offline and model-free | `@indaba/core` (`explainPlan`, `PlanExplanation`, `Origin`, `DEFAULT_MAX_ROUNDS`), `@indaba/engine` (`readOrigins`; the permission, timeout and guard chains exported), `indaba` (`plan --explain`, `--json`). No dependency added |
+| `workflow-supervisor` | Not started (specified; draft; decisions confirmed 2026-11-22; builds on `plan-explain` and `workflow-assistant`, neither implemented; shares `ProposedEdit` and `classifyEdit` with the assistant, whichever is built first adds them) | `@indaba/core` (`supervisor/` model and checks), `@indaba/engine` (repo facts, failure digest, `superviseOnce`), `indaba` (`supervise`). No dependency added |
+| `arbiter-send-back` | Not started (specified; draft; builds on `debate-arbiter` (implemented), `review-gate` and `step-verdicts` (neither implemented); implemented after them) | `@indaba/core` (`Ruling.label`, `RulingOptions`), `@indaba/engine` (ledger `label`), `indaba` (terminal arbiter). No dependency added |
+| `landing-recheck` | Not started (specified; draft; builds on `parallel-steps` and, for AC-07 only, `run-integration`; overlaps AC-22a of `parallel-steps`, to be reconciled) | `@indaba/core` (`WorkflowDefinition.landCheck`), `@indaba/engine` (landing), `indaba`. No dependency added |
 | `desktop-app` | Dropped | kept for history |
 
 ## What breaks what
