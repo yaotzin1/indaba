@@ -88,7 +88,9 @@ lost, and the person running it had no way to rule on the outcome.
 - Standing precedents: a ruling is reused only for the same question on the same files, never offered
   to a different step or code. Matching on meaning is a separate spec.
 - A command to edit, expire or clear the ledger. It is a text file; delete the line.
-- Re-running a debate after a `reject`. That is `on_failure`, and unchanged.
+- Moving the run back after a `reject`. A `reject` ends the step `ESCALATED`, and an escalated outcome is never retried:
+  `on_failure: retry_step` acts only on plain failures (the engine skips the retry when the outcome is escalated). Sending a
+  rejected review back to an earlier step is the work of `specs/step-verdicts` and `specs/review-gate`, which are not built.
 
 ## 5. Behaviour on failure
 
