@@ -265,11 +265,13 @@ describe('RunnerRegistry', () => {
       'opencode',
       'openrouter',
       'acp',
+      'openclaw',
+      'acp',
     ]) {
       expect(registry.get(name).name).toBe(name);
       expect(registry.has(name)).toBe(true);
     }
-    expect(registry.names()).toHaveLength(8);
+    expect(registry.names()).toHaveLength(9);
     expect(() => registry.get('nope')).toThrow(RunnerError);
     expect(() => registry.get('nope')).toThrow('Unknown runner "nope"');
     expect(new RunnerRegistry().has('x')).toBe(false);

@@ -57,7 +57,7 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
   the proposal, accepts some of its edits, or discards it. Positions in the proposal (`index`) are positions in `edits`, in the order given. The chosen edits are applied in order to a copy and validated; a choice that does not validate (for example an edit of a step whose `addStep` was not chosen) is refused with the problems. Accepting returns the chosen edits and the page applies them to the draft as ordinary edits of `web-app-editing-core` (so they show in the forms and the graph, are validated by the
   usual call, and can be reverted the way any edit can); nothing is saved. A proposal that does not validate (AC-12) is shown with the problem and cannot be accepted.
 - [ ] AC-06. The assistant may **ask**. A question is in the form of `question-contract` (context, options, a recommendation, what happens otherwise) and is checked by the same pure `checkQuestion`; a question
-  that fails the check is not shown, and the assistant is asked once to fix it. The person answers by choosing an option or writing text. At most **5 questions per request** (a design choice, C-06; a request is one message of the person and the answers that follow it, and the counter resets at the next message); the session gives each question an id;
+  that fails the check is not shown, and the assistant is asked once to fix it; if the fix fails too, the turn is a `refusal` that names the failed check. The person answers by choosing an option or writing text. At most **5 questions per request** (a design choice, C-06; a request is one message of the person and the answers that follow it, and the counter resets at the next message); the session gives each question an id;
   after that the assistant must propose with what it has, saying what it assumed. No answer is never an approval: a request left unanswered changes nothing.
 - [ ] AC-07. The person can ask what a field or a choice means. The answer is an explanation, taken from the context pack, and **applies no edit**.
 
@@ -126,7 +126,7 @@ An **assistant profile** is the person's choice of model (AC-03). The **context 
 | the model returns text that is not the closed structure | refused with a reason; nothing applied (AC-10, AC-11) |
 | an edit names an unknown path or the wrong type | the whole proposal is rejected (AC-11) |
 | the proposal is invalid after applying it to the copy | shown as invalid with the problems; at most one repair attempt (AC-12) |
-| the model asks a question that fails `checkQuestion` | not shown; one repair attempt, then the request ends with a reason (AC-06) |
+| the model asks a question that fails `checkQuestion` | not shown; one repair attempt, then the turn is a `refusal` whose reason names the failed check (AC-06) |
 | more than 5 questions | the assistant must propose with assumptions stated (AC-06) |
 | the person does not answer | nothing changes (AC-06) |
 | an added document contains instructions | treated as data; a resulting dangerous edit is still marked and needs its own acceptance (AC-09, AC-13) |

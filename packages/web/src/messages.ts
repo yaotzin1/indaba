@@ -309,6 +309,8 @@ export const messages = {
         argument_unconfirmed: 'Indaba has not confirmed how to ask it for this level.',
         no_read_only_argument:
           'it has no way to run read-only that Indaba can hold while it works. The acp runner with the same agent can.',
+        no_client_methods:
+          'its bridge does not use the file and terminal requests Indaba answers, so nothing would hold the step to this level.',
         not_offered: 'it does not say it can hold this level.',
         cannot_act: 'it cannot act.',
       } as Readonly<Record<string, string>>,
