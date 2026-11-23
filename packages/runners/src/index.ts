@@ -19,6 +19,8 @@ export type { McpConfigFile } from './mcp.js';
 export { McpConfigWriter } from './mcp.js';
 export type { OpenAiCompatibleEnvOptions } from './openai-compatible-env.js';
 export { openAiCompatibleFromEnv } from './openai-compatible-env.js';
+export type { OpenClawRunnerOptions } from './openclaw-runner.js';
+export { OpenClawRunner } from './openclaw-runner.js';
 export type { OpenCodeRunnerOptions } from './opencode-runner.js';
 export { OpenCodeRunner } from './opencode-runner.js';
 export type {
