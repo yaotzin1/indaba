@@ -8,7 +8,7 @@ export interface ReadinessProbe {
   fileState(relativePath: string): 'file' | 'directory' | 'missing' | 'outside';
   hasExecutable(name: string): boolean;
   /** Registered and, for an agent CLI, its executable is found. */
-  isRunnerRegistered(type: string, preset?: string): boolean;
+  isRunnerRegistered(type: string, preset?: string, command?: readonly string[]): boolean;
   /** The variables this runner reads, by name. A plugin's probe may add its own (C-06). */
   envNamesOf(type: string, preset?: string): readonly string[];
   workspaceKind(): 'git' | 'plain';
@@ -131,7 +131,7 @@ export function analyzeReadiness(
   const produced = new Set<string>();
   for (const step of workflow.steps) {
     const stepId = step.id;
-    for (const [name, preset] of runnerChainOf(step, workflow)) {
+    for (const [name, preset, command] of runnerChainOf(step, workflow)) {
       add(
         yesNo(
           'runner',
@@ -141,7 +141,7 @@ export function analyzeReadiness(
             stepId,
             how: `Install ${name} so its program is on the PATH (Indaba needs a native executable, not a .cmd shim), or choose another runner for step "${stepId}".`,
           },
-          () => probe.isRunnerRegistered(name, preset),
+          () => probe.isRunnerRegistered(name, preset, command),
           { ready: `${name} is available`, missing: `${name} is not available on this machine` },
         ),
       );

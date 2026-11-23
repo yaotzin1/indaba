@@ -54,6 +54,7 @@ describe('indaba catalog', () => {
       'opencode',
       'openrouter',
       'acp',
+      'openclaw',
     ]);
     expect(catalog.runners.every((r) => r.description !== '' && r.description.length <= 200)).toBe(true);
     expect(catalog.guards.map((g) => g.name)).toEqual(['git_diff_empty', 'diff_within_scope']);
