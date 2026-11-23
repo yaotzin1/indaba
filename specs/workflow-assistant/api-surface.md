@@ -57,6 +57,7 @@ export interface AssistantProfile {
   readonly name: string;
   readonly kind: 'agent' | 'service';
   readonly runner: string;               // resolved by name in the RunnerRegistry, plugins included (AC-21)
+  readonly agent?: AgentSpec;            // for the `acp` runner: which agent to start (RunRequest.agent); other runners ignore it
   readonly model?: string;               // for a service
 }
 
@@ -102,7 +103,7 @@ export interface AssistantTurn {
 /**
  * AC-05, AC-13: choose edits of a proposal. `indexes` are positions in `proposal.edits`; `acceptedHighImpact` must be a subset of `indexes`; an index out of range or a high-impact index
  * not in `acceptedHighImpact` is refused. The chosen edits are applied in order to a clone of `draftText` and the result is validated; a subset that does not validate (for example an edit
- * of a step whose `addStep` was not chosen) is refused with the problems. On success it returns the edits for the caller to apply with the existing edit resource, and records the counts (AC-18).
+ * of a step whose `addStep` was not chosen) is refused with the problems. On success it returns the edits for the caller to apply with the existing edit resource, and returns the counts (edits proposed, accepted, high-impact accepted); it is pure and has no tracer, so the server's accept resource records them as the span of AC-18.
  */
 export function selectAccepted(
   draftText: string,
@@ -123,7 +124,8 @@ and holds no secret; it is not used, C-05.)
 profiles:
   - name: my-claude
     kind: agent
-    runner: claude-code
+    runner: acp
+    agent: claude
   - name: cheap
     kind: service
     runner: openrouter
