@@ -155,9 +155,12 @@ AC-10 are two renderings of it.
 | `readOrigins(source, workflow)`: reads the YAML document with a `LineCounter`, as `diagnose` does, and says for each setting whether the step, its role or `defaults` wrote it, and at which line | `@indaba/engine` | infrastructure; the parser is not changed |
 | the text rendering, the JSON rendering and the two options | `indaba` (the CLI) | composition root and rendering |
 
-The explanation must use the engine's own resolution (`effectiveGuards`, the permission chain, the timeout chain) and not repeat
-it: where a function that resolves a default is private today, it is exported for this purpose, as a minor, and the run keeps
-calling the same function (AC-04, AC-14). A runner a plugin registered takes part through the same contracts as a built-in one.
+The explanation must use the run's own resolution (`effectiveGuards`, the permission chain, the timeout chain) and not repeat
+it. `explainPlan` is in `@indaba/core`, which cannot import `@indaba/engine`, so exporting the engine's functions is not enough:
+the pure resolvers move **into `@indaba/core`** (`effectiveGuards` already imports only core types and constants; the timeout
+and retry resolution is moved the same way, or stays in the engine and reaches `explainPlan` as a value through `ExplainFacts`, one
+choice per function, named in `api-surface.md` before stage 6). `@indaba/engine` imports them from core, so the run and the
+explanation call one function, as a minor (AC-04, AC-14). *Proposed in a review on 2026-11-23, awaiting the maintainer's confirmation.* A runner a plugin registered takes part through the same contracts as a built-in one.
 
 ## 8. Clarifications
 
