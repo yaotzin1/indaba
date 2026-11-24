@@ -1,4 +1,4 @@
-import type { Logger, LoggingSettings, SinkSettings } from '@indaba/core';
+import type { InputDescription, Logger, LoggingSettings, SinkSettings } from '@indaba/core';
 import type { BoardFileRecord, RunRecord, RunSummary } from '@indaba/engine';
 import type { UiRunControl } from './server-loader.js';
 
@@ -63,12 +63,26 @@ export interface TuiHomeResult {
   readonly code: number;
 }
 
+/** What `run --tui` asks of the form that collects a run's missing inputs (specs/workflow-inputs, AC-17). */
+export interface TuiCollectInputsOptions {
+  readonly fields: readonly InputDescription[];
+  readonly ascii: boolean;
+  readonly color: boolean;
+  readonly stdout: NodeJS.WritableStream;
+  readonly stdin: NodeJS.ReadableStream;
+  readonly logger?: Logger;
+}
+
 export interface TuiModule {
   watch(options: TuiWatchOptions): Promise<TuiWatchResult>;
   /** The Settings screen of logging; absent in a version of @indaba/tui older than it. */
   editLoggingSettings?(options: TuiSettingsOptions): Promise<{ readonly saved: boolean }>;
   /** Home, the application of bare `indaba`; absent in a version of @indaba/tui older than it. */
   run?(options: TuiHomeOptions): Promise<TuiHomeResult>;
+  /** The form for a run's missing inputs; absent in a version of @indaba/tui older than it, and the terminal asks instead. */
+  collectInputs?(
+    options: TuiCollectInputsOptions,
+  ): Promise<{ readonly values: Readonly<Record<string, readonly string[]>> } | undefined>;
 }
 
 export type TuiLoad = { readonly tui: TuiModule } | { readonly missing: string };

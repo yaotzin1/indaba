@@ -37,7 +37,8 @@ const FIXTURES: Readonly<Record<string, string>> = {
 /** What `indaba validate` would print: the errors of `parse`, or the warnings when it parses. */
 function validateSays(parser: WorkflowParser, text: string): { errors: string[]; warnings: string[] } {
   try {
-    const workflow = parser.parse(text);
+    // validate reads a file with placeholders: a workflow that asks for inputs needs no values to be checked
+    const workflow = parser.parse(text, { placeholders: true });
     return { errors: [], warnings: new WorkflowValidator().warnings(workflow) };
   } catch (error) {
     if (error instanceof WorkflowValidationError) {

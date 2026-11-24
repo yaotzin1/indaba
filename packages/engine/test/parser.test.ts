@@ -61,7 +61,7 @@ describe('reference workflow', () => {
     const files = (await readdir(examples)).filter((f) => f.endsWith('.workflow.ai.yml'));
     expect(files.length).toBeGreaterThanOrEqual(2);
     for (const file of files) {
-      const wf = await new WorkflowParser().parseFile(`${examples}${file}`);
+      const wf = await new WorkflowParser().parseFile(`${examples}${file}`, { placeholders: true });
       expect(wf.steps.length, file).toBeGreaterThan(0);
     }
   });

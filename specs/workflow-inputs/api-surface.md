@@ -227,7 +227,9 @@ interface Io {
   ) => Promise<SuppliedInputs | undefined>;       // undefined: the person closed it
 }
 // packages/cli: terminalInputAsker(stdin: NodeJS.ReadableStream, stdout: NodeJS.WritableStream): Io['askInputs']
-// packages/tui:  collectInputs(declarations: readonly InputDescription[], missing: readonly string[]): Promise<SuppliedInputs | undefined>
+// packages/tui:  collectInputs(options: { fields: readonly FormField[] /* InputDescription fits */; ascii; color; stdout; stdin; logger? }): Promise<{ values: Record<string, readonly string[]> } | undefined>
+//                (undefined: the form was closed; `FormField`, `initialForm`, `reduceForm`, `formLines`, `formResult`, `answerHint`, `takesLines` are the pure state of the form)
+// packages/cli:  TuiModule.collectInputs? (optional: an @indaba/tui older than the form leaves the plain questions in place)
 ```
 
 ## Deviations found while implementing slice 1
@@ -244,7 +246,7 @@ Found while implementing slice 2:
 - `inputs_resolved` is a span event of the root span with flat attributes, the way `indaba.readiness` is recorded, not a new record type of the event stream: a record type would need every trace reader changed, and the span event is what `watch` and the views already read. Its attributes: `names`, `types`, `digest`, `asked` (comma-joined), and for each input `value.<name>` (a list as JSON text) or, for a `text` input, `length.<name>`.
 - `StepExecutorOptions.inputs` is added beside `WorkflowEngineOptions.inputs`: the executor builds the prompts, and the composition root hands the same resolved inputs to both. The declarations come from the `WorkflowDefinition`.
 - `PromptBuilder.build` takes the Inputs section as an optional fifth argument; the section is also placed in a debate step's topic and in the intent call. The prompt of a conflict resolution (`parallel-steps`) does not carry it: it works from the goal's label and the conflicting text.
-- `run --tui` asks in the parent before the dashboard (the plain questions of `terminalInputAsker`) until the form of T-23 exists, and the child it starts records `indaba.inputs.asked` as 0, because it was given the values as options.
+- `run --tui` asks in the parent before the dashboard, in the form of `@indaba/tui` (T-23) when the package has it and the plain questions of `terminalInputAsker` otherwise, and the child it starts records `indaba.inputs.asked` as 0, because it was given the values as options.
 - `gatherInputs`, `suppliedFromOptions`, `checkInputs`, `inputLines` and `AskInputs` live in `packages/cli/src/run-inputs.ts`, `terminalInputAsker` in `input-prompt.ts`; none is exported from the package.
 
 ## Workflow fields

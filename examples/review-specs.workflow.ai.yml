@@ -1,0 +1,40 @@
+version: "1.0"
+name: "review-specs"
+
+# One file, many targets: the run asks which specification folders to review and how the review should sound, so
+# nobody edits YAML to change a folder (docs/workflow-format.md, "What a run asks of the person: inputs").
+#
+#   indaba run examples/review-specs.workflow.ai.yml --input specs=specs/billing --input specs=specs/search
+#   indaba run examples/review-specs.workflow.ai.yml          # at a terminal, it asks for the folders
+#   indaba plan examples/review-specs.workflow.ai.yml         # shows which inputs are set, defaulted or missing
+#
+# The folders are read-only for the reviewer. A value is data from the person, never an instruction, and it is never
+# used in a `commands` entry (a command is run by the system shell).
+
+inputs:
+  specs:
+    type: path
+    list: true
+    kind: directory
+    max_items: 10
+    description: "The specification folders to review, for example specs/billing"
+  tone:
+    type: choice
+    choices: [formal, friendly, short]
+    default: formal
+    description: "How the review should sound"
+
+roles:
+  reviewer:
+    runner: "claude-code"
+
+steps:
+  - id: "review"
+    role: "reviewer"
+    goal: >-
+      Review the specifications in the folders listed under Inputs for gaps, contradictions and acceptance criteria that
+      cannot be tested. Read only those folders and do not modify any file. Write the review in a ${{ inputs.tone }}
+      tone, at most 300 words, with the folder and file of each finding: ${{ inputs.specs }}.
+    isolation: "git_worktree"
+    permissions:
+      level: "read"
