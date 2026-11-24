@@ -21,7 +21,7 @@ const structural = new WorkflowParser(undefined, new StructureOnly());
 
 function parserAccepts(text: string): boolean {
   try {
-    structural.parse(text);
+    structural.parse(text, { placeholders: true });
     return true;
   } catch (error) {
     if (error instanceof WorkflowValidationError) {

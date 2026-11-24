@@ -6,6 +6,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { type Io, main } from '../src/index.js';
 import { terminalInputAsker } from '../src/input-prompt.js';
 import type { AskInputs } from '../src/run-inputs.js';
+import type { TuiModule } from '../src/tui-loader.js';
 import { captureIo, makeGitRepo, writeWorkflow } from './support.js';
 
 /** specs/workflow-inputs, T-18 to T-22 and T-25: the command line, the questions, and what a refusal leaves behind. */
@@ -505,6 +506,83 @@ describe('run --tui (AC-17, T-22)', () => {
     const closed = await dashboard('');
     expect(closed.code).toBe(130);
     expect(closed.started).toEqual([]);
+  });
+});
+
+describe("run --tui asks in the dashboard package's form (AC-17, T-23)", () => {
+  type Collect = NonNullable<TuiModule['collectInputs']>;
+
+  async function withForm(collect: Collect, extra: string[] = [], env: Record<string, string> = {}) {
+    const { dir } = await project();
+    const file = await writeWorkflow(dir, 'w.workflow.ai.yml', WORKFLOW);
+    const captured = captureIo(dir, env);
+    const started: string[][] = [];
+    const plain = new PassThrough();
+    const io: Io = {
+      ...captured.io,
+      terminal: { stdin: plain, stdout: new PassThrough() },
+      startRun: ((args: readonly string[]) => {
+        started.push([...args]);
+        return {
+          exited: Promise.resolve(0),
+          stderr: () => '',
+          cancel: () => undefined,
+          kill: () => undefined,
+          release: () => undefined,
+        };
+      }) as never,
+      loadTui: async () => ({
+        tui: { watch: async () => ({ quit: 'close' as const, code: 0 }), collectInputs: collect },
+      }),
+    };
+    const code = await main(['run', file, '--tui', ...extra], io);
+    return { code, started, err: captured.stderr() };
+  }
+
+  it('shows the form for what is missing only, and hands the child the answers', async () => {
+    const seen: { names: string[]; ascii: boolean; color: boolean }[] = [];
+    const r = await withForm(
+      async (options) => {
+        seen.push({
+          names: options.fields.map((field) => field.name),
+          ascii: options.ascii,
+          color: options.color,
+        });
+        return { values: { specs: ['specs/billing'] } };
+      },
+      [],
+      { INDABA_ASCII: '1', NO_COLOR: '1' },
+    );
+    expect(seen).toEqual([{ names: ['specs'], ascii: true, color: false }]);
+    expect(r.started).toHaveLength(1);
+    expect((r.started[0] ?? []).join(' ')).toContain('--input specs=specs/billing');
+  });
+
+  it('does not show the form when nothing is missing', async () => {
+    let shown = 0;
+    const r = await withForm(async () => {
+      shown += 1;
+      return undefined;
+    }, ['--input', 'specs=specs/billing']);
+    expect(shown).toBe(0);
+    expect(r.started).toHaveLength(1);
+  });
+
+  it('does not start a child when the form is closed without an answer', async () => {
+    const r = await withForm(async () => undefined);
+    expect(r.code).toBe(130);
+    expect(r.started).toEqual([]);
+  });
+
+  it('asks again through the form when an answer is refused, and ends after the attempts', async () => {
+    let asked = 0;
+    const r = await withForm(async () => {
+      asked += 1;
+      return { values: { specs: ['/outside/the/project'] } };
+    });
+    expect(asked).toBeGreaterThan(1);
+    expect(r.code).toBe(2);
+    expect(r.started).toEqual([]);
   });
 });
 

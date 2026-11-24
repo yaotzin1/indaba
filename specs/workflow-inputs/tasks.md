@@ -56,7 +56,7 @@ checkable. Tests are written with each task, not after (qa skill).
 - [x] **T-21** `terminalInputAsker`: plain-words prompts, choices and defaults shown, a list read until an empty line,
   re-asks on a bad answer, returns `undefined` when closed
 - [x] **T-22** `run --tui`: the dashboard collects first, the child receives `--input`, the child never reads stdin
-- [ ] **T-23** the TUI form `collectInputs` (stacked on `specs/tui`)
+- [x] **T-23** the TUI form `collectInputs` (pure state `inputs-form.ts`, the Ink app, wired into `run --tui` through `TuiModule.collectInputs`; a value is in no log line)
 - [ ] **T-24** the channel records and functions (stacked on `specs/ruling-channel`): atomic files, an invalid answer is
   ignored and counted, a cancelled run removes its request
 
@@ -68,15 +68,15 @@ checkable. Tests are written with each task, not after (qa skill).
 - [x] **T-26** end to end through the built CLI: the example workflow with two folders, with a missing folder, with an
   outside path, with nothing supplied and no terminal (exit 2)
 - [x] **T-27** unit coverage for new behaviour, success and failure paths (85% floor on all four metrics)
-- [ ] **T-28** `pnpm smoke`: the packed install still boots with the new exports
+- [x] **T-28** `pnpm smoke`: the packed install still boots with the new exports
 
 ## Documentation
 
-- [ ] **T-29** `docs/workflow-format.md`: the Inputs section, the new interpolation form, the messages, the rule that
+- [x] **T-29** `docs/workflow-format.md`: the Inputs section, the new interpolation form, the messages, the rule that
   inputs are not allowed in `commands` and why; `docs/getting-started.md` example
-- [ ] **T-30** `examples/review-specs.workflow.ai.yml`; it passes `indaba validate` and `indaba plan` from the built CLI,
+- [x] **T-30** `examples/review-specs.workflow.ai.yml`; it passes `indaba validate` and `indaba plan` from the built CLI,
   and a test keeps it parsing
-- [ ] **T-31** README, CHANGELOG under Unreleased ("Added", and "Changed" for the `${{ inputs.` edge case),
+- [x] **T-31** README, CHANGELOG under Unreleased ("Added", and "Changed" for the `${{ inputs.` edge case),
   `specs/DEPENDENCY_MAP.md`, AGENTS.md repository map if a path changed
 
 ## Stage 7: Verification

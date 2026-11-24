@@ -51,7 +51,10 @@ const SPECS = `  specs:
 describe('a workflow without inputs is unchanged (AC-01, T-09)', () => {
   it('parses every shipped example the same with and without options', () => {
     const dir = fileURLToPath(new URL('../../../examples/', import.meta.url));
-    const files = readdirSync(dir).filter((name) => name.endsWith('.workflow.ai.yml'));
+    // review-specs is the one example that asks for inputs; its own test is below
+    const files = readdirSync(dir).filter(
+      (name) => name.endsWith('.workflow.ai.yml') && name !== 'review-specs.workflow.ai.yml',
+    );
     expect(files.length).toBeGreaterThan(3);
     for (const file of files) {
       const source = readFileSync(join(dir, file), 'utf8');
@@ -63,6 +66,20 @@ describe('a workflow without inputs is unchanged (AC-01, T-09)', () => {
         expect(step, file).not.toHaveProperty('goalInputs');
       }
     }
+  });
+});
+
+describe('the review-specs example (T-30)', () => {
+  const source = readFileSync(
+    join(fileURLToPath(new URL('../../../examples/', import.meta.url)), 'review-specs.workflow.ai.yml'),
+    'utf8',
+  );
+
+  it('parses with placeholders, as validate and plan read it, and declares its two inputs', () => {
+    const workflow = parser.parse(source, { placeholders: true });
+    expect(Object.keys(workflow.inputs ?? {})).toEqual(['specs', 'tone']);
+    expect(workflow.unusedInputs ?? []).toEqual([]);
+    expect(workflow.steps[0]?.goalInputs).toEqual(expect.arrayContaining(['specs']));
   });
 });
 

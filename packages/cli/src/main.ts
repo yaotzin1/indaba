@@ -944,6 +944,35 @@ function inputAsker(io: Io): AskInputs | undefined {
   );
 }
 
+/**
+ * `run --tui` asks in the dashboard package's form when the package has one and a person is at the terminal, before the
+ * dashboard takes the screen (AC-17). A test or front end that supplied its own questions keeps them; an older
+ * `@indaba/tui` without the form leaves the plain questions in place.
+ */
+async function dashboardInputAsker(io: Io, logger: CommandLogger): Promise<AskInputs | undefined> {
+  if (io.askInputs !== undefined || io.terminal === undefined) {
+    return undefined;
+  }
+  const { stdin, stdout } = io.terminal;
+  const loaded = await (io.loadTui ?? loadTui)();
+  if (!('tui' in loaded) || loaded.tui.collectInputs === undefined) {
+    return undefined;
+  }
+  const { collectInputs } = loaded.tui;
+  return async (declarations, missing) => {
+    const fields = declarations.filter((entry) => missing.includes(entry.name));
+    const collected = await collectInputs({
+      fields,
+      ascii: io.env.INDABA_ASCII === '1',
+      color: io.env.NO_COLOR === undefined || io.env.NO_COLOR === '',
+      stdout,
+      stdin,
+      logger,
+    });
+    return collected === undefined ? undefined : { values: { ...collected.values } };
+  };
+}
+
 /** An input that cannot be used ends the command as a usage error: nothing has been created yet (AC-15). */
 function refuseInputs(io: Io, gathered: Extract<Gathered, { ok: false }>): number {
   io.stderr.write(gathered.message);
@@ -1316,7 +1345,12 @@ async function runInDashboard(
   const forwarded = args.filter((arg) => arg !== '--tui');
   // The child has no terminal and never asks: what is missing is asked here, before the dashboard takes the screen, and
   // handed on as `--input` (specs/workflow-inputs, AC-17).
-  const gathered = await inputsForRun(parsed, io, projectDir);
+  const form = await dashboardInputAsker(io, logger);
+  const gathered = await inputsForRun(
+    parsed,
+    form === undefined ? io : { ...io, askInputs: form },
+    projectDir,
+  );
   if (typeof gathered === 'number') {
     return gathered;
   }

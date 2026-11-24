@@ -1,6 +1,6 @@
 # Specification: Workflow inputs
 
-> **Status**: Draft. Section 8 was confirmed as written by the maintainer on 2026-11-20. Slices 1 and 2 of 3 are implemented (core, the parse side and `resolveInputs`: T-01 to T-14; the prompt section, the run record and the command line: T-15 to T-22); the terminal form, the readiness items and the documentation are slice 3; the channel (T-24) waits for `specs/ruling-channel`.
+> **Status**: Draft. Section 8 was confirmed as written by the maintainer on 2026-11-20. Slices 1 and 2 of 3 are implemented (core, the parse side and `resolveInputs`: T-01 to T-14; the prompt section, the run record and the command line: T-15 to T-22); the terminal form for `run --tui` (T-23) and the example (T-30) are in; the readiness items, the Home start dialogs and the channel (T-24, waits for `specs/ruling-channel`.
 > **Stage entry**: 3
 > **Semver impact**: minor (a new optional workflow field, new optional parse and CLI arguments, new records; below 1.0).
 > One literal-text edge case is a behaviour change and is listed in section 8, C-14.
@@ -103,7 +103,7 @@ person, so the design is mostly about where a value is allowed to go and how it 
   dashboard, or a request through the ruling channel (C-06). When nothing can ask, the run does not start; it exits 2 and
   prints each missing input with a line to copy (`--input specs=<folder>`). It never guesses and never uses an empty
   value.
-- [ ] AC-17. `run --tui` collects the values in the dashboard process before it starts the child, and passes them to the
+- [x] AC-17. `run --tui` collects the values in the dashboard process before it starts the child, and passes them to the
   child as `--input` options. The child has no terminal and never asks.
 
 **Checking a value**

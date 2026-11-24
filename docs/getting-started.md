@@ -398,7 +398,7 @@ npx indaba run my.workflow.ai.yml --tui
 what to do: `d` detaches (the run carries on, and `indaba watch <run>` picks it up again), `c` cancels it (the
 run stops as it does on Ctrl+C and removes its worktree), `n` stays. Ctrl+C on the command line cancels the run
 too. If the dashboard itself fails, the run is left going and the message says how to follow it. The run's own
-output goes to the files above, so `-v` has no effect with `--tui`.
+output goes to the files above, so `-v` has no effect with `--tui`. When the workflow asks for inputs you did not give with `--input`, a form asks for them first, before the dashboard opens; `Esc` cancels the run and nothing starts.
 
 ## The web view: `indaba ui`
 

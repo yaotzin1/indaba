@@ -1,6 +1,6 @@
 # Self-review: Workflow inputs
 
-> **Status**: slices 1 and 2 of 3 reviewed (below); the seven-question self-review is written when the last slice lands
+> **Status**: slices 1 and 2 reviewed (below); slice 3 is partly built (T-23, T-28 to T-31 done by the author, not yet independently reviewed); the channel (T-24) and the readiness items are not built. The seven-question self-review is written when the last slice lands
 
 Answer all seven. See [`.agents/rules/review.md`](../../.agents/rules/review.md). Do not write
 answers for a review that has not happened: leave the status above and the sections empty until it
@@ -59,3 +59,15 @@ Noted, not changed: the 50000-character limit of AC-21 is checked when a step st
 No defect was found in: the fence and the section content (longer than any backtick run, only for a step that names the input, kept on a retry, in a debate topic and the intent call), the trace content (counts, the digest, names, types; a text as a length only), that nothing is created before the inputs resolve (run and `run --tui`), the first-`=` split, the cap, `--input-file` confinement and size, `gatherInputs` (it ends, three tries, an option's value is never asked again, the exit codes 2 and 130), or a workflow without inputs.
 
 Verification: `pnpm qa` and `pnpm e2e` on the host before the commit.
+
+## Slice 3, the part built so far: the form of `run --tui`, the example, the documents (author notes, 2026-11-24, pending independent review)
+
+Not an independent review: these are the author's notes on what to look at.
+
+- **What it is.** `@indaba/tui` gains `collectInputs` (an Ink form) over a pure state (`inputs-form.ts`); `TuiModule.collectInputs` is optional in the CLI, so an older `@indaba/tui` keeps the plain questions. `run --tui` uses it only when a person is at the terminal and nothing else supplied the questions.
+- **Values.** The form checks only "an answer was given"; the run checks every value with the functions every other way of giving one goes through, and a refused answer is asked again (tested through the form). A typed value is in no log line (a test types a marker and scans the records); the logger gets the count of inputs and whether it ended answered.
+- **Terminal text.** What a workflow file says (name, description, choices) is cut to one line with control characters removed, and 7-bit under `INDABA_ASCII=1`. A typed or pasted chunk has control characters removed; a pasted chunk that holds a line break is one chunk to Ink, so the break is dropped and the person presses Enter: noted, not fixed.
+- **Layering.** Only `ink/adapter.ts` imports `ink` and `react`; the tui layers test is green.
+- **Semver.** Minor: new exports and an optional member of an interface the CLI owns. No default changes.
+- **Not done.** T-24 and the readiness items (AC-03 of `run-readiness`) and the start dialogs of Home and the web page (`tui-run-inputs`). The docs say so.
+- **A test that had to change.** Four tests that parse every shipped example without placeholders now parse with them, as `validate` does, because `examples/review-specs.workflow.ai.yml` asks for inputs and needs no values to be checked.
