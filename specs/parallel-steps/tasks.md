@@ -56,3 +56,4 @@ a setting, removed in T-15).
   as pending in `review.md` if it has not shipped. Remove the release cap.
 - [x] T-16 (done 2026-11-12; review against the seven dimensions with the gates' output, status in the map, positioning row and docs).  `review.md` against the seven dimensions with the gates' actual output; DEPENDENCY_MAP status; positioning
   page row moves to "Works".
+- [ ] T-17 (added 2026-11-21; spec AC-22a). `@indaba/engine`: when the run worktree has moved since a step forked, re-run the step's guards in the landing worktree after a clean three-way apply before writing back to the run worktree; on guard failure, leave the run worktree untouched and enter resolution (AC-24) with the guard failure output. Tests: clean apply with a semantic / generated-type guard failure triggers resolution instead of landing a broken combined tree; unchanged run worktree skips the redundant re-run.

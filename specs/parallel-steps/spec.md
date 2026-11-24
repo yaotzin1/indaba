@@ -1,6 +1,6 @@
 # Specification: Parallel steps (independent steps of a run work at the same time, and talk before they collide)
 
-> **Status**: Slices 1 to 4 implemented except the review before landing (AC-21, waits for `step-verdicts`); the release cap is removed, so a limit above 1 runs steps at the same time. T-16 (final review, docs) remains. See `tasks.md`.
+> **Status**: Slices 1 to 4 implemented except the review before landing (AC-21, waits for `step-verdicts`) and the combined-tip guard check before landing (AC-22a, added 2026-11-21); the release cap is removed, so a limit above 1 runs steps at the same time. See `tasks.md`.
 > **Stage entry**: stages 1 to 5 done (plan, tasks and analysis written); next is stage 6. The maintainer confirmed C-01
 > to C-11 on 2026-10-27 and asked for the coordination, the review before landing and the conflict conversation.
 > **Semver impact**: minor (optional workflow fields, a new engine option, a new section of `indaba.config`, a new CLI
@@ -83,8 +83,8 @@ This is the order every step goes through. Sections 4 to 6 give the acceptance c
 | 7 | **Fork and work** | The step gets a worktree forked from the run worktree, with the agreed contract and the board digest in its prompt, and does its work. | the step's agent |
 | 8 | **Guards** | Its guards run in its own worktree, as today. | engine |
 | 9 | **Review** | If the step has a review (`step-verdicts`, `review-gate`), it runs on the step's own changes, before anything is combined. | reviewers |
-| 10 | **Land** | Its changes are applied to the run worktree with a three-way apply, one landing at a time, in the order steps finish. | engine |
-| 11 | **Resolve** | If the landing conflicts, the step's agent proposes a resolution in a fresh fork, the agent of the step whose change it met examines it, and they agree or go to the arbiter. | the two agents, then the arbiter |
+| 10 | **Land** | Its changes are applied to a landing worktree forked from the run worktree with a three-way apply, one landing at a time, in the order steps finish. If another step landed since this step forked, its guards run again on the combined landing worktree before the run worktree changes (AC-22a). | engine |
+| 11 | **Resolve** | If the landing conflicts, or its guards fail on the combined tree, the step's agent proposes a resolution in the landing worktree, the agent of the step whose change it met examines it, and they agree or go to the arbiter. | the two agents, then the arbiter |
 | 12 | **Done** | The step is `COMPLETED`; its worktree is removed. | engine |
 
 Steps that do not meet anyone skip 5, 6 and 11. With the limit at 1, stages 3 to 6 and 11 never happen and the run is
@@ -192,15 +192,15 @@ exactly today's.
   runs. What is deterministic is every decision the engine takes once that order is given: a test that controls
   completion order with fake runners always gets the same landing order. The order a run actually had is recorded on
   each landing span (`indaba.land.sequence`), not assumed. The `patch` artifact is written after each landing.
-- [ ] AC-23. A landing that conflicts changes nothing in the run worktree.
-- [ ] AC-24. A conflicting landing starts a *resolution* (stage 11) instead of failing the step:
-  1. The engine forks a fresh worktree from the run worktree.
-  2. The step's agent is called there with its own diff, the conflicting files and hunks, and the intent, contract and
-     notes of the step whose landed change it met. It makes the combined change.
+- [ ] AC-22a. **Combined-tip verification before landing.** When the run worktree has changed since the step forked (another step landed meanwhile), a clean three-way apply in the landing worktree is not written to the run worktree until the step's guards pass again in that landing worktree. This catches semantic and generated-type clashes that produce no git conflict. When the run worktree has not changed since the fork, the step's guards do not re-run. If the run worktree advances before the landing commits (for example under an optimistic, lock-free compare-and-swap), nothing is written and the landing replays from the new tip up to a bounded retry limit rather than overwriting.
+- [ ] AC-23. A landing that conflicts, or whose combined-tip guard check (AC-22a) fails, changes nothing in the run worktree.
+- [ ] AC-24. A conflicting landing, or a clean landing whose combined-tip guard check (AC-22a) fails, starts a *resolution* (stage 11) instead of failing the step:
+  1. The engine keeps (or forks) the landing worktree holding the combined state from the run worktree.
+  2. The step's agent is called there with its own diff, the conflicting files and hunks (or the failing guard output from AC-22a), and the intent, contract and notes of the step whose landed change it met. It makes the combined change.
   3. The guards run on it.
   4. The agent of the step it met examines it in a debate of the two roles, with the same round limit. With consensus,
      it lands. Without, it goes to the arbiter as in AC-16. An accept lands it; a reject fails the step.
-  If the step it met is a shell step (no agent), there is no debate: passing the guards is enough.
+  If the step it met is a shell step (no agent), or no single met step can be identified from overlapping paths, there is no debate: passing the guards is enough.
 - [ ] AC-25. One resolution is tried per landing. A resolution that fails its guards, conflicts again, or is rejected
   fails the step with feedback naming the conflicting files, and the step's `on_failure` applies; a retry forks from the
   combined state. A resolution does not count against `max_retries`.
@@ -271,6 +271,7 @@ outputs are missing, a guard fails (tests red, a change outside its scope), its 
 | a guard fails | as above; the step does not land; its worktree is removed |
 | the review sends it back | it runs again in its own worktree (AC-21) |
 | a landing conflicts | AC-24, then AC-25 |
+| a clean landing fails guards on the combined tree (semantic or generated-type clash, AC-22a) | run worktree is untouched; enters resolution (AC-24, then AC-25) with the guard failure output |
 | a worktree cannot be created | the step fails with the reason |
 | a worktree cannot be removed | the run continues; it ends `FAILED` with "The workspace could not be removed." after everything settles, as today |
 | the run is cancelled | AC-29 |
