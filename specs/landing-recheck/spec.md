@@ -100,6 +100,7 @@ Recommended defaults, for the maintainer to confirm:
   for v1; `on_failure` and an arbiter already end in a person when the agents cannot agree.
 - **C-04.** Open: is `moved` a new end state or a flavour of `conflicted`? Recommended new, so a report can tell "the code
   conflicts" from "the target kept moving".
+- **C-05.** Open: overlap with `parallel-steps` AC-22a (PR #159), which re-runs the *step's own* guards on the combined tree when the run worktree moved, with no opt-in. `land_check` runs *author-named* checks on every landing. Recommended: keep AC-22a as the default mechanism and make `land_check` add checks to it (same scratch fork, same resolution route, one recheck, not two), and have AC-02 and AC-05 here refer to AC-22a instead of restating the apply. Reconciled by the maintainer before either is implemented.
 
 ## Artifacts not written
 
