@@ -113,6 +113,7 @@ gantt
     parallel-steps (slices 1 to 4 on main) :active, 2026-10-27, 2026-11-07
     workflow-inputs (slices 1 and 2 of 3) :active, 2026-10-11, 2026-10-16
     run-readiness (all but AC-03) :active, 2026-11-20, 1d
+    plan-explain (core and engine, PR 1 of 2) :active, 2026-11-22, 2026-11-26
     section Specified, not started
     acp-agent-install      :active, 2026-10-05, 2026-10-16
     debate-findings        :active, 2026-10-10, 2026-10-16
@@ -135,7 +136,6 @@ gantt
     run-assist (RA-1, RA-2) :active, 2026-11-18, 1d
     run-handover (RA-2)    :active, 2026-11-20, 1d
     runner-env-passthrough :active, 2026-11-13, 1d
-    plan-explain             :active, 2026-11-22, 1d
     workflow-supervisor      :active, 2026-11-22, 1d
     arbiter-send-back        :active, 2026-11-22, 1d
     landing-recheck          :active, 2026-11-22, 1d
@@ -338,8 +338,8 @@ Both features carry a parity table, per the epic's rule R-04.
 | `tracker-triggers` | Not started (specified; draft; builds on `workflow-inputs` (slices 1 and 2 implemented) and `step-budgets` (not implemented)) | `@indaba/core` (`TriggerSource`, `PluginHost.registerTriggerSource`), `@indaba/engine` (matcher, handled-id store), `indaba` (`listen`, `triggers`), `@indaba/server`, `@indaba/web`, `@indaba/tui` (read-only state). No dependency added |
 | `run-preview` | Not started (specified; draft; builds on `git-workspace`, `parallel-steps` and `host-process-containment`, all implemented or in progress) | `@indaba/core` (`PreviewSpec`, `PreviewHost`, `PluginHost.registerPreviewHost`), `@indaba/engine` (`LocalPreviewHost`), `indaba` (`preview`, `previews`), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
 | `run-integration` | Not started (specified; draft; builds on `parallel-steps` (its conflict resolution) and `git-workspace`; the conflict options `resolve` and `ask` wait for `review-gate`, `ruling-channel` and `step-budgets`) | `@indaba/core` (`IntegrationSpec`, `RunIntegrator`, `PluginHost.registerIntegrator`), `@indaba/engine` (`GitIntegrator`), `indaba` (options), `@indaba/tui`, `@indaba/server`, `@indaba/web`. No dependency added |
-| `plan-explain` | Not started (specified; draft; decisions confirmed 2026-11-22; builds on `workflow-engine`, `transport-priority`, `agent-permissions`, `step-stalls`). Offline and model-free | `@indaba/core` (`explainPlan`, `PlanExplanation`, `Origin`, `DEFAULT_MAX_ROUNDS`), `@indaba/engine` (`readOrigins`; the permission, timeout and guard chains exported), `indaba` (`plan --explain`, `--json`). No dependency added |
-| `workflow-supervisor` | Not started (specified; draft; decisions confirmed 2026-11-22; builds on `plan-explain` and `workflow-assistant`, neither implemented; shares `ProposedEdit` and `classifyEdit` with the assistant, whichever is built first adds them) | `@indaba/core` (`supervisor/` model and checks), `@indaba/engine` (repo facts, failure digest, `superviseOnce`), `indaba` (`supervise`). No dependency added |
+| `plan-explain` | In progress (specified; decisions confirmed 2026-11-22; builds on `workflow-engine`, `transport-priority`, `agent-permissions`, `step-stalls`). Offline and model-free. Implemented so far on `feat/plan-explain-core` (#171, T-01 to T-09): the pure explanation, the shared resolvers and `readOrigins`; `plan` does not use them yet. Not done: `plan --explain` and `--json`, the renderings and the documents (T-10 to T-17) | `@indaba/core` (`explainPlan`, `PlanExplanation`, `Origin`, `DEFAULT_MAX_ROUNDS`; `effectiveGuards`, `planForStep`, `planForRole` moved here from the engine, with the new `stepTimeoutSeconds`), `@indaba/engine` (`readOrigins`; imports and still re-exports the moved resolvers), `indaba` (`plan --explain`, `--json`; not done). No dependency added |
+| `workflow-supervisor` | Not started (specified; draft; decisions confirmed 2026-11-22; builds on `plan-explain` (its `--json` contract is the supervisor's input; the CLI half is not implemented) and `workflow-assistant` (not implemented); shares `ProposedEdit` and `classifyEdit` with the assistant, whichever is built first adds them) | `@indaba/core` (`supervisor/` model and checks), `@indaba/engine` (repo facts, failure digest, `superviseOnce`), `indaba` (`supervise`). No dependency added |
 | `arbiter-send-back` | Not started (specified; draft; builds on `debate-arbiter` (implemented), `review-gate` and `step-verdicts` (neither implemented); implemented after them) | `@indaba/core` (`Ruling.label`, `RulingOptions`), `@indaba/engine` (ledger `label`), `indaba` (terminal arbiter). No dependency added |
 | `landing-recheck` | Not started (specified; draft; builds on `parallel-steps` and, for AC-07 only, `run-integration`; overlaps AC-22a of `parallel-steps`, to be reconciled) | `@indaba/core` (`WorkflowDefinition.landCheck`), `@indaba/engine` (landing), `indaba`. No dependency added |
 | `desktop-app` | Dropped | kept for history |
@@ -359,6 +359,10 @@ Both features carry a parity table, per the epic's rule R-04.
 - Changing what goes into the decision ledger's key changes which rulings are reused: a major.
 - Changing a workflow model type or the schema breaks the parser, the engine and every workflow file
   in the wild: a major.
+- Changing `effectiveGuards`, `planForStep`, `planForRole` or `stepTimeoutSeconds` in `@indaba/core` changes what a run does **and**
+  what `plan --explain` says, on purpose: both call the one function, and `packages/engine/test/explain-parity.test.ts` fails when
+  an example workflow's explanation and what `StepExecutor` resolves disagree. A second copy of a default is the drift that
+  test exists to stop.
 - Renaming a span attribute or an event breaks consumers' dashboards and listeners: a major.
 - Adding a member to a string-literal union (a step status, a failure action) breaks consumers who
   switch over it exhaustively. It is a major in practice; below 1.0 it takes the next minor and the changelog says so
