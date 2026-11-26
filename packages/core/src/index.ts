@@ -113,7 +113,13 @@ export {
 export type { Digest, DigestSelection, ParsedPost, ParsedPosts } from './mesh/board-digest.js';
 export { buildDigest, DIGEST_PREAMBLE, parseBoardLines } from './mesh/board-digest.js';
 export type { ConsensusArbiterOptions, Participant } from './mesh/consensus.js';
-export { ConsensusArbiter, ConsensusOutcome, ConsensusResult, PingPongDetector } from './mesh/consensus.js';
+export {
+  ConsensusArbiter,
+  ConsensusOutcome,
+  ConsensusResult,
+  DEFAULT_MAX_ROUNDS,
+  PingPongDetector,
+} from './mesh/consensus.js';
 export type { Contract, Intent, NegotiationDecider } from './mesh/intent.js';
 export {
   contractSection,
@@ -237,6 +243,24 @@ export type { AttentionItem, AttentionKind, AttentionState } from './workflow/at
 export { describeAttention, plainText } from './workflow/attention.js';
 export { DagBuilder } from './workflow/dag-builder.js';
 export type {
+  ExplainedGap,
+  ExplainedGuard,
+  ExplainedKind,
+  ExplainedSetting,
+  ExplainedStep,
+  ExplainFact,
+  ExplainFacts,
+  GapCode,
+  Origin,
+  OriginKind,
+  OriginMap,
+  OriginPosition,
+  PlanExplanation,
+  SettingKey,
+  SettingValue,
+} from './workflow/explain.js';
+export { defaultLevelSentence, explainPlan, fullAccessSentence, SETTING_ORDER } from './workflow/explain.js';
+export type {
   BooleanInput,
   ChoiceInput,
   InputCheck,
@@ -301,6 +325,8 @@ export {
 } from './workflow/model.js';
 export type { ReadinessProbe, ReadinessReport } from './workflow/readiness.js';
 export { analyzeReadiness, attentionId } from './workflow/readiness.js';
+export type { RunnerPlan } from './workflow/resolve.js';
+export { effectiveGuards, planForRole, planForStep, stepTimeoutSeconds } from './workflow/resolve.js';
 export type { Admission, AdmitInput } from './workflow/schedule.js';
 export { admit, meets, mustWait, parallelGroups, runsInProject } from './workflow/schedule.js';
 export {

@@ -74,6 +74,7 @@ export {
   WorkflowDocument,
   WorkflowDocumentError,
 } from './editor/document.js';
+export { readOrigins } from './editor/origins.js';
 export { workflowJsonSchema } from './editor/schema.js';
 export type { RunnerPlan } from './engine/chain.js';
 export { effectiveGuards, planForRole, planForStep } from './engine/chain.js';

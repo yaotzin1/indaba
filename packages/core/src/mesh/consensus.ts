@@ -60,6 +60,9 @@ export class PingPongDetector {
   }
 }
 
+/** The rounds a debate is given when no `maxRounds` is passed. The explanation of a plan reads this same constant. */
+export const DEFAULT_MAX_ROUNDS = 4;
+
 export interface ConsensusArbiterOptions {
   readonly maxRounds?: number;
   readonly pingPong?: PingPongDetector;
@@ -75,7 +78,7 @@ export class ConsensusArbiter {
   private readonly pingPong: PingPongDetector;
 
   constructor(options: ConsensusArbiterOptions = {}) {
-    this.maxRounds = options.maxRounds ?? 4;
+    this.maxRounds = options.maxRounds ?? DEFAULT_MAX_ROUNDS;
     this.pingPong = options.pingPong ?? new PingPongDetector();
   }
 
