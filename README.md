@@ -47,6 +47,11 @@ npx indaba@next run workflow.ai.yml
   missing (names only, never values), which files a workflow declares under `requires`, and what needs your
   confirmation (`indaba run --confirm <id>`). It informs and never blocks a run
   ([docs/workflow-format.md](docs/workflow-format.md#what-a-run-needs-requires)).
+- **See what a short file means.** `indaba plan --explain` prints, under each step, the value in force of each setting that
+  decides what it may do and when it stops, where each came from (the file and its line, the role, `defaults`, or
+  Indaba), and what the step does not have (no level, no write scope, no check on its result); `--json` prints the same
+  as a stable structure. Offline, no model, and it never changes the exit code
+  ([docs/workflow-format.md](docs/workflow-format.md#what-a-short-file-means-indaba-plan---explain)).
 - **Ask before it runs.** A workflow can declare `inputs` (a folder, a topic, a choice, a number, a yes/no, or a list of them),
   and `indaba run --input specs=specs/billing` or a plain-words question at the terminal supplies them. A folder that
   does not exist or lies outside the project is refused before anything starts, and a typed value never reaches a shell

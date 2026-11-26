@@ -603,6 +603,37 @@ requires:
 
 **The report informs and never blocks.** A missing item does not change the exit code and `indaba run` starts exactly as before. A check that could not be made is shown as "could not be checked", never as ready. The run's trace records the id and state of each item (the span attribute `indaba.readiness.items`), never a value.
 
+### What a short file means: `indaba plan --explain`
+
+A workflow can be six lines long, and everything it does not say is a default that lives in the engine, the runner or `defaults`. `indaba plan --explain` prints, under each step of the plan, the **value in force** of each setting that decides what the step may do and when it stops, and **where each value comes from**:
+
+```text
+1. write [writer]
+   runner: claude-code  <- role writer, line 4
+   isolation: none  <- fallback, engine
+   timeout_seconds: 900s  <- fallback, engine
+   ! no_permission_level: No level is written, so the built-in default of the claude-code runner applies (edits are accepted without asking), not a level you chose.
+   ! no_write_scope: Nothing says which files this step may change: it works in the project folder and has no write scope and no guard on what it changed.
+   i failure_stops_run: No on_failure is written, so a failure of this step stops the run.
+```
+
+The settings, in this order, each shown only when the kind of step has it: `runner` (the chain, in order), `permissions.level`, `permissions.fs.write`, `permissions.terminal`, `isolation`, `timeout_seconds`, `stall`, `on_failure`, `guards` (the step's own and the scope guard a `permissions` block adds), `mcp_policy`, and for a debate `decision_type`, `arbiter` and `rounds`. A shell step has no permissions or stall; a value Indaba cannot state is shown as `unknown` with the reason, never guessed.
+
+| Origin | Meaning |
+| :--- | :--- |
+| `file` | The step wrote it, with its line when the file is known |
+| `role` | The step's role wrote it (the role's name and line) |
+| `workflow_defaults` | The `defaults` block wrote it |
+| `fallback` | Nothing in the file wrote it; the word after it says who chose: `engine`, `runner:<name>`, `flag:<option>`, `env:<NAME>`, `config:<key>` |
+
+Permissions are taken whole from the first of the step, its role and `defaults` that has a block, never merged, so a permissions value has the origin of that one block. `plan` has no `--timeout`, so a call's limit is the engine's default (`fallback, engine`).
+
+**Gaps are facts, not findings.** They never change the exit code of `plan`. Each has a stable code: `no_permission_level` (the runner's built-in default applies), `no_write_scope` (nothing says which files an agent working in the project folder may change), `no_check_on_result` (no guard: it counts as done when its runner finishes without an error; the shell steps that run after it are listed because they *may* check it, and Indaba does not judge whether they do), `failure_stops_run` (information: no `on_failure`) and `full_access`. A step that can be run again says how many times, for each mechanism (`on_failure` and `stall` are separate counters), and that each retry is isolated and carries only the last failure.
+
+`indaba plan --json` prints the same facts as JSON and **nothing else on stdout**; it implies `--explain`. Problems go to stderr, and for an invalid file stdout stays empty. The document has `schema: "indaba.plan-explain"`, `version: 1`, the workflow's `name` and the `steps`, each with `id`, `kind`, `settings` (`key`, `value`, `origin`) and `gaps` (`code`, `text`, `mitigatedBy`). Keys are in a fixed order and there is no timestamp, no absolute path and no value of the environment, so the same file on the same machine gives the same bytes.
+
+**The contract's stability rule.** A reader ignores keys it does not know and `origin.kind` values it does not know. A new optional key or a new setting is a minor change; renaming or removing a key, or changing what a value means, is a major. `plan` without the two options prints exactly what it printed before. `run` prints no explanation. The explanation never contains a goal, a command, an input value or a secret; it is computed from the file and this machine, with no model and no network, and it calls the same functions the engine uses in a run, so it cannot say something a run does not do.
+
 ### Steps at the same time: `max_parallel`
 
 The limit of steps that may run at once is decided, strongest first, by `indaba run --parallel <n>`, the variable `INDABA_PARALLEL`, `parallel.max_steps` in `indaba.config`, and then the default, 1. Each is a whole number of at least 1: a bad flag is a usage error, a bad variable is ignored with a warning, a bad value in the file is a configuration error that names the key. A workflow can lower the limit of its own run with `max_parallel` and `max_waits`, never raise it. `indaba.config` also sets `parallel.max_waits` (default 3).

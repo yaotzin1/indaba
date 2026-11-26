@@ -8,11 +8,15 @@ import { parseArgs } from 'node:util';
 import {
   type Adjudicator,
   DagBuilder,
+  DEFAULT_MAX_ROUNDS,
+  DEFAULT_TIMEOUT_SECONDS,
+  explainPlan,
   INPUT_LIMITS,
   IndabaError,
   isConsensusStep,
   isShellStep,
   type Logger,
+  type PlanExplanation,
   type Plugin,
   SpanEnded,
   StepStatusChanged,
@@ -40,6 +44,7 @@ import {
   type ReadinessReport,
   type RunBound,
   readInputDeclarations,
+  readOrigins,
   readProjectConfig,
   type WorkflowParser,
   WorkflowStatus,
@@ -74,7 +79,8 @@ import {
 } from './log.js';
 import type { BrowserOpener } from './open-browser.js';
 import { parallelNotice, parseParallelFlag, planGroupLines, resolveLimit } from './parallel.js';
-import { describePermissionFinding } from './permission-report.js';
+import { describePermissionFinding, runnerDefaultWords } from './permission-report.js';
+import { explanationLines, oneLine, renderExplanationJson } from './plan-explain.js';
 import { loadPlugin } from './plugin-loader.js';
 import { createPrintableFilter } from './printable.js';
 import { readinessLines } from './readiness-report.js';
@@ -198,9 +204,16 @@ rules across fields (a role must exist, no cycle, a runner must be registered) a
 Validate a workflow file and print every problem found. A workflow that asks for inputs needs no values to be
 checked; values given with --input are checked as indaba run would check them.
 `,
-  plan: `Usage: indaba plan [file] [--input <name>=<value>]... [--plugin <specifier>]...
+  plan: `Usage: indaba plan [file] [--explain] [--json] [--input <name>=<value>]... [--plugin <specifier>]...
 
 Show the execution order of a workflow without running it, and which inputs it asks for and which are still missing.
+
+Options:
+      --explain           Under each step, show the value of each setting that decides what it may do and when it stops,
+                          where each value comes from (the file and its line, the role, the defaults block, or Indaba),
+                          and what the step does not have. A gap is a fact: it never changes the exit code.
+      --json              Print that explanation as JSON and nothing else on stdout (schema "indaba.plan-explain",
+                          version 1); implies --explain. Problems go to stderr.
 `,
   run: `Usage: indaba run [file] [options]
 
@@ -247,6 +260,9 @@ const RUN_ONLY_OPTIONS = [
   'confirm',
   'input-file',
 ] as const;
+
+/** The options only `plan` has: another command refuses them as it refuses an option it does not know. */
+const PLAN_ONLY_OPTIONS = ['explain', 'json'] as const;
 
 function processIo(): Io {
   return { stdout: process.stdout, stderr: process.stderr, env: process.env, cwd: process.cwd() };
@@ -354,6 +370,9 @@ interface Parsed {
   /** `--input <name>=<value>` and `--input-file <name>=<path>` (specs/workflow-inputs, AC-12 and AC-13). */
   readonly input: readonly string[];
   readonly inputFile: readonly string[];
+  /** `plan --explain` and `plan --json` (specs/plan-explain, AC-01): `--json` implies `--explain`. */
+  readonly explain: boolean;
+  readonly json: boolean;
   readonly help: boolean;
 }
 
@@ -379,6 +398,12 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
 
   if (command !== 'run') {
     const stray = RUN_ONLY_OPTIONS.find((name) => values[name] !== undefined);
+    if (stray !== undefined) {
+      throw new UsageError(`Unknown option '--${stray}' for "${command}".`);
+    }
+  }
+  if (command !== 'plan') {
+    const stray = PLAN_ONLY_OPTIONS.find((name) => values[name] !== undefined);
     if (stray !== undefined) {
       throw new UsageError(`Unknown option '--${stray}' for "${command}".`);
     }
@@ -418,6 +443,8 @@ function parseCommand(command: string, rawArgs: readonly string[]): Parsed {
     confirm: values.confirm ?? [],
     input: values.input ?? [],
     inputFile: values['input-file'] ?? [],
+    explain: values.explain === true || values.json === true,
+    json: values.json === true,
     help: values.help === true,
   };
 }
@@ -442,6 +469,8 @@ function parseWith(args: readonly string[]) {
       confirm: { type: 'string', multiple: true },
       input: { type: 'string', multiple: true },
       'input-file': { type: 'string', multiple: true },
+      explain: { type: 'boolean' },
+      json: { type: 'boolean' },
     },
   });
 }
@@ -686,7 +715,9 @@ export async function main(argv: readonly string[], io: Io = processIo()): Promi
         : await run(parsed, root, io, logger);
     } catch (error) {
       const message = redact(error instanceof Error ? error.message : String(error), io.env);
-      (error instanceof IndabaError ? io.stdout : io.stderr).write(`${message}\n`);
+      // `plan --json` keeps stdout for the JSON alone: its problems go to stderr (specs/plan-explain, AC-13).
+      const toStdout = error instanceof IndabaError && !(command === 'plan' && parsed.json);
+      (toStdout ? io.stdout : io.stderr).write(`${message}\n`);
       return EXIT_FAILURE;
     }
   });
@@ -1130,10 +1161,20 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   }
   const workflow = await loadWorkflow(parser, parsed, io, checked.options);
   const order = new DagBuilder().build(workflow);
+  // `--json` keeps stdout for the JSON alone: the rest of the plan is not printed and what fails goes to stderr.
+  const text = (line: string): void => {
+    if (!parsed.json) {
+      io.stdout.write(line);
+    }
+  };
+  const problem = (line: string): void => {
+    (parsed.json ? io.stderr : io.stdout).write(line);
+  };
+  const explanation = parsed.explain ? await explanationOf(workflow, parsed, io) : undefined;
 
   order.forEach((step, n) => {
     const who = isShellStep(step)
-      ? `shell: ${step.commands.join(' && ')}`
+      ? `shell: ${oneLine(step.commands.join(' && '))}`
       : (step.role ?? step.runner ?? '?');
     const extra: string[] = [];
     if (step.dependsOn.length > 0) {
@@ -1159,21 +1200,27 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     }
     for (const guard of effectiveGuards(step)) {
       if (guard.type === 'diff_within_scope') {
-        extra.push(`may only change ${guard.paths.length === 0 ? 'nothing' : guard.paths.join(', ')}`);
+        extra.push(
+          `may only change ${guard.paths.length === 0 ? 'nothing' : oneLine(guard.paths.join(', '))}`,
+        );
       }
     }
-    io.stdout.write(`${n + 1}. ${step.id} [${who}]${extra.length === 0 ? '' : ` (${extra.join('; ')})`}\n`);
+    text(`${n + 1}. ${step.id} [${who}]${extra.length === 0 ? '' : ` (${extra.join('; ')})`}\n`);
     const board = describeBoard(step);
     if (board !== undefined) {
-      io.stdout.write(`   ${board}\n`);
+      text(`   ${board}\n`);
+    }
+    const explained = explanation?.steps.find((candidate) => candidate.id === step.id);
+    for (const line of explained === undefined ? [] : explanationLines(explained)) {
+      text(`${line}\n`);
     }
   });
 
   for (const line of inputLines(declarations ?? {}, checked.supplied)) {
-    io.stdout.write(`${line}\n`);
+    text(`${line}\n`);
   }
   for (const name of workflow.unusedInputs ?? []) {
-    io.stdout.write(`warning: the input "${name}" is declared but no step uses it.\n`);
+    text(`warning: the input "${name}" is declared but no step uses it.\n`);
   }
   // The groups for the limit that would run: variable, file, then the workflow, (specs/parallel-steps, AC-32).
   const configured = await readProjectConfig(io.cwd);
@@ -1186,32 +1233,56 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
     workflow.maxParallel === undefined ? asked.limit : Math.min(asked.limit, workflow.maxParallel);
   const notice = parallelNotice(wanted);
   if (notice !== undefined) {
-    io.stdout.write(`${notice}\n`);
+    text(`${notice}\n`);
   }
   for (const line of planGroupLines(order, wanted)) {
-    io.stdout.write(`${line}\n`);
+    text(`${line}\n`);
   }
 
   let failed = false;
   for (const finding of checkPermissions(workflow, runners)) {
     failed ||= finding.severity === 'error';
-    io.stdout.write(
+    (finding.severity === 'error' ? problem : text)(
       `${finding.severity === 'error' ? 'permissions error: ' : 'permissions: '}${describePermissionFinding(finding)}\n`,
     );
   }
   for (const finding of checkStalls(workflow, runners)) {
     failed = true;
-    io.stdout.write(`stall error: ${describeStallFinding(finding)}\n`);
+    problem(`stall error: ${describeStallFinding(finding)}\n`);
   }
   for (const issue of planner.preflight(workflow)) {
     failed ||= issue.isError;
-    io.stdout.write(`${issue.isError ? 'MCP error: ' : 'MCP warning: '}${issue.describe()}\n`);
+    (issue.isError ? problem : text)(
+      `${issue.isError ? 'MCP error: ' : 'MCP warning: '}${issue.describe()}\n`,
+    );
   }
   // The readiness report closes the plan; it never changes the exit code (specs/run-readiness, AC-14).
   for (const line of readinessOf(workflow, io, io.cwd, runners, new Set())) {
-    io.stdout.write(`${line}\n`);
+    text(`${line}\n`);
+  }
+  if (parsed.json && explanation !== undefined) {
+    io.stdout.write(renderExplanationJson(workflow.name, explanation));
   }
   return failed ? EXIT_FAILURE : EXIT_OK;
+}
+
+/**
+ * The explanation of a plan (specs/plan-explain): the pure function of `@indaba/core` over the parsed workflow, the lines
+ * of the file read again for origins, and the facts only the composition root knows. `plan` has no `--timeout`, so the
+ * limit of a call is the engine's default; the rounds of a debate are those of the default arbiter.
+ */
+async function explanationOf(workflow: WorkflowDefinition, parsed: Parsed, io: Io): Promise<PlanExplanation> {
+  let source: string | undefined;
+  try {
+    source = await readFile(resolve(io.cwd, parsed.file), 'utf8');
+  } catch {
+    source = undefined;
+  }
+  return explainPlan(workflow, source === undefined ? new Map() : readOrigins(source, workflow), {
+    timeoutSeconds: { value: DEFAULT_TIMEOUT_SECONDS, by: 'engine' },
+    debateRounds: { value: DEFAULT_MAX_ROUNDS, by: 'engine' },
+    runnerDefault: runnerDefaultWords,
+  });
 }
 
 /**

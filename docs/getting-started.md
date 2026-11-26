@@ -79,6 +79,7 @@ Windows, macOS and Linux.
 ```bash
 npx indaba validate workflow.ai.yml   # check the file; lists every problem at once
 npx indaba plan workflow.ai.yml       # show the order steps will run in, and MCP findings
+npx indaba plan workflow.ai.yml --explain   # and, per step, what each default means and where it comes from
 npx indaba run workflow.ai.yml        # execute it
 ```
 

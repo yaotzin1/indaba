@@ -25,20 +25,20 @@ PR 2
 
 ## Console
 
-- [ ] **T-10** `indaba`: export the runner-default wording and the note words from `permission-report.ts`; the existing permission report still prints the same text (AC-05).
-- [ ] **T-11** `indaba`: `renderExplanationText` (one block per step, origin at the end of a line, a mark and a sentence per gap, sanitised, `NO_COLOR` and `INDABA_ASCII` honoured, no meaning by colour alone) (AC-09).
-- [ ] **T-12** `indaba`: `renderExplanationJson` (`schema`, `version`, fixed key order, no timestamp, no absolute path, no environment value) (AC-10).
-- [ ] **T-13** `indaba`: `plan --explain` and `plan --json` in `main.ts` and the usage text; `--json` implies `--explain`; the facts from the flag, the variable and `indaba.config`; exit code as `plan` (AC-01, AC-13).
+- [x] **T-10** `indaba`: export the runner-default wording and the note words from `permission-report.ts`; the existing permission report still prints the same text (AC-05).
+- [x] **T-11** `indaba`: `renderExplanationText` (one block per step, origin at the end of a line, a mark and a sentence per gap, sanitised, `NO_COLOR` and `INDABA_ASCII` honoured, no meaning by colour alone) (AC-09).
+- [x] **T-12** `indaba`: `renderExplanationJson` (`schema`, `version`, fixed key order, no timestamp, no absolute path, no environment value) (AC-10).
+- [x] **T-13** `indaba`: `plan --explain` and `plan --json` in `main.ts` and the usage text; `--json` implies `--explain`; the facts from the flag, the variable and `indaba.config`; exit code as `plan` (AC-01, AC-13).
 
 ## Tests
 
-- [ ] **T-14** `indaba`: tests: `plan` without the options is byte-identical (snapshot of today's output for every example); `--explain` text; `--json` shape and stability (two runs equal); invalid file, missing input: stderr and exit code, empty stdout with `--json` (AC-01, AC-10, AC-13; spec section 5).
-- [ ] **T-15** Hostile-input tests: control characters and escape sequences in a step id, a role name and a path; a value that looks like a secret in a path; built from fragments so no test file trips the security audit (AC-09, section 6).
-- [ ] **T-16** Architecture tests still green (core imports nothing outside itself; the CLI layer test); `pnpm e2e` with an end-to-end `plan --explain --json` on a built CLI.
+- [x] **T-14** `indaba`: tests: `plan` without the options is byte-identical (snapshot of today's output for every example); `--explain` text; `--json` shape and stability (two runs equal); invalid file, missing input: stderr and exit code, empty stdout with `--json` (AC-01, AC-10, AC-13; spec section 5).
+- [x] **T-15** Hostile-input tests: control characters and escape sequences in a step id, a role name and a path; a value that looks like a secret in a path; built from fragments so no test file trips the security audit (AC-09, section 6).
+- [x] **T-16** Architecture tests still green (core imports nothing outside itself; the CLI layer test); `pnpm e2e` with an end-to-end `plan --explain --json` on a built CLI.
 
 ## Documentation
 
-- [ ] **T-17** `docs/` (the workflow format or plan page, the JSON contract and its stability rule), `README.md`, `llms.txt` if it lists options; `CHANGELOG.md` entry that replaces the specification-only one; `specs/DEPENDENCY_MAP.md` row (implemented) and the feature-to-package table; `review.md` filled after a real review.
+- [x] **T-17** `docs/` (the workflow format or plan page, the JSON contract and its stability rule), `README.md`, `llms.txt` if it lists options; `CHANGELOG.md` entry that replaces the specification-only one; `specs/DEPENDENCY_MAP.md` row (implemented) and the feature-to-package table; `review.md` filled after a real review.
 
 ## Stage 7: Verification
 

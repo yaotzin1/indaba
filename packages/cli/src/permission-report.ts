@@ -1,3 +1,4 @@
+import { fullAccessSentence } from '@indaba/core';
 import type { PermissionFinding } from '@indaba/engine';
 
 /** What the built-in default of a runner allows, in words (specs/agent-permissions, AC-08). */
@@ -9,6 +10,14 @@ const RUNNER_DEFAULTS: Readonly<Record<string, string>> = {
   opencode: 'Indaba adds no permission argument, so the agent applies its own',
   cursor: 'Indaba adds no permission argument, so the agent applies its own',
 };
+
+/**
+ * What a runner's built-in default allows, in words, or `undefined` when Indaba cannot say. The permission report and
+ * `plan --explain` read this one table, so the two never say different things (specs/plan-explain, AC-05).
+ */
+export function runnerDefaultWords(runner: string): string | undefined {
+  return Object.hasOwn(RUNNER_DEFAULTS, runner) ? RUNNER_DEFAULTS[runner] : undefined;
+}
 
 /** The words for the note ids that runners declare (C-10: the front end owns its words). */
 const NOTES: Readonly<Record<string, string>> = {
@@ -43,10 +52,10 @@ export function describePermissionFinding(finding: PermissionFinding): string {
       return `${step}: its mcp servers act with their own rights, whatever the level`;
     case 'default':
       return `${step}: no level is written, so the built-in default of the ${finding.runner} runner applies (${
-        RUNNER_DEFAULTS[finding.runner] ?? 'Indaba cannot describe what it allows'
+        runnerDefaultWords(finding.runner) ?? 'Indaba cannot describe what it allows'
       }), not a level you chose; add permissions with a level to choose, for example permissions: { level: edit, fs: { write: ["src/**"] } }`;
     case 'full':
-      return `${step}: FULL ACCESS: this step's agent can change anything and run anything and nobody approves it (runners: ${finding.runners.join(', ')})`;
+      return `${step}: ${fullAccessSentence(finding.runners)}`;
     case 'enforcement': {
       const d = finding.description;
       const when = d.checkedOnlyAfter ? '; checked after the step, not while it works' : '';
