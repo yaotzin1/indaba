@@ -49,6 +49,7 @@ import {
   SpanStatus,
   StepOutput,
   StepThought,
+  stepTimeoutSeconds,
   Tracer,
 } from '@indaba/core';
 import { type DiscussionStore, discussionOf } from '../arbiter/discussions.js';
@@ -272,7 +273,7 @@ export class StepExecutor {
       const request: RunRequest = {
         prompt: command,
         workdir,
-        timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
+        timeoutSeconds: stepTimeoutSeconds(step, this.timeoutSeconds),
         ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
       };
       const result = await this.invoke(shell, request, span, 'execute_tool', command, options.signal);
@@ -362,7 +363,7 @@ export class StepExecutor {
         prompt,
         workdir,
         ...(plan.model !== undefined ? { model: plan.model } : {}),
-        timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
+        timeoutSeconds: stepTimeoutSeconds(step, this.timeoutSeconds),
         ...(step.permissions !== undefined && step.permissions.level !== PermissionLevel.Full
           ? { permissions: step.permissions }
           : {}),
@@ -425,7 +426,7 @@ ${this.prompts.tail(result.failureText())}`),
       ),
       workdir,
       ...(plan.model !== undefined ? { model: plan.model } : {}),
-      timeoutSeconds: step.timeoutSeconds ?? this.timeoutSeconds,
+      timeoutSeconds: stepTimeoutSeconds(step, this.timeoutSeconds),
       ...(step.stall !== undefined ? { stallSeconds: step.stall.afterSeconds } : {}),
       ...(options.onOutput !== undefined ? { onOutput: options.onOutput } : {}),
       // At `full` the runner is sent no fs or terminal limits (specs/agent-permissions, AC-04); a block with no level is sent as before.
