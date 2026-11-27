@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process';
 import { RunnerError, RunnerUnavailableError } from '@indaba/core';
+import { refuseBatchFile } from './batch-file.js';
 import { killTree } from './process.js';
 
 export interface StreamingProcessSpec {
@@ -45,6 +46,7 @@ export class NodeStreamingProcessSpawner implements StreamingProcessSpawner {
     if (signal?.aborted === true) {
       throw new RunnerUnavailableError('Aborted before the agent started.');
     }
+    refuseBatchFile(file);
 
     let child: ChildProcess;
     try {

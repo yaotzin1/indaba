@@ -1,5 +1,5 @@
 import { existsSync, realpathSync, statSync } from 'node:fs';
-import { delimiter, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { delimiter, dirname, isAbsolute, join, relative, resolve, sep, win32 } from 'node:path';
 import type { ReadinessProbe } from '@indaba/core';
 
 /** What the probe needs to know about the runners: whether a name is registered. `RunnerRegistry` satisfies it. */
@@ -114,6 +114,12 @@ export function createReadinessProbe(
     }
   };
 
+  /** A program named by its path: a file, and on Windows not a batch file, which the runners refuse to start. */
+  const isProgram = (path: string): boolean => {
+    const name = win32.normalize(path).replace(/[\\/. ]+$/, '');
+    return !(windows && /\.(?:bat|cmd)$/i.test(name)) && isFile(path);
+  };
+
   /** The program a built-in agent CLI runner starts: the first word of its configured command, else its default. */
   const programOf = (type: string): string | undefined => {
     const configured =
@@ -161,7 +167,11 @@ export function createReadinessProbe(
         // The program the author wrote for an OpenClaw agent replaces `openclaw` (a native executable on Windows, specs/openclaw, AC-04).
         const written = name === 'openclaw' ? command?.[0] : undefined;
         const program = written !== undefined && written !== '' ? written : programOf(name);
-        return program === undefined ? true : isAbsolute(program) ? isFile(program) : hasExecutable(program);
+        return program === undefined
+          ? true
+          : isAbsolute(program)
+            ? isProgram(program)
+            : hasExecutable(program);
       };
       if (!registry.has(type)) {
         return false;

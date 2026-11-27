@@ -82,6 +82,21 @@ describe('createReadinessProbe', () => {
     expect(probe.hasExecutable('shim')).toBe(false);
   });
 
+  it('on Windows does not take a batch file named by its full path for a program', () => {
+    const shim = join(bin, 'shim.cmd');
+    const real = join(bin, 'real.exe');
+    program(shim);
+    program(real);
+    const codex = (command: string, platform: NodeJS.Platform): boolean =>
+      createReadinessProbe(root, { INDABA_CODEX_CMD: `${command} exec` }, registry('codex'), {
+        platform,
+      }).isRunnerRegistered('codex');
+    expect(codex(shim, 'win32')).toBe(false);
+    expect(codex(real, 'win32')).toBe(true);
+    // elsewhere the name says nothing about how a file is run
+    expect(codex(shim, 'linux')).toBe(true);
+  });
+
   it('a runner is available when registered and, for an agent CLI, its program is found', () => {
     program(join(bin, 'claude'));
     const probe = createReadinessProbe(root, { PATH: bin }, registry('claude-code', 'codex', 'shell'), {
