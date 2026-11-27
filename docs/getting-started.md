@@ -304,10 +304,12 @@ native part does not load, they use plain pipes instead; nothing crashes. In a p
 
 ### Windows: use a native executable
 
-Indaba starts processes without a shell, so it cannot start a `.cmd` or `.bat` shim. A CLI installed with
+Indaba starts processes without a shell and refuses a `.cmd` or `.bat` shim, because Windows would run it through its
+command interpreter, which reads a prompt as commands. A CLI installed with
 npm on Windows is often such a shim (`claude.cmd`), and starting it fails. If an agent CLI fails to
 start on Windows, point at a native `.exe` (for `codex` and `antigravity`, set `INDABA_CODEX_CMD` or
-`INDABA_ANTIGRAVITY_CMD` to the full path of the executable followed by its arguments). The `shell`
+`INDABA_ANTIGRAVITY_CMD` to the full path of the executable followed by its arguments). Do not wrap a shim in
+`cmd /c`: Indaba cannot tell, and the command interpreter would read the prompt as commands. The `shell`
 runner is different: it deliberately goes through `cmd.exe`, so commands such as `pnpm test` work there.
 
 This is a known limitation, and the Windows behaviour of the pseudo-terminal runners has not been

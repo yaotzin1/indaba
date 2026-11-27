@@ -1,5 +1,6 @@
 import { type ChildProcess, execFile, spawn } from 'node:child_process';
 import { RunnerUnavailableError } from '@indaba/core';
+import { refuseBatchFile } from './batch-file.js';
 import { buildRunnerEnvironment } from './env.js';
 
 /** How the child ran: in a pseudo-terminal (stdout and stderr merged) or on plain pipes. */
@@ -330,6 +331,11 @@ export class NodeProcessSpawner implements ProcessSpawner {
   }
 
   async run(spec: ProcessSpec, signal?: AbortSignal): Promise<ProcessOutcome> {
+    const [file] = spec.command;
+    // Before either way of starting: the pseudo-terminal would start a batch file.
+    if (file !== undefined) {
+      refuseBatchFile(file);
+    }
     if (spec.usePty) {
       const pty = await this.loadPty();
       if (pty !== undefined) {
