@@ -427,3 +427,45 @@ describe('steps admitted together that meet negotiate (AC-14, AC-15)', () => {
     expect(t.posts.some((p) => p.stepId === 'negotiate-a-2')).toBe(true);
   });
 });
+
+describe('a shell step in a negotiation', () => {
+  // The negotiation's prompt carries what the other agents said they intend: text a model wrote.
+  const withShellRole = `version: "1.0"
+name: t
+roles:
+  w: {runner: work}
+  sh: {runner: shell}
+steps:
+  - {id: a, role: w, isolation: git_worktree, goal: GOAL-a}
+  - {id: check, role: sh, runner: shell, commands: [verify], touches: [src/], isolation: git_worktree}
+`;
+
+  it('gives the shell runner its commands only, and the agents still negotiate', async () => {
+    let turns = 0;
+    const t = await build({
+      intents: { a: 'INTENT src/' },
+      negotiation: () => {
+        turns += 1;
+        return 'AGREEMENT: ok';
+      },
+    });
+    const result = await t.run(withShellRole);
+    expect(result.status, result.failureReason).toBe(WorkflowStatus.Completed);
+    expect(t.shell.requests.map((r) => r.prompt)).toEqual(['verify']);
+    // the agent step's role was consulted: the shell step's role is no participant, and does not end the debate
+    expect(turns).toBeGreaterThan(0);
+  });
+
+  it('still consults an agent role that a shell step names', async () => {
+    const t = await build({ intents: { a: 'INTENT src/' }, negotiation: () => 'AGREEMENT: ok' });
+    const result = await t.run(
+      withShellRole
+        .replace('role: sh, runner: shell', 'role: x, runner: shell')
+        .replace('  sh: {runner: shell}', '  x: {runner: work}'),
+    );
+    expect(result.status, result.failureReason).toBe(WorkflowStatus.Completed);
+    expect(t.shell.requests.map((r) => r.prompt)).toEqual(['verify']);
+    const turns = t.work.requests.map((r) => r.prompt).filter((p) => p.includes('SPLIT <step id>'));
+    expect(turns.some((p) => p.startsWith('You are the "x"'))).toBe(true);
+  });
+});

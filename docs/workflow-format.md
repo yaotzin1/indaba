@@ -101,7 +101,7 @@ isolated step that succeeds.
 
 | Field | Required | Meaning |
 | :--- | :--- | :--- |
-| `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, `opencode`, `openclaw`, or the name of a runner a plugin registers |
+| `runner` | yes | The runner that executes the role, or a list of runners in priority order (see [Transports and fallback](#transports-and-fallback)): `openrouter` or another API runner, `acp`, `claude-code`, `codex`, `antigravity`, `cursor`, `opencode`, `openclaw`, or the name of a runner a plugin registers. Not `shell` for a role that a step other than a shell step names: see [Shell steps](#shell-steps) |
 | `agent` | no | For the `acp` runner: the agent to start, a preset name (`claude`, `codex`, `gemini`, `opencode`) or a mapping with a `preset` or a `command: [program, arg, ...]` and optionally `auth`, the agent's own id for how to log in (see [Logging in to an ACP agent](getting-started.md#logging-in-to-an-acp-agent)). Other runners ignore it |
 | `model` | no | Passed to the runner as its model. API runners require one |
 | `mcp` | no | List of `mcp_servers` names that every step of the role may use |
@@ -243,6 +243,13 @@ permissions: { level: full }                                      # no limit fro
 to a shell. The command lines are yours, written in the file; never put text produced by a model into a
 command. Each command is limited by the step timeout (the step's `timeout_seconds`, else `indaba run --timeout`, else 900 seconds). Write commands that work on every OS you target, or call one executable with simple
 arguments.
+
+**This runner is only given the commands of a step that says `runner: shell` itself.** Every other step sends a prompt,
+and a prompt can quote what a model wrote. So in a step that is not a shell step, `shell` may not be a fallback in its
+list of runners, nor a runner of any role it names (its `role` or one in `consensus_with`): `validate`, `plan` and `run`
+refuse the file with `step "x" would send an agent's prompt to the shell runner`. The engine also sends no prompt to a
+list of runners that names `shell`, in a workflow a program builds too. A shell step may name such a role; that role
+takes no part in a negotiation.
 
 #### Consensus steps
 

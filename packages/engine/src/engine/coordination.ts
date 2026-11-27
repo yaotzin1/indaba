@@ -18,6 +18,7 @@ import {
   type Tracer,
   type WorkflowDefinition,
 } from '@indaba/core';
+import { roleNamesShellRunner } from '../parser/validator.js';
 import { StepOutcome } from './outcome.js';
 import type { DebateObserver, StepExecutor } from './step-executor.js';
 
@@ -197,7 +198,10 @@ export class Coordination {
     const steps = group.map((entry) => entry.step);
     const ids = steps.map((step) => step.id);
     const first = steps[0];
-    const roles = [...new Set(steps.flatMap((step) => (step.role === undefined ? [] : [step.role])))];
+    // The debate sends prompts: a role that names the shell runner, which only a shell step may name, takes no part.
+    const roles = [...new Set(steps.flatMap((step) => (step.role === undefined ? [] : [step.role])))].filter(
+      (name) => !roleNamesShellRunner(this.options.workflow, name),
+    );
     const syntheticId = this.uniqueId(`negotiate-${first?.id ?? 'steps'}`);
 
     const span = await tracer.startSpan('indaba.negotiation', root, {

@@ -101,6 +101,6 @@ describe('createEngine', () => {
         },
       ],
     });
-    expect(() => bundle.parser.parse(FIXTURE_WORKFLOW.replace('"fake"', '"shell"'))).not.toThrow();
+    expect(() => bundle.parser.parse(FIXTURE_WORKFLOW.replace('"fake"', '"claude-code"'))).not.toThrow();
   });
 });

@@ -2,7 +2,7 @@ import { WorkflowValidationError } from '@indaba/core';
 import { describe, expect, it } from 'vitest';
 import { parseWorkflow, workflowJsonSchema } from '../src/index.js';
 
-const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: shell}\n  b: {runner: shell}\n';
+const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: agent}\n  b: {runner: agent}\n';
 
 /** Steps `first`, `second` and `me` (depends on both), `other` unrelated; `me` carries the given board block. */
 function workflowWith(board: string, extra = ''): string {

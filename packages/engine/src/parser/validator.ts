@@ -5,11 +5,18 @@ import {
   Isolation,
   isConsensusStep,
   isShellStep,
+  SHELL_RUNNER,
   WorkflowValidationError,
 } from '@indaba/core';
 
 const NAME = /^[A-Za-z0-9_-]+$/;
 const HTTP_URL = /^https?:\/\/\S+$/i;
+
+/** Whether a declared role names the shell runner, first or as a fallback. */
+export function roleNamesShellRunner(workflow: WorkflowDefinition, name: string): boolean {
+  const role = Object.hasOwn(workflow.roles, name) ? workflow.roles[name] : undefined;
+  return role !== undefined && [role.runner, ...(role.fallbackRunners ?? [])].includes(SHELL_RUNNER);
+}
 
 /** Semantic checks that need the whole document. */
 export class WorkflowValidator {
@@ -80,6 +87,31 @@ export class WorkflowValidator {
         errors.push(`${at}.read.steps[${j}] "${id}" is not an ancestor of this step`);
       }
     });
+  }
+
+  /**
+   * The shell runner hands what it is given to the system shell, so only a step that says `runner: shell` may reach it,
+   * with the commands its author wrote. Any other step sends a prompt, which can quote what a model wrote: neither its
+   * own runners nor those of a role it names may include the shell runner.
+   */
+  private checkShellRunner(workflow: WorkflowDefinition, step: StepDefinition, errors: string[]): void {
+    if (isShellStep(step)) {
+      return;
+    }
+    const refuse = (where: string): void => {
+      errors.push(
+        `step "${step.id}" would send an agent's prompt to the shell runner (${where}): that runner only runs the commands of a step that says runner: shell`,
+      );
+    };
+    if (step.fallbackRunners?.includes(SHELL_RUNNER) === true) {
+      refuse('a fallback of the step');
+      return;
+    }
+    const named = [...(step.role === undefined ? [] : [step.role]), ...step.consensusWith];
+    const reaching = named.find((name) => roleNamesShellRunner(workflow, name));
+    if (reaching !== undefined) {
+      refuse(`role "${reaching}"`);
+    }
   }
 
   validate(workflow: WorkflowDefinition): string[] {
@@ -168,6 +200,7 @@ export class WorkflowValidator {
       }
 
       this.checkBoard(workflow, step, errors);
+      this.checkShellRunner(workflow, step, errors);
 
       const onFailure = step.onFailure;
       if (onFailure?.action === FailureAction.RetryStep) {
