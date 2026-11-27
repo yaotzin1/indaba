@@ -1,7 +1,7 @@
 # Specification: Explaining a plan (`indaba plan --explain`, with `--json`)
 
-> **Status**: Implemented (#171, #172); reviewed on 2026-11-27. Of the decisions that review added to section 8, C-10 to C-12 are settled; C-09 and C-13 await the maintainer.
-> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; C-02 to C-06 confirmed unchanged on 2026-11-22; C-01 to C-08 are settled; of C-09 to C-13, added by the review of 2026-11-27, C-10 to C-12 are settled and C-09 and C-13 await confirmation
+> **Status**: Implemented (#171, #172); reviewed on 2026-11-27. The decisions that review added to section 8 (C-09 to C-13) are settled.
+> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; C-02 to C-06 confirmed unchanged on 2026-11-22; C-09 to C-13, added by the review of 2026-11-27, confirmed that day; all decisions of section 8 are settled
 > **Semver impact**: minor (two new optional options of `plan`, new optional exports; below 1.0). **No default changes**:
 > `indaba plan` without the new options prints exactly what it prints today (but see C-13). Provisional; confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/agent-permissions`](../agent-permissions/spec.md) (the permission report is the precedent for a
@@ -164,8 +164,7 @@ explanation call one function, as a minor (AC-04, AC-14). *Proposed in a review 
 
 ## 8. Clarifications
 
-C-01 to C-08 are confirmed by the maintainer (2026-11-22), C-10 to C-12 on 2026-11-27. C-09 and C-13 are proposals that
-await confirmation.
+C-01 to C-08 are confirmed by the maintainer (2026-11-22), C-09 to C-13 on 2026-11-27.
 
 - **C-01. `--json` implies `--explain`. Confirmed 2026-11-22.** `plan` has no `--json` today, so nothing existing is broken.
   Two options that must be given together are a usage error waiting to happen. A person who asks for JSON of the plan gets the
@@ -196,7 +195,7 @@ await confirmation.
   `defaults` stays where it names the YAML block; it is no longer an origin kind.
 
 **Added by the review of 2026-11-27.** C-09 to C-12 make the explanation equal to the run (AC-14) where the text above did
-not say how; C-13 records a change to the output of `plan`. C-09 and C-13 await the maintainer's confirmation. For C-10 and
+not say how; C-13 records a change to the output of `plan`. For C-10 and
 C-12 the maintainer rejected what the review first proposed (leaving the two settings out at `full`; reporting the gap
 for shell steps too), and the text below replaces it.
 

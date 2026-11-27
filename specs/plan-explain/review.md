@@ -3,7 +3,7 @@
 > **Status**: reviewed 2026-11-27, after #171 and #172 merged. A self-review plus three passes by a separate read-only
 > agent that had the code and the contract, not the author's conclusions. The first pass found that the explanation said
 > things a run does not do; those are fixed (tasks T-18 to T-24). The third covered what the maintainer then changed
-> (C-10, C-12 of `spec.md`). Decisions C-09 and C-13 await the maintainer.
+> (C-10, C-12 of `spec.md`). The maintainer confirmed C-09 to C-13.
 
 ## 1. Boundary and layering
 
