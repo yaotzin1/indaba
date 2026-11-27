@@ -19,7 +19,7 @@ PR 1
 - [x] **T-06** `@indaba/core` and `@indaba/engine`: move the pure resolvers the explanation shares with the run (`effectiveGuards` and the timeout and retry resolution) into `@indaba/core`, import them in the engine, and make the run call the same function (core cannot import the engine); tests unchanged and green (AC-04).
 - [x] **T-07** `@indaba/engine`: `readOrigins(source, workflow)` with line and column; origin of permissions by step, role, `defaults`; a missing line instead of a wrong one (AC-03, AC-12).
 - [x] **T-08** `@indaba/engine`: tests for T-07 against `resolvePermissions` for every combination of written, absent and empty blocks; anchors, merge keys, flow style, CRLF, a multi-document file (AC-03, AC-12).
-- [x] **T-09** `@indaba/engine`: a test that, for every workflow in `examples/`, the explanation equals what `StepExecutor` resolves for each step: permissions, write scope, isolation, timeout, retry bound, guards (AC-14).
+- [ ] **T-09** `@indaba/engine`: a test that, for every workflow in `examples/`, the explanation equals what `StepExecutor` resolves for each step: permissions, write scope, isolation, timeout, retry bound, guards (AC-14). **Partly done** (found 2026-11-27): the test compares the guards, the limit and the permissions, not the isolation or the retry bound.
 
 PR 2
 
@@ -40,6 +40,18 @@ PR 2
 
 - [x] **T-17** `docs/` (the workflow format or plan page, the JSON contract and its stability rule), `README.md`, `llms.txt` if it lists options; `CHANGELOG.md` entry that replaces the specification-only one; `specs/DEPENDENCY_MAP.md` row (implemented) and the feature-to-package table; `review.md` filled after a real review.
 
+## Remediation of the review (2026-11-27)
+
+Track `fix`. T-18 to T-23 each had a test that failed before the change; T-24 is documentation.
+
+- [x] **T-18** `level: full`: `permissions.fs.write` is `unlimited` and `permissions.terminal` is `allow` (C-10).
+- [x] **T-19** Debates: one `runner` setting per speaking role, `mcp_policy` from any of them, the runners' default limit (C-09).
+- [x] **T-20** Isolation as the engine decides it, so a step after a worktree step is in the worktree and has no false `no_write_scope` (AC-14).
+- [x] **T-21** Gaps: `no_check_on_result` for agent steps and debates, not shell steps, and aware of `outputs` (C-12); the default of every runner of a chain.
+- [x] **T-22** Declared and implied guards apart, each with its origin, for shell and debate steps too (C-11); a shell-runner step is a shell step.
+- [x] **T-23** Role names printed as plain text by `plan` (AC-09).
+- [x] **T-24** Playbooks (human and AI), the `workflow-format.md` section and its example, the unlisted exports in `api-surface.md`.
+
 ## Stage 7: Verification
 
-- [ ] `pnpm qa` and the node gates (`node scripts/check-workflow.mjs`) green end to end, output recorded in review.md
+- [x] `pnpm qa` and the node gates (`node scripts/check-workflow.mjs`) green end to end, output recorded in review.md (`pnpm qa` with `VITEST_MAX_WORKERS=6`, see there)

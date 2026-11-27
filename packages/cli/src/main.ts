@@ -1175,13 +1175,13 @@ async function plan(parsed: Parsed, io: Io, logger: CommandLogger): Promise<numb
   order.forEach((step, n) => {
     const who = isShellStep(step)
       ? `shell: ${oneLine(step.commands.join(' && '))}`
-      : (step.role ?? step.runner ?? '?');
+      : oneLine(step.role ?? step.runner ?? '?');
     const extra: string[] = [];
     if (step.dependsOn.length > 0) {
       extra.push(`after ${step.dependsOn.join(', ')}`);
     }
     if (isConsensusStep(step)) {
-      extra.push(`consensus with ${step.consensusWith.join(', ')}`);
+      extra.push(`consensus with ${oneLine(step.consensusWith.join(', '))}`);
     }
     if (step.timeoutSeconds !== undefined) {
       extra.push(`timeout ${step.timeoutSeconds}s`);
