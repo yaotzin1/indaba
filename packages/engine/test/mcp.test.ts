@@ -33,7 +33,7 @@ describe('McpPlanner', () => {
     const registry = new FakeRegistry([
       capable('claude-code', 'injected'),
       capable('antigravity', 'agent_managed'),
-      new FakeRunner('shell', ok),
+      new FakeRunner('plain', ok),
     ]);
     const yaml = `version: "1.0"
 name: t
@@ -42,7 +42,7 @@ mcp_servers:
 roles:
   injected: {runner: claude-code}
   managed: {runner: antigravity}
-  bare: {runner: shell}
+  bare: {runner: plain}
 steps:
   - {id: a, role: injected, mcp: [docs]}
   - {id: b, role: managed, mcp: [docs]}

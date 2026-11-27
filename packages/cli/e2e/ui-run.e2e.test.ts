@@ -8,8 +8,8 @@ requireBuild();
 
 /**
  * Task T-14 of specs/web-app-actions: the built `indaba ui` starts and stops runs of a project, each an `indaba run` of
- * its own. Shell steps only, so no agent and no key: one that ends, one that sleeps until stopped, and a debate whose
- * arbiter is a person, which escalates because the run has no terminal (AC-12).
+ * its own, with no real agent and no key: a shell step that ends, one that sleeps until stopped, and a debate of
+ * stand-in agents whose arbiter is a person, which escalates because the run has no terminal (AC-12).
  */
 
 const ADDRESS = /(http:\/\/127\.0\.0\.1:(\d+))\/#token=([A-Za-z0-9_-]+)/;
@@ -34,13 +34,19 @@ steps:
       - 'node -e "require(''fs'').writeFileSync(process.argv[1], String(process.pid)); setTimeout(function () {}, 120000)" ${pidFile}'
 `;
 
+/** A stand-in for an agent that never agrees, so the debate fails and needs a person. */
+const OBJECTOR = `import { writeFileSync } from 'node:fs';
+writeFileSync('objector.ran', 'yes');
+console.log('CRITIQUE: not yet');
+`;
+
 const HUMAN = `version: "1.0"
 name: "needs-a-person"
 roles:
   a:
-    runner: shell
+    runner: codex
   b:
-    runner: shell
+    runner: codex
 steps:
   - id: "argue"
     role: a
@@ -135,6 +141,7 @@ describe('indaba ui: Run and Stop', () => {
     await writeFileIn(dir, 'quick.workflow.ai.yml', QUICK);
     await writeFileIn(dir, 'long.workflow.ai.yml', long(firstPid));
     await writeFileIn(dir, 'human.workflow.ai.yml', HUMAN);
+    await writeFileIn(dir, 'objector.mjs', OBJECTOR);
 
     // The confirmations go to the user's configuration folder; here a temporary one, on every OS.
     const ui = startCli(['ui', '--no-open'], dir, {
@@ -142,6 +149,7 @@ describe('indaba ui: Run and Stop', () => {
       USERPROFILE: config,
       XDG_CONFIG_HOME: config,
       APPDATA: config,
+      INDABA_CODEX_CMD: 'node objector.mjs',
     });
     try {
       await waitFor(() => ADDRESS.test(ui.stdout()), 'the address to be printed');
@@ -197,6 +205,8 @@ describe('indaba ui: Run and Stop', () => {
         async () => (await statusOf(client, human)).status === 'escalated',
         'the debate to escalate',
       );
+      // The stand-in spoke: the escalation is the debate's, not a missing program's.
+      expect(existsSync(join(dir, 'objector.ran'))).toBe(true);
 
       // A run that indaba ui did not start cannot be stopped from it.
       const cliRun = await startCli(['run', 'quick.workflow.ai.yml'], dir).result;

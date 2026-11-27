@@ -14,7 +14,7 @@ function problemsOf(yaml: string): string {
   throw new Error('Expected a validation error.');
 }
 
-const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: shell}\n';
+const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: agent}\n';
 const ONE = `${HEAD}steps:\n  - {id: x, role: a}\n`;
 
 const CASES: [string, string, string][] = [
@@ -135,7 +135,7 @@ const CASES: [string, string, string][] = [
   ],
   [
     'an unknown role MCP server',
-    'version: "1.0"\nname: t\nroles:\n  a: {runner: shell, mcp: [ghost]}\nsteps:\n  - {id: x, role: a}\n',
+    'version: "1.0"\nname: t\nroles:\n  a: {runner: agent, mcp: [ghost]}\nsteps:\n  - {id: x, role: a}\n',
     'role "a" uses unknown MCP server "ghost"',
   ],
   [
@@ -184,7 +184,7 @@ describe('parser and validator error paths', () => {
 
   it('keeps a role model and a failure target when given', () => {
     const wf = parseWorkflow(
-      'version: "1.0"\nname: t\nroles:\n  a: {runner: shell, model: m1}\nsteps:\n  - {id: x, role: a, on_failure: {action: retry_step, target: x, max_retries: 2}}\n',
+      'version: "1.0"\nname: t\nroles:\n  a: {runner: agent, model: m1}\nsteps:\n  - {id: x, role: a, on_failure: {action: retry_step, target: x, max_retries: 2}}\n',
     );
 
     expect(wf.roles.a?.model).toBe('m1');

@@ -73,7 +73,7 @@ describe('reference workflow', () => {
   });
 });
 
-const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: shell}\n';
+const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: agent}\n';
 
 const INVALID: [string, string, string[]][] = [
   ['not yaml mapping', '- a\n- b\n', ['root must be a mapping']],
@@ -142,7 +142,7 @@ describe('WorkflowParser errors', () => {
 
   it('keeps __proto__ and numeric keys as plain data', () => {
     const wf = parseWorkflow(
-      'version: "1.0"\nname: t\nroles:\n  __proto__: {runner: shell}\n  "7": {runner: shell}\nsteps:\n  - {id: x, role: "7"}\n',
+      'version: "1.0"\nname: t\nroles:\n  __proto__: {runner: agent}\n  "7": {runner: agent}\nsteps:\n  - {id: x, role: "7"}\n',
     );
     expect(Object.keys(wf.roles)).toEqual(['7', '__proto__']);
     expect(Object.getPrototypeOf(wf.roles)).toBe(Object.prototype);
@@ -212,7 +212,7 @@ describe('MCP declarations', () => {
     );
   });
 
-  const base = 'version: "1.0"\nname: t\nroles:\n  r: {runner: shell}\n';
+  const base = 'version: "1.0"\nname: t\nroles:\n  r: {runner: agent}\n';
   const bad: [string, string, string][] = [
     [
       'neither command nor url',
@@ -241,7 +241,7 @@ describe('MCP declarations', () => {
     ],
     [
       'unknown server on a role',
-      'version: "1.0"\nname: t\nroles:\n  r: {runner: shell, mcp: [ghost]}\nsteps:\n  - {id: s, role: r}\n',
+      'version: "1.0"\nname: t\nroles:\n  r: {runner: agent, mcp: [ghost]}\nsteps:\n  - {id: s, role: r}\n',
       'role "r" uses unknown MCP server',
     ],
     [

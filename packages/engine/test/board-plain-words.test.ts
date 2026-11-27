@@ -8,7 +8,7 @@ import { FixedClock } from './support.js';
 const BANNED = /digest|settle|supersede|degraded|jsonl/i;
 const PATH = /steps\[\d+\](?:\.[a-z_]+|\[\d+\])*/g;
 
-const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: shell}\n  b: {runner: shell}\n';
+const HEAD = 'version: "1.0"\nname: t\nroles:\n  a: {runner: agent}\n  b: {runner: agent}\n';
 
 /** One invalid board per message the parser and validator can produce for the field. */
 const INVALID: readonly string[] = [

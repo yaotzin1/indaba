@@ -523,6 +523,13 @@ ${this.prompts.tail(result.failureText())}`,
     signal: AbortSignal | undefined,
     onRan?: (runner: Runner) => void,
   ): Runner {
+    // Every call with a prompt goes through here; a shell step's commands do not. The parser refuses such a workflow,
+    // but a program can build one, so it is refused here too, before any runner of the chain is called.
+    if (plan.names.includes(SHELL_RUNNER)) {
+      throw new IndabaError(
+        `Step "${step.id}": the shell runner runs the commands of a shell step and cannot take an agent's prompt. Nothing was sent.`,
+      );
+    }
     return {
       name: plan.names[0] ?? '',
       run: async (request) => {
