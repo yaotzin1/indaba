@@ -120,10 +120,11 @@ describe('the explanation of each example equals what the run resolves (AC-14)',
           const resolved = await resolvedByTheRun(step, workflow);
 
           // guards the run checks: the same list, in the same order
-          const expectedGuards = (setting<readonly ExplainedGuard[]>(explained, 'guards') ?? []).map((g) => ({
-            type: g.type,
-            paths: g.paths,
-          }));
+          // a step has one `guards` setting for the declared ones and one for the implied, in the order the run checks them
+          const expectedGuards = explained.settings
+            .filter((s) => s.key === 'guards')
+            .flatMap((s) => s.value as readonly ExplainedGuard[])
+            .map((g) => ({ type: g.type, paths: g.paths }));
           expect(resolved.guards.map((g) => ({ type: g.type, paths: g.paths }))).toEqual(expectedGuards);
 
           const request = resolved.requests[0];
@@ -145,6 +146,64 @@ describe('the explanation of each example equals what the run resolves (AC-14)',
       }
     });
   }
+});
+
+describe('what the examples do not reach (AC-14)', () => {
+  const source = `version: "1.0"
+name: reach
+roles:
+  a: { runner: claude-code }
+  b: { runner: codex }
+steps:
+  - id: wild
+    role: a
+    permissions: { level: full }
+    goal: g
+  - id: talk
+    role: a
+    consensus_with: [b]
+    goal: g
+`;
+  const workflow = parseWorkflow(source);
+  const steps = explainPlan(workflow, readOrigins(source, workflow), facts).steps;
+  const of = (id: string): readonly [StepDefinition, ExplainedStep] => {
+    const step = workflow.steps.find((s) => s.id === id);
+    const explained = steps.find((s) => s.id === id);
+    if (step === undefined || explained === undefined) {
+      throw new Error(`no step ${id}`);
+    }
+    return [step, explained];
+  };
+
+  it('at full, the run sends no limit and the explanation says unlimited', async () => {
+    const [step, explained] = of('wild');
+    const [request] = (await resolvedByTheRun(step, workflow)).requests;
+    expect(request?.permissionLevel).toBe('full');
+    expect(request?.permissions).toBeUndefined();
+    expect(setting(explained, 'permissions.fs.write')).toBe('unlimited');
+    expect(setting(explained, 'permissions.terminal')).toBe('allow');
+  });
+
+  it('in a debate, the run calls the runners the explanation names', async () => {
+    const [step, explained] = of('talk');
+    const called = new Set<string>();
+    const registry = new FakeRegistry(
+      ['claude-code', 'codex'].map(
+        (name) =>
+          new FakeRunner(name, () => {
+            called.add(name);
+            return new RunResult({ exitCode: 0, output: 'AGREEMENT: ok' });
+          }),
+      ),
+    );
+    const tracer = new Tracer(new FixedClock(), new SimpleEventDispatcher(), new SequenceIds());
+    const executor = new StepExecutor({ runners: registry, guards: new GuardRegistry(), tracer });
+    await executor.run(step, workflow, await makeTempDir(), await tracer.startTrace('root'), {});
+    const named = explained.settings
+      .filter((s) => s.key === 'runner')
+      .flatMap((s) => s.value as readonly string[]);
+    expect([...called].sort()).toEqual([...named].sort());
+  });
 });
 
 describe('the parity test is not vacuous', () => {

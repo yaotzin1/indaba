@@ -10,7 +10,7 @@ steps where the second reads what the first learned. Replace `indaba` with `npx 
 | I want to | Go to |
 | :--- | :--- |
 | check a file before I spend anything | [Check a workflow](#check-a-workflow) |
-| see what a run will do and what each step may share | [Plan a run](#plan-a-run) |
+| see what a run will do, what each step may share and what the file leaves to defaults | [Plan a run](#plan-a-run) |
 | run a workflow and read the result | [Run it](#run-it) |
 | watch a run in the terminal, live or later | [Watch a run](#watch-a-run) |
 | read what the steps told each other | [Reading the board](#reading-the-board) |
@@ -86,6 +86,31 @@ indaba plan examples/board-handoff.workflow.ai.yml
 A step with no board line neither reads nor posts. `reads nothing; may post result, fact` is a step that leaves notes but
 takes none; `reads research (result, fact), at most 4000 characters` is a step that gets a section of notes added to its
 prompt. If a line is not what you meant, fix the `board:` field before you run.
+
+**To see what the file leaves to defaults**, add `--explain`. Under each step you get the value in force of each setting
+that decides what the step may do and when it stops, where it comes from (your file and its line, the role, the
+`defaults` block, or Indaba), and what the step does not have:
+
+```bash
+indaba plan examples/board-handoff.workflow.ai.yml --explain
+```
+
+```text
+1. research [researcher]
+   board: reads nothing; may post result, fact
+   runner: claude-code  <- role researcher, line 11
+   isolation: none  <- fallback, engine
+   timeout_seconds: 900s  <- fallback, engine
+   ! no_permission_level: No level is written, so the built-in default of the claude-code runner applies (edits are accepted without asking), not a level you chose.
+   ! no_write_scope: Nothing says which files this step may change: it works in the project folder and has no write scope and no guard on what it changed.
+   ! no_check_on_result: No guard checks the result of this step: it counts as done when its runner finishes without an error.
+   i failure_stops_run: No on_failure is written, so a failure of this step stops the run.
+```
+
+A line starting with `!` is something to decide before you run, `i` is information. Neither changes the exit status.
+Add a level and a write scope (`permissions`), a guard or an `on_failure`, then plan again and the line is gone.
+`--json` prints the same facts for a program; see
+[What a short file means](workflow-format.md#what-a-short-file-means-indaba-plan---explain).
 
 ## Run it
 

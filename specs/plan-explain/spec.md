@@ -1,9 +1,9 @@
 # Specification: Explaining a plan (`indaba plan --explain`, with `--json`)
 
-> **Status**: Draft, specification only: nothing here is implemented and this change adds no code.
-> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; C-02 to C-06 confirmed unchanged on 2026-11-22; all decisions of section 8 are settled
+> **Status**: Implemented (#171, #172); reviewed on 2026-11-27. The decisions that review added to section 8 (C-09 to C-13) are settled.
+> **Stage entry**: 1 to 4 written; section 8: C-01 and C-07 confirmed by the maintainer on 2026-11-22 (C-07 refined by what the code showed), C-08 added at his suggestion; C-02 to C-06 confirmed unchanged on 2026-11-22; C-09 to C-13, added by the review of 2026-11-27, confirmed that day; all decisions of section 8 are settled
 > **Semver impact**: minor (two new optional options of `plan`, new optional exports; below 1.0). **No default changes**:
-> `indaba plan` without the new options prints exactly what it prints today. Provisional; confirmed in [`api-surface.md`](api-surface.md).
+> `indaba plan` without the new options prints exactly what it prints today (but see C-13). Provisional; confirmed in [`api-surface.md`](api-surface.md).
 > **Builds on**: [`specs/agent-permissions`](../agent-permissions/spec.md) (the permission report is the precedent for a
 > fact computed before a run), [`specs/run-readiness`](../run-readiness/spec.md) (`AttentionItem`: a fact plus how to fix it),
 > [`specs/step-stalls`](../step-stalls/spec.md) and [`specs/parallel-steps`](../parallel-steps/spec.md) (limits whose source
@@ -53,7 +53,7 @@ AC-10 are two renderings of it.
 - [ ] AC-01. **Options.** `indaba plan [file] --explain` prints the explanation as text after the order of the steps and before
   the closing readiness lines. `--json` prints the explanation as JSON and nothing else on stdout. `--json` without `--explain`
   is the same as with it (section 8, C-01). Without either option the output, the exit code and the error messages of `plan`
-  are unchanged, byte for byte.
+  are unchanged, byte for byte (but see C-13).
 - [ ] AC-02. **Settings.** For each step the explanation gives, when the step has the setting at all, the effective value of:
   `runner` (the chain, in order), `permissions.level`, `permissions.fs.write` (what the step may change), `permissions.terminal`,
   `isolation`, `timeout_seconds`, `stall`, `on_failure` (action, target, `max_retries`), the guards in force (the step's own and the
@@ -74,7 +74,7 @@ AC-10 are two renderings of it.
     wording of `agent-permissions` AC-08, from the same table).
   - `no_write_scope`: an agent step that works in the project folder and has no write scope and no guard that limits what it
     changed: nothing says which files it may change.
-  - `no_check_on_result`: a step with no guard of any kind: it counts as done when its runner finishes without an error. If
+  - `no_check_on_result`: a step with no guard of any kind (narrowed by C-12: not a shell step): it counts as done when its runner finishes without an error. If
     steps that depend on it, directly or not, include a shell step, their ids are listed in `mitigatedBy`; Indaba does not judge
     whether their commands check anything.
   - `failure_stops_run`: a step with no `on_failure`: a failure stops the run. Information, not a warning.
@@ -164,7 +164,7 @@ explanation call one function, as a minor (AC-04, AC-14). *Proposed in a review 
 
 ## 8. Clarifications
 
-All decisions below are confirmed by the maintainer (2026-11-22).
+C-01 to C-08 are confirmed by the maintainer (2026-11-22), C-09 to C-13 on 2026-11-27.
 
 - **C-01. `--json` implies `--explain`. Confirmed 2026-11-22.** `plan` has no `--json` today, so nothing existing is broken.
   Two options that must be given together are a usage error waiting to happen. A person who asks for JSON of the plan gets the
@@ -193,6 +193,29 @@ All decisions below are confirmed by the maintainer (2026-11-22).
   one letter and would be misread and mistyped in a filter. The kinds are `file`, `role`, `workflow_defaults` (the `defaults` block
   of the file), `fallback` (a value nothing in the file wrote; `by` says who chose it) and `preset` (reserved, C-04). The word
   `defaults` stays where it names the YAML block; it is no longer an origin kind.
+
+**Added by the review of 2026-11-27.** C-09 to C-12 make the explanation equal to the run (AC-14) where the text above did
+not say how; C-13 records a change to the output of `plan`. For C-10 and
+C-12 the maintainer rejected what the review first proposed (leaving the two settings out at `full`; reporting the gap
+for shell steps too), and the text below replaces it.
+
+- **C-09. A debate has one `runner` setting for each role that speaks.** The engine takes every participant's chain from its
+  role, so one setting cannot carry the origin of each value (AC-03). A key can therefore repeat in a step. A `runner`
+  written on a debate step is not shown because it is not used. A debate with no limit of its own is shown with the
+  runners' default, because the run's `--timeout` does not bind it.
+- **C-10. At `full`, `permissions.fs.write` is `unlimited` and `permissions.terminal` is `allow`**, with the origin of the
+  block that wrote the level. The block may not name them and the runner is sent neither, so the values the parser leaves
+  in the model (nothing, `deny`) are never shown. The two values say that Indaba sets no limit, not that the runner is
+  able to act: a runner that cannot change files, or that refuses `full`, shows them too, and the permission report of
+  `plan` is where that is said.
+- **C-11. Declared and implied guards are separate `guards` settings**, each with the origin of where it was written.
+- **C-12. `no_check_on_result` is reported for an agent step or a debate with no guard, not for a shell step** (narrows
+  AC-05): a command that exits with an error fails a shell step, so on every such step the gap would be noise. Its
+  sentence names what still decides that the step is done: the runner finishing, or the debate ending in acceptance, and
+  the declared `outputs` existing.
+- **C-13. An exception to AC-01.** `plan` without the options prints the commands of a shell step, scope paths and role
+  names as plain text on one line. Output differs from before only where that text held a line break, a tab, surrounding
+  spaces, control characters or direction marks. Section 6 (untrusted text is sanitised) outranks byte equality there.
 
 ## Artifacts not written
 

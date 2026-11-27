@@ -256,13 +256,8 @@ describe('explainPlan: settings and origins', () => {
 
   it('explains a debate: decision type, arbiter and the rounds of the default arbiter, read from the constant', () => {
     const debate = one(
-      defineStep({
-        id: 'd',
-        runner: 'claude-code',
-        consensusWith: ['x'],
-        decisionType: 'majority',
-        arbiter: 'human',
-      }),
+      defineStep({ id: 'd', role: 'x', consensusWith: ['x'], decisionType: 'majority', arbiter: 'human' }),
+      { roles: { x: role('x') } },
     );
     expect(debate.kind).toBe('debate');
     expect(setting(debate, 'decision_type')).toEqual({
@@ -276,11 +271,13 @@ describe('explainPlan: settings and origins', () => {
       value: DEFAULT_MAX_ROUNDS,
       origin: { kind: 'fallback', by: 'engine' },
     });
-    expect(debate.gaps.map((g) => g.code)).toEqual(['failure_stops_run']);
+    expect(debate.gaps.map((g) => g.code)).toEqual(['no_check_on_result', 'failure_stops_run']);
   });
 
   it('says unknown, with the reason, for the rounds of an arbiter that declares no bound, and falls back to consensus', () => {
-    const w = workflow([defineStep({ id: 'd', runner: 'r', consensusWith: ['x'] })]);
+    const w = workflow([defineStep({ id: 'd', role: 'x', consensusWith: ['x'] })], {
+      roles: { x: role('x') },
+    });
     const [debate] = explainPlan(w, noOrigins, {
       timeoutSeconds: facts.timeoutSeconds,
       runnerDefault: () => undefined,
@@ -426,6 +423,163 @@ describe('explainPlan: gaps', () => {
         ),
       ),
     ).toEqual([]);
+  });
+
+  it('does not report no_check_on_result for a shell step: the exit status of its commands is checked', () => {
+    const step = one(defineStep({ id: 's', runner: 'shell', commands: ['pnpm test'] }));
+    expect(codes(step)).not.toContain('no_check_on_result');
+  });
+});
+
+describe('explainPlan: the same answer as the run', () => {
+  const codes = (step: ExplainedStep): string[] => step.gaps.map((g) => g.code);
+  const all = (step: ExplainedStep, key: SettingKey): readonly ExplainedSetting[] =>
+    step.settings.filter((s) => s.key === key);
+
+  it('says at full that writing is unlimited and the terminal allowed, with the origin of the block', () => {
+    // the parser leaves the empty write list and the `deny` of a block that may not name them
+    const parsed: StepPermissions = { level: 'full', fsRead: [], fsWrite: [], terminal: 'deny' };
+    const step = one(defineStep({ id: 'a', runner: 'claude-code', permissions: parsed }));
+    expect(setting(step, 'permissions.level')?.value).toBe('full');
+    expect(setting(step, 'permissions.fs.write')).toEqual({
+      key: 'permissions.fs.write',
+      value: 'unlimited',
+      origin: { kind: 'file' },
+    });
+    expect(setting(step, 'permissions.terminal')).toEqual({
+      key: 'permissions.terminal',
+      value: 'allow',
+      origin: { kind: 'file' },
+    });
+  });
+
+  it('gives a debate one runner setting for each participant, each with its role as the origin', () => {
+    const roles = { a: role('a'), b: role('b', { runner: 'codex', fallbackRunners: ['acp'] }) };
+    // a runner written on a debate step is not used by the engine
+    const step = one(defineStep({ id: 'd', runner: 'openrouter', role: 'a', consensusWith: ['b', 'a'] }), {
+      roles,
+    });
+    expect(all(step, 'runner')).toEqual([
+      { key: 'runner', value: ['claude-code'], origin: { kind: 'role', ref: 'a' } },
+      { key: 'runner', value: ['codex', 'acp'], origin: { kind: 'role', ref: 'b' } },
+    ]);
+  });
+
+  it('shows the mcp policy of a debate when only a role it consults is given a server', () => {
+    const roles = { a: role('a'), b: role('b', { mcp: ['srv'] }) };
+    const step = one(defineStep({ id: 'd', role: 'a', consensusWith: ['b'] }), { roles });
+    expect(setting(step, 'mcp_policy')?.value).toBe('required');
+  });
+
+  it('gives a debate with no limit of its own the runner limit, not the limit of the run', () => {
+    const w = workflow([defineStep({ id: 'd', consensusWith: ['a'] })], { roles: { a: role('a') } });
+    const [debate] = explainPlan(w, noOrigins, {
+      ...facts,
+      timeoutSeconds: { value: 120, by: 'flag:--timeout' },
+    }).steps;
+    expect(debate && setting(debate, 'timeout_seconds')).toEqual({
+      key: 'timeout_seconds',
+      value: DEFAULT_TIMEOUT_SECONDS,
+      origin: { kind: 'fallback', by: 'engine' },
+    });
+  });
+
+  it('puts a step that depends on a worktree step in the worktree, directly or not', () => {
+    const map: OriginMap = new Map([['$.steps[2].isolation', { line: 12, column: 5 }]]);
+    const w = workflow([
+      defineStep({ id: 'build', runner: 'r', isolation: 'git_worktree' }),
+      defineStep({ id: 'review', runner: 'r', dependsOn: ['build'] }),
+      defineStep({ id: 'docs', runner: 'r', dependsOn: ['review'], isolation: 'none' }),
+      defineStep({ id: 'apart', runner: 'r' }),
+    ]);
+    const steps = explainPlan(w, map, facts).steps;
+    const of = (id: string): ExplainedStep => {
+      const found = steps.find((s) => s.id === id);
+      if (found === undefined) {
+        throw new Error(id);
+      }
+      return found;
+    };
+    for (const id of ['review', 'docs']) {
+      expect(setting(of(id), 'isolation')).toEqual({
+        key: 'isolation',
+        value: 'git_worktree',
+        origin: { kind: 'fallback', by: 'engine' },
+      });
+      expect(codes(of(id))).not.toContain('no_write_scope');
+    }
+    expect(setting(of('apart'), 'isolation')?.value).toBe('none');
+    expect(codes(of('apart'))).toContain('no_write_scope');
+  });
+
+  it('says the declared outputs are checked when a step with no guard declares some', () => {
+    const gapOf = (step: ExplainedStep): string | undefined =>
+      step.gaps.find((g) => g.code === 'no_check_on_result')?.text;
+    expect(gapOf(one(defineStep({ id: 'a', runner: 'r' })))).toBe(
+      'No guard checks the result of this step: it counts as done when its runner finishes without an error.',
+    );
+    expect(gapOf(one(defineStep({ id: 'a', runner: 'r', outputs: ['report.md'] })))).toBe(
+      'No guard checks the result of this step: it counts as done when its runner finishes without an error and its declared outputs exist.',
+    );
+    expect(gapOf(one(defineStep({ id: 'd', consensusWith: ['a'] }), { roles: { a: role('a') } }))).toBe(
+      'No guard checks the result of this step: it counts as done when its debate ends in acceptance.',
+    );
+  });
+
+  it('describes the default of every runner of the chain, not only the first', () => {
+    const step = one(defineStep({ id: 'a', runner: 'plugin-runner', fallbackRunners: ['claude-code'] }));
+    const text = step.gaps.find((g) => g.code === 'no_permission_level')?.text;
+    expect(text).toContain('of the plugin-runner runner applies (Indaba cannot describe what it allows)');
+    expect(text).toContain('of the claude-code runner applies (edits are accepted without asking)');
+  });
+
+  it('gives the scope guard of a shell step the origin of its permissions block, not a guards key', () => {
+    const map: OriginMap = new Map([['$.steps[0].permissions', { line: 6, column: 5 }]]);
+    const block: StepPermissions = { fsRead: [], fsWrite: ['src/**'], terminal: 'deny' };
+    const step = one(
+      defineStep({ id: 's', runner: 'shell', commands: ['true'], permissions: block }),
+      {},
+      map,
+    );
+    expect(setting(step, 'guards')?.origin).toEqual({ kind: 'file', line: 6, column: 5 });
+  });
+
+  it('keeps declared and implied guards apart, each with who wrote it', () => {
+    const block: StepPermissions = { level: 'edit', fsRead: [], fsWrite: ['src/**'], terminal: 'deny' };
+    const map: OriginMap = new Map([
+      ['$.steps[0].guards', { line: 9, column: 5 }],
+      ['$.defaults.permissions', { line: 4, column: 3 }],
+    ]);
+    const step = one(
+      defineStep({
+        id: 'a',
+        runner: 'r',
+        permissions: block,
+        guards: [{ type: GuardType.GitDiffEmpty, paths: [] }],
+      }),
+      { defaultPermissions: block },
+      map,
+    );
+    expect(all(step, 'guards')).toEqual([
+      {
+        key: 'guards',
+        value: [{ type: 'git_diff_empty', paths: [], source: 'declared' }],
+        origin: { kind: 'file', line: 9, column: 5 },
+      },
+      {
+        key: 'guards',
+        value: [{ type: 'diff_within_scope', paths: ['src/**'], source: 'implied' }],
+        origin: { kind: 'workflow_defaults', line: 4, column: 3 },
+      },
+    ]);
+  });
+
+  it('calls a step with the shell runner a shell step even when it also names a role to consult', () => {
+    const step = one(defineStep({ id: 's', runner: 'shell', commands: ['true'], consensusWith: ['a'] }), {
+      roles: { a: role('a') },
+    });
+    expect(step.kind).toBe('shell');
+    expect(setting(step, 'rounds')).toBeUndefined();
   });
 });
 

@@ -1,15 +1,19 @@
+import { DEFAULT_TIMEOUT_SECONDS } from '../runner/index.js';
 import { DagBuilder } from './dag-builder.js';
 import type { StepDefinition, StepPermissions, WorkflowDefinition } from './model.js';
 import {
   DecisionType,
   GuardType,
+  Isolation,
   isConsensusStep,
   isShellStep,
   McpPolicy,
   PermissionLevel,
+  PermissionMode,
   SHELL_RUNNER,
 } from './model.js';
-import { effectiveGuards, planForStep, stepTimeoutSeconds } from './resolve.js';
+import { effectiveGuards, planForRole, planForStep, stepTimeoutSeconds } from './resolve.js';
+import { runsInProject } from './schedule.js';
 
 /**
  * What `indaba plan --explain` says about a workflow: for each step the effective value of each setting that decides what
@@ -151,20 +155,30 @@ export function fullAccessSentence(runners: readonly string[]): string {
   return `FULL ACCESS: this step's agent can change anything and run anything and nobody approves it (runners: ${runners.join(', ')})`;
 }
 
+/** The write scope of a step at `full`: no list of paths limits it. */
+const UNLIMITED = 'unlimited';
+
 const NO_WRITE_SCOPE =
   'Nothing says which files this step may change: it works in the project folder and has no write scope and no guard on what it changed.';
-const NO_CHECK_ON_RESULT =
-  'No guard checks the result of this step: it counts as done when its runner finishes without an error.';
+
+/** What a step with no guard is still held to: how its kind finishes, and the files it declares, which a run looks for. */
+function noCheckSentence(step: StepDefinition, kind: ExplainedKind): string {
+  const finish = kind === 'debate' ? 'its debate ends in acceptance' : 'its runner finishes without an error';
+  const outputs = step.outputs.length === 0 ? '' : ' and its declared outputs exist';
+  return `No guard checks the result of this step: it counts as done when ${finish}${outputs}.`;
+}
 const FAILURE_STOPS_RUN = 'No on_failure is written, so a failure of this step stops the run.';
 
 function kindOf(step: StepDefinition, workflow: WorkflowDefinition): ExplainedKind {
+  // the engine asks this first: a step on the shell runner runs its commands, whatever else it names
+  if (isShellStep(step)) {
+    return 'shell';
+  }
   if (isConsensusStep(step)) {
     return 'debate';
   }
   const role = step.role === undefined ? undefined : workflow.roles[step.role];
-  return isShellStep(step) || (step.runner === undefined && role?.runner === SHELL_RUNNER)
-    ? 'shell'
-    : 'agent';
+  return step.runner === undefined && role?.runner === SHELL_RUNNER ? 'shell' : 'agent';
 }
 
 /** The layer that wrote a step's permissions block. The parser hands the very object of the layer it took it from. */
@@ -213,9 +227,44 @@ function shellDependents(workflow: WorkflowDefinition, id: string): readonly str
   });
 }
 
-function hasMcp(step: StepDefinition, workflow: WorkflowDefinition): boolean {
-  const role = step.role === undefined ? undefined : workflow.roles[step.role];
-  return step.mcp.length > 0 || (role?.mcp.length ?? 0) > 0;
+/** The roles whose runners speak in a step: its own, and for a debate every role it consults, each once. */
+function speakingRoles(step: StepDefinition, kind: ExplainedKind): readonly string[] {
+  const own = step.role === undefined ? [] : [step.role];
+  return kind === 'debate' ? [...new Set([...own, ...step.consensusWith])] : own;
+}
+
+function hasMcp(step: StepDefinition, kind: ExplainedKind, workflow: WorkflowDefinition): boolean {
+  return (
+    step.mcp.length > 0 ||
+    speakingRoles(step, kind).some((name) => (workflow.roles[name]?.mcp.length ?? 0) > 0)
+  );
+}
+
+/**
+ * The runners, in order. A debate has one setting for each role that speaks, with that role as the origin: the engine
+ * takes each participant's chain from its role and does not use a runner written on the step.
+ */
+function runnerSettings(
+  step: StepDefinition,
+  kind: ExplainedKind,
+  index: number,
+  workflow: WorkflowDefinition,
+  origins: OriginMap,
+): readonly ExplainedSetting[] {
+  const fromRole = (name: string, value: readonly string[]): ExplainedSetting => ({
+    key: 'runner',
+    value,
+    origin: originOf('role', `$.roles.${name}.runner`, origins, name),
+  });
+  if (kind === 'debate') {
+    return speakingRoles(step, kind).map((name) => fromRole(name, planForRole(workflow, name).names));
+  }
+  // A runner written on the step wins over the role's.
+  const value = planForStep(step, workflow).names;
+  if (step.runner === undefined && step.role !== undefined) {
+    return [fromRole(step.role, value)];
+  }
+  return [{ key: 'runner', value, origin: originOf('file', `$.steps[${index}].runner`, origins) }];
 }
 
 function explainStep(
@@ -224,23 +273,12 @@ function explainStep(
   workflow: WorkflowDefinition,
   origins: OriginMap,
   facts: ExplainFacts,
+  inWorktree: boolean,
 ): ExplainedStep {
   const kind = kindOf(step, workflow);
   const at = (key: string): string => `$.steps[${index}].${key}`;
-  const settings: ExplainedSetting[] = [];
+  const settings: ExplainedSetting[] = [...runnerSettings(step, kind, index, workflow, origins)];
   const gaps: ExplainedGap[] = [];
-  const plan = planForStep(step, workflow);
-
-  // runner: the chain, in order. A runner written on the step wins over the role's.
-  const role = step.role === undefined ? undefined : workflow.roles[step.role];
-  settings.push({
-    key: 'runner',
-    value: plan.names,
-    origin:
-      step.runner !== undefined || role === undefined
-        ? originOf('file', at('runner'), origins)
-        : originOf('role', `$.roles.${role.name}.runner`, origins, role.name),
-  });
 
   const layer = permissionsLayer(step, workflow);
   const permissions: StepPermissions | undefined = kind === 'agent' ? step.permissions : undefined;
@@ -249,27 +287,44 @@ function explainStep(
     if (permissions.level !== undefined) {
       settings.push({ key: 'permissions.level', value: permissions.level, origin: permissionOrigin });
     }
-    settings.push({ key: 'permissions.fs.write', value: permissions.fsWrite, origin: permissionOrigin });
-    settings.push({ key: 'permissions.terminal', value: permissions.terminal, origin: permissionOrigin });
+    // At `full` the runner is sent no limits (specs/agent-permissions, AC-04). The block may not name them there, so the
+    // values the parser leaves in it (nothing written, terminal denied) are not what the step gets.
+    const unlimited = permissions.level === PermissionLevel.Full;
+    settings.push({
+      key: 'permissions.fs.write',
+      value: unlimited ? UNLIMITED : permissions.fsWrite,
+      origin: permissionOrigin,
+    });
+    settings.push({
+      key: 'permissions.terminal',
+      value: unlimited ? PermissionMode.Allow : permissions.terminal,
+      origin: permissionOrigin,
+    });
   }
 
+  // A step that depends on a worktree step works in the worktree too, whatever it says itself: the engine decides that.
+  const inherited = inWorktree && step.isolation !== Isolation.GitWorktree;
   settings.push({
     key: 'isolation',
-    value: step.isolation,
+    value: inWorktree ? Isolation.GitWorktree : Isolation.None,
     // The model cannot tell a written `none` from an absent field; the source can.
     origin:
-      step.isolation !== 'none' || origins.has(at('isolation'))
+      !inherited && (inWorktree || origins.has(at('isolation')))
         ? originOf('file', at('isolation'), origins)
         : fallback('engine'),
   });
 
+  // A debate has never been bound by the limit of the run (specs/step-stalls, section 11): with none of its own, each
+  // call gets the runners' default.
+  const unwritten =
+    kind === 'debate' ? { value: DEFAULT_TIMEOUT_SECONDS, by: 'engine' } : facts.timeoutSeconds;
   settings.push({
     key: 'timeout_seconds',
-    value: stepTimeoutSeconds(step, facts.timeoutSeconds.value),
+    value: stepTimeoutSeconds(step, unwritten.value),
     origin:
       step.timeoutSeconds !== undefined
         ? originOf('file', at('timeout_seconds'), origins)
-        : fallback(facts.timeoutSeconds.by),
+        : fallback(unwritten.by),
   });
 
   if (kind === 'agent' && step.stall !== undefined) {
@@ -292,25 +347,24 @@ function explainStep(
     });
   }
 
+  // Declared and implied guards are written in different places, so each group is a setting with its own origin.
   const guards = effectiveGuards(step);
-  if (guards.length > 0) {
-    const declared = new Set(step.guards);
-    const implied = permissions !== undefined && guards.some((g) => !declared.has(g));
-    settings.push({
-      key: 'guards',
-      value: guards.map((g) => ({
-        type: g.type,
-        paths: g.paths,
-        source: declared.has(g) ? ('declared' as const) : ('implied' as const),
-      })),
-      origin:
-        step.guards.length > 0 || !implied
-          ? originOf('file', at('guards'), origins)
-          : originOf(layer.kind, layer.path(index), origins, layer.ref),
-    });
+  const declared = new Set(step.guards);
+  for (const source of ['declared', 'implied'] as const) {
+    const group = guards.filter((g) => declared.has(g) === (source === 'declared'));
+    if (group.length > 0) {
+      settings.push({
+        key: 'guards',
+        value: group.map((g) => ({ type: g.type, paths: g.paths, source })),
+        origin:
+          source === 'declared'
+            ? originOf('file', at('guards'), origins)
+            : originOf(layer.kind, layer.path(index), origins, layer.ref),
+      });
+    }
   }
 
-  if (kind !== 'shell' && hasMcp(step, workflow)) {
+  if (kind !== 'shell' && hasMcp(step, kind, workflow)) {
     settings.push({
       key: 'mcp_policy',
       value: step.mcpPolicy ?? workflow.defaultMcpPolicy,
@@ -353,33 +407,32 @@ function explainStep(
   // Gaps are facts, never errors, and each is reported only when it follows from the model (AC-05, AC-06).
   if (kind === 'agent') {
     const level = permissions?.level;
+    const { names } = planForStep(step, workflow);
     if (level === undefined) {
-      const primary = plan.names[0];
+      // a fallback runner may take the step over, and its default can allow more than the first one's
       gaps.push({
         code: 'no_permission_level',
-        text: defaultLevelSentence(
-          primary ?? 'unknown',
-          primary === undefined ? undefined : facts.runnerDefault(primary),
-        ),
+        text: names.map((name) => defaultLevelSentence(name, facts.runnerDefault(name))).join(' '),
         mitigatedBy: [],
       });
     }
     if (level === PermissionLevel.Full) {
-      gaps.push({ code: 'full_access', text: fullAccessSentence(plan.names), mitigatedBy: [] });
+      gaps.push({ code: 'full_access', text: fullAccessSentence(names), mitigatedBy: [] });
     }
     const limiting = guards.some(
       (g) => g.type === GuardType.DiffWithinScope || g.type === GuardType.GitDiffEmpty,
     );
-    if (step.isolation === 'none' && !limiting) {
+    if (!inWorktree && !limiting) {
       gaps.push({ code: 'no_write_scope', text: NO_WRITE_SCOPE, mitigatedBy: [] });
     }
-    if (guards.length === 0) {
-      gaps.push({
-        code: 'no_check_on_result',
-        text: NO_CHECK_ON_RESULT,
-        mitigatedBy: shellDependents(workflow, step.id),
-      });
-    }
+  }
+  // A shell step is checked without a guard: a command that exits with an error fails it.
+  if (kind !== 'shell' && guards.length === 0) {
+    gaps.push({
+      code: 'no_check_on_result',
+      text: noCheckSentence(step, kind),
+      mitigatedBy: shellDependents(workflow, step.id),
+    });
   }
   if (step.onFailure === undefined) {
     gaps.push({ code: 'failure_stops_run', text: FAILURE_STOPS_RUN, mitigatedBy: [] });
@@ -397,8 +450,14 @@ export function explainPlan(
   origins: OriginMap,
   facts: ExplainFacts,
 ): PlanExplanation {
-  const order = new DagBuilder().build(workflow);
-  return {
-    steps: order.map((step) => explainStep(step, workflow.steps.indexOf(step), workflow, origins, facts)),
-  };
+  // The order is topological, so every step a step depends on is already decided when it is reached.
+  const isolated = new Set<string>();
+  const steps = new DagBuilder().build(workflow).map((step) => {
+    const inWorktree = !runsInProject(step, isolated);
+    if (inWorktree) {
+      isolated.add(step.id);
+    }
+    return explainStep(step, workflow.steps.indexOf(step), workflow, origins, facts, inWorktree);
+  });
+  return { steps };
 }

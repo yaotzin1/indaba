@@ -16,6 +16,10 @@ index (both are rebuilt with the site, so they match the documentation).
    prints one problem per line, each with the path of the field. Fix the first problem and run again; do not run a file
    that does not validate.
 4. **Plan.** `indaba plan <file>` prints the order of the steps and, under each step with a `board:` field, what it reads and may post.
+   Then check what you left to defaults with `indaba plan <file> --json`: for each step the `settings` (`key`, `value`,
+   `origin`; a key can repeat) and the `gaps` (`code`, `text`, `mitigatedBy`). Resolve `no_permission_level`,
+   `no_write_scope` and `no_check_on_result`, or tell the person why you leave one. `full_access` needs the person's
+   consent. A gap never changes the exit status, so read the document.
 5. **Run.** `indaba run <file> -w <project dir>`. It costs what the agents cost, so only after steps 3 and 4.
 6. **Read the result** from the exit status and `indaba watch latest --plain` (below). Do not parse the dashboard.
 7. **If it failed**, change one thing, validate and run again. A retry is not a loop you can leave to chance: the workflow's
@@ -27,6 +31,7 @@ index (both are rebuilt with the site, so they match the documentation).
 | :--- | :--- | :--- | :--- |
 | `indaba validate <file>` | check a file, change nothing | text; first line says valid or lists problems | 0 valid, 1 invalid |
 | `indaba plan <file>` | order of steps, board lines | text, one step per numbered line | 0, 1 if invalid |
+| `indaba plan <file> --json` | the value in force of each setting, its origin and the gaps | JSON alone on stdout (`schema: "indaba.plan-explain"`, `version: 1`); problems on stderr; ignore keys and `origin.kind` values you do not know | as `plan` |
 | `indaba run <file>` | execute | step changes, then `Task <id> finished: <STATE> (trace <32 hex>)` | 0 completed, 1 failed, 2 escalated (a human is needed), 130 cancelled |
 | `indaba watch latest --plain` | the steps and board of the newest run | text lines | the run's: 0, 1, 2, 130, or 3 when the files end without a final state |
 | `indaba catalog --json` | what a workflow field may name | JSON; its `catalog` field is the shape's version | 0 |

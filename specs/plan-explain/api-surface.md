@@ -29,6 +29,19 @@ required member. A reader of the JSON is told to ignore keys it does not know, s
 | `@indaba/engine`, editor | function | `readOrigins(source: string, workflow: WorkflowDefinition): OriginMap` |
 | `indaba`, plan rendering | functions (internal to the package) | `renderExplanationText`, `renderExplanationJson`; not exported from the package index |
 
+### Recorded at review (2026-11-27)
+
+These exports shipped in #171 and #172 and were not listed above before stage 6, which this contract asked for. They are
+recorded after the fact; the classification (minor) is unchanged.
+
+| Export (package, module) | Kind | Signature |
+| :--- | :--- | :--- |
+| `@indaba/core`, workflow/explain | constant | `SETTING_ORDER: readonly SettingKey[]` |
+| `@indaba/core`, workflow/explain | functions | `defaultLevelSentence(runner: string, allows: string \| undefined): string`, `fullAccessSentence(runners: readonly string[]): string` |
+| `@indaba/core`, workflow/explain | types | `OriginKind`, `OriginPosition { readonly line: number; readonly column: number }`, `SettingValue`, `ExplainedKind`, `ExplainedGuard { readonly type: string; readonly paths: readonly string[]; readonly source: 'declared' \| 'implied' }`, `ExplainFact<T> { readonly value: T; readonly by: string }` |
+| `@indaba/core`, workflow/resolve | functions | `effectiveGuards(step)`, `planForStep(step, workflow)`, `planForRole(workflow, roleName)`, `stepTimeoutSeconds(step, runTimeoutSeconds)` |
+| `@indaba/core`, workflow/resolve | interface | `RunnerPlan { readonly names: readonly string[]; readonly model: string \| undefined; readonly agent: AgentSpec \| undefined }` |
+
 ## Public symbols changed
 
 | Name | Before | After | Impact |

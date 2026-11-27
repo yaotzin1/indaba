@@ -280,7 +280,40 @@ describe('the options belong to plan', () => {
 });
 
 describe('what the file can put on the screen (AC-09, section 6)', () => {
-  // Step ids and role names are checked by the parser; what an author can still write freely are paths.
+  // Step ids are checked by the parser; an author can still write role names and paths freely.
+  it('prints a role name as one plain line, in the line of the step and in the block under it', async () => {
+    const dir = await makeTempDir();
+    // YAML escapes, written as text: the parser turns them into an escape character and a line break
+    const hostileRole = ['w', 'u001b[31m', 'nfake: line'].join(String.fromCharCode(92));
+    const file = await writeWorkflow(
+      dir,
+      'roles.yml',
+      `version: "1.0"
+name: roles
+roles:
+  "${hostileRole}": { runner: claude-code }
+  other: { runner: codex }
+steps:
+  - id: a
+    role: "${hostileRole}"
+    goal: g
+  - id: b
+    role: other
+    consensus_with: ["${hostileRole}"]
+    goal: g
+`,
+    );
+    for (const args of [
+      ['plan', file],
+      ['plan', file, '--explain'],
+    ]) {
+      const r = await run(args, dir);
+      expect(r.code).toBe(0);
+      expect(r.out).not.toContain(ESC);
+      expect(r.out.split('\n').filter((l) => l.startsWith('fake: line'))).toEqual([]);
+    }
+  });
+
   const hostilePaths = [
     `a${ESC}[2J${ESC}]0;title${BEL}b/**`,
     'x\\n   ! fake_gap: nothing to see/**',
